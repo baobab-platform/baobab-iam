@@ -788,6 +788,126 @@ fi
 # privileged-MFA subflow applies here too. This section proves the step-up
 # mechanism is *configured* correctly; it does not drive a real login.
 
+echo "== 20. Thamani ≠ ZuriBeans structural isolation (ZuriBeans Go-Live Implementation Plan, Gate ZB-03) =="
+# The ZuriBeans Go-Live Implementation Plan's Gate ZB-03 ("IAM and
+# Isolation") lists "Thamani ≠ ZuriBeans" as a mandatory test. Neither
+# estate has a Control-Plane-issued canonical tenant id yet (Gate ZB-02 is
+# not done), and ADR-0006 §33-34 deliberately discourages relying on a
+# JWT tenant claim as the authorization boundary anyway ("the default
+# architecture SHALL not depend on such claims for mutable authorization").
+# So this section proves the isolation that already exists structurally at
+# the IAM layer today, independent of any tenant claim: the two estates'
+# workload and browser clients are registered as fully separate OIDC
+# clients whose credentials, tokens, and redirect targets cannot cross —
+# not "the Thamani and ZuriBeans B2C/B2B customer login flows both work"
+# (Gate IAM-7 §3.1/§3.2 remain open architectural questions, unresolved by
+# this section on purpose).
+#
+# zuribeans-backend and thamani-backend are seeded (scripts/bootstrap.sh) with
+# distinct secrets -- BOOTSTRAP_WORKLOAD_CLIENT_SECRET suffixed with each
+# client's own client_id -- specifically so a wrong-estate credential pairing
+# below is a meaningful rejection, not a tautology about a shared secret.
+ZURIBEANS_SECRET="${WORKLOAD_SECRET}-zuribeans-backend"
+THAMANI_SECRET="${WORKLOAD_SECRET}-thamani-backend"
+ZURIBEANS_TOKEN_RESPONSE=$(curl -s --max-time 30 -X POST "$TOKEN_ENDPOINT" \
+  -d "client_id=zuribeans-backend" \
+  -d "client_secret=$ZURIBEANS_SECRET" \
+  -d "grant_type=client_credentials")
+THAMANI_TOKEN_RESPONSE=$(curl -s --max-time 30 -X POST "$TOKEN_ENDPOINT" \
+  -d "client_id=thamani-backend" \
+  -d "client_secret=$THAMANI_SECRET" \
+  -d "grant_type=client_credentials")
+ZURIBEANS_ACCESS_TOKEN=$(echo "$ZURIBEANS_TOKEN_RESPONSE" | jq -r '.access_token // empty')
+THAMANI_ACCESS_TOKEN=$(echo "$THAMANI_TOKEN_RESPONSE" | jq -r '.access_token // empty')
+if [ -n "$ZURIBEANS_ACCESS_TOKEN" ] && [ -n "$THAMANI_ACCESS_TOKEN" ]; then
+  ZURIBEANS_PAYLOAD=$(jwt_payload "$ZURIBEANS_ACCESS_TOKEN")
+  THAMANI_PAYLOAD=$(jwt_payload "$THAMANI_ACCESS_TOKEN")
+  ZURIBEANS_AZP=$(echo "$ZURIBEANS_PAYLOAD" | jq -r '.azp // empty')
+  THAMANI_AZP=$(echo "$THAMANI_PAYLOAD" | jq -r '.azp // empty')
+  ZURIBEANS_SUB=$(echo "$ZURIBEANS_PAYLOAD" | jq -r '.sub // empty')
+  THAMANI_SUB=$(echo "$THAMANI_PAYLOAD" | jq -r '.sub // empty')
+  if [ "$ZURIBEANS_AZP" = "zuribeans-backend" ] && [ "$THAMANI_AZP" = "thamani-backend" ]; then
+    pass "ZuriBeans and Thamani workload tokens each carry their own azp -- aud alone is shared (both target baobab-control-plane), so azp is the real discriminator a resource server must check"
+  else
+    fail "azp does not exclusively identify its own estate's client (zuribeans azp='$ZURIBEANS_AZP', thamani azp='$THAMANI_AZP')"
+  fi
+  if [ -n "$ZURIBEANS_SUB" ] && [ "$ZURIBEANS_SUB" != "$THAMANI_SUB" ]; then
+    pass "zuribeans-backend and thamani-backend resolve to distinct subjects"
+  else
+    fail "zuribeans-backend and thamani-backend unexpectedly share a subject ('$ZURIBEANS_SUB'), which would let one estate's workload impersonate the other's"
+  fi
+else
+  fail "could not obtain both ZuriBeans and Thamani workload tokens for the cross-estate isolation check"
+fi
+# zuribeans-backend's client_id paired with thamani-backend's secret (and the
+# reverse) must be rejected outright -- this is the actual impersonation
+# check the azp/sub comparison above cannot cover on its own, since azp/sub
+# only describe a token that was already successfully issued. It only holds
+# now that these two clients have distinct secrets (see the ZURIBEANS_SECRET/
+# THAMANI_SECRET derivation above and scripts/bootstrap.sh's matching case);
+# before that fix, this assertion would have been testing a false premise
+# (every workload client sharing one literal BOOTSTRAP_WORKLOAD_CLIENT_SECRET).
+CROSS_CRED_STATUS_1=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -X POST "$TOKEN_ENDPOINT" \
+  -d "client_id=zuribeans-backend" \
+  -d "client_secret=$THAMANI_SECRET" \
+  -d "grant_type=client_credentials")
+CROSS_CRED_STATUS_2=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -X POST "$TOKEN_ENDPOINT" \
+  -d "client_id=thamani-backend" \
+  -d "client_secret=$ZURIBEANS_SECRET" \
+  -d "grant_type=client_credentials")
+if [ "$CROSS_CRED_STATUS_1" = "401" ] && [ "$CROSS_CRED_STATUS_2" = "401" ]; then
+  pass "zuribeans-backend/thamani-backend reject each other's secret (401) -- one estate's workload credential cannot authenticate as the other's client_id"
+else
+  fail "expected 401 for both cross-estate credential pairings, got zuribeans-backend+thamani-secret=$CROSS_CRED_STATUS_1, thamani-backend+zuribeans-secret=$CROSS_CRED_STATUS_2"
+fi
+
+echo "== 21. Thamani/ZuriBeans browser client redirect isolation =="
+# The two estates' public browser clients (thamani-web, zuribeans-web) are
+# separately registered with non-overlapping redirectUris/webOrigins
+# (config/clients/*.json). Keycloak itself, not application code, must
+# refuse an authorization request naming the other estate's redirect URI --
+# this is what actually prevents an authorization code minted for one
+# estate's login from ever being deliverable to the other estate's origin.
+AUTH_ENDPOINT="$KC_URL/realms/$REALM/protocol/openid-connect/auth"
+THAMANI_CROSS_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+  "$AUTH_ENDPOINT?client_id=thamani-web&redirect_uri=http://localhost:3000/callback&response_type=code&scope=openid")
+THAMANI_OWN_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+  "$AUTH_ENDPOINT?client_id=thamani-web&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid")
+if [ "$THAMANI_CROSS_REDIRECT_STATUS" = "400" ]; then
+  pass "thamani-web requesting zuribeans-web's registered redirect URI is rejected (400) by Keycloak itself"
+else
+  fail "expected 400 when thamani-web requests zuribeans-web's redirect URI, got $THAMANI_CROSS_REDIRECT_STATUS"
+fi
+if [ "$THAMANI_OWN_REDIRECT_STATUS" = "302" ]; then
+  pass "thamani-web requesting its own registered redirect URI is accepted (302 to login)"
+else
+  fail "expected 302 when thamani-web requests its own redirect URI, got $THAMANI_OWN_REDIRECT_STATUS"
+fi
+# Mirror the check in the other direction -- the one-directional version only
+# proved zuribeans-web's redirect URI is off-limits to thamani-web, not that
+# the reverse holds too (nabhold/baobab-iam#31 review finding).
+ZURIBEANS_CROSS_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+  "$AUTH_ENDPOINT?client_id=zuribeans-web&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid")
+ZURIBEANS_OWN_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+  "$AUTH_ENDPOINT?client_id=zuribeans-web&redirect_uri=http://localhost:3000/callback&response_type=code&scope=openid")
+if [ "$ZURIBEANS_CROSS_REDIRECT_STATUS" = "400" ]; then
+  pass "zuribeans-web requesting thamani-web's registered redirect URI is rejected (400) by Keycloak itself"
+else
+  fail "expected 400 when zuribeans-web requests thamani-web's redirect URI, got $ZURIBEANS_CROSS_REDIRECT_STATUS"
+fi
+if [ "$ZURIBEANS_OWN_REDIRECT_STATUS" = "302" ]; then
+  pass "zuribeans-web requesting its own registered redirect URI is accepted (302 to login)"
+else
+  fail "expected 302 when zuribeans-web requests its own redirect URI, got $ZURIBEANS_OWN_REDIRECT_STATUS"
+fi
+# What this section cannot verify: real customer login for either estate
+# (both browser clients have directAccessGrantsEnabled=false, and neither
+# has a working customer-facing OIDC integration yet -- Gate IAM-7 §3.1
+# is still an open architectural question about where that redirect should
+# even terminate). What's proven here is narrower and load-bearing on its
+# own: nothing issued by, or registered against, one estate's clients can
+# be mistaken for or redirected to the other's.
+
 echo ""
 echo "== Summary: $PASS passed, $FAIL failed =="
 if [ "$FAIL" -gt 0 ]; then

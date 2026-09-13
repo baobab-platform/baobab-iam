@@ -1,6 +1,6 @@
 # Gate IAM-7 — Thamani B2C
 
-**Status:** Scoped, not yet implemented. Two genuine architectural decisions block implementation — see §3. Discovery is complete across all four repos.
+**Status:** The full customer-identity gate remains scoped, not implemented — the two genuine architectural decisions in §3 still block it. However, `nabhold/zuribeans`'s **"ZuriBeans Go-Live Implementation Plan"** (its master cross-repo implementation plan) names a narrower, unblocked deliverable that touches this gate: Gate ZB-03 ("IAM and Isolation") lists **"Thamani ≠ ZuriBeans"** as a mandatory isolation test, provable today without resolving §3.1/§3.2. That structural isolation proof is now done — see §6.
 **Date:** 2026-09-12
 **Governing ADR:** `ADR-0011 — Thamani B2C Customer Identity`
 **Repositories:** `nabhold/baobab-iam` (customer OIDC client, owner), `nabhold/baobab-cp` (canonical identity mapping), `nabhold/baobab-trade` (Medusa customer actor, order/cart ownership), `nabhold/thamani` (customer frontend UX)
@@ -61,6 +61,29 @@ Each phase gets its own PR, full local validation, and a check-in loop to green/
 
 ---
 
-## 5. Why this gate has no code changes
+## 5. Why this gate has no code changes (beyond §6)
 
 Gate IAM-4 (workload identity) and Gate IAM-6 (Zuribeans B2B) both found concrete, unambiguous gaps fixable within a single bounded PR. Gate IAM-7's remaining gaps both turn on genuine architectural decisions this session correctly identified rather than guessed past — matching Gate IAM-5's phase 2b precedent (the CMS custom-OIDC-strategy deferral). Scoping and documenting the fork, rather than picking an answer and building on it, is the correct phase-1 outcome here.
+
+---
+
+## 6. "Thamani ≠ ZuriBeans" structural isolation — **Done**
+
+`nabhold/zuribeans`'s master implementation plan (4,437-line ADR, "ZuriBeans Go-Live Implementation Plan — Multi-Market B2B Cross-Border Trading") sequences the whole cross-repo programme into 30 numbered gates (ZB-00 through ZB-29). Its **Gate ZB-03 ("IAM and Isolation")** requires several capabilities (workforce SSO, buyer organisations, supplier identities, Control Plane context, etc. — most blocked on Control Plane completion, ZB-02, which is not done) and lists seven mandatory tests, one of which is exactly: `Thamani ≠ ZuriBeans`.
+
+This is provable today, independent of every other ZB-03 blocker, because it doesn't need a Control-Plane-issued canonical tenant id for either estate (neither exists yet) — it needs only what's already true structurally: `thamani-web`/`thamani-backend` and `zuribeans-web`/`zuribeans-backend` are fully independent registered Keycloak clients. This also deliberately does **not** touch §3.1/§3.2 above — no customer-facing login flow for either estate was built or assumed.
+
+Two things worth noting from what verification against a real Keycloak 26.7.3 instance found:
+
+- **No `tenant_id` claim exists on any token today** (workload or human) — confirmed by decoding real client-credentials tokens for both `zuribeans-backend` and `thamani-backend`. This isn't a gap to rush shut here: ADR-0006 §33-34 ("Platform Context Claims", "Tenant Claim Policy") deliberately discourages relying on a JWT tenant claim as the authorization boundary at all ("the default architecture SHALL not depend on such claims for mutable authorization"), and minting a placeholder-but-plausible-looking `tn_zuribeans`/`tn_thamani` value now would risk being mistaken for a real Control-Plane-issued canonical id later (`baobab-cp`'s actual tenant ids are opaque, e.g. `tn_01k4...`, not human-readable slugs) — the same "don't invent a parallel authority" discipline this session has applied everywhere else (CMS's `isProjection: true`, ADR-0015's "never invent Medusa IDs").
+- **`zuribeans-backend` and `thamani-backend` now get distinct secrets.** All other workload clients still share one literal `BOOTSTRAP_WORKLOAD_CLIENT_SECRET` value (`scripts/bootstrap.sh`, for CI/local reproducibility — unchanged, since they're all platform services inside one security boundary today). These two are the exception: since they represent different *tenants*, `bootstrap.sh` seeds each with the shared seed suffixed by its own `client_id` instead of the identical literal string. This was itself a review finding on this gate's PR — the first version of this proof relied on `azp`/`sub` alone, which only describes a token that was already successfully issued and doesn't rule out one estate's secret authenticating as the other's `client_id`. With distinct secrets, that cross-credential rejection is now a real, meaningful assertion rather than one testing a false premise.
+
+`tests/integration/run.sh` §20-21 add eight checks, all verified passing against a real instance (including sanity checks that deliberately broke `thamani-web`'s redirect URI registration and `thamani-backend`'s secret-distinctness, and confirmed each test would have caught the regression):
+
+1. ZuriBeans' and Thamani's workload tokens each carry their own `azp` (the actual discriminator, since both share the same `aud`).
+2. The two workload clients resolve to distinct `sub` values.
+3. `zuribeans-backend`'s `client_id` paired with `thamani-backend`'s secret is rejected (401), and the reverse — proving one estate's workload credential cannot authenticate as the other's client.
+4. `thamani-web` requesting `zuribeans-web`'s registered redirect URI is rejected by Keycloak itself (400); `thamani-web` requesting its own redirect URI is accepted (302).
+5. The mirror of (4): `zuribeans-web` requesting `thamani-web`'s registered redirect URI is rejected (400); `zuribeans-web` requesting its own redirect URI is accepted (302).
+
+**What this does not prove**: real customer login for either estate, or resource-level isolation inside `baobab-trade`/`baobab-cp` (a Thamani-authenticated actor being rejected from a Zuribeans-tenant-scoped resource) — that depends on Control Plane's canonical tenant/organisation model (ZB-02) and is that gate's, not this one's, responsibility.
