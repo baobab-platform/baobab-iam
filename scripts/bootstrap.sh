@@ -155,13 +155,33 @@ done
 # reproducible without a Keycloak admin round-trip per client. Production
 # secrets SHALL be injected by the platform secret-management boundary per
 # ADR-0002 Section 25 and SHALL NOT use this variable.
+#
+# zuribeans-backend and thamani-backend are the exception to "every
+# workload client gets the identical literal secret": unlike the other
+# workload clients here (each a platform *service*, all inside the same
+# security boundary today), these two represent different *tenants* --
+# Gate ZB-03's "Thamani != ZuriBeans" isolation requirement is exactly
+# about not letting one impersonate the other. Sharing one literal secret
+# string between them would mean anyone holding it could authenticate as
+# either estate's backend interchangeably by simply naming the other
+# client_id (nabhold/baobab-iam#31 review finding) -- so each gets the
+# shared seed suffixed with its own client_id instead. This needs no new
+# binary dependency (this image is deliberately minimal ubi9-micro with
+# only jq added -- see this repo's Dockerfile), just a different string.
 for client_file in /opt/keycloak/config/clients/*-workload.json; do
   if [ -f "$client_file" ]; then
     CLIENT_ID=$(jq -r '.clientId' "$client_file")
     echo "Creating workload client '$CLIENT_ID' ..."
     if [ -n "${BOOTSTRAP_WORKLOAD_CLIENT_SECRET:-}" ]; then
       TMP_FILE=$(mktemp)
-      jq --arg secret "$BOOTSTRAP_WORKLOAD_CLIENT_SECRET" '. + {secret: $secret}' "$client_file" > "$TMP_FILE"
+      case "$CLIENT_ID" in
+        zuribeans-backend | thamani-backend)
+          jq --arg secret "${BOOTSTRAP_WORKLOAD_CLIENT_SECRET}-${CLIENT_ID}" '. + {secret: $secret}' "$client_file" > "$TMP_FILE"
+          ;;
+        *)
+          jq --arg secret "$BOOTSTRAP_WORKLOAD_CLIENT_SECRET" '. + {secret: $secret}' "$client_file" > "$TMP_FILE"
+          ;;
+      esac
       kcadm create clients -r baobab -f "$TMP_FILE" || echo "Client '$CLIENT_ID' may already exist; skipping."
       rm -f "$TMP_FILE"
     else

@@ -802,13 +802,20 @@ echo "== 20. Thamani ≠ ZuriBeans structural isolation (ZuriBeans Go-Live Imple
 # not "the Thamani and ZuriBeans B2C/B2B customer login flows both work"
 # (Gate IAM-7 §3.1/§3.2 remain open architectural questions, unresolved by
 # this section on purpose).
+#
+# zuribeans-backend and thamani-backend are seeded (scripts/bootstrap.sh) with
+# distinct secrets -- BOOTSTRAP_WORKLOAD_CLIENT_SECRET suffixed with each
+# client's own client_id -- specifically so a wrong-estate credential pairing
+# below is a meaningful rejection, not a tautology about a shared secret.
+ZURIBEANS_SECRET="${WORKLOAD_SECRET}-zuribeans-backend"
+THAMANI_SECRET="${WORKLOAD_SECRET}-thamani-backend"
 ZURIBEANS_TOKEN_RESPONSE=$(curl -s --max-time 30 -X POST "$TOKEN_ENDPOINT" \
   -d "client_id=zuribeans-backend" \
-  -d "client_secret=$WORKLOAD_SECRET" \
+  -d "client_secret=$ZURIBEANS_SECRET" \
   -d "grant_type=client_credentials")
 THAMANI_TOKEN_RESPONSE=$(curl -s --max-time 30 -X POST "$TOKEN_ENDPOINT" \
   -d "client_id=thamani-backend" \
-  -d "client_secret=$WORKLOAD_SECRET" \
+  -d "client_secret=$THAMANI_SECRET" \
   -d "grant_type=client_credentials")
 ZURIBEANS_ACCESS_TOKEN=$(echo "$ZURIBEANS_TOKEN_RESPONSE" | jq -r '.access_token // empty')
 THAMANI_ACCESS_TOKEN=$(echo "$THAMANI_TOKEN_RESPONSE" | jq -r '.access_token // empty')
@@ -832,18 +839,27 @@ if [ -n "$ZURIBEANS_ACCESS_TOKEN" ] && [ -n "$THAMANI_ACCESS_TOKEN" ]; then
 else
   fail "could not obtain both ZuriBeans and Thamani workload tokens for the cross-estate isolation check"
 fi
-# Deliberately NOT tested here: "client_id=zuribeans-backend paired with
-# thamani-backend's secret is rejected." In this realm every workload
-# client is seeded with the SAME BOOTSTRAP_WORKLOAD_CLIENT_SECRET value
-# (scripts/bootstrap.sh, for CI/local reproducibility without a per-client
-# admin round-trip -- see that script's own comment), so the two estates'
-# workload clients share one secret by design; asserting the shared secret
-# fails for the other client_id would just be asserting a false premise
-# about this environment. The azp/sub check above is what actually proves
-# isolation regardless of secret-sharing: Keycloak binds azp/sub to
-# whichever client_id authenticated, never to which secret string was
-# used, so a shared secret does not let one estate mint a token carrying
-# the other's identity.
+# zuribeans-backend's client_id paired with thamani-backend's secret (and the
+# reverse) must be rejected outright -- this is the actual impersonation
+# check the azp/sub comparison above cannot cover on its own, since azp/sub
+# only describe a token that was already successfully issued. It only holds
+# now that these two clients have distinct secrets (see the ZURIBEANS_SECRET/
+# THAMANI_SECRET derivation above and scripts/bootstrap.sh's matching case);
+# before that fix, this assertion would have been testing a false premise
+# (every workload client sharing one literal BOOTSTRAP_WORKLOAD_CLIENT_SECRET).
+CROSS_CRED_STATUS_1=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -X POST "$TOKEN_ENDPOINT" \
+  -d "client_id=zuribeans-backend" \
+  -d "client_secret=$THAMANI_SECRET" \
+  -d "grant_type=client_credentials")
+CROSS_CRED_STATUS_2=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -X POST "$TOKEN_ENDPOINT" \
+  -d "client_id=thamani-backend" \
+  -d "client_secret=$ZURIBEANS_SECRET" \
+  -d "grant_type=client_credentials")
+if [ "$CROSS_CRED_STATUS_1" = "401" ] && [ "$CROSS_CRED_STATUS_2" = "401" ]; then
+  pass "zuribeans-backend/thamani-backend reject each other's secret (401) -- one estate's workload credential cannot authenticate as the other's client_id"
+else
+  fail "expected 401 for both cross-estate credential pairings, got zuribeans-backend+thamani-secret=$CROSS_CRED_STATUS_1, thamani-backend+zuribeans-secret=$CROSS_CRED_STATUS_2"
+fi
 
 echo "== 21. Thamani/ZuriBeans browser client redirect isolation =="
 # The two estates' public browser clients (thamani-web, zuribeans-web) are
@@ -852,20 +868,37 @@ echo "== 21. Thamani/ZuriBeans browser client redirect isolation =="
 # refuse an authorization request naming the other estate's redirect URI --
 # this is what actually prevents an authorization code minted for one
 # estate's login from ever being deliverable to the other estate's origin.
-THAMANI_AUTH_ENDPOINT="$KC_URL/realms/$REALM/protocol/openid-connect/auth"
-CROSS_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
-  "$THAMANI_AUTH_ENDPOINT?client_id=thamani-web&redirect_uri=http://localhost:3000/callback&response_type=code&scope=openid")
-OWN_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
-  "$THAMANI_AUTH_ENDPOINT?client_id=thamani-web&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid")
-if [ "$CROSS_REDIRECT_STATUS" = "400" ]; then
+AUTH_ENDPOINT="$KC_URL/realms/$REALM/protocol/openid-connect/auth"
+THAMANI_CROSS_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+  "$AUTH_ENDPOINT?client_id=thamani-web&redirect_uri=http://localhost:3000/callback&response_type=code&scope=openid")
+THAMANI_OWN_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+  "$AUTH_ENDPOINT?client_id=thamani-web&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid")
+if [ "$THAMANI_CROSS_REDIRECT_STATUS" = "400" ]; then
   pass "thamani-web requesting zuribeans-web's registered redirect URI is rejected (400) by Keycloak itself"
 else
-  fail "expected 400 when thamani-web requests zuribeans-web's redirect URI, got $CROSS_REDIRECT_STATUS"
+  fail "expected 400 when thamani-web requests zuribeans-web's redirect URI, got $THAMANI_CROSS_REDIRECT_STATUS"
 fi
-if [ "$OWN_REDIRECT_STATUS" = "302" ]; then
+if [ "$THAMANI_OWN_REDIRECT_STATUS" = "302" ]; then
   pass "thamani-web requesting its own registered redirect URI is accepted (302 to login)"
 else
-  fail "expected 302 when thamani-web requests its own redirect URI, got $OWN_REDIRECT_STATUS"
+  fail "expected 302 when thamani-web requests its own redirect URI, got $THAMANI_OWN_REDIRECT_STATUS"
+fi
+# Mirror the check in the other direction -- the one-directional version only
+# proved zuribeans-web's redirect URI is off-limits to thamani-web, not that
+# the reverse holds too (nabhold/baobab-iam#31 review finding).
+ZURIBEANS_CROSS_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+  "$AUTH_ENDPOINT?client_id=zuribeans-web&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid")
+ZURIBEANS_OWN_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+  "$AUTH_ENDPOINT?client_id=zuribeans-web&redirect_uri=http://localhost:3000/callback&response_type=code&scope=openid")
+if [ "$ZURIBEANS_CROSS_REDIRECT_STATUS" = "400" ]; then
+  pass "zuribeans-web requesting thamani-web's registered redirect URI is rejected (400) by Keycloak itself"
+else
+  fail "expected 400 when zuribeans-web requests thamani-web's redirect URI, got $ZURIBEANS_CROSS_REDIRECT_STATUS"
+fi
+if [ "$ZURIBEANS_OWN_REDIRECT_STATUS" = "302" ]; then
+  pass "zuribeans-web requesting its own registered redirect URI is accepted (302 to login)"
+else
+  fail "expected 302 when zuribeans-web requests its own redirect URI, got $ZURIBEANS_OWN_REDIRECT_STATUS"
 fi
 # What this section cannot verify: real customer login for either estate
 # (both browser clients have directAccessGrantsEnabled=false, and neither
