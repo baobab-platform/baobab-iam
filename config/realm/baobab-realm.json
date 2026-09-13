@@ -182,6 +182,13 @@
           "priority": 30,
           "flowAlias": "Baobab forms",
           "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 40,
+          "flowAlias": "Baobab - Step-Up",
+          "userSetupAllowed": false
         }
       ]
     },
@@ -231,6 +238,30 @@
           "userSetupAllowed": false
         }
       ]
+    },
+    {
+      "alias": "Baobab - Step-Up",
+      "description": "Gate IAM-5 phase 3 (ADR-0009 §41-45): on-demand step-up for sensitive actions, independent of iam:mfa-required -- see docs/adr/ADR-0009 §41-45 and docs/governance/gate-iam-5-workforce-sso-scope.md.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-level-of-authentication",
+          "authenticatorConfig": "baobab-step-up-loa-gold",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
     }
   ],
   "authenticatorConfig": [
@@ -238,6 +269,13 @@
       "alias": "baobab-mfa-required-role",
       "config": {
         "condUserRole": "iam:mfa-required"
+      }
+    },
+    {
+      "alias": "baobab-step-up-loa-gold",
+      "config": {
+        "loa-condition-level": "2",
+        "loa-max-age": "300"
       }
     }
   ],
@@ -259,6 +297,7 @@
     "clientSessionIdleTimeoutRememberMe": "0",
     "clientSessionMaxLifespanRememberMe": "0",
     "loginWithPhoneAllowed": "false",
-    "deleteCredentialsIfRealmIsRemoved": "true"
+    "deleteCredentialsIfRealmIsRemoved": "true",
+    "acr.loa.map": "{\"silver\":1,\"gold\":2}"
   }
 }

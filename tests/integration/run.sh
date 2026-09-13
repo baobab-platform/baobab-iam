@@ -752,6 +752,42 @@ fi
 #   - workload authentication works   -> sections 4, 8, 14
 pass "ADR-0018 §165 Restore Validation Suite mapped against this suite's existing sections (see comments above)"
 
+echo "== 19. Step-up authentication (Gate IAM-5 phase 3, ADR-0009 §41-45) =="
+STEPUP_REALM_JSON=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM")
+ACR_LOA_MAP=$(echo "$STEPUP_REALM_JSON" | jq -r '.attributes["acr.loa.map"] // empty')
+if [ -n "$ACR_LOA_MAP" ] && echo "$ACR_LOA_MAP" | jq -e '.gold == 2' > /dev/null; then
+  pass "realm's acr.loa.map declares 'gold' as LOA 2 (ADR-0009 §43's acr assurance claim)"
+else
+  fail "realm's acr.loa.map does not declare 'gold' as LOA 2 (got: '$ACR_LOA_MAP')"
+fi
+if echo "$BROWSER_FLOW_EXECUTIONS" | jq -e '[.[].displayName] | any(. == "Baobab - Step-Up")' > /dev/null; then
+  pass "'Baobab browser' flow's executions include the 'Baobab - Step-Up' conditional subflow"
+else
+  fail "'Baobab browser' flow's executions do not include 'Baobab - Step-Up' (got: $(echo "$BROWSER_FLOW_EXECUTIONS" | jq -c '[.[].displayName]'))"
+fi
+if echo "$BROWSER_FLOW_EXECUTIONS" | jq -e '[.[].displayName] | any(. == "Condition - Level of Authentication")' > /dev/null; then
+  pass "the step-up subflow contains the Level-of-Authentication condition"
+else
+  fail "the step-up subflow is missing its Level-of-Authentication condition (got: $(echo "$BROWSER_FLOW_EXECUTIONS" | jq -c '[.[].displayName]'))"
+fi
+STEPUP_EXECUTION_ID=$(echo "$BROWSER_FLOW_EXECUTIONS" | jq -r '[.[] | select(.providerId == "conditional-level-of-authentication")][0].authenticationConfig // empty')
+if [ -n "$STEPUP_EXECUTION_ID" ]; then
+  STEPUP_CONFIG_JSON=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/config/$STEPUP_EXECUTION_ID")
+  STEPUP_LOA_LEVEL=$(echo "$STEPUP_CONFIG_JSON" | jq -r '.config["loa-condition-level"] // empty')
+  if [ "$STEPUP_LOA_LEVEL" = "2" ]; then
+    pass "the step-up condition demands LOA 2 ('gold'), matching acr.loa.map"
+  else
+    fail "the step-up condition demands LOA '$STEPUP_LOA_LEVEL', expected '2'"
+  fi
+else
+  fail "could not find the Level-of-Authentication condition's authenticatorConfig id"
+fi
+# What this suite cannot verify: an actual relying party requesting
+# acr_values=gold and being challenged for a fresh OTP entry end to end --
+# the same headless-browser limitation documented in section 15 for the
+# privileged-MFA subflow applies here too. This section proves the step-up
+# mechanism is *configured* correctly; it does not drive a real login.
+
 echo ""
 echo "== Summary: $PASS passed, $FAIL failed =="
 if [ "$FAIL" -gt 0 ]; then
