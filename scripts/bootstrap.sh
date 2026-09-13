@@ -18,6 +18,80 @@ kcadm() {
   /opt/keycloak/bin/kcadm.sh "$@" --config "$KCADM_CONFIG"
 }
 
+# reconcile_step_up_flow adds Gate IAM-5 phase 3's (ADR-0009 §41-45)
+# "Baobab - Step-Up" subflow and its acr.loa.map realm attribute to an
+# already-existing realm. `kcadm create realms` above only ever applies
+# authenticationFlows/attributes from baobab-realm.json on first
+# bootstrap -- an already-existing realm otherwise never picks up a flow
+# or attribute change committed after that, unlike client-scopes/clients
+# below, which are reconciled every run. This is the one such change Gate
+# IAM-5 phase 3 makes, so reconcile it specifically here rather than
+# leaving every persistent deployment stuck on whatever
+# authenticationFlows/attributes existed at first bootstrap.
+#
+# Idempotent: skips entirely once "Baobab - Step-Up" is present, so
+# repeat container restarts never re-run it.
+reconcile_step_up_flow() {
+  if kcadm get "authentication/flows/Baobab%20-%20Step-Up/executions" -r baobab > /dev/null 2>&1; then
+    echo "'Baobab - Step-Up' subflow already present. Skipping step-up reconciliation."
+  else
+    echo "Reconciling Gate IAM-5 phase 3's 'Baobab - Step-Up' subflow into the existing realm..."
+    # executions/flow creates the child flow already wired into its parent
+    # in one call. There is no REST operation to attach an already-created,
+    # standalone flow as a subflow instead -- and separately creating a
+    # top-level flow, then deleting it, leaves the parent's execution list
+    # holding a dangling reference to the deleted flow (verified against a
+    # real Keycloak 26.7.3 instance while developing this: Keycloak's
+    # flow-id delete endpoint does not clean up the parent's now-invalid
+    # execution entry, breaking every subsequent read of the parent flow
+    # with a 500 NullPointerException). Deleting via the execution's own
+    # id instead does cascade correctly, but the fix here is simpler:
+    # never create the flow disconnected from its parent to begin with.
+    kcadm create "authentication/flows/Baobab%20browser/executions/flow" -r baobab \
+      -s alias="Baobab - Step-Up" -s provider=basic-flow -s type=basic-flow \
+      -s "description=Gate IAM-5 phase 3 (ADR-0009 41-45): on-demand step-up, independent of iam:mfa-required." \
+      > /dev/null
+
+    STEP_UP_EXECUTION_JSON=$(kcadm get "authentication/flows/Baobab%20browser/executions" -r baobab \
+      | jq -c '[.[] | select(.displayName == "Baobab - Step-Up")][0]')
+    TMP_FILE=$(mktemp)
+    echo "$STEP_UP_EXECUTION_JSON" | jq '.requirement = "CONDITIONAL"' > "$TMP_FILE"
+    kcadm update "authentication/flows/Baobab%20browser/executions" -r baobab -f "$TMP_FILE"
+    rm -f "$TMP_FILE"
+
+    kcadm create "authentication/flows/Baobab%20-%20Step-Up/executions/execution" -r baobab -s provider=conditional-level-of-authentication > /dev/null
+    kcadm create "authentication/flows/Baobab%20-%20Step-Up/executions/execution" -r baobab -s provider=auth-otp-form > /dev/null
+
+    STEP_UP_EXECUTIONS_JSON=$(kcadm get "authentication/flows/Baobab%20-%20Step-Up/executions" -r baobab)
+    LOA_CONDITION_ID=$(echo "$STEP_UP_EXECUTIONS_JSON" | jq -r '[.[] | select(.providerId == "conditional-level-of-authentication")][0].id')
+    OTP_FORM_ID=$(echo "$STEP_UP_EXECUTIONS_JSON" | jq -r '[.[] | select(.providerId == "auth-otp-form")][0].id')
+
+    for EXECUTION_ID in "$LOA_CONDITION_ID" "$OTP_FORM_ID"; do
+      TMP_FILE=$(mktemp)
+      echo "$STEP_UP_EXECUTIONS_JSON" | jq --arg id "$EXECUTION_ID" '[.[] | select(.id == $id)][0] | .requirement = "REQUIRED"' > "$TMP_FILE"
+      kcadm update "authentication/flows/Baobab%20-%20Step-Up/executions" -r baobab -f "$TMP_FILE"
+      rm -f "$TMP_FILE"
+    done
+
+    # Matches authenticatorConfig "baobab-step-up-loa-gold" in
+    # config/realm/baobab-realm.json: loa-condition-level 2 ("gold"),
+    # loa-max-age 300 seconds.
+    kcadm create "authentication/executions/$LOA_CONDITION_ID/config" -r baobab \
+      -s alias=baobab-step-up-loa-gold -s 'config."loa-condition-level"=2' -s 'config."loa-max-age"=300' > /dev/null
+
+    echo "'Baobab - Step-Up' subflow reconciled."
+  fi
+
+  # Cheap and idempotent to re-apply every run (a PUT of the same value is
+  # a no-op) -- unlike the flow reconciliation above, no existence check
+  # is needed first.
+  echo "Reconciling realm attribute acr.loa.map..."
+  TMP_FILE=$(mktemp)
+  kcadm get realms/baobab -r baobab | jq '.attributes["acr.loa.map"] = "{\"silver\":1,\"gold\":2}"' > "$TMP_FILE"
+  kcadm update realms/baobab -f "$TMP_FILE"
+  rm -f "$TMP_FILE"
+}
+
 # Wait for Keycloak to be ready, then log in as admin.
 #
 # This retries kcadm's own login rather than curl-polling a health
@@ -50,6 +124,16 @@ if [ "$REALM_EXISTS" = "no" ]; then
   kcadm create realms -f /opt/keycloak/config/realm/baobab-realm.json
 else
   echo "Realm 'baobab' already exists. Skipping creation."
+  # kcadm create realms above is the ONLY place authenticationFlows/realm
+  # attributes are applied -- an already-existing realm otherwise never
+  # picks up flow or attribute changes committed to baobab-realm.json
+  # after its first bootstrap (unlike client-scopes/clients below, which
+  # are reconciled every run). Gate IAM-5 phase 3 (ADR-0009 §41-45) adds
+  # exactly one such change -- the "Baobab - Step-Up" subflow and its
+  # acr.loa.map realm attribute -- so reconcile that specific change here,
+  # idempotently, rather than leaving every persistent deployment stuck on
+  # whatever authenticationFlows/attributes existed at first bootstrap.
+  reconcile_step_up_flow
 fi
 
 # Import client scopes (custom scopes required by ADR-0006's token profile,

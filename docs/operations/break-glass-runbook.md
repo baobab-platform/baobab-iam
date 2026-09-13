@@ -57,18 +57,43 @@ with no new code or configuration needed (`config/realm/baobab-realm.json` alrea
 `adminEventsEnabled`/`adminEventsDetailsEnabled` set to `true`).
 
 The distinguishing signal is `authDetails.realmId` on the event: for a routine action by a
-`baobab`-realm governed admin it equals the `baobab` realm's own id; for a break-glass action via
-the master-realm bootstrap admin it equals the **master** realm's id instead. Concretely:
+`baobab`-realm governed admin it equals the `baobab` realm's own id; for any action authenticated
+from the master realm — break-glass use included — it equals the **master** realm's id instead.
+
+That signal alone is **not** specific to break-glass, though: `scripts/bootstrap.sh` also
+authenticates as this same master-realm bootstrap administrator and runs against `baobab` on every
+container start (its client-scope/client provisioning loops), so a raw `authDetails.realmId !=
+baobab` query also returns that routine automation, not just emergency use. Narrowing by
+`resourceType` removes the bulk of it — verified directly against a real Keycloak instance:
+`scripts/bootstrap.sh`'s own routine actions are exclusively `CLIENT` and `CLIENT_SCOPE`
+`CREATE` events, while every break-glass example in §3 step 4 above (re-enabling/resetting a user,
+repairing the realm's `browserFlow`, disabling an identity provider) is a `USER`, `REALM`, or
+`IDENTITY_PROVIDER` event instead:
 
 ```bash
 BAOBAB_REALM_ID=$(kcadm.sh get realms/baobab -r baobab | jq -r '.id')
 kcadm.sh get admin-events -r baobab \
+  -q resourceTypes=USER -q resourceTypes=REALM -q resourceTypes=IDENTITY_PROVIDER \
   | jq --arg id "$BAOBAB_REALM_ID" '[.[] | select(.authDetails.realmId != $id)]'
 ```
 
-returns exactly the break-glass actions taken against `baobab` from outside it — this is the
-query an incident review (§5 below) or a routine access review runs to confirm the break-glass
-path was not used outside a declared incident window.
+(`resourceTypes` takes repeated `-q` flags, one per value — a single comma-joined value is
+rejected by the Admin API with a 500, confirmed against a real Keycloak instance.)
+
+This still is not a perfect discriminator: a `REALM` event also fires for
+`reconcile_step_up_flow`'s realm-attribute patch (`scripts/bootstrap.sh`), but that one is a
+one-time, easily time-correlated event (it only ever fires once per environment, at this
+repository's Gate IAM-5 phase 3 rollout, then never again — the function is idempotent and skips
+on every subsequent run) rather than ongoing routine noise like `CLIENT`/`CLIENT_SCOPE`. An
+incident review cross-checks any `REALM` hit's timestamp against deployment history before
+treating it as break-glass. The fully precise fix — a dedicated automation identity for
+`scripts/bootstrap.sh`, separate from the break-glass credential, so routine provisioning never
+shares `authDetails.realmId` with actual emergency use at all — is future work (§4 below), not
+built here.
+
+The query above returns the break-glass actions taken against `baobab` from outside it, modulo
+that residual overlap — this is what an incident review (§5 below) or a routine access review
+runs to confirm the break-glass path was not used outside a declared incident window.
 
 ## 3. Break-glass flow (ADR-0009 §55)
 
@@ -106,12 +131,29 @@ path was not used outside a declared incident window.
 6. **Audit** — run §2's query immediately after the incident, scoped to the incident's time
    window (`dateFrom`/`dateTo`), and attach the result to the incident record. This is the
    authoritative, tamper-evident record of exactly what the break-glass path was used to do.
-7. **Credential rotation/reseal** — rotate the bootstrap administrator's password in the secret
-   manager immediately after use, whether or not it is believed to have been exposed; ADR-0009
-   §54's "rotated after use where appropriate" and §84 of ADR-0018 both point the same direction.
-   A break-glass credential's value is that it is *not* routinely live in anyone's memory or
-   session — using it once is exactly the appropriate trigger to rotate it, not evidence that
-   nothing further is needed.
+7. **Credential rotation/reseal** — rotate the bootstrap administrator's password immediately
+   after use, whether or not it is believed to have been exposed; ADR-0009 §54's "rotated after
+   use where appropriate" and §84 of ADR-0018 both point the same direction. A break-glass
+   credential's value is that it is *not* routinely live in anyone's memory or session — using it
+   once is exactly the appropriate trigger to rotate it, not evidence that nothing further is
+   needed. **Rotating only the secret-manager value is not enough by itself** — verified directly
+   against a real Keycloak instance: `KEYCLOAK_ADMIN_PASSWORD`/`KC_BOOTSTRAP_ADMIN_PASSWORD` only
+   ever *creates* this account; once it already exists in a persistent database, changing the
+   environment variable and restarting the container leaves the old password fully valid and does
+   not adopt the new one (confirmed by restarting an instance with a changed value and observing
+   the *original* password, not the new one, still authenticate). The actual sequence:
+   1. While the old (potentially-exposed) password is still known, authenticate to the **master**
+      realm with it one more time and set a new password directly on that same admin user
+      (`PUT /admin/realms/master/users/{id}/reset-password` with `"temporary": false`, or
+      `kcadm.sh set-password`) — this is the step that actually changes what is live.
+   2. Update the secret-management store to the new value immediately afterward, so it matches
+      what is now actually live.
+   3. Also update the deployment's `KEYCLOAK_ADMIN_PASSWORD`/`KC_BOOTSTRAP_ADMIN_PASSWORD`
+      environment variable to the same new value, even though *this* running instance will not
+      re-read it — a genuinely fresh redeploy (a wiped or rebuilt database, per
+      `disaster-recovery-runbook.md`) uses exactly that variable to *create* this account from
+      scratch, so leaving it stale would silently reintroduce the old, retired password on the
+      next disaster-recovery rebuild.
 8. **Incident review** — confirm governed (`baobab`-realm, MFA-enforced) admin access is fully
    restored and verified working before considering the incident closed; do not leave the
    master-realm bootstrap path as the ongoing way anyone administers `baobab`. This is the
@@ -132,3 +174,8 @@ path was not used outside a declared incident window.
    `security-incident-runbook.md` §5.1 already records for bulk revocation).
 3. **Automated detection of break-glass use outside a declared incident window** — §2's query is
    manual today; wiring it into ADR-0017's alerting is Gate IAM-13-ish territory, not this gate.
+4. **A dedicated automation identity for `scripts/bootstrap.sh`**, separate from the master-realm
+   bootstrap administrator — §2's `authDetails.realmId` signal only distinguishes break-glass use
+   from routine automation because they currently share the same credential; giving routine
+   provisioning its own service account would remove that overlap entirely rather than relying on
+   `resourceType` filtering and time-correlation to approximate it.
