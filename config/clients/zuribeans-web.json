@@ -34,7 +34,7 @@
     "organization"
   ],
   "redirectUris": [
-    "http://localhost:3000/*"
+    "http://localhost:3000/api/auth/callback"
   ],
   "webOrigins": [
     "http://localhost:3000"

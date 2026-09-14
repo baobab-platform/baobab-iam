@@ -870,7 +870,7 @@ echo "== 21. Thamani/ZuriBeans browser client redirect isolation =="
 # estate's login from ever being deliverable to the other estate's origin.
 AUTH_ENDPOINT="$KC_URL/realms/$REALM/protocol/openid-connect/auth"
 THAMANI_CROSS_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
-  "$AUTH_ENDPOINT?client_id=thamani-web&redirect_uri=http://localhost:3000/callback&response_type=code&scope=openid")
+  "$AUTH_ENDPOINT?client_id=thamani-web&redirect_uri=http://localhost:3000/api/auth/callback&response_type=code&scope=openid")
 THAMANI_OWN_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
   "$AUTH_ENDPOINT?client_id=thamani-web&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid")
 if [ "$THAMANI_CROSS_REDIRECT_STATUS" = "400" ]; then
@@ -889,16 +889,23 @@ fi
 ZURIBEANS_CROSS_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
   "$AUTH_ENDPOINT?client_id=zuribeans-web&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid")
 ZURIBEANS_OWN_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
-  "$AUTH_ENDPOINT?client_id=zuribeans-web&redirect_uri=http://localhost:3000/callback&response_type=code&scope=openid")
+  "$AUTH_ENDPOINT?client_id=zuribeans-web&redirect_uri=http://localhost:3000/api/auth/callback&response_type=code&scope=openid")
 if [ "$ZURIBEANS_CROSS_REDIRECT_STATUS" = "400" ]; then
   pass "zuribeans-web requesting thamani-web's registered redirect URI is rejected (400) by Keycloak itself"
 else
   fail "expected 400 when zuribeans-web requests thamani-web's redirect URI, got $ZURIBEANS_CROSS_REDIRECT_STATUS"
 fi
 if [ "$ZURIBEANS_OWN_REDIRECT_STATUS" = "302" ]; then
-  pass "zuribeans-web requesting its own registered redirect URI is accepted (302 to login)"
+  pass "zuribeans-web requesting its exact BFF callback URI is accepted (302 to login)"
 else
   fail "expected 302 when zuribeans-web requests its own redirect URI, got $ZURIBEANS_OWN_REDIRECT_STATUS"
+fi
+ZURIBEANS_WILDCARD_CHILD_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+  "$AUTH_ENDPOINT?client_id=zuribeans-web&redirect_uri=http://localhost:3000/not-the-bff-callback&response_type=code&scope=openid")
+if [ "$ZURIBEANS_WILDCARD_CHILD_STATUS" = "400" ]; then
+  pass "zuribeans-web rejects an unregistered same-origin path (400) -- no redirect wildcard remains"
+else
+  fail "expected 400 for an unregistered zuribeans-web same-origin path, got $ZURIBEANS_WILDCARD_CHILD_STATUS"
 fi
 # What this section cannot verify: real customer login for either estate
 # (both browser clients have directAccessGrantsEnabled=false, and neither
