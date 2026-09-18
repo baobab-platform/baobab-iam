@@ -33,7 +33,12 @@ registry entry, that the client's `enabled` flag agrees with that entry's `statu
 
 Verified against the real pinned registry and all six current client files (all `ACTIVE`/`enabled:
 true`, so the new check passes today with no drift) and against a simulated `REVOKED`-but-enabled
-case, confirmed to fail with the expected message.
+case, confirmed to fail with the expected message. That simulated case is the only proof the
+`SUSPENDED`/`REVOKED`/`RETIRED` branch has: no workload has ever actually reached a non-`ACTIVE`
+status in the live registry, so CI itself has never exercised this path against a real fixture —
+structurally verified, not yet live-verified, the same distinction gate-iam-11's own status line
+already draws ("structurally verified against a real Keycloak instance in CI") and gate-iam-4 §2
+item 5 draws for its own untestable branch ("documented as deferred rather than faked").
 
 ## MFA and revocation: already shipped, not this gate's gap
 
