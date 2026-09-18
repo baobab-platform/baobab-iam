@@ -275,9 +275,27 @@ else
         DRIFT=1
       fi
     done
+    # Gate ZB-03.9: the registry's lifecycle status (ADR-0007 §45) and this
+    # client's live 'enabled' flag SHALL agree. The security-relevant
+    # direction is non-ACTIVE-but-enabled: a workload the registry has
+    # marked SUSPENDED/REVOKED/RETIRED must not still hold a live
+    # credential -- today the only revocation mechanism this platform has
+    # is this boolean client toggle (gate-zb03-authority-contract-freeze.md
+    # names that gap explicitly), so this is what actually enforces it.
+    # ACTIVE-but-disabled is checked too, for completeness, though it is an
+    # availability defect rather than a security one.
+    REGISTRY_STATUS=$(echo "$REGISTRY_JSON" | jq -r --arg id "$CLIENT_ID" '.workloads[$id].status')
+    CLIENT_ENABLED=$(jq -r '.enabled' "$CLIENT_FILE")
+    if [ "$REGISTRY_STATUS" = "ACTIVE" ] && [ "$CLIENT_ENABLED" != "true" ]; then
+      fail "workload '$CLIENT_ID' is ACTIVE in the registry but $CLIENT_FILE has enabled=$CLIENT_ENABLED"
+      DRIFT=1
+    elif [ "$REGISTRY_STATUS" != "ACTIVE" ] && [ "$CLIENT_ENABLED" = "true" ]; then
+      fail "workload '$CLIENT_ID' is $REGISTRY_STATUS in the registry but $CLIENT_FILE still has enabled=true -- a non-ACTIVE workload must not hold a live credential"
+      DRIFT=1
+    fi
   done
   if [ "$DRIFT" -eq 0 ]; then
-    pass "every config/clients/*-workload.json client is registered, with scopes within its registry allowlist"
+    pass "every config/clients/*-workload.json client is registered, with scopes within its registry allowlist, and its enabled flag agrees with the registry's lifecycle status"
   fi
   ACTIVE_WITHOUT_CLIENT=0
   for ID in $(echo "$REGISTRY_JSON" | jq -r '.workloads | to_entries[] | select(.value.status == "ACTIVE") | .key'); do
