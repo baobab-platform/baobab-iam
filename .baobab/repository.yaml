@@ -9,4 +9,8 @@ environment:
     required: true
     profile: full
 artifacts:
-  container: true
+  container:
+    enabled: true
+    dockerfile: Dockerfile
+    context: .
+    runtime: true
