@@ -1,17 +1,17 @@
 # .nabhold/environment.yaml – Foundation 4 baseline
 #
-# Conforms to nabhold/shared's Development Environment Contract
+# Conforms to baobab-platform/shared's Development Environment Contract
 # (contracts/development-environment/schema.yaml), validated by the
-# `foundation / repository-contract` CI job (nabhold/shared's
+# `foundation / repository-contract` CI job (baobab-platform/shared's
 # foundation-repository-gates.yml, called from .github/workflows/
 # foundation.yml). Previously only declared `version`/`profile`/`contracts`,
 # none of which the actual schema requires or recognizes — the real
 # required fields (schema/application/environment/compatibility_policy/
 # validation) were entirely missing, which is why this job failed outright
-# ("invalid environment contract name"). Modelled on nabhold/shared's own
+# ("invalid environment contract name"). Modelled on baobab-platform/shared's own
 # declaration, the schema's canonical reference example.
 schema:
-  name: nabhold-development-environment-contract
+  name: baobab-platform-development-environment-contract
   version: "1.0"
 application:
   name: baobab-iam
@@ -21,7 +21,7 @@ environment:
   profile: full
   # Must literally match the image tag .devcontainer/devcontainer.json
   # pins (the validator checks the devcontainer file contains
-  # "ghcr.io/nabhold/baobab-dev:<minimum_version>" verbatim for the "full"
+  # "ghcr.io/baobab-platform/baobab-dev:<minimum_version>" verbatim for the "full"
   # profile, which has no tag suffix).
   minimum_version: "1.4.0"
   contract_minimum_version: "1.0"
