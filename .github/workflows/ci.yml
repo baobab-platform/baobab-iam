@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 # NOTE: Foundation Repository Gates run via the separately-maintained
-# .github/workflows/foundation.yml (pinned to nabhold/shared's v1.2.0 tag).
+# .github/workflows/foundation.yml (pinned to baobab-platform/shared's v1.2.0 tag).
 # This file previously also declared its own "foundation" job pointing at a
 # nonexistent workflow path (foundation-gates.yml vs. the real
 # foundation-repository-gates.yml) with an unresolved "<SHA>" placeholder;
@@ -43,7 +43,7 @@ jobs:
           severity: CRITICAL,HIGH
           format: table
       # Gate IAM-16 (Production Hardening): §219's checklist requires an
-      # SBOM, and nothing in this repo or nabhold/shared's reusable
+      # SBOM, and nothing in this repo or baobab-platform/shared's reusable
       # foundation gates generated one before this -- both only ran Trivy in
       # vulnerability/secret-scan mode. Reusing the same already-approved
       # trivy-action (no new third-party action to vet) in cyclonedx mode
