@@ -42,3 +42,21 @@ CVE-2025-59250
 # to confirm the CVE is actually gone before removing this entry, rather
 # than removing it on a version-bump alone.
 CVE-2026-75595
+
+# CVE-2026-86145 / CVE-2026-89161 (pcre2, pcre2-syntax 10.40-6.el9): genuine
+# CVEs with NO fix available -- Red Hat marks 86145 "will_not_fix" and 89161
+# "affected" with no fixed build for RHEL 9, recorded here rather than
+# treated as false positives.
+#
+# pcre2 ships in upstream Keycloak's ubi9-micro base (identically in 26.7.3
+# and 26.7.4), not in anything this repository installs. Inside this image
+# it is linked only by base-OS utilities (coreutils, find, sed via
+# libselinux); the Keycloak JVM does not use it, and exploitation needs an
+# attacker-supplied regular expression passed to those tools. Verified by
+# scanning a local build of this Dockerfile (Trivy 0.73, HIGH/CRITICAL).
+#
+# Time-boxed: the exp: date makes Trivy report these again after it, so
+# re-check for a patched ubi9-micro / Keycloak image then rather than
+# extending the date blindly.
+CVE-2026-86145 exp:2026-12-31
+CVE-2026-89161 exp:2026-12-31

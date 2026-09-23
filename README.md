@@ -147,7 +147,7 @@ It does **not** own:
 
 | Concern | Choice |
 |---------|--------|
-| Identity provider | Keycloak 26.7.3 |
+| Identity provider | Keycloak 26.7.4 |
 | Database | PostgreSQL 17 |
 | Container | Distroless image, version-pinned (digest pin pending registry access — see R-1) |
 | Configuration | JSON realm exports + idempotent bootstrap |
