@@ -23,7 +23,7 @@ environment:
   # pins (the validator checks the devcontainer file contains
   # "ghcr.io/baobab-platform/baobab-dev:<minimum_version>" verbatim for the "full"
   # profile, which has no tag suffix).
-  minimum_version: "1.4.0"
+  minimum_version: "1.4.3"
   contract_minimum_version: "1.0"
 compatibility_policy:
   strict_runtime_versions: true
