@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 # NOTE: Foundation Repository Gates run via the separately-maintained
 # .github/workflows/foundation.yml (pinned to baobab-platform/shared's v1.2.0 tag).
 # This file previously also declared its own "foundation" job pointing at a
