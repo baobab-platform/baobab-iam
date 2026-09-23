@@ -73,6 +73,11 @@ RUN /opt/keycloak/bin/kc.sh build
 
 # Final stage – minimal distroless image
 FROM quay.io/keycloak/keycloak:26.7.3
+ARG VERSION=0.0.0-dev
+ARG REVISION=unknown
+LABEL org.opencontainers.image.source="https://github.com/baobab-platform/baobab-iam" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}"
 
 # jq for bootstrap.sh (see tools-build stage above)
 COPY --from=tools-build /mnt/rootfs /
