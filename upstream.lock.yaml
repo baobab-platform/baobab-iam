@@ -1,7 +1,7 @@
 # upstream.lock.yaml
 # Pins the exact Keycloak version and container digest for production.
 keycloak:
-  version: "26.7.3"
+  version: "26.7.4"
   image: "quay.io/keycloak/keycloak"
   # UNRESOLVED — this is not yet a real digest and SHALL NOT be treated as
   # one. ADR-0002 Section 10 requires the digest pinned here, but resolving
@@ -11,6 +11,6 @@ keycloak:
   # pin can be relied on. Tracked as R-1 in
   # docs/governance/gate-iam-0-discovery.md.
   #
-  #   docker buildx imagetools inspect quay.io/keycloak/keycloak:26.7.3
+  #   docker buildx imagetools inspect quay.io/keycloak/keycloak:26.7.4
   #
   digest: "UNRESOLVED-see-R-1-in-docs/governance/gate-iam-0-discovery.md"

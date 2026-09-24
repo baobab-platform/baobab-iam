@@ -1,0 +1,16 @@
+schema_version: 1
+repository:
+  lifecycle: active
+capabilities:
+  - container
+  - engine
+environment:
+  baobab_dev:
+    required: true
+    profile: full
+artifacts:
+  container:
+    enabled: true
+    dockerfile: Dockerfile
+    context: .
+    runtime: true

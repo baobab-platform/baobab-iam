@@ -1,17 +1,3 @@
-# ==============================================================================
-# Nabhold Engine Template
-# Foundation Repository Gates (CONDITIONAL - needs application code)
-#
-# File: .github/workflows/foundation.yml.example
-#
-# Per TEMPLATE-USAGE.md step 3: rename to foundation.yml (dropping
-# `.example`) once this engine has real application code. Set `dockerfile`
-# to "" below if this engine doesn't build a container image yet - the
-# reusable workflow's default assumes a Dockerfile exists at the repo root.
-# Re-verify the pin below is still current before relying on it (check
-# nabhold/shared's tags for a release newer than v1.3.0).
-# ==============================================================================
-
 name: Foundation Repository Gates
 
 on:
@@ -24,31 +10,15 @@ on:
 
 permissions:
   contents: read
+  packages: read
+  actions: read
+  security-events: write
 
 jobs:
   foundation:
-    # 2026-09-16: repointed past v1.3.0 to nabhold/shared's main HEAD
-    # (d6c751a), which adds a live GHCR resolution check for this repo's
-    # declared baobab-dev tag -- v1.3.0 only validated environment.yaml
-    # and devcontainer.json agree with EACH OTHER, never that the image
-    # they agree on still exists on GHCR (see nabhold/shared's own
-    # foundation-repository-gates.yml header, "2026-09-16" entry, for the
-    # full rationale -- this is exactly the class of gap that left
-    # Codespaces stuck in recovery mode for consumer repos). No tag newer
-    # than v1.3.0 exists on nabhold/shared yet, so this pins the raw
-    # commit SHA directly, matching the convention already in use by
-    # baobab-cp/baobab-trade/zuribeans/baobab-cms/baobab-erp's own
-    # foundation.yml files. Re-verify this pin is still current before
-    # relying on it if nabhold/shared later cuts a v1.4.0+ tag.
-    uses: nabhold/shared/.github/workflows/foundation-repository-gates.yml@d6c751ad9e5b85ed854c4ad3270bff4b7ac3c8cc
+    uses: baobab-platform/shared/.github/workflows/foundation-repository-gates.yml@468f0e6a8e8e4aac5ec37e87264a073752320530
     with:
-      # TODO: set to "" if this engine does not build a container image.
-      dockerfile: "Dockerfile"
-      build_context: "."
-      # true as of 2026-09-10: this repository's Dependency graph (Settings
-      # -> Security -> Code security -> Dependency graph) is now enabled,
-      # satisfying the reusable workflow's own documented precondition for
-      # this input ("Enable only after the repository dependency graph is
-      # enabled") -- it had briefly been false while that precondition
-      # wasn't met yet.
-      dependency_review_enabled: true
+      foundation_ref: "468f0e6a8e8e4aac5ec37e87264a073752320530"
+      dependency_review_enabled: false
+      advanced_security_enabled: false
+      legacy_metadata_enabled: false

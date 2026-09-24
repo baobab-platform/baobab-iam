@@ -135,7 +135,7 @@ It does **not** own:
 
 | Repository | Relationship |
 |------------|--------------|
-| `nabhold/shared` | Consumes canonical identity, scope, and event contracts. |
+| `baobab-platform/shared` | Consumes canonical identity, scope, and event contracts. |
 | `nabhold/baobab-cp` | Validates tokens from this service and resolves canonical identity/context. |
 | `nabhold/baobab-trade` | Authenticates buyers, customers, and administrators via this service. |
 | `nabhold/baobab-erp` | Uses OIDC SSO for workforce and integration identities. |
@@ -147,11 +147,11 @@ It does **not** own:
 
 | Concern | Choice |
 |---------|--------|
-| Identity provider | Keycloak 26.7.3 |
+| Identity provider | Keycloak 26.7.4 |
 | Database | PostgreSQL 17 |
 | Container | Distroless image, version-pinned (digest pin pending registry access — see R-1) |
 | Configuration | JSON realm exports + idempotent bootstrap |
-| CI/CD | Reusable workflows from `nabhold/shared` |
+| CI/CD | Reusable workflows from `baobab-platform/shared` |
 
 ---
 
