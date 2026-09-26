@@ -48,6 +48,22 @@ RUN set -eu; mkdir /bc; cd /bc; \
       590f55ed5d68529239898a4a5c4f730b6e37f45d1cfa3fbe51f8485abe32c42d bcutil.jar \
       | sha256sum --check --strict
 
+# CVE-2026-84939 (CRITICAL, path traversal via a malformed locale
+# identifier): Keycloak 26.7.4 vendors Apache FreeMarker 2.3.32, which
+# renders every login, account and email template; the fix is 2.3.35. As
+# with Bouncy Castle above, the fixed jar is fetched from Maven Central,
+# verified against its pinned SHA-256 (cross-checked with Maven Central's
+# published SHA-1, dd1d9737c3e8b8a5bf0d44981eb308df4822e241), and swapped
+# into the builder stage below. Remove this stage once upstream.lock.yaml
+# pins a Keycloak release that vendors FreeMarker >= 2.3.35.
+FROM registry.access.redhat.com/ubi9:9.4 AS freemarker
+RUN set -eu; mkdir /fm; cd /fm; \
+    curl -fsSL -o freemarker.jar \
+      https://repo1.maven.org/maven2/org/freemarker/freemarker/2.3.35/freemarker-2.3.35.jar; \
+    printf '%s  %s\n' \
+      0fac87dddd78f1223139e8ef88e819c7f483c0a3835cdf5982ad5e4576d1d896 freemarker.jar \
+      | sha256sum --check --strict
+
 FROM quay.io/keycloak/keycloak:26.7.4 AS builder
 
 # The upstream image already switches to its non-root runtime user (see
@@ -75,6 +91,14 @@ COPY --from=bouncycastle /bc/bcprov.jar /opt/keycloak/lib/lib/main/org.bouncycas
 COPY --from=bouncycastle /bc/bcpkix.jar /opt/keycloak/lib/lib/main/org.bouncycastle.bcpkix-jdk18on-1.84.jar
 COPY --from=bouncycastle /bc/bcutil.jar /opt/keycloak/lib/lib/main/org.bouncycastle.bcutil-jdk18on-1.84.jar
 COPY --from=bouncycastle /bc/bcprov.jar /opt/keycloak/bin/client/lib/bcprov-jdk18on-1.84.jar
+
+# Replace Keycloak's vendored FreeMarker 2.3.32 in place (see the
+# freemarker stage above), keeping the filename for the same fast-jar
+# classpath reason. The guard fails the build if Keycloak stops shipping
+# exactly this jar, so the override is revisited rather than misapplied.
+RUN test -f /opt/keycloak/lib/lib/main/org.freemarker.freemarker-2.3.32.jar \
+    || { echo "expected Keycloak jar org.freemarker.freemarker-2.3.32.jar is missing" >&2; exit 1; }
+COPY --from=freemarker /fm/freemarker.jar /opt/keycloak/lib/lib/main/org.freemarker.freemarker-2.3.32.jar
 
 # Copy custom theme and providers (if any)
 COPY themes/ /opt/keycloak/themes/
