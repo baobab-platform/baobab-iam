@@ -933,6 +933,143 @@ fi
 # own: nothing issued by, or registered against, one estate's clients can
 # be mistaken for or redirected to the other's.
 
+echo "== 22. Onboarding entitlements (ADR-BCP-017 §§22, 39; baobab-cp runbook §12) =="
+# The Platform Onboarding Operator and Approver are separate client roles of
+# baobab-control-plane-admin, each paired with its Shared scope. Keycloak
+# cannot stop a user requesting an optional scope, so baobab-cp honours a
+# scope only with its role; what IAM must guarantee is who holds which role,
+# that the scope carries baobab-cp's audience, and that no other client can
+# obtain either scope.
+ADMIN_TOKEN=$(get_admin_token)
+admin_api() {
+  curl -s --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' "$@"
+}
+KC_ADMIN_API="$KC_URL/admin/realms/$REALM"
+CP_ADMIN_UUID=$(admin_api "$KC_ADMIN_API/clients?clientId=baobab-control-plane-admin" | jq -r '.[0].id')
+for ROLE in onboarding-requester onboarding-authoriser; do
+  ROLE_COMPOSITES=$(admin_api "$KC_ADMIN_API/clients/$CP_ADMIN_UUID/roles/$ROLE/composites" | jq -r '[.[].name] | join(",")')
+  if [ "$ROLE_COMPOSITES" = "iam:mfa-required" ]; then
+    pass "client role baobab-control-plane-admin/$ROLE exists and composites only iam:mfa-required"
+  else
+    fail "client role baobab-control-plane-admin/$ROLE is missing or composites '$ROLE_COMPOSITES' (want exactly iam:mfa-required)"
+  fi
+done
+DEFAULT_ROLE_CLIENT_COMPOSITES=$(admin_api "$KC_ADMIN_API/roles/default-roles-$REALM/composites/clients/$CP_ADMIN_UUID" | jq 'length')
+if [ "$DEFAULT_ROLE_CLIENT_COMPOSITES" = "0" ]; then
+  pass "no onboarding role is granted to new users by default"
+else
+  fail "default-roles-$REALM grants $DEFAULT_ROLE_CLIENT_COMPOSITES baobab-control-plane-admin role(s)"
+fi
+CP_ADMIN_OPTIONAL=$(admin_api "$KC_ADMIN_API/clients/$CP_ADMIN_UUID/optional-client-scopes" | jq -r '[.[].name] | join(",")')
+CP_ADMIN_DEFAULT=$(admin_api "$KC_ADMIN_API/clients/$CP_ADMIN_UUID/default-client-scopes" | jq -r '[.[].name] | join(",")')
+for SCOPE in onboarding:request onboarding:authorise; do
+  SCOPE_JSON=$(admin_api "$KC_ADMIN_API/client-scopes" | jq --arg s "$SCOPE" '[.[] | select(.name == $s)][0]')
+  SCOPE_AUDIENCE=$(echo "$SCOPE_JSON" | jq -r '[.protocolMappers[]? | select(.protocolMapper == "oidc-audience-mapper") | .config["included.custom.audience"]] | join(",")')
+  if [ "$(echo "$SCOPE_JSON" | jq -r '.attributes["include.in.token.scope"] // empty')" = "true" ] && [ "$SCOPE_AUDIENCE" = "baobab-control-plane" ]; then
+    pass "client scope $SCOPE appears in the token's scope claim and adds aud=baobab-control-plane"
+  else
+    fail "client scope $SCOPE is missing, hidden from the scope claim, or has audience '$SCOPE_AUDIENCE'"
+  fi
+  if [[ ",$CP_ADMIN_OPTIONAL," == *",$SCOPE,"* ]] && [[ ",$CP_ADMIN_DEFAULT," != *",$SCOPE,"* ]]; then
+    pass "$SCOPE is optional (requested deliberately), not default, on baobab-control-plane-admin"
+  else
+    fail "$SCOPE is not an optional-only scope of baobab-control-plane-admin (optional: $CP_ADMIN_OPTIONAL; default: $CP_ADMIN_DEFAULT)"
+  fi
+done
+# Applicant, estate, engine and other admin clients can never obtain either scope.
+OTHER_CLIENTS_WITH_ONBOARDING=""
+for client_file in config/clients/*.json; do
+  CLIENT_ID=$(jq -r '.clientId' "$client_file")
+  [ "$CLIENT_ID" = "baobab-control-plane-admin" ] && continue
+  CLIENT_UUID=$(admin_api "$KC_ADMIN_API/clients?clientId=$CLIENT_ID" | jq -r '.[0].id')
+  ATTACHED=$( (admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/optional-client-scopes"; admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/default-client-scopes") | jq -r '.[].name')
+  if echo "$ATTACHED" | grep -q '^onboarding:'; then
+    OTHER_CLIENTS_WITH_ONBOARDING="$OTHER_CLIENTS_WITH_ONBOARDING $CLIENT_ID"
+  fi
+done
+if [ -z "$OTHER_CLIENTS_WITH_ONBOARDING" ]; then
+  pass "no client other than baobab-control-plane-admin (applicant, estate, engine, other admin) can obtain an onboarding scope"
+else
+  fail "onboarding scopes are attached to:$OTHER_CLIENTS_WITH_ONBOARDING"
+fi
+
+# Probe identities. Tokens come from Keycloak's own evaluate-scopes endpoint:
+# the workforce client allows no direct grant, and this is exactly what the
+# browser flow would issue for that user and scope request.
+create_probe_user() {
+  local username=$1 existing
+  existing=$(admin_api "$KC_ADMIN_API/users?username=$username&exact=true" | jq -r '.[0].id // empty')
+  [ -n "$existing" ] && admin_api -X DELETE "$KC_ADMIN_API/users/$existing" > /dev/null
+  admin_api -X POST "$KC_ADMIN_API/users" -d "{\"username\":\"$username\",\"enabled\":true}" > /dev/null
+  admin_api "$KC_ADMIN_API/users?username=$username&exact=true" | jq -r '.[0].id'
+}
+grant_realm_role() { admin_api -X POST "$KC_ADMIN_API/users/$1/role-mappings/realm" -d "[$(admin_api "$KC_ADMIN_API/roles/$2")]" > /dev/null; }
+grant_cp_role() { admin_api -X POST "$KC_ADMIN_API/users/$1/role-mappings/clients/$CP_ADMIN_UUID" -d "[$(admin_api "$KC_ADMIN_API/clients/$CP_ADMIN_UUID/roles/$2")]" > /dev/null; }
+revoke_cp_role() { admin_api -X DELETE "$KC_ADMIN_API/users/$1/role-mappings/clients/$CP_ADMIN_UUID" -d "[$(admin_api "$KC_ADMIN_API/clients/$CP_ADMIN_UUID/roles/$2")]" > /dev/null; }
+example_token() {
+  admin_api "$KC_ADMIN_API/clients/$CP_ADMIN_UUID/evaluate-scopes/generate-example-access-token?userId=$1&scope=openid%20onboarding:request%20onboarding:authorise"
+}
+REQUESTER_ID=$(create_probe_user it-onboarding-requester)
+grant_realm_role "$REQUESTER_ID" "cp:platform-admin"
+grant_cp_role "$REQUESTER_ID" onboarding-requester
+AUTHORISER_ID=$(create_probe_user it-onboarding-authoriser)
+grant_realm_role "$AUTHORISER_ID" "cp:platform-admin"
+grant_cp_role "$AUTHORISER_ID" onboarding-authoriser
+TENANT_ADMIN_ID=$(create_probe_user it-onboarding-tenant-admin)
+grant_realm_role "$TENANT_ADMIN_ID" "cp:tenant-admin"
+
+REQUESTER_TOKEN=$(example_token "$REQUESTER_ID")
+REQUESTER_ROLES=$(echo "$REQUESTER_TOKEN" | jq -r '.resource_access["baobab-control-plane-admin"].roles // [] | sort | join(",")')
+if [ "$REQUESTER_ROLES" = "onboarding-requester" ] && echo "$REQUESTER_TOKEN" | jq -e '(.aud | if type == "array" then . else [.] end | index("baobab-control-plane")) and .actor_type == "human" and (.realm_access.roles | index("cp:platform-admin"))' > /dev/null; then
+  pass "an Onboarding Operator's token carries onboarding-requester only, cp:platform-admin, actor_type=human and aud=baobab-control-plane"
+else
+  fail "an Onboarding Operator's token is wrong: $(echo "$REQUESTER_TOKEN" | jq -c '{aud, actor_type, resource_access}')"
+fi
+AUTHORISER_ROLES=$(example_token "$AUTHORISER_ID" | jq -r '.resource_access["baobab-control-plane-admin"].roles // [] | sort | join(",")')
+if [ "$AUTHORISER_ROLES" = "onboarding-authoriser" ]; then
+  pass "an Onboarding Approver's token carries onboarding-authoriser only, so baobab-cp refuses it onboarding:request"
+else
+  fail "an Onboarding Approver's token carries baobab-control-plane-admin roles '$AUTHORISER_ROLES'"
+fi
+TENANT_ADMIN_ROLES=$(example_token "$TENANT_ADMIN_ID" | jq -r '.resource_access["baobab-control-plane-admin"].roles // [] | join(",")')
+if [ -z "$TENANT_ADMIN_ROLES" ]; then
+  pass "a tenant administrator's token carries no onboarding role, so baobab-cp honours neither onboarding scope"
+else
+  fail "a tenant administrator's token carries baobab-control-plane-admin roles '$TENANT_ADMIN_ROLES'"
+fi
+
+# The toxic combination and the cp:platform-admin prerequisite
+# (config/governance/role-policy.json).
+if ./scripts/check-role-policy.sh > /dev/null; then
+  pass "check-role-policy.sh finds no violation while operator and approver are different people"
+else
+  fail "check-role-policy.sh reports a violation for a compliant assignment: $(./scripts/check-role-policy.sh || true)"
+fi
+grant_cp_role "$REQUESTER_ID" onboarding-authoriser
+set +e
+POLICY_OUTPUT=$(./scripts/check-role-policy.sh)
+POLICY_STATUS=$?
+set -e
+if [ "$POLICY_STATUS" = "1" ] && [[ "$POLICY_OUTPUT" == *"it-onboarding-requester"*"onboarding-maker-checker"* ]]; then
+  pass "check-role-policy.sh reports one person holding both onboarding-requester and onboarding-authoriser (exit 1)"
+else
+  fail "check-role-policy.sh did not report the toxic combination (exit $POLICY_STATUS): $POLICY_OUTPUT"
+fi
+revoke_cp_role "$REQUESTER_ID" onboarding-authoriser
+grant_cp_role "$TENANT_ADMIN_ID" onboarding-requester
+set +e
+POLICY_OUTPUT=$(./scripts/check-role-policy.sh)
+POLICY_STATUS=$?
+set -e
+if [ "$POLICY_STATUS" = "1" ] && [[ "$POLICY_OUTPUT" == *"it-onboarding-tenant-admin"*"without the realm role cp:platform-admin"* ]]; then
+  pass "check-role-policy.sh reports an onboarding role held without cp:platform-admin (exit 1)"
+else
+  fail "check-role-policy.sh did not report the missing cp:platform-admin (exit $POLICY_STATUS): $POLICY_OUTPUT"
+fi
+for PROBE_ID in "$REQUESTER_ID" "$AUTHORISER_ID" "$TENANT_ADMIN_ID"; do
+  admin_api -X DELETE "$KC_ADMIN_API/users/$PROBE_ID" > /dev/null
+done
+
 echo ""
 echo "== Summary: $PASS passed, $FAIL failed =="
 if [ "$FAIL" -gt 0 ]; then

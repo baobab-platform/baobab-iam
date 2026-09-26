@@ -112,6 +112,12 @@
 
 ---
 
+- **Control Plane onboarding entitlements:** the Platform Onboarding Operator and Approver
+  (`onboarding-requester` / `onboarding-authoriser` client roles of
+  `baobab-control-plane-admin`, carrying `onboarding:request` / `onboarding:authorise`) and
+  their toxic-combination check `scripts/check-role-policy.sh` — see
+  [the onboarding entitlements runbook](./docs/operations/cp-onboarding-entitlements-runbook.md).
+
 ## What this repository is
 
 `baobab-iam` runs **Keycloak** as the authentication runtime. It owns:

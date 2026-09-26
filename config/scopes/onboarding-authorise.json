@@ -1,0 +1,22 @@
+{
+  "name": "onboarding:authorise",
+  "description": "baobab-cp's onboarding:authorise scope (ADR-BCP-017 §§22, 39). baobab-cp honours it only with the baobab-control-plane-admin client role onboarding-authoriser. Carries aud=baobab-control-plane.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "clientId": "baobab-control-plane-admin",
+  "description": "Client roles of the baobab-cp workforce client. They are fine-grained Control Plane responsibilities, kept out of the deliberately small realm-role namespace (ADR-0009 §102-104). Each is the transitional IAM enforcement of a responsibility that ADR-BCP-020 AdministrativeGrants will take over; baobab-cp honours the matching scope only when the token also carries the role. Every role composites iam:mfa-required. None is a default role, and none grants cp:platform-admin, which baobab-cp requires separately.",
+  "roles": [
+    {
+      "name": "onboarding-requester",
+      "description": "Platform Onboarding Operator (ADR-BCP-017 §§22, 39): may create, fulfil and cancel TenantOnboardingRequests with onboarding:request. Never together with onboarding-authoriser (config/governance/role-policy.json).",
+      "composites": { "realm": ["iam:mfa-required"] }
+    },
+    {
+      "name": "onboarding-authoriser",
+      "description": "Platform Onboarding Approver (ADR-BCP-017 §§22, 39): may authorise a REQUESTED TenantOnboardingRequest with onboarding:authorise. Never together with onboarding-requester (config/governance/role-policy.json).",
+      "composites": { "realm": ["iam:mfa-required"] }
+    }
+  ]
+}
