@@ -1,5 +1,5 @@
 # Makefile for baobab-iam local development
-.PHONY: dev-up dev-down bootstrap test integration-test lint clean
+.PHONY: dev-up dev-down bootstrap test integration-test role-policy lint clean
 
 dev-up:
 	docker-compose up -d
@@ -20,6 +20,10 @@ test:
 
 integration-test:
 	./tests/integration/run.sh
+
+# Separation-of-duties rules Keycloak cannot enforce (config/governance/role-policy.json).
+role-policy:
+	./scripts/check-role-policy.sh
 
 lint:
 	@echo "Checking YAML files..."

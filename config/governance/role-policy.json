@@ -1,0 +1,25 @@
+{
+  "description": "Workforce role assignment policy that Keycloak cannot enforce by itself, checked by scripts/check-role-policy.sh against a running realm. This is the transitional separation-of-duties control; under ADR-BCP-020 the same rules become AdministrativeGrant constraints.",
+  "toxic_combinations": [
+    {
+      "name": "onboarding-maker-checker",
+      "reason": "ADR-BCP-017 §39 and Shared admission/v1: whoever requests tenant onboarding must not also be able to authorise it. baobab-cp still refuses a request authorised by its own requester; this keeps the two responsibilities with different people.",
+      "roles": [
+        { "client": "baobab-control-plane-admin", "role": "onboarding-requester" },
+        { "client": "baobab-control-plane-admin", "role": "onboarding-authoriser" }
+      ]
+    }
+  ],
+  "prerequisites": [
+    {
+      "role": { "client": "baobab-control-plane-admin", "role": "onboarding-requester" },
+      "requires_realm_role": "cp:platform-admin",
+      "reason": "baobab-cp's onboarding routes are platform-administrator only; the entitlement is useless, and misleading, without it."
+    },
+    {
+      "role": { "client": "baobab-control-plane-admin", "role": "onboarding-authoriser" },
+      "requires_realm_role": "cp:platform-admin",
+      "reason": "baobab-cp's onboarding routes are platform-administrator only; the entitlement is useless, and misleading, without it."
+    }
+  ]
+}

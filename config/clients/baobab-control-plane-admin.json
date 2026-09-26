@@ -30,7 +30,9 @@
     "address",
     "phone",
     "offline_access",
-    "microprofile-jwt"
+    "microprofile-jwt",
+    "onboarding:request",
+    "onboarding:authorise"
   ],
   "redirectUris": [
     "http://localhost:3003/*"

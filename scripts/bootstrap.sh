@@ -205,5 +205,56 @@ for client_file in /opt/keycloak/config/clients/*.json; do
   fi
 done
 
+# reconcile_client_scopes_and_roles brings every already-existing client up
+# to what config/ declares for two things the create-or-skip imports above
+# never revisit: optional client scopes, and client roles. Without it a
+# deployment bootstrapped before a scope or role was added never receives
+# it (e.g. baobab-control-plane-admin's onboarding:request/authorise scopes
+# and onboarding-requester/authoriser roles, ADR-BCP-017 §§22, 39).
+# Idempotent: attaching an attached scope, or adding a composite a role
+# already has, changes nothing. It only ever adds; removing a scope or role
+# stays a deliberate, reviewed operation.
+reconcile_client_scopes_and_roles() {
+  local client_file client_id client_uuid scope_name scope_uuid roles_file role_name realm_role composite_file
+  for client_file in /opt/keycloak/config/clients/*.json; do
+    [ -f "$client_file" ] || continue
+    client_id=$(jq -r '.clientId' "$client_file")
+    client_uuid=$(kcadm get clients -r baobab -q clientId="$client_id" --fields id | jq -r '.[0].id // empty')
+    [ -n "$client_uuid" ] || continue
+    for scope_name in $(jq -r '.optionalClientScopes // [] | .[]' "$client_file"); do
+      scope_uuid=$(kcadm get client-scopes -r baobab --fields id,name | jq -r --arg n "$scope_name" '[.[] | select(.name == $n)][0].id // empty')
+      if [ -z "$scope_uuid" ]; then
+        echo "Client scope '$scope_name' listed by '$client_id' does not exist; skipping." >&2
+        continue
+      fi
+      kcadm update "clients/$client_uuid/optional-client-scopes/$scope_uuid" -r baobab -n
+    done
+  done
+
+  for roles_file in /opt/keycloak/config/client-roles/*.json; do
+    [ -f "$roles_file" ] || continue
+    client_id=$(jq -r '.clientId' "$roles_file")
+    client_uuid=$(kcadm get clients -r baobab -q clientId="$client_id" --fields id | jq -r '.[0].id // empty')
+    if [ -z "$client_uuid" ]; then
+      echo "Client '$client_id' for $roles_file does not exist; skipping its roles." >&2
+      continue
+    fi
+    for role_name in $(jq -r '.roles[].name' "$roles_file"); do
+      if ! kcadm get "clients/$client_uuid/roles/$role_name" -r baobab > /dev/null 2>&1; then
+        echo "Creating client role '$client_id/$role_name' ..."
+        kcadm create "clients/$client_uuid/roles" -r baobab -s name="$role_name" \
+          -s "description=$(jq -r --arg n "$role_name" '.roles[] | select(.name == $n) | .description' "$roles_file")"
+      fi
+      for realm_role in $(jq -r --arg n "$role_name" '.roles[] | select(.name == $n) | .composites.realm // [] | .[]' "$roles_file"); do
+        composite_file=$(mktemp)
+        kcadm get "roles/$realm_role" -r baobab | jq '[{id: .id, name: .name}]' > "$composite_file"
+        kcadm create "clients/$client_uuid/roles/$role_name/composites" -r baobab -f "$composite_file"
+        rm -f "$composite_file"
+      done
+    done
+  done
+}
+reconcile_client_scopes_and_roles
+
 rm -f "$KCADM_CONFIG"
 echo "Bootstrap completed."
