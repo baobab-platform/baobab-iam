@@ -1,6 +1,6 @@
 # Gate IAM-M2 / M3 — Ory Foundation (Kratos + Hydra)
 
-**Status:** In progress (M2-A complete; **M2-B Kratos config landed**)  
+**Status:** In progress (M2-A, M2-B, **M3-B complete**; smoke / digests open)  
 **Date:** 2026-09-27  
 **Gate:** IAM-M2 (Kratos) / IAM-M3 (Hydra) — ADR-IAM-0019 §58 / §92; ADR-IAM-0021  
 **Depends on:** Gate IAM-M1 provider contracts on branch (may merge in parallel); **M0 rollback baseline** before any shared non-prod dual-run  
@@ -81,15 +81,25 @@ docker compose -f docker-compose.ory.yml up -d
 | Path | ADR rule |
 |------|----------|
 | `config/ory/kratos/kratos.yml` | Public/admin serve; local secrets only (§40–41) |
-| `config/ory/kratos/identity.schema.json` | Traits: `email`, `name` only (§37) — **no** tenant/capability/… |
+| `config/ory/kratos/identity.schema.json` | Traits: `email`, `name` only (§37) |
 
-### 4.4 Hydra config (M3-B) — next
+### 4.4 Hydra config (M3-B) — **landed**
 
-Env-driven today in Compose; optional file-based config under `config/ory/hydra/` later.
+| Path | ADR rule |
+|------|----------|
+| `config/ory/hydra/hydra.yml` | Issuer, login/consent placeholders (§9–11); JWT access tokens; public subject identifiers for workload/CP stability |
 
-### 4.5 Adapter smoke
+### 4.5 Adapter smoke (M2/M3-C)
 
-At least one live call against the stack (`ProviderInfo` or admin identity read/provision) after images pull successfully.
+At least one live call against the stack (`ProviderInfo` or admin identity/workload path) after images pull successfully.
+
+Suggested local adapter config:
+
+```text
+KratosAdminURL = http://127.0.0.1:4434
+HydraAdminURL  = http://127.0.0.1:4445
+PublicIssuer   = http://127.0.0.1:4444
+```
 
 ---
 
@@ -98,9 +108,9 @@ At least one live call against the stack (`ProviderInfo` or admin identity read/
 | Step | Content | Status |
 |------|---------|--------|
 | **M2-A** | Scope, `provider.lock.yaml`, Compose overlay | Done |
-| **M2-B** | Minimal Kratos `kratos.yml` + identity schema | **Done (this commit)** |
-| **M3-B** | Hydra config hardening / optional file config | Next |
-| **M2/M3-C** | Adapter smoke test | After stack health |
+| **M2-B** | Minimal Kratos `kratos.yml` + identity schema | Done |
+| **M3-B** | Hydra `hydra.yml` + Compose `-c` wiring | **Done (this commit)** |
+| **M2/M3-C** | Adapter smoke test | Next |
 | **M2/M3-D** | Resolve image digests | Parallel (registry egress) |
 
 ---
@@ -125,8 +135,9 @@ At least one live call against the stack (`ProviderInfo` or admin identity read/
 | **M23-R1** | Image digests unresolved | UNRESOLVED marker |
 | **M23-R2** | Accidental admin exposure | 127.0.0.1 binds; prod network policy later |
 | **M23-R3** | Shared DB with Keycloak | Separate services and DB names |
-| **M23-R4** | Business fields in identity schema | §37 schema review; `additionalProperties: false` |
-| **M23-R5** | Courier SMTP stub | Acceptable for admin-API foundation; real mail in later env |
+| **M23-R4** | Business fields in identity schema | §37 schema; `additionalProperties: false` |
+| **M23-R5** | Courier SMTP stub | Acceptable for admin-API foundation |
+| **M23-R6** | Treating Hydra login URL as identity store | §11 comments in hydra.yml; Kratos remains human IdP |
 
 ---
 
@@ -142,4 +153,5 @@ At least one live call against the stack (`ProviderInfo` or admin identity read/
 | Version | Date | Change |
 |---------|------|--------|
 | 0.1 | 2026-09-27 | M2-A scaffold |
-| 0.2 | 2026-09-27 | M2-B Kratos config + identity schema (ADR-0021 §37) |
+| 0.2 | 2026-09-27 | M2-B Kratos config + identity schema |
+| 0.3 | 2026-09-27 | M3-B Hydra config-as-code + compose wiring |

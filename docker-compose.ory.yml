@@ -5,10 +5,12 @@
 #   docker compose -f docker-compose.ory.yml up -d
 #
 # Admin APIs are bound to localhost only (ADR-0021 §6–10). Public ports are
-# for local dev. Secrets below are development defaults only — never use in
-# shared or production environments (ADR-0021 §40–41).
+# for local dev. Secrets in config files are development defaults only — never
+# use in shared or production environments (ADR-0021 §40–41).
 #
-# Kratos config: config/ory/kratos/{kratos.yml,identity.schema.json} (M2-B).
+# Config:
+#   config/ory/kratos/{kratos.yml,identity.schema.json}  (M2-B)
+#   config/ory/hydra/hydra.yml                           (M3-B)
 
 services:
   postgres-kratos:
@@ -84,7 +86,9 @@ services:
         condition: service_healthy
     environment:
       DSN: postgres://${HYDRA_DB_USER:-hydra}:${HYDRA_DB_PASSWORD:-hydra_dev_only}@postgres-hydra:5432/${HYDRA_DB_NAME:-hydra}?sslmode=disable&max_conns=20&max_idle_conns=4
-    command: migrate sql -e --yes
+    volumes:
+      - ./config/ory/hydra:/etc/config/hydra:ro
+    command: -c /etc/config/hydra/hydra.yml migrate sql -e --yes
     restart: on-failure
 
   hydra:
@@ -95,21 +99,16 @@ services:
         condition: service_completed_successfully
     environment:
       DSN: postgres://${HYDRA_DB_USER:-hydra}:${HYDRA_DB_PASSWORD:-hydra_dev_only}@postgres-hydra:5432/${HYDRA_DB_NAME:-hydra}?sslmode=disable&max_conns=20&max_idle_conns=4
-      # Local-dev secrets only — replace via env in any shared environment.
-      SECRETS_SYSTEM: ${HYDRA_SECRETS_SYSTEM:-dev_only_change_me_32chars_min_xx}
-      URLS_SELF_ISSUER: ${HYDRA_URLS_SELF_ISSUER:-http://127.0.0.1:4444}
-      URLS_CONSENT: ${HYDRA_URLS_CONSENT:-http://127.0.0.1:3000/consent}
-      URLS_LOGIN: ${HYDRA_URLS_LOGIN:-http://127.0.0.1:3000/login}
-      URLS_LOGOUT: ${HYDRA_URLS_LOGOUT:-http://127.0.0.1:3000/logout}
-      STRATEGIES_ACCESS_TOKEN: jwt
-      OIDC_SUBJECT_IDENTIFIERS_SUPPORTED_TYPES: public
-      OIDC_SUBJECT_IDENTIFIERS_PAIRWISE_SALT: ${HYDRA_PAIRWISE_SALT:-dev_only_pairwise_salt}
+      # Optional override of secrets.system from hydra.yml for local experiments.
+      SECRETS_SYSTEM: ${HYDRA_SECRETS_SYSTEM:-local_dev_only_hydra_system_secret_change_me}
     ports:
       # Public OAuth/OIDC (local dev) — ADR-0021 §9
       - "4444:4444"
       # Admin API — localhost only — ADR-0021 §10
       - "127.0.0.1:4445:4445"
-    command: serve all --dev
+    volumes:
+      - ./config/ory/hydra:/etc/config/hydra:ro
+    command: serve all -c /etc/config/hydra/hydra.yml --dev
     restart: unless-stopped
 
 volumes:
