@@ -4,8 +4,11 @@
 #
 #   docker compose -f docker-compose.ory.yml up -d
 #
-# Admin APIs are bound to localhost only. Public ports are for local dev.
-# Secrets below are development defaults only — never use in shared environments.
+# Admin APIs are bound to localhost only (ADR-0021 §6–10). Public ports are
+# for local dev. Secrets below are development defaults only — never use in
+# shared or production environments (ADR-0021 §40–41).
+#
+# Kratos config: config/ory/kratos/{kratos.yml,identity.schema.json} (M2-B).
 
 services:
   postgres-kratos:
@@ -52,7 +55,7 @@ services:
       DSN: postgres://${KRATOS_DB_USER:-kratos}:${KRATOS_DB_PASSWORD:-kratos_dev_only}@postgres-kratos:5432/${KRATOS_DB_NAME:-kratos}?sslmode=disable&max_conns=20&max_idle_conns=4
     volumes:
       - ./config/ory/kratos:/etc/config/kratos:ro
-    command: migrate sql -e --yes
+    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
     restart: on-failure
 
   kratos:
@@ -64,9 +67,9 @@ services:
     environment:
       DSN: postgres://${KRATOS_DB_USER:-kratos}:${KRATOS_DB_PASSWORD:-kratos_dev_only}@postgres-kratos:5432/${KRATOS_DB_NAME:-kratos}?sslmode=disable&max_conns=20&max_idle_conns=4
     ports:
-      # Public API (local dev)
+      # Public API (local dev) — ADR-0021 §7
       - "4433:4433"
-      # Admin API — localhost only
+      # Admin API — localhost only — ADR-0021 §8
       - "127.0.0.1:4434:4434"
     volumes:
       - ./config/ory/kratos:/etc/config/kratos:ro
@@ -102,9 +105,9 @@ services:
       OIDC_SUBJECT_IDENTIFIERS_SUPPORTED_TYPES: public
       OIDC_SUBJECT_IDENTIFIERS_PAIRWISE_SALT: ${HYDRA_PAIRWISE_SALT:-dev_only_pairwise_salt}
     ports:
-      # Public OAuth/OIDC (local dev)
+      # Public OAuth/OIDC (local dev) — ADR-0021 §9
       - "4444:4444"
-      # Admin API — localhost only
+      # Admin API — localhost only — ADR-0021 §10
       - "127.0.0.1:4445:4445"
     command: serve all --dev
     restart: unless-stopped
