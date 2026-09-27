@@ -1,22 +1,22 @@
-<!-- Target path: nabhold/engine-template/contracts/README.md (becomes <new-repo>/contracts/README.md in any repo created from this template). -->
+# contracts/
 
-# Contracts
+Target path: `baobab-iam/contracts/`
 
-This directory is a placeholder for how this engine consumes or publishes
-`nabhold/shared` contracts (event/AsyncAPI schemas, API contracts, the
-Development Environment Contract this repo already declares under
-`.nabhold/`) — not a contract definition of its own. Canonical contract
-schemas live in `nabhold/shared`, pinned by tag (e.g. `nabhold/shared@v1`),
-not copied or forked into this repo.
+This directory is reserved for **shared, versioned contract artifacts** that
+cross repository boundaries (e.g. with `baobab-platform/shared` and
+`baobab-cp`).
 
-Fill this in once this engine actually consumes or publishes a contract:
+Examples of what belongs here later:
 
-- Which `nabhold/shared` contract(s), at which pinned version.
-- Whether this engine is a producer, a consumer, or both, for each.
-- Where in this repo's own code that contract is enforced (generated types,
-  schema validation, etc.).
+- JSON Schema / OpenAPI fragments for `Principal`, `ExternalSubject`, identity
+  and security event payloads
+- Locked scope definitions that must remain stable across the Keycloak → Ory
+  migration
+- Compatibility matrices (Kratos/Hydra version × PostgreSQL × adapter)
 
-Delete this file (or leave it empty with a one-line "none yet") if this
-engine genuinely doesn't touch any shared contract beyond the Development
-Environment Contract — don't leave placeholder content that looks real but
-isn't.
+The Go types in `internal/provider` are the in-process contract. External
+consumers should depend on the published contracts in `shared` once they are
+extracted; do not import `internal/provider` from other repositories.
+
+Until those shared contracts exist, treat this folder as a placeholder and keep
+provider-neutral types inside `baobab-iam` only.
