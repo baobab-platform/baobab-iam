@@ -1,6 +1,6 @@
 # Gate IAM-M4 — Workload identity on Hydra
 
-**Status:** Ready to start after M2/M3 foundation is healthy  
+**Status:** Ready to start after M2/M3 foundation is healthy (inventory complete)  
 **Date:** 2026-09-27  
 **Gate:** IAM-M4 (ADR-IAM-0019; ADR-0007 workload identity; ADR-0020 WorkloadProvisioner)  
 **Depends on:** M2/M3 Ory foundation (Hydra admin reachable); M1 provider contracts  
@@ -37,18 +37,21 @@ migration and proves admin-plane automation before M5 human migration tooling.
 | Asset | Location | M4 action |
 |-------|----------|-----------|
 | Logical client IDs | `config/clients/*` | PRESERVE IDs; provision Hydra client_id = logical id where possible |
-| Scope names | `config/scopes/*` | PRESERVE names; attach only scopes the workload is allowed |
+| Scope names | `config/scopes/*` + M0 §5 | PRESERVE names; attach only scopes the workload is allowed |
 | `WorkloadProvisioner` | `internal/provider` | Use Ory adapter against foundation / non-prod Hydra |
+| Client classification | `docs/governance/gate-iam-m4-client-inventory.md` | M4-PRIMARY first |
 
 ---
 
 ## 4. Deliverables
 
-1. Inventory of workload clients in `config/clients` classified as M4 candidates (non-browser).
+1. [x] Inventory of workload clients classified as M4 candidates — **`gate-iam-m4-client-inventory.md`**.
 2. Bootstrap path: call `ProvisionWorkload` with `LogicalClientID`, `AllowedScopes`, `AuthMethod`.
 3. Evidence: client exists on Hydra admin; client_credentials token obtainable against local/public Hydra **in non-prod only**.
 4. Document rollback: disable Hydra client (clear grants) without deleting Keycloak client during dual-run.
 5. No change to production IssuerTrust or estate redirect URIs under this gate alone.
+
+**Preferred first client:** `baobab-trade-workload`.
 
 ---
 
@@ -69,7 +72,8 @@ migration and proves admin-plane automation before M5 human migration tooling.
 |------|------------|
 | Divergent client_id vs Keycloak | Prefer LogicalClientID as Hydra client_id (adapter already does) |
 | Secrets in Git | Client secrets only from provision response / secret store |
-| Over-scoping | Explicit AllowedScopes from config; deny-by-default |
+| Over-scoping | Explicit AllowedScopes from inventory §3; deny-by-default |
+| `context:resolve` vs `context-resolve` spelling | Normalize at TRANSLATE; prefer `context-resolve` (see inventory) |
 
 ---
 
@@ -84,3 +88,4 @@ migration and proves admin-plane automation before M5 human migration tooling.
 | Version | Date | Change |
 |---------|------|--------|
 | 0.1 | 2026-09-27 | Initial M4 scope (design only) |
+| 0.2 | 2026-09-27 | Link full client inventory; preferred first client |

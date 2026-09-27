@@ -1,6 +1,6 @@
 # Gate IAM-M1 — Provider-Neutral Contracts
 
-**Status:** In progress (M1-A code on `feat/adr-iam-ory-migration`; M1-B/C in shared/cp still open)  
+**Status:** In progress (M1-A + M1-D checklist on `feat/adr-iam-ory-migration`; M1-B/C in shared/cp still open)  
 **Date:** 2026-09-27  
 **Gate:** IAM-M1 (ADR-IAM-0019 §57 / §91; ADR-IAM-0020)  
 **Depends on:** Gate IAM-M0 baseline (docs may be completed in parallel; **no production dual-run** until M0 rollback preconditions are met)  
@@ -54,7 +54,7 @@ CP already names the canonical type `Principal` (not `CanonicalIdentity`) to mat
 
 ## 4. Deliverables
 
-### 4.1 `baobab-iam` — provider package on main
+### 4.1 `baobab-iam` — provider package
 
 ```text
 internal/provider/
@@ -72,10 +72,10 @@ internal/provider/
 
 Unchanged: contract rules, shared schema widening, CP hygiene (M1-B / M1-C in other repos).
 
-### 4.5 Gate evidence
+### 4.5 Gate evidence (M1-D)
 
-- This scope doc (status → Complete when exit criteria met)
-- PR links for iam / shared / cp when opened
+- `docs/governance/gate-iam-m1-evidence-checklist.md` — exit criteria vs branch evidence
+- This scope doc (status → Complete when exit criteria met + PR links)
 
 ### 4.6 CI
 
@@ -94,7 +94,7 @@ Unchanged: contract rules, shared schema widening, CP hygiene (M1-B / M1-C in ot
 | **M1-A** | `baobab-iam` | `internal/provider` + tests + factory | **On `feat/adr-iam-ory-migration`** |
 | **M1-B** | `shared` | Schema tweak for `provider_type` if needed | Open |
 | **M1-C** | `baobab-cp` | Ory-shaped fixture; no authz on provider_type | Open |
-| **M1-D** | `baobab-iam` | Mark this doc Complete + evidence | After PR merge |
+| **M1-D** | `baobab-iam` | Evidence checklist | **On branch** (close after PR + B/C) |
 
 ---
 
@@ -108,6 +108,8 @@ Unchanged: contract rules, shared schema widening, CP hygiene (M1-B / M1-C in ot
 6. [ ] Forbidden canonical field names checked.
 7. [x] Phase 0 freeze list acknowledged — M1 did not rename scopes or logical client IDs.
 8. [ ] This document marked Complete with PR links.
+
+Evidence detail: `docs/governance/gate-iam-m1-evidence-checklist.md`.
 
 ---
 
@@ -123,3 +125,4 @@ Unchanged: contract rules, shared schema widening, CP hygiene (M1-B / M1-C in ot
 |---------|------|--------|
 | 0.1 | 2026-09-27 | Initial M1 scope |
 | 0.2 | 2026-09-27 | M1-A on feature branch; factory; status In progress |
+| 0.3 | 2026-09-27 | M1-D evidence checklist linked |

@@ -47,6 +47,9 @@ This directory contains the ADRs for Baobab IAM.
 - [Gate IAM-M0 migration baseline](../governance/gate-iam-m0-migration-baseline.md) — inventory, classification, freeze list
 - [Gate IAM-M0 ADR matrix](../governance/gate-iam-m0-adr-matrix.md) — ADR → M-gate mapping
 - [Gate IAM-M1 provider-neutral contracts scope](../governance/gate-iam-m1-provider-neutral-contracts-scope.md)
+- [Gate IAM-M1 evidence checklist](../governance/gate-iam-m1-evidence-checklist.md)
 - [Gate IAM-M2/M3 Ory foundation scope](../governance/gate-iam-m2-m3-ory-foundation-scope.md)
+- [Gate IAM-M4 workload Hydra scope](../governance/gate-iam-m4-workload-hydra-scope.md)
+- [Gate IAM-M4 client inventory](../governance/gate-iam-m4-client-inventory.md)
 - [Ory foundation smoke](../operations/ory-foundation-smoke.md)
 - [Migration rollback baseline](../operations/migration-rollback-baseline.md)
