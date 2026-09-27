@@ -18,8 +18,7 @@ permissions:
 # avoid maintaining the same gate twice.
 
 jobs:
-  # Gate IAM-M1 (ADR-IAM-0020): provider-neutral contracts must compile and
-  # pass offline unit tests. Does not require Ory or Keycloak runtimes.
+  # Gate IAM-M1 (ADR-IAM-0020) + M5 ledger domain tests (offline).
   # Live Ory smoke remains opt-in (ORY_SMOKE=1) outside default CI.
   provider-contract:
     runs-on: ubuntu-latest
@@ -31,10 +30,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Build provider package
-        run: go build ./internal/provider/...
-      - name: Test provider package
-        run: go test ./internal/provider/... -count=1
+      - name: Build provider and migration packages
+        run: go build ./internal/provider/... ./internal/migration/...
+      - name: Test provider and migration packages
+        run: go test ./internal/provider/... ./internal/migration/... -count=1
+      - name: Build provision-workload helper
+        run: go build -o /tmp/provision-workload ./cmd/provision-workload/
 
   build:
     runs-on: ubuntu-latest
@@ -50,26 +51,12 @@ jobs:
           push: false
           load: true
           tags: baobab-iam:test
-      # A standalone `docker run` health check was previously attempted here,
-      # but this image's CMD runs Keycloak in production mode ("start", not
-      # "start-dev"), which requires a reachable PostgreSQL database to ever
-      # reach /health/ready — a bare `docker run` with no database would
-      # just hang until the curl timeout. The integration-test job below
-      # runs the full docker-compose stack (with Postgres) and is where
-      # boot/health/bootstrap is actually exercised.
       - name: Security scan (Trivy)
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: baobab-iam:test
           severity: CRITICAL,HIGH
           format: table
-      # Gate IAM-16 (Production Hardening): §219's checklist requires an
-      # SBOM, and nothing in this repo or baobab-platform/shared's reusable
-      # foundation gates generated one before this -- both only ran Trivy in
-      # vulnerability/secret-scan mode. Reusing the same already-approved
-      # trivy-action (no new third-party action to vet) in cyclonedx mode
-      # produces a real software bill of materials for the exact image this
-      # job just built, uploaded as a build artifact so it survives the run.
       - name: Generate SBOM (Trivy, CycloneDX)
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
@@ -89,9 +76,6 @@ jobs:
     env:
       BOOTSTRAP_WORKLOAD_CLIENT_SECRET: ci-test-only-secret-do-not-use-in-prod
       KC_URL: http://localhost:8080
-      # Keycloak 26 serves health/metrics on a separate management
-      # interface (port 9000 by default), not the main HTTP port —
-      # see https://www.keycloak.org/server/management-interface.
       KC_MANAGEMENT_URL: http://localhost:9000
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

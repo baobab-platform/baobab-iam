@@ -8,12 +8,19 @@ which holds Keycloak SPI JARs for the legacy runtime until Gate IAM-M19.
 
 ```text
 internal/provider/
+  doc.go               # package overview
   provider.go          # ExternalSubject, types, capability interfaces
   errors.go            # ProviderError + kind helpers
-  errors_test.go
+  validate.go          # offline validation helpers
+  factory.go           # ParseProviderName
   ory/                 # Ory Kratos (human) + Hydra (OAuth/workloads) adapter
   keycloak/            # Dual-run stub; most methods return ErrUnsupported
 ```
+
+Related (not this package):
+
+- `internal/migration` — migration ledger domain (Gate IAM-M5, ADR-0022)
+- `cmd/provision-workload` — non-prod Hydra client provision helper (Gate IAM-M4)
 
 ## Rules (normative from ADR-0020)
 
@@ -21,7 +28,7 @@ internal/provider/
 - Standards (OIDC discovery, token, JWKS, PKCE, client credentials) stay direct —
   do not wrap them in proprietary Baobab endpoints.
 - Business semantics (Tenant, LegalEntity, Market, Capability, domain authz)
-  **never** appear in these interfaces.
+  **never** appear in these interfaces (see IdentityProvisioningSpec.Validate).
 - Canonical resolution remains `issuer + subject` → ExternalIdentity → CanonicalIdentity (CP).
 - Prefer depending on the smallest capability interface, not the full `IdentityProvider` union.
 
