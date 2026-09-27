@@ -18,6 +18,24 @@ permissions:
 # avoid maintaining the same gate twice.
 
 jobs:
+  # Gate IAM-M1 (ADR-IAM-0020): provider-neutral contracts must compile and
+  # pass offline unit tests. Does not require Ory or Keycloak runtimes.
+  # Live Ory smoke remains opt-in (ORY_SMOKE=1) outside default CI.
+  provider-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build provider package
+        run: go build ./internal/provider/...
+      - name: Test provider package
+        run: go test ./internal/provider/... -count=1
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15

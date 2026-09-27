@@ -51,5 +51,6 @@ This directory contains the ADRs for Baobab IAM.
 - [Gate IAM-M2/M3 Ory foundation scope](../governance/gate-iam-m2-m3-ory-foundation-scope.md)
 - [Gate IAM-M4 workload Hydra scope](../governance/gate-iam-m4-workload-hydra-scope.md)
 - [Gate IAM-M4 client inventory](../governance/gate-iam-m4-client-inventory.md)
+- [Gate IAM-M5 migration ledger scope](../governance/gate-iam-m5-migration-ledger-scope.md)
 - [Ory foundation smoke](../operations/ory-foundation-smoke.md)
 - [Migration rollback baseline](../operations/migration-rollback-baseline.md)
