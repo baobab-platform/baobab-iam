@@ -1,0 +1,114 @@
+# docker-compose.ory.yml — optional NON-PRODUCTION Ory stack (Gate IAM-M2/M3)
+#
+# Does NOT replace docker-compose.yml (Keycloak). Run side-by-side or alone:
+#
+#   docker compose -f docker-compose.ory.yml up -d
+#
+# Admin APIs are bound to localhost only. Public ports are for local dev.
+# Secrets below are development defaults only — never use in shared environments.
+
+services:
+  postgres-kratos:
+    image: postgres:17-alpine
+    container_name: baobab-iam-postgres-kratos
+    environment:
+      POSTGRES_USER: ${KRATOS_DB_USER:-kratos}
+      POSTGRES_PASSWORD: ${KRATOS_DB_PASSWORD:-kratos_dev_only}
+      POSTGRES_DB: ${KRATOS_DB_NAME:-kratos}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_kratos_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KRATOS_DB_USER:-kratos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-hydra:
+    image: postgres:17-alpine
+    container_name: baobab-iam-postgres-hydra
+    environment:
+      POSTGRES_USER: ${HYDRA_DB_USER:-hydra}
+      POSTGRES_PASSWORD: ${HYDRA_DB_PASSWORD:-hydra_dev_only}
+      POSTGRES_DB: ${HYDRA_DB_NAME:-hydra}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_hydra_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HYDRA_DB_USER:-hydra}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kratos-migrate:
+    image: oryd/kratos:v26.3.17
+    container_name: baobab-iam-kratos-migrate
+    depends_on:
+      postgres-kratos:
+        condition: service_healthy
+    environment:
+      DSN: postgres://${KRATOS_DB_USER:-kratos}:${KRATOS_DB_PASSWORD:-kratos_dev_only}@postgres-kratos:5432/${KRATOS_DB_NAME:-kratos}?sslmode=disable&max_conns=20&max_idle_conns=4
+    volumes:
+      - ./config/ory/kratos:/etc/config/kratos:ro
+    command: migrate sql -e --yes
+    restart: on-failure
+
+  kratos:
+    image: oryd/kratos:v26.3.17
+    container_name: baobab-iam-kratos
+    depends_on:
+      kratos-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://${KRATOS_DB_USER:-kratos}:${KRATOS_DB_PASSWORD:-kratos_dev_only}@postgres-kratos:5432/${KRATOS_DB_NAME:-kratos}?sslmode=disable&max_conns=20&max_idle_conns=4
+    ports:
+      # Public API (local dev)
+      - "4433:4433"
+      # Admin API — localhost only
+      - "127.0.0.1:4434:4434"
+    volumes:
+      - ./config/ory/kratos:/etc/config/kratos:ro
+    command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
+    restart: unless-stopped
+
+  hydra-migrate:
+    image: oryd/hydra:v26.3.17
+    container_name: baobab-iam-hydra-migrate
+    depends_on:
+      postgres-hydra:
+        condition: service_healthy
+    environment:
+      DSN: postgres://${HYDRA_DB_USER:-hydra}:${HYDRA_DB_PASSWORD:-hydra_dev_only}@postgres-hydra:5432/${HYDRA_DB_NAME:-hydra}?sslmode=disable&max_conns=20&max_idle_conns=4
+    command: migrate sql -e --yes
+    restart: on-failure
+
+  hydra:
+    image: oryd/hydra:v26.3.17
+    container_name: baobab-iam-hydra
+    depends_on:
+      hydra-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://${HYDRA_DB_USER:-hydra}:${HYDRA_DB_PASSWORD:-hydra_dev_only}@postgres-hydra:5432/${HYDRA_DB_NAME:-hydra}?sslmode=disable&max_conns=20&max_idle_conns=4
+      # Local-dev secrets only — replace via env in any shared environment.
+      SECRETS_SYSTEM: ${HYDRA_SECRETS_SYSTEM:-dev_only_change_me_32chars_min_xx}
+      URLS_SELF_ISSUER: ${HYDRA_URLS_SELF_ISSUER:-http://127.0.0.1:4444}
+      URLS_CONSENT: ${HYDRA_URLS_CONSENT:-http://127.0.0.1:3000/consent}
+      URLS_LOGIN: ${HYDRA_URLS_LOGIN:-http://127.0.0.1:3000/login}
+      URLS_LOGOUT: ${HYDRA_URLS_LOGOUT:-http://127.0.0.1:3000/logout}
+      STRATEGIES_ACCESS_TOKEN: jwt
+      OIDC_SUBJECT_IDENTIFIERS_SUPPORTED_TYPES: public
+      OIDC_SUBJECT_IDENTIFIERS_PAIRWISE_SALT: ${HYDRA_PAIRWISE_SALT:-dev_only_pairwise_salt}
+    ports:
+      # Public OAuth/OIDC (local dev)
+      - "4444:4444"
+      # Admin API — localhost only
+      - "127.0.0.1:4445:4445"
+    command: serve all --dev
+    restart: unless-stopped
+
+volumes:
+  postgres_kratos_data:
+  postgres_hydra_data:

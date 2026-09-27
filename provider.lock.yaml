@@ -1,0 +1,25 @@
+# provider.lock.yaml
+# Pins the Ory Kratos and Hydra versions for Gate IAM-M2/M3 (ADR-IAM-0021).
+# Keycloak remains pinned in upstream.lock.yaml until Gate IAM-M19.
+#
+# Digests are UNRESOLVED until an environment with registry egress runs:
+#   docker buildx imagetools inspect oryd/kratos:v26.3.17
+#   docker buildx imagetools inspect oryd/hydra:v26.3.17
+# and replaces the placeholders below.
+
+kratos:
+  version: "v26.3.17"
+  image: "oryd/kratos"
+  # UNRESOLVED — do not treat as a production pin until a real digest is recorded.
+  digest: "UNRESOLVED-see-gate-iam-m2-m3-ory-foundation-scope.md"
+
+hydra:
+  version: "v26.3.17"
+  image: "oryd/hydra"
+  # UNRESOLVED — do not treat as a production pin until a real digest is recorded.
+  digest: "UNRESOLVED-see-gate-iam-m2-m3-ory-foundation-scope.md"
+
+# PostgreSQL generation target for Ory persistence (ADR-0021 §13).
+# Confirm against the pinned Ory release notes before production promotion.
+postgres:
+  version: "17"
