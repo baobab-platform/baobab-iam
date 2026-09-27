@@ -36,13 +36,13 @@ func (c IdentityClass) Valid() bool {
 type CredentialStrategy string
 
 const (
-	StrategyDirectImport           CredentialStrategy = "DIRECT_IMPORT"
-	StrategyFirstLoginMigration    CredentialStrategy = "FIRST_LOGIN_MIGRATION"
-	StrategyControlledReEnrolment  CredentialStrategy = "CONTROLLED_RE_ENROLMENT"
-	StrategyFederatedRebind        CredentialStrategy = "FEDERATED_REBIND"
-	StrategyPasskeyReEnrolment     CredentialStrategy = "PASSKEY_RE_ENROLMENT"
-	StrategyMFAReEnrolment         CredentialStrategy = "MFA_RE_ENROLMENT"
-	StrategyNoCredentialRequired   CredentialStrategy = "NO_CREDENTIAL_REQUIRED"
+	StrategyDirectImport          CredentialStrategy = "DIRECT_IMPORT"
+	StrategyFirstLoginMigration   CredentialStrategy = "FIRST_LOGIN_MIGRATION"
+	StrategyControlledReEnrolment CredentialStrategy = "CONTROLLED_RE_ENROLMENT"
+	StrategyFederatedRebind       CredentialStrategy = "FEDERATED_REBIND"
+	StrategyPasskeyReEnrolment    CredentialStrategy = "PASSKEY_RE_ENROLMENT"
+	StrategyMFAReEnrolment        CredentialStrategy = "MFA_RE_ENROLMENT"
+	StrategyNoCredentialRequired  CredentialStrategy = "NO_CREDENTIAL_REQUIRED"
 )
 
 // Valid reports whether s is a known credential strategy.
@@ -61,24 +61,24 @@ func (s CredentialStrategy) Valid() bool {
 type MigrationState string
 
 const (
-	StateDiscovered           MigrationState = "DISCOVERED"
-	StateValidated            MigrationState = "VALIDATED"
-	StateReady                MigrationState = "READY"
-	StateProvisioning         MigrationState = "PROVISIONING"
-	StateProvisioned          MigrationState = "PROVISIONED"
-	StateCredentialPending    MigrationState = "CREDENTIAL_PENDING"
-	StateCredentialReady      MigrationState = "CREDENTIAL_READY"
-	StateVerificationPending  MigrationState = "VERIFICATION_PENDING"
-	StateVerified             MigrationState = "VERIFIED"
-	StateCutoverReady         MigrationState = "CUTOVER_READY"
-	StateCutover              MigrationState = "CUTOVER"
-	StateLegacyRetired        MigrationState = "LEGACY_RETIRED"
+	StateDiscovered          MigrationState = "DISCOVERED"
+	StateValidated           MigrationState = "VALIDATED"
+	StateReady               MigrationState = "READY"
+	StateProvisioning        MigrationState = "PROVISIONING"
+	StateProvisioned         MigrationState = "PROVISIONED"
+	StateCredentialPending   MigrationState = "CREDENTIAL_PENDING"
+	StateCredentialReady     MigrationState = "CREDENTIAL_READY"
+	StateVerificationPending MigrationState = "VERIFICATION_PENDING"
+	StateVerified            MigrationState = "VERIFIED"
+	StateCutoverReady        MigrationState = "CUTOVER_READY"
+	StateCutover             MigrationState = "CUTOVER"
+	StateLegacyRetired       MigrationState = "LEGACY_RETIRED"
 	// Failure / control states
-	StateBlocked              MigrationState = "BLOCKED"
-	StateFailedRetryable      MigrationState = "FAILED_RETRYABLE"
-	StateFailedManualReview   MigrationState = "FAILED_MANUAL_REVIEW"
-	StateRolledBack           MigrationState = "ROLLED_BACK"
-	StateQuarantined          MigrationState = "QUARANTINED"
+	StateBlocked            MigrationState = "BLOCKED"
+	StateFailedRetryable    MigrationState = "FAILED_RETRYABLE"
+	StateFailedManualReview MigrationState = "FAILED_MANUAL_REVIEW"
+	StateRolledBack         MigrationState = "ROLLED_BACK"
+	StateQuarantined        MigrationState = "QUARANTINED"
 )
 
 // ProviderBinding is one side of the migration mapping (issuer + subject).
@@ -115,11 +115,24 @@ type Record struct {
 	AttemptCount            int    `json:"attempt_count"`
 	LastErrorCode           string `json:"last_error_code,omitempty"`
 
-	CreatedAt   time.Time  `json:"created_at"`
-	StartedAt   *time.Time `json:"started_at,omitempty"`
-	VerifiedAt  *time.Time `json:"verified_at,omitempty"`
-	CutoverAt   *time.Time `json:"cutover_at,omitempty"`
-	RetiredAt   *time.Time `json:"retired_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	StartedAt  *time.Time `json:"started_at,omitempty"`
+	VerifiedAt *time.Time `json:"verified_at,omitempty"`
+	CutoverAt  *time.Time `json:"cutover_at,omitempty"`
+	RetiredAt  *time.Time `json:"retired_at,omitempty"`
+}
+
+// targetOptional reports states where target issuer/subject may still be empty.
+// PROVISIONING is the stage that creates the target binding.
+func targetOptional(s MigrationState) bool {
+	switch s {
+	case StateDiscovered, StateValidated, StateReady, StateProvisioning,
+		StateBlocked, StateFailedRetryable, StateFailedManualReview,
+		StateRolledBack, StateQuarantined:
+		return true
+	default:
+		return false
+	}
 }
 
 // ValidateStructural checks required fields and enum validity.
@@ -140,10 +153,7 @@ func (r *Record) ValidateStructural() error {
 	if r.Source.Provider == "" {
 		return fmt.Errorf("migration: source provider is required")
 	}
-	// Target may be empty until PROVISIONING completes.
-	if r.MigrationState != StateDiscovered && r.MigrationState != StateValidated &&
-		r.MigrationState != StateReady && r.MigrationState != StateBlocked &&
-		r.MigrationState != StateFailedManualReview && r.MigrationState != StateQuarantined {
+	if !targetOptional(r.MigrationState) {
 		if r.Target.Issuer == "" || r.Target.Subject == "" {
 			return fmt.Errorf("migration: target issuer and subject required in state %s", r.MigrationState)
 		}
