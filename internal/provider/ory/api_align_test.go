@@ -3,6 +3,8 @@ package ory
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
 // Ensures lifecycle disable/enable encodes RFC 6902 patch for /state.
@@ -26,7 +28,12 @@ func TestJSONPatchStateShape(t *testing.T) {
 }
 
 func TestMapImportedCredentialsHashedPassword(t *testing.T) {
-	out := mapImportedCredentials(&providerImportedCredsFixture())
+	out := mapImportedCredentials(&provider.ImportedCredentials{
+		PasswordHash: &provider.PasswordHashImport{
+			Algorithm: "bcrypt",
+			Hash:      "$2a$10$example",
+		},
+	})
 	pw, ok := out["password"].(map[string]any)
 	if !ok {
 		t.Fatalf("password missing: %#v", out)
@@ -35,14 +42,4 @@ func TestMapImportedCredentialsHashedPassword(t *testing.T) {
 	if cfg["hashed_password"] != "$2a$10$example" {
 		t.Fatalf("hashed_password: %#v", cfg)
 	}
-}
-
-// local fixture to avoid importing provider types into a circular test helper style
-func providerImportedCredsFixture() *struct {
-	PasswordHash *struct {
-		Algorithm string
-		Hash      string
-	}
-} {
-	return nil
 }
