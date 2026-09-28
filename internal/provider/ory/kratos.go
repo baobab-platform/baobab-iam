@@ -3,6 +3,10 @@
 // kratosClient wraps the Ory Kratos Admin API for human identity operations.
 // Only the admin plane is used; public self-service flows are owned by
 // Digital Estate UIs (ADR-IAM-0021).
+//
+// Wire shapes follow Ory Kratos Admin OpenAPI (v26.x line used in
+// provider.lock.yaml): JSON Patch for partial identity updates; create
+// identity POST /admin/identities; sessions DELETE /admin/identities/{id}/sessions.
 package ory
 
 import (
@@ -74,9 +78,14 @@ func (c *kratosClient) provisionIdentity(
 	issuer string,
 	spec provider.IdentityProvisioningSpec,
 ) (*provider.ProviderIdentity, error) {
+	if err := spec.Validate(); err != nil {
+		return nil, err
+	}
+
 	body := kratosCreateIdentityRequest{
-		SchemaID: "default", // override via config if multiple schemas are used
+		SchemaID: "default", // matches config/ory/kratos identity schema $id binding
 		Traits:   spec.Traits,
+		State:    "active",
 		Metadata: map[string]any{},
 	}
 	if spec.MigrationID != "" {
@@ -86,7 +95,6 @@ func (c *kratosClient) provisionIdentity(
 		body.Metadata[k] = v
 	}
 
-	// Map imported credentials when present.
 	if spec.Credentials != nil {
 		body.Credentials = mapImportedCredentials(spec.Credentials)
 	}
@@ -134,14 +142,17 @@ func (c *kratosClient) provisionIdentity(
 // Lifecycle
 // ---------------------------------------------------------------------------
 
+// setIdentityActive patches identity state via JSON Patch (Kratos Admin OpenAPI).
+// A plain {"state":...} body is not accepted on PATCH /admin/identities/{id}.
 func (c *kratosClient) setIdentityActive(ctx context.Context, identityID string, active bool) error {
-	// Kratos models state via the identity's state field (active / inactive).
-	body := map[string]any{
-		"state": mapState(active),
-	}
-	payload, err := json.Marshal(body)
+	patch := []jsonPatchOp{{
+		Op:    "replace",
+		Path:  "/state",
+		Value: mapState(active),
+	}}
+	payload, err := json.Marshal(patch)
 	if err != nil {
-		return wrapErr("kratos marshal state", err)
+		return wrapErr("kratos marshal state patch", err)
 	}
 
 	url := fmt.Sprintf("%s/admin/identities/%s", c.baseURL, identityID)
@@ -149,7 +160,9 @@ func (c *kratosClient) setIdentityActive(ctx context.Context, identityID string,
 	if err != nil {
 		return wrapErr("kratos set state", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	// RFC 6902; Kratos accepts application/json for patch arrays as well,
+	// but json-patch+json is the documented content type for identity PATCH.
+	req.Header.Set("Content-Type", "application/json-patch+json")
 
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -175,7 +188,6 @@ func (c *kratosClient) setIdentityActive(ctx context.Context, identityID string,
 // ---------------------------------------------------------------------------
 
 func (c *kratosClient) revokeSessions(ctx context.Context, identityID string) error {
-	// DELETE /admin/identities/{id}/sessions invalidates all sessions for the identity.
 	url := fmt.Sprintf("%s/admin/identities/%s/sessions", c.baseURL, identityID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 	if err != nil {
@@ -199,8 +211,14 @@ func (c *kratosClient) revokeSessions(ctx context.Context, identityID string) er
 }
 
 // ---------------------------------------------------------------------------
-// Kratos wire types (minimal)
+// Kratos wire types (minimal; aligned to CreateIdentityBody / Identity)
 // ---------------------------------------------------------------------------
+
+type jsonPatchOp struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value any    `json:"value,omitempty"`
+}
 
 type kratosIdentity struct {
 	ID        string         `json:"id"`
@@ -257,19 +275,21 @@ func mapState(active bool) string {
 }
 
 // mapImportedCredentials translates the provider-neutral credential import
-// shape into the Kratos admin create-identity credentials payload.
-// Hash algorithms and exact field names must be verified against the pinned
-// Kratos version (see ADR-IAM-0021 version compatibility matrix).
+// shape into the Kratos admin create-identity credentials payload
+// (IdentityWithCredentials / password.config.hashed_password).
+// Verify against the pinned Kratos release notes when changing provider.lock.yaml.
 func mapImportedCredentials(in *provider.ImportedCredentials) map[string]any {
 	out := map[string]any{}
 	if in.PasswordHash != nil {
-		out["password"] = map[string]any{
-			"config": map[string]any{
-				"hashed_password": in.PasswordHash.Hash,
-				// algorithm is often inferred by Kratos from the hash prefix;
-				// keep Algorithm available for adapters that need it.
-			},
+		// Prefer pre-hashed import so plaintext never crosses the admin plane.
+		cfg := map[string]any{
+			"hashed_password": in.PasswordHash.Hash,
 		}
+		if in.PasswordHash.Algorithm != "" {
+			// Algorithm is often inferred from the hash encoding; retained for operators.
+			cfg["algorithm"] = in.PasswordHash.Algorithm
+		}
+		out["password"] = map[string]any{"config": cfg}
 	}
 	if in.TOTP != nil {
 		out["totp"] = map[string]any{
@@ -278,8 +298,6 @@ func mapImportedCredentials(in *provider.ImportedCredentials) map[string]any {
 			},
 		}
 	}
-	// WebAuthn import is version-dependent; leave a hook for the concrete
-	// payload once the pinned Kratos release is chosen.
 	if len(in.WebAuthn) > 0 {
 		creds := make([]json.RawMessage, 0, len(in.WebAuthn))
 		for _, w := range in.WebAuthn {

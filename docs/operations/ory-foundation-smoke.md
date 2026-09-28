@@ -3,6 +3,9 @@
 **Audience:** engineers validating the non-production Ory overlay  
 **Does not:** touch production Keycloak, dual-issuer, or live client cutover  
 
+For end-to-end workload provision + token steps, use
+[ory-live-integration-runbook.md](./ory-live-integration-runbook.md).
+
 ---
 
 ## 1. Prerequisites
