@@ -1,18 +1,23 @@
-// Command provision-workload provisions a single non-production Hydra OAuth
-// client via the Ory WorkloadProvisioner (Gate IAM-M4).
+// Command provision-workload manages non-production Hydra OAuth workload
+// clients via the Ory WorkloadProvisioner (Gate IAM-M4).
 //
-// Default target: baobab-trade-workload (see gate-iam-m4-client-inventory.md).
+// Opt-in: ORY_PROVISION=1
 //
-// Opt-in only — requires ORY_PROVISION=1 and reachable admin URLs:
+// Actions (ORY_ACTION):
+//
+//	provision     — create/update one client (default: baobab-trade-workload)
+//	disable       — clear grants on one client
+//	rotate        — rotate client secret
+//	all-primary   — provision every M4-PRIMARY logical client id
 //
 //	export ORY_PROVISION=1
-//	export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434
 //	export ORY_HYDRA_ADMIN_URL=http://127.0.0.1:4445
+//	export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434
 //	export ORY_PUBLIC_ISSUER=http://127.0.0.1:4444
+//	export ORY_ACTION=provision
 //	go run ./cmd/provision-workload/
 //
-// Does not touch production Keycloak or dual-issuer configuration.
-// Client secrets are never printed in full.
+// Does not touch production Keycloak. Secrets are never printed in full.
 package main
 
 import (
@@ -26,7 +31,24 @@ import (
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
 )
 
-const defaultLogicalClientID = "baobab-trade-workload"
+// M4-PRIMARY logical client IDs (gate-iam-m4-client-inventory.md).
+var m4Primary = []string{
+	"baobab-trade-workload",
+	"baobab-cms-workload",
+	"baobab-erp-workload",
+	"baobab-pulse-workload",
+	"thamani-backend-workload",
+	"zuribeans-backend-workload",
+}
+
+var displayNames = map[string]string{
+	"baobab-trade-workload":       "Baobab Trade Workload",
+	"baobab-cms-workload":         "Baobab CMS Workload",
+	"baobab-erp-workload":         "Baobab ERP Workload",
+	"baobab-pulse-workload":       "Baobab Pulse Workload",
+	"thamani-backend-workload":    "Thamani Backend Workload",
+	"zuribeans-backend-workload":  "ZuriBeans Backend Workload",
+}
 
 func main() {
 	if os.Getenv("ORY_PROVISION") != "1" {
@@ -34,31 +56,15 @@ func main() {
 		os.Exit(0)
 	}
 
+	action := strings.ToLower(envOr("ORY_ACTION", "provision"))
 	kratosAdmin := envOr("ORY_KRATOS_ADMIN_URL", "http://127.0.0.1:4434")
 	hydraAdmin := envOr("ORY_HYDRA_ADMIN_URL", "http://127.0.0.1:4445")
 	issuer := envOr("ORY_PUBLIC_ISSUER", "http://127.0.0.1:4444")
-	logicalID := envOr("ORY_LOGICAL_CLIENT_ID", defaultLogicalClientID)
+	logicalID := envOr("ORY_LOGICAL_CLIENT_ID", "baobab-trade-workload")
 
-	// Freeze-list scopes for M4-PRIMARY workloads (M0 §5 / M4 inventory).
-	// context-resolve is the Baobab name (normalize from Keycloak context:resolve).
 	scopes := []string{"actor-type-workload", "context-resolve"}
 	if s := os.Getenv("ORY_ALLOWED_SCOPES"); s != "" {
 		scopes = splitCSV(s)
-	}
-
-	spec := provider.WorkloadProvisioningSpec{
-		LogicalClientID: logicalID,
-		DisplayName:     envOr("ORY_DISPLAY_NAME", "Baobab Trade Workload"),
-		AllowedScopes:   scopes,
-		AuthMethod:      provider.WorkloadAuthClientSecret,
-		Metadata: map[string]string{
-			"gate":       "IAM-M4",
-			"environment": "non-prod-local",
-		},
-	}
-	if err := spec.Validate(); err != nil {
-		fmt.Fprintf(os.Stderr, "provision-workload: invalid spec: %v\n", err)
-		os.Exit(2)
 	}
 
 	adapter, err := ory.NewAdapter(ory.Config{
@@ -72,17 +78,65 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
+	switch action {
+	case "provision":
+		if err := provisionOne(ctx, adapter, logicalID, scopes); err != nil {
+			fmt.Fprintf(os.Stderr, "provision-workload: %v\n", err)
+			os.Exit(1)
+		}
+	case "disable":
+		if err := adapter.DisableWorkload(ctx, provider.ProviderWorkloadReference{LogicalClientID: logicalID}); err != nil {
+			fmt.Fprintf(os.Stderr, "provision-workload: disable: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("disabled logical_client_id=%s\n", logicalID)
+	case "rotate":
+		w, err := adapter.RotateWorkloadCredentials(ctx, provider.ProviderWorkloadReference{LogicalClientID: logicalID})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "provision-workload: rotate: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("rotated logical_client_id=%s secret=%s\n", w.LogicalClientID, redactSecret(w.ClientSecret))
+	case "all-primary":
+		for _, id := range m4Primary {
+			if err := provisionOne(ctx, adapter, id, scopes); err != nil {
+				fmt.Fprintf(os.Stderr, "provision-workload: %s: %v\n", id, err)
+				os.Exit(1)
+			}
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "provision-workload: unknown ORY_ACTION %q (want provision|disable|rotate|all-primary)\n", action)
+		os.Exit(2)
+	}
+}
+
+func provisionOne(ctx context.Context, adapter *ory.Adapter, logicalID string, scopes []string) error {
+	spec := provider.WorkloadProvisioningSpec{
+		LogicalClientID: logicalID,
+		DisplayName:     displayNames[logicalID],
+		AllowedScopes:   scopes,
+		AuthMethod:      provider.WorkloadAuthClientSecret,
+		Metadata: map[string]string{
+			"gate":        "IAM-M4",
+			"environment": "non-prod-local",
+		},
+	}
+	if spec.DisplayName == "" {
+		spec.DisplayName = logicalID
+	}
+	if err := spec.Validate(); err != nil {
+		return err
+	}
 	w, err := adapter.ProvisionWorkload(ctx, spec)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "provision-workload: ProvisionWorkload failed (is Hydra up?): %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("ProvisionWorkload %s (is Hydra up?): %w", logicalID, err)
 	}
-
 	fmt.Printf("provider=%s logical_client_id=%s provider_client_id=%s issuer=%s auth_method=%s secret=%s\n",
 		w.Provider, w.LogicalClientID, w.ProviderClientID, w.Issuer, w.AuthMethod, redactSecret(w.ClientSecret))
+	return nil
 }
 
 func envOr(k, fallback string) string {

@@ -9,17 +9,7 @@ on:
 permissions:
   contents: read
 
-# NOTE: Foundation Repository Gates run via the separately-maintained
-# .github/workflows/foundation.yml (pinned to baobab-platform/shared's v1.2.0 tag).
-# This file previously also declared its own "foundation" job pointing at a
-# nonexistent workflow path (foundation-gates.yml vs. the real
-# foundation-repository-gates.yml) with an unresolved "<SHA>" placeholder;
-# that job never could have run. Removed rather than fixed in place to
-# avoid maintaining the same gate twice.
-
 jobs:
-  # Gate IAM-M1 (ADR-IAM-0020) + M5 ledger domain tests (offline).
-  # Live Ory smoke remains opt-in (ORY_SMOKE=1) outside default CI.
   provider-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -30,12 +20,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Build provider and migration packages
-        run: go build ./internal/provider/... ./internal/migration/...
-      - name: Test provider and migration packages
+      - name: Build packages
+        run: go build ./internal/provider/... ./internal/migration/... ./cmd/provision-workload/
+      - name: Test packages
         run: go test ./internal/provider/... ./internal/migration/... -count=1
-      - name: Build provision-workload helper
-        run: go build -o /tmp/provision-workload ./cmd/provision-workload/
 
   build:
     runs-on: ubuntu-latest
