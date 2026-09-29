@@ -1,49 +1,60 @@
-# .nabhold/environment.yaml – Foundation 4 baseline
+# Baobab Development Environment Contract
 #
-# Conforms to baobab-platform/shared's Development Environment Contract
-# (contracts/development-environment/schema.yaml), validated by the
-# `foundation / repository-contract` CI job (baobab-platform/shared's
-# foundation-repository-gates.yml, called from .github/workflows/
-# foundation.yml). Previously only declared `version`/`profile`/`contracts`,
-# none of which the actual schema requires or recognizes — the real
-# required fields (schema/application/environment/compatibility_policy/
-# validation) were entirely missing, which is why this job failed outright
-# ("invalid environment contract name"). Modelled on baobab-platform/shared's own
-# declaration, the schema's canonical reference example.
+# Purpose:
+#   Declares the minimum baobab-dev environment required to develop,
+#   build and test this repository.
+#
+# This file does NOT describe:
+#   - Baobab domain/business capabilities;
+#   - Control Plane CapabilityProviders;
+#   - production deployment topology;
+#   - application dependencies (Keycloak vs Ory runtime choice).
+#
+# Canonical schema:
+#   baobab-platform/shared/contracts/development-environment/schema.yaml
+#
+# baobab-dev capability source:
+#   baobab-platform/baobab-dev/config/capabilities.yaml
+#
+# Guidance: baobab-platform/engine-template/.baobab/environment.yaml.example
+
 schema:
-  name: baobab-platform-development-environment-contract
+  name: "baobab-platform-development-environment-contract"
   version: "1.0"
+
 application:
-  name: baobab-iam
+  # Repository/application identifier (repository slug).
+  name: "baobab-iam"
+  # Repository/application release version, NOT the baobab-dev version.
   version: "0.1.0"
+
 environment:
-  provider: baobab-dev
-  profile: full
-  # Must literally match the image tag .devcontainer/devcontainer.json
-  # pins (the validator checks the devcontainer file contains
-  # "ghcr.io/baobab-platform/baobab-dev:<minimum_version>" verbatim for the "full"
-  # profile, which has no tag suffix).
+  provider: "baobab-dev"
+  # Backend/headless engine — full profile (engine-template guidance).
+  profile: "full"
+  # Must match the image tag pinned in .devcontainer/devcontainer.json
+  # (ghcr.io/baobab-platform/baobab-dev:<minimum_version>).
   minimum_version: "1.4.4"
   contract_minimum_version: "1.0"
+
 compatibility_policy:
   strict_runtime_versions: true
   allow_newer_patch_versions: true
   allow_newer_minor_versions: false
   allow_older_versions: false
+
 validation:
-  # Drawn from the "full" profile's capability_domains (schema.yaml) --
-  # the subset baobab-iam actually depends on per its own Makefile:
-  # docker-compose (development.docker), gh workflows (development.
-  # github_cli), Keycloak's PostgreSQL backend (database.postgresql), and
-  # jq/yq used directly by `make lint`.
+  # ONLY baobab-dev development capabilities actually required by this repo.
+  # Canonical dotted leaf names from baobab-dev/config/capabilities.yaml.
+  # Do NOT put Baobab domain capability keys here.
   required_capabilities:
-    - development.docker
-    - development.github_cli
-    - database.postgresql
-    - utilities.jq
-    - utilities.yq
-# Not part of the Development Environment Contract schema itself; carried
-# over from the prior declaration as supplementary metadata pointing at
-# this repo's shared-contract consumer lock.
-contracts:
-  - lockfile: contracts.lock.yaml
+    - "development.docker"
+    - "development.github_cli"
+    - "database.postgresql"
+    - "utilities.jq"
+    - "utilities.yq"
+
+notes:
+  - "Go toolchains for internal/provider and internal/migration are layered (devcontainer/host) until baobab-dev publishes a native Go profile; repository.yaml still declares the go technical capability for Foundation reproducibility (go.mod + go.sum)."
+  - "Local stacks: docker-compose.yml (Keycloak, legacy) and docker-compose.ory.yml (Kratos/Hydra, migration path). Both need Docker and PostgreSQL."
+  - "Do not declare languages.go under required_capabilities unless baobab-dev supplies it for the selected profile."
