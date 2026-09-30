@@ -167,5 +167,59 @@ func (r *Record) ValidateStructural() error {
 	if r.MigrationState == "" {
 		return fmt.Errorf("migration: migration_state is required")
 	}
+	// ADR-0022 §9: ledger is not a secret store — reject sensitive markers if
+	// callers embed secret material in snapshot references or error codes.
+	if err := checkForbiddenLedgerStrings(r.SourceSnapshotReference, r.LastErrorCode, r.MigrationID); err != nil {
+		return err
+	}
 	return nil
+}
+
+// checkForbiddenLedgerStrings scans selected string fields for substrings that
+// indicate secret material was placed on the ledger. This is a safety net for
+// pilot/memory stores; durable schemas must also omit secret columns.
+func checkForbiddenLedgerStrings(values ...string) error {
+	for _, v := range values {
+		lower := toLowerASCII(v)
+		for _, bad := range forbiddenLedgerSubstrings {
+			if containsASCII(lower, bad) {
+				return fmt.Errorf("migration: field must not contain sensitive material marker %q (ADR-0022 §9)", bad)
+			}
+		}
+	}
+	return nil
+}
+
+// forbiddenLedgerSubstrings are case-insensitive markers. Prefer structured
+// columns over embedding secrets in snapshot references or error codes.
+var forbiddenLedgerSubstrings = []string{
+	"password=",
+	"client_secret=",
+	"totp_secret",
+	"private_key",
+	"-----begin",
+}
+
+func toLowerASCII(s string) string {
+	b := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		b[i] = c
+	}
+	return string(b)
+}
+
+func containsASCII(hay, needle string) bool {
+	if needle == "" {
+		return false
+	}
+	for i := 0; i+len(needle) <= len(hay); i++ {
+		if hay[i:i+len(needle)] == needle {
+			return true
+		}
+	}
+	return false
 }
