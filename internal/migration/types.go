@@ -81,6 +81,22 @@ const (
 	StateQuarantined        MigrationState = "QUARANTINED"
 )
 
+// Valid reports whether s is one of the migration states defined by
+// ADR-IAM-0022. Persisted rows fail closed on unknown values so a typo
+// cannot create a ledger record that has no legal transition path.
+func (s MigrationState) Valid() bool {
+	switch s {
+	case StateDiscovered, StateValidated, StateReady, StateProvisioning,
+		StateProvisioned, StateCredentialPending, StateCredentialReady,
+		StateVerificationPending, StateVerified, StateCutoverReady,
+		StateCutover, StateLegacyRetired, StateBlocked, StateFailedRetryable,
+		StateFailedManualReview, StateRolledBack, StateQuarantined:
+		return true
+	default:
+		return false
+	}
+}
+
 // ProviderBinding is one side of the migration mapping (issuer + subject).
 // Sensitive credential material MUST NOT appear here.
 type ProviderBinding struct {
@@ -164,8 +180,8 @@ func (r *Record) ValidateStructural() error {
 	if !r.CredentialStrategy.Valid() {
 		return fmt.Errorf("migration: invalid credential_strategy %q", r.CredentialStrategy)
 	}
-	if r.MigrationState == "" {
-		return fmt.Errorf("migration: migration_state is required")
+	if !r.MigrationState.Valid() {
+		return fmt.Errorf("migration: invalid migration_state %q", r.MigrationState)
 	}
 	// ADR-0022 §9: ledger is not a secret store — reject sensitive markers if
 	// callers embed secret material in snapshot references or error codes.
