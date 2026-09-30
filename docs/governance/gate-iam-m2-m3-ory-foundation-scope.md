@@ -1,6 +1,6 @@
 # Gate IAM-M2 / M3 — Ory Foundation (Kratos + Hydra)
 
-**Status:** In progress (M2-A/B, M3-B, M2/M3-C smoke scaffold; **M2/M3-D digests resolved to v26.2.0**; live Compose evidence still open)  
+**Status:** In progress (M2-A/B, M3-B; **M2/M3-C CheckReady + offline tests**; **M2/M3-D digests resolved**; live Compose evidence residual)  
 **Date:** 2026-09-30  
 **Gate:** IAM-M2 (Kratos) / IAM-M3 (Hydra) — ADR-IAM-0019 §58 / §92; ADR-IAM-0021  
 **Depends on:** Gate IAM-M1 provider contracts on branch (may merge in parallel); **M0 rollback baseline** before any shared non-prod dual-run  
@@ -69,14 +69,16 @@ See prior revisions. Paths:
 - `config/ory/kratos/{kratos.yml,identity.schema.json}`
 - `config/ory/hydra/hydra.yml`
 
-### 4.5 Adapter smoke (M2/M3-C) — **scaffold landed**
+### 4.5 Adapter smoke (M2/M3-C) — **code landed; live residual**
 
 | Path | Role |
 |------|------|
-| `internal/provider/ory/smoke_test.go` | Opt-in (`ORY_SMOKE=1`) ProviderInfo against local admin planes |
+| `internal/provider/ory/readiness.go` | `Adapter.CheckReady` — both admin planes (ADR-0021 §8/§10) |
+| `internal/provider/ory/readiness_test.go` | Offline httptest coverage (both OK, fallback path, fail-closed) |
+| `internal/provider/ory/smoke_test.go` | Opt-in (`ORY_SMOKE=1`) CheckReady + ProviderInfo |
 | `docs/operations/ory-foundation-smoke.md` | Operator steps |
 
-Live green evidence still requires image pull + `docker compose up` on a machine with registry access.
+Live green evidence still requires image pull + `docker compose up` on a machine with registry access. `Adapter.CheckReady` is covered offline with httptest; opt-in `ORY_SMOKE=1` calls CheckReady + ProviderInfo against the Compose stack.
 
 ### 4.6 Image digests (M2/M3-D) — resolved 2026-09-30
 
@@ -105,7 +107,7 @@ Architecture-specific digests (informational):
 | **M2-A** | Scope, lock, Compose overlay | Done |
 | **M2-B** | Kratos config + identity schema | Done |
 | **M3-B** | Hydra config + Compose `-c` | Done |
-| **M2/M3-C** | Smoke test + ops note | **Scaffold done; live run pending** |
+| **M2/M3-C** | Smoke + CheckReady | **Code + offline tests done; live Compose residual** |
 | **M2/M3-D** | Resolve image digests | **Done 2026-09-30** — pin corrected to published `v26.2.0`; multi-arch digests in `provider.lock.yaml` |
 
 ---
@@ -116,8 +118,8 @@ Architecture-specific digests (informational):
 2. [x] Digests resolved for published `v26.2.0` (multi-arch index). Production promotion still requires operator re-verify against the intended registry mirror.
 3. [x] Compose overlay defines separate Postgres databases for Kratos and Hydra.
 4. [x] Admin ports bound to localhost in Compose.
-5. [ ] Kratos and Hydra health/ready succeed locally (requires image pull).
-6. [ ] At least one adapter call against the stack succeeds (`ORY_SMOKE=1`).
+5. [ ] Kratos and Hydra health/ready succeed locally (requires image pull) — **offline httptest coverage landed; live residual**.
+6. [ ] At least one adapter call against the stack succeeds (`ORY_SMOKE=1`) — **residual: no Docker in agent environment 2026-09-30**.
 7. [x] No production IssuerTrust or client redirect changes.
 8. [ ] This document marked Complete with evidence.
 
@@ -154,3 +156,4 @@ In-repo work that can still proceed without live Ory images: M1-D evidence when 
 | 0.3 | 2026-09-27 | M3-B Hydra |
 | 0.4 | 2026-09-27 | M2/M3-C smoke scaffold |
 | 0.5 | 2026-09-30 | **M2/M3-D:** `v26.3.17` not published; pin corrected to `v26.2.0` with multi-arch digests |
+| 0.6 | 2026-09-30 | **M2/M3-C code:** `CheckReady` + httptest tests; live Compose residual documented |
