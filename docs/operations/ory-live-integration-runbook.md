@@ -79,7 +79,7 @@ Verify client exists:
 curl -sf http://127.0.0.1:4445/admin/clients/baobab-trade-workload | jq '{client_id,grant_types,scope,token_endpoint_auth_method}'
 ```
 
-Expected grant: `client_credentials`. Scopes should include freeze-list names such as `actor-type-workload` and `context-resolve` (not `context:resolve`).
+Expected grant: `client_credentials`. Authorization scopes must come from Shared's canonical workload registry. For `baobab-trade-workload`, use `context:resolve` and `provider-migration:task`. `actor-type-workload` is a legacy Keycloak claim-mapper scope, not a Baobab authorization permission.
 
 ---
 
@@ -90,7 +90,7 @@ Expected grant: `client_credentials`. Scopes should include freeze-list names su
 curl -sf -X POST http://127.0.0.1:4444/oauth2/token \
   -u 'baobab-trade-workload:SECRET' \
   -d 'grant_type=client_credentials' \
-  -d 'scope=actor-type-workload context-resolve' | jq '{token_type,expires_in,scope}'
+  -d 'scope=context:resolve provider-migration:task' | jq '{token_type,expires_in,scope}'
 ```
 
 Optional: decode JWT payload (if access token is JWT in this config) and confirm `iss` matches `ORY_PUBLIC_ISSUER` / `urls.self.issuer` in `config/ory/hydra/hydra.yml`.
