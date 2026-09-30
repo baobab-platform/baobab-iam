@@ -1,6 +1,6 @@
 # Phase C design — Gate IAM-M5 migration ledger (no production cutover)
 
-**Status:** Design active — **implementation limited to domain model + in-memory store**  
+**Status:** Design active — **implementation limited to domain model + in-memory store + offline provision bridge**  
 **Date:** 2026-09-30  
 **Gate:** IAM-M5 (ADR-IAM-0019 §94; ADR-IAM-0022 §7–23)  
 **Depends on:** Phase B scaffolding; live M4 evidence preferred but **not** a hard block for design/domain work in greenfield  
@@ -57,9 +57,10 @@ Keycloak (source)                    Ory (target)
 | `internal/migration/policy.go` | PhaseCPolicyGate (deny CUTOVER), AllowAllPolicyGate |
 | `internal/migration/discovery.go` | FixtureDiscovery, MapCanonicalResolver |
 | `internal/migration/batch.go` | RegisterBatch |
+| `internal/migration/bridge.go` | ProvisionBridge (DISCOVERED→PROVISIONED) |
 | `internal/migration/*_test.go` | Offline unit coverage |
 
-### Phase C design (not production runners)
+### Phase C work items
 
 | Work item | Status | Notes |
 |-----------|--------|-------|
@@ -68,7 +69,7 @@ Keycloak (source)                    Ory (target)
 | DiscoveryPort + FixtureDiscovery | **Done** | Fixture for greenfield; live Keycloak deferred |
 | CanonicalResolver + MapCanonicalResolver | **Done** | In-memory map; CP RPC deferred |
 | PolicyGate default deny CUTOVER | **Done** | `PhaseCPolicyGate` wired into `ApplyTransition` |
-| Provision bridge to `IdentityProvisioner` / M4 | Design only | Call-out ports; no production worker |
+| Provision bridge to `IdentityProvisioner` / M4 | **Done** | `ProvisionBridge` offline; live Ory injection later |
 | Durable store (Postgres / CP-owned) | Deferred | Memory store remains pilot |
 | Cutover controller + IssuerTrust | **Forbidden in Phase C** | M18 |
 
@@ -120,7 +121,7 @@ Workers must treat `CUTOVER` as a **policy gate**, not a mere enum value.
 3. No mapping → ORPHAN_CANDIDATE + placeholder canonical id
 4. RegisterBatch → DISCOVERED rows with batch id
 5. VALIDATED → READY when structural + class/strategy rules pass
-6. PROVISIONING (later): HUMAN* → IdentityProvisioner; WORKLOAD → M4 Hydra
+6. PROVISIONING: HUMAN* → IdentityProvisioner; WORKLOAD → WorkloadProvisioner (`ProvisionBridge`)
 7. CREDENTIAL_* per strategy (no secret material on row)
 8. VERIFICATION_PENDING → VERIFIED via non-prod proof
 9. STOP before production CUTOVER unless M18 PolicyGate authorizes cohort
@@ -133,8 +134,8 @@ Workers must treat `CUTOVER` as a **policy gate**, not a mere enum value.
 ```text
 DiscoveryPort       // ListSourceBindings — FixtureDiscovery landed
 CanonicalResolver   // issuer+subject → canonical_identity_id — MapCanonicalResolver landed
-IdentityProvisioner // already internal/provider — not wired in Phase C workers
-WorkloadProvisioner // already internal/provider (M4) — not wired in Phase C workers
+IdentityProvisioner // internal/provider — wired via ProvisionBridge (fakes offline)
+WorkloadProvisioner // internal/provider — wired via ProvisionBridge (fakes offline)
 LedgerStore         // RecordStore — MemoryStore pilot
 PolicyGate          // PhaseCPolicyGate default deny CUTOVER / LEGACY_RETIRED
 ```
@@ -151,6 +152,7 @@ PolicyGate          // PhaseCPolicyGate default deny CUTOVER / LEGACY_RETIRED
 6. [x] No production IssuerTrust, dual-issuer, or Keycloak disablement
 7. [x] DiscoveryPort / CanonicalResolver / PolicyGate ports + FixtureDiscovery
 8. [x] RegisterBatch (maps + orphans) + Phase C deny CUTOVER tests
+9. [x] ProvisionBridge DISCOVERED→PROVISIONED with fake provisioners
 
 ---
 
@@ -172,3 +174,4 @@ PolicyGate          // PhaseCPolicyGate default deny CUTOVER / LEGACY_RETIRED
 |---------|------|--------|
 | 0.1 | 2026-09-30 | Phase C design opened after Phase B closeout |
 | 0.2 | 2026-09-30 | Ports, RegisterBatch, PhaseCPolicyGate implementation |
+| 0.3 | 2026-09-30 | ProvisionBridge + offline human/workload provision tests |
