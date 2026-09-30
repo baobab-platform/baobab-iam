@@ -14,8 +14,9 @@
 //   - Business authority (Tenant, Capability, …) is never recorded as Ory state.
 //
 // Phase C adds DiscoveryPort, CanonicalResolver, PolicyGate (default deny
-// CUTOVER), FixtureDiscovery, MapCanonicalResolver, RegisterBatch, and
-// ProvisionBridge (DISCOVERED→PROVISIONED via Identity/Workload provisioners).
+// CUTOVER), FixtureDiscovery, MapCanonicalResolver, RegisterBatch,
+// ProvisionBridge (DISCOVERED→PROVISIONED via Identity/Workload provisioners),
+// and CredentialStage (PROVISIONED→CREDENTIAL_* without secrets on the ledger).
 //
 // See docs/governance/gate-iam-m5-migration-ledger-scope.md and
 // docs/governance/gate-iam-m5-phase-c-design.md.
