@@ -1,7 +1,7 @@
 # Gate IAM-M0 — Migration Baseline (Keycloak → Ory)
 
-**Status:** Draft — Phase 0 in progress  
-**Date:** 2026-09-27  
+**Status:** Ready for M0 close on merge (greenfield LIVE-VERIFY waived)  
+**Date:** 2026-09-30  
 **Gate:** IAM-M0 (ADR-IAM-0019 §56 / §90; ADR-IAM-0022)  
 **Primary repository:** `baobab-platform/baobab-iam`  
 **Supersedes for migration purposes:** `docs/governance/gate-iam-0-discovery.md` (Keycloak-era programme discovery, 2026-09-10)  
@@ -232,16 +232,30 @@ Provider-neutral Go contracts (`internal/provider`) may be introduced in M1 with
 
 ## 14. LIVE-VERIFY checklist (complete before closing M0)
 
-- [ ] Export live client list and compare to `config/clients/*`
-- [ ] Confirm redirect URIs and PKCE settings per public client
-- [ ] Count human users; sample password hash algorithms; MFA/WebAuthn enrolment rates
-- [ ] List Organizations and map each to PRESERVE requirement vs REPLACE object
-- [ ] Capture authentication flow graph (browser, conditional OTP)
-- [ ] Confirm admin event logging still enabled (Gate IAM-12/13)
-- [ ] Confirm break-glass accounts and runbook still valid
-- [ ] Record actual Keycloak version running vs `upstream.lock.yaml` 26.7.4
-- [ ] Attempt digest resolution for R-1 from an environment with registry egress
-- [ ] Inventory integration tests that assert Keycloak-specific URLs or claims
+**Programme posture (2026-09-30):** Baobab IAM migration is treated as **greenfield for production
+identity cutover** — there is no production dual-issuer window and no customer production traffic
+to protect under M0. Static inventory from `config/` is authoritative for classification.
+LIVE-VERIFY items that require a *live* Keycloak Admin API / production census are **waived**
+below with owner and date so M0 can close and Phase A can proceed. Re-run the playbook
+(`docs/operations/m0-live-verify-playbook.md`) before any shared non-prod dual-run or M18.
+
+| # | Item | Status | Owner / date | Notes |
+|---|------|--------|--------------|-------|
+| 1 | Export live client list vs `config/clients/*` | **Waived** | Platform Architecture / 2026-09-30 | Greenfield: committed `config/clients/*` is the inventory |
+| 2 | Redirect URIs + PKCE on public/admin clients | **Waived** | Platform Architecture / 2026-09-30 | Greenfield: use committed client JSON; re-verify when non-prod KC is stood up for dual-run prep |
+| 3 | Human user census; hash algs; MFA rates | **Waived** | Platform Architecture / 2026-09-30 | No production human identity population for this programme stage |
+| 4 | Organizations list classification | **Waived** | Platform Architecture / 2026-09-30 | KC Organizations classified REPLACE from docs/gate inventory; isolation reqs PRESERVE |
+| 5 | Auth flow graph | **Waived** | Platform Architecture / 2026-09-30 | Flows REPLACE under Kratos (ADR-0024); no live graph required for greenfield M0 |
+| 6 | Admin events enabled | **Waived** | Platform Architecture / 2026-09-30 | Gate IAM-13 phase 1 assumed from prior programme; re-check on live stack before dual-run |
+| 7 | Break-glass accounts / runbook | **Open (doc only)** | Platform Architecture / 2026-09-30 | Runbook exists (`break-glass-runbook.md`); live account proof deferred to non-prod exercise |
+| 8 | Running KC version vs lockfile | **Waived** | Platform Architecture / 2026-09-30 | Pin remains `upstream.lock.yaml` 26.7.4 for remaining KC life |
+| 9 | R-1 / Ory digest resolution | **Open residual** | Operator with registry egress | `provider.lock.yaml` digests **UNRESOLVED**; **policy:** tags allowed for isolated non-prod only; production promotion requires real digests |
+| 10 | Tests asserting KC-only URLs/claims | **Partial** | Platform Architecture / 2026-09-30 | Inventory deferred to M7+ rewrite list; integration suite still Keycloak-oriented by design until dual-run |
+
+**Digest policy (M2/M3):**
+
+- **Isolated non-prod / local:** image tags in `provider.lock.yaml` / compose are acceptable.
+- **Shared non-prod dual-run and production:** digests MUST be resolved and recorded; unresolved digests are not production pins (R-1 / M-R3).
 
 ---
 
@@ -272,3 +286,4 @@ Provider scaffold reference: `internal/provider` (interfaces + Ory/Keycloak adap
 | Version | Date | Author | Change |
 |---------|------|--------|--------|
 | 0.1 | 2026-09-27 | Platform Architecture (draft) | Initial migration baseline from repo config + ADR-0019/0022; LIVE-VERIFY pending |
+| 0.2 | 2026-09-30 | Platform Architecture | Greenfield LIVE-VERIFY waivers; digest policy for non-prod vs production |
