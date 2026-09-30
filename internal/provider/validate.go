@@ -62,11 +62,13 @@ func (s IdentityProvisioningSpec) Validate() error {
 	return nil
 }
 
-// NormalizeAllowedScopes applies Gate IAM-M4 TRANSLATE rules for scope names
-// frozen in Keycloak client JSON but normalized for Ory / shared contracts.
+// NormalizeAllowedScopes preserves Shared's canonical authorization vocabulary
+// while accepting the short-lived migration spelling used by early M4 work.
 //
-// ADR-IAM-0019 + gate-iam-m4-client-inventory:
-//   - "context:resolve" (Keycloak defaultClientScopes spelling) → "context-resolve"
+// Shared contracts/authorization/v1/scope-registry.yaml is authoritative:
+//   - "context:resolve" is canonical.
+//   - "context-resolve" was a migration-branch artefact and translates back to
+//     the canonical scope; it MUST NOT create a second authorization meaning.
 //
 // Unknown scopes pass through unchanged (PRESERVE). Empty strings are dropped.
 // The returned slice is a copy; the input is never mutated.
@@ -80,9 +82,9 @@ func NormalizeAllowedScopes(scopes []string) []string {
 		if s == "" {
 			continue
 		}
-		// TRANSLATE: Keycloak historical scope name → Baobab freeze spelling.
-		if s == "context:resolve" {
-			s = "context-resolve"
+		// TRANSLATE only the migration-branch alias back to Shared authority.
+		if s == "context-resolve" {
+			s = "context:resolve"
 		}
 		if _, dup := seen[s]; dup {
 			continue
