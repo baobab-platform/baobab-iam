@@ -180,6 +180,14 @@ func (a *Adapter) ProvisionWorkload(ctx context.Context, spec provider.WorkloadP
 	return a.hydra.provisionClient(ctx, a.cfg.PublicIssuer, spec)
 }
 
+// ProvisionFederatedWorkload establishes the no-static-secret Hydra trust
+// needed for a Shared credential_type=federated_workload_token workload.
+// Canonical activation remains outside the provider: the actual resource
+// server must still accept the resulting token before Shared moves ACTIVE.
+func (a *Adapter) ProvisionFederatedWorkload(ctx context.Context, spec provider.FederatedWorkloadTrustSpec) (*provider.FederatedWorkloadTrust, error) {
+	return a.hydra.provisionFederatedWorkload(ctx, a.cfg.PublicIssuer, spec)
+}
+
 // DisableWorkload deactivates or deletes the Hydra client corresponding
 // to the workload reference.
 func (a *Adapter) DisableWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
@@ -252,5 +260,6 @@ func (a *Adapter) requireIssuer(subject provider.ExternalSubject) error {
 	return nil
 }
 
-// Compile-time assertion that Adapter implements the full IdentityProvider.
+// Compile-time assertions for the provider capabilities this adapter exposes.
 var _ provider.IdentityProvider = (*Adapter)(nil)
+var _ provider.FederatedWorkloadProvisioner = (*Adapter)(nil)
