@@ -113,7 +113,7 @@ secrets:
   cookie:
     - local_dev_only_cookie_secret_32b
   cipher:
-    - local_dev_only_cipher_secret32
+    - local_dev_only_cipher_secret_32b
 
 ciphers:
   algorithm: xchacha20-poly1305
