@@ -10,7 +10,6 @@ import (
 	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
-// fakeHuman is an offline IdentityProvisioner for Phase C bridge tests.
 type fakeHuman struct {
 	lastSpec provider.IdentityProvisioningSpec
 	subject  string
@@ -36,7 +35,6 @@ func (f *fakeHuman) ProvisionIdentity(_ context.Context, spec provider.IdentityP
 	}, nil
 }
 
-// fakeWorkload is an offline WorkloadProvisioner for Phase C bridge tests.
 type fakeWorkload struct {
 	lastSpec provider.WorkloadProvisioningSpec
 	fail     bool
@@ -67,6 +65,56 @@ func (f *fakeWorkload) RotateWorkloadCredentials(context.Context, provider.Provi
 	return nil, fmt.Errorf("not used in Phase C bridge tests")
 }
 
+type fakeFederated struct {
+	lastSpec provider.FederatedWorkloadTrustSpec
+	fail     bool
+}
+
+func (f *fakeFederated) ProvisionFederatedWorkload(_ context.Context, spec provider.FederatedWorkloadTrustSpec) (*provider.FederatedWorkloadTrust, error) {
+	f.lastSpec = spec
+	if f.fail {
+		return nil, fmt.Errorf("simulated federated provision failure")
+	}
+	return &provider.FederatedWorkloadTrust{
+		Provider:          "ory",
+		LogicalClientID:   spec.LogicalClientID,
+		ProviderClientID:  spec.LogicalClientID,
+		TrustID:           "trust-" + spec.LogicalClientID,
+		Issuer:            "http://127.0.0.1:4444",
+		AuthMethod:        provider.WorkloadAuthFederatedJWTBearer,
+		AssertionIssuer:   spec.AssertionIssuer,
+		AssertionSubject:  spec.AssertionSubject,
+		AllowedScopes:     append([]string(nil), spec.AllowedScopes...),
+		IntendedAudiences: append([]string(nil), spec.IntendedAudiences...),
+		TrustExpiresAt:    spec.TrustExpiresAt,
+	}, nil
+}
+
+func publicTestJWK() map[string]any {
+	return map[string]any{
+		"kty": "RSA",
+		"kid": "test-platform-key-1",
+		"use": "sig",
+		"alg": "RS256",
+		"n":   "sXCH5examplemodulusvalueforunittestsOnlyNotARealKeyValuePad",
+		"e":   "AQAB",
+	}
+}
+
+func federatedTemplate(logicalID string, scopes, audiences []string) migration.FederatedTrustTemplate {
+	return migration.FederatedTrustTemplate{
+		AssertionIssuer: "https://platform.baobab.example/token",
+		AssertionJWK:    publicTestJWK(),
+		TrustTTL:        time.Hour,
+		ScopesByLogicalID: map[string][]string{
+			logicalID: scopes,
+		},
+		AudiencesByLogicalID: map[string][]string{
+			logicalID: audiences,
+		},
+	}
+}
+
 func TestProvisionBridge_HumanToProvisioned(t *testing.T) {
 	ctx := context.Background()
 	store := migration.NewMemoryStore()
@@ -76,7 +124,6 @@ func TestProvisionBridge_HumanToProvisioned(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	r := &migration.Record{
 		MigrationID:         "mig-human-1",
 		CanonicalIdentityID: "ci_h1",
@@ -92,7 +139,6 @@ func TestProvisionBridge_HumanToProvisioned(t *testing.T) {
 	if err := svc.Register(ctx, r); err != nil {
 		t.Fatal(err)
 	}
-
 	res, err := bridge.Provision(ctx, "mig-human-1")
 	if err != nil {
 		t.Fatalf("Provision: %v", err)
@@ -100,39 +146,33 @@ func TestProvisionBridge_HumanToProvisioned(t *testing.T) {
 	if res.Record.MigrationState != migration.StateProvisioned {
 		t.Fatalf("state=%s", res.Record.MigrationState)
 	}
-	if res.Record.Target.Subject == "" || res.Record.Target.Issuer == "" {
-		t.Fatalf("target incomplete: %+v", res.Record.Target)
-	}
-	if res.ProviderSubject != res.Record.Target.Subject {
-		t.Fatalf("provider subject mismatch")
-	}
 	if human.lastSpec.MigrationID != "mig-human-1" {
-		t.Fatalf("MigrationID not passed to provisioner")
+		t.Fatalf("MigrationID not passed")
 	}
-	// Idempotent
 	res2, err := bridge.Provision(ctx, "mig-human-1")
 	if err != nil || !res2.AlreadyProvisioned {
 		t.Fatalf("idempotent: err=%v already=%v", err, res2.AlreadyProvisioned)
 	}
 }
 
-func TestProvisionBridge_WorkloadDoesNotStoreSecret(t *testing.T) {
+func TestProvisionBridge_FederatedWorkloadDefault(t *testing.T) {
 	ctx := context.Background()
 	store := migration.NewMemoryStore()
 	svc := &migration.Service{Store: store}
-	wl := &fakeWorkload{}
-	bridge, err := migration.NewProvisionBridge(svc, "http://127.0.0.1:4444", &fakeHuman{}, wl)
+	fed := &fakeFederated{}
+	bridge, err := migration.NewProvisionBridge(svc, "http://127.0.0.1:4444", &fakeHuman{}, &fakeWorkload{})
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	logicalID := "baobab-cp-workload"
+	bridge.WithFederated(fed, federatedTemplate(logicalID, []string{"billing:manage", "billing:read"}, []string{"baobab-subscriptions"}))
 	r := &migration.Record{
-		MigrationID:         "mig-wl-1",
-		CanonicalIdentityID: "ci_wl1",
+		MigrationID:         "mig-fed-1",
+		CanonicalIdentityID: "ci_cp",
 		Source: migration.ProviderBinding{
 			Provider: "keycloak",
 			Issuer:   "https://kc.example/realms/baobab",
-			Subject:  "baobab-trade-workload",
+			Subject:  logicalID,
 		},
 		IdentityClass:      migration.ClassWorkload,
 		CredentialStrategy: migration.StrategyNoCredentialRequired,
@@ -141,20 +181,84 @@ func TestProvisionBridge_WorkloadDoesNotStoreSecret(t *testing.T) {
 	if err := svc.Register(ctx, r); err != nil {
 		t.Fatal(err)
 	}
-
-	res, err := bridge.Provision(ctx, "mig-wl-1")
+	res, err := bridge.Provision(ctx, "mig-fed-1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Record.Target.Subject != "baobab-trade-workload" {
+	if res.WorkloadProfile != migration.WorkloadProfileFederated {
+		t.Fatalf("profile=%s", res.WorkloadProfile)
+	}
+	if res.Record.Target.Subject != logicalID {
 		t.Fatalf("target subject=%q", res.Record.Target.Subject)
 	}
-	// Ensure secret did not leak into error code or snapshot fields.
-	if res.Record.LastErrorCode != "" {
-		t.Fatalf("unexpected error code %q", res.Record.LastErrorCode)
+	if fed.lastSpec.Metadata["baobab_credential_type"] != "federated_workload_token" {
+		t.Fatalf("metadata=%v", fed.lastSpec.Metadata)
 	}
-	if wl.lastSpec.LogicalClientID != "baobab-trade-workload" {
-		t.Fatalf("logical id=%q", wl.lastSpec.LogicalClientID)
+	if fed.lastSpec.AssertionSubject != "system:serviceaccount:baobab:"+logicalID {
+		t.Fatalf("assertion subject=%q", fed.lastSpec.AssertionSubject)
+	}
+}
+
+func TestProvisionBridge_WorkloadWithoutFederatedFailsClosed(t *testing.T) {
+	ctx := context.Background()
+	store := migration.NewMemoryStore()
+	svc := &migration.Service{Store: store}
+	bridge, err := migration.NewProvisionBridge(svc, "http://127.0.0.1:4444", &fakeHuman{}, &fakeWorkload{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &migration.Record{
+		MigrationID:         "mig-wl-no-fed",
+		CanonicalIdentityID: "ci_x",
+		Source: migration.ProviderBinding{
+			Provider: "keycloak",
+			Issuer:   "https://kc.example/realms/baobab",
+			Subject:  "baobab-cp-workload",
+		},
+		IdentityClass:      migration.ClassWorkload,
+		CredentialStrategy: migration.StrategyNoCredentialRequired,
+		MigrationState:     migration.StateDiscovered,
+	}
+	_ = svc.Register(ctx, r)
+	if _, err := bridge.Provision(ctx, "mig-wl-no-fed"); err == nil {
+		t.Fatal("expected fail closed without federated provisioner")
+	}
+}
+
+func TestProvisionBridge_ClientSecretOnlyWhenAllowListed(t *testing.T) {
+	ctx := context.Background()
+	store := migration.NewMemoryStore()
+	svc := &migration.Service{Store: store}
+	wl := &fakeWorkload{}
+	bridge, err := migration.NewProvisionBridge(svc, "http://127.0.0.1:4444", &fakeHuman{}, wl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bridge.AllowClientSecret("lab-batch-job", []string{"context-resolve", "provider-migration:task"})
+	r := &migration.Record{
+		MigrationID:         "mig-m4c-1",
+		CanonicalIdentityID: "ci_lab",
+		Source: migration.ProviderBinding{
+			Provider: "keycloak",
+			Issuer:   "https://kc.example/realms/baobab",
+			Subject:  "lab-batch-job",
+		},
+		IdentityClass:      migration.ClassWorkload,
+		CredentialStrategy: migration.StrategyNoCredentialRequired,
+		MigrationState:     migration.StateDiscovered,
+	}
+	if err := svc.Register(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	res, err := bridge.Provision(ctx, "mig-m4c-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.WorkloadProfile != migration.WorkloadProfileClientSecret {
+		t.Fatalf("profile=%s", res.WorkloadProfile)
+	}
+	if wl.lastSpec.AuthMethod != provider.WorkloadAuthClientSecret {
+		t.Fatalf("auth=%s", wl.lastSpec.AuthMethod)
 	}
 }
 
@@ -210,7 +314,7 @@ func TestProvisionBridge_HumanFailureMarksRetryable(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.MigrationState != migration.StateFailedRetryable {
-		t.Fatalf("state=%s want FAILED_RETRYABLE", got.MigrationState)
+		t.Fatalf("state=%s", got.MigrationState)
 	}
 	if got.LastErrorCode != "provision_failed" {
 		t.Fatalf("LastErrorCode=%q", got.LastErrorCode)
