@@ -23,7 +23,7 @@ jobs:
       - name: Build packages
         run: go build ./internal/provider/... ./internal/migration/... ./cmd/provision-workload/
       - name: Test packages
-        run: go test ./internal/provider/... ./internal/migration/... -count=1
+        run: go test ./internal/provider/... ./internal/migration/... ./cmd/provision-workload -count=1
 
   build:
     runs-on: ubuntu-latest
