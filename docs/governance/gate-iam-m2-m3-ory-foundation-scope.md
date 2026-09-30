@@ -1,7 +1,7 @@
 # Gate IAM-M2 / M3 — Ory Foundation (Kratos + Hydra)
 
-**Status:** In progress (M2-A/B, M3-B, **M2/M3-C smoke scaffold**; live evidence + digests open)  
-**Date:** 2026-09-27  
+**Status:** In progress (M2-A/B, M3-B, M2/M3-C smoke scaffold; **M2/M3-D digests resolved to v26.2.0**; live Compose evidence still open)  
+**Date:** 2026-09-30  
 **Gate:** IAM-M2 (Kratos) / IAM-M3 (Hydra) — ADR-IAM-0019 §58 / §92; ADR-IAM-0021  
 **Depends on:** Gate IAM-M1 provider contracts on branch (may merge in parallel); **M0 rollback baseline** before any shared non-prod dual-run  
 **Primary repos:** `baobab-platform/baobab-iam`, `baobab-platform/infrastructure`  
@@ -17,7 +17,7 @@ After M2/M3:
 
 - Kratos and Hydra run as **separate processes** with **separate logical databases**.
 - Public vs administrative planes are distinct; admin APIs are not internet-facing.
-- Versions and (eventually) image digests are pinned in `provider.lock.yaml`.
+- Versions and image digests are pinned in `provider.lock.yaml`.
 - Local Compose overlay coexists with the existing Keycloak `docker-compose.yml`.
 - CI can optionally boot the Ory stack for adapter integration tests (follow-up).
 
@@ -78,6 +78,24 @@ See prior revisions. Paths:
 
 Live green evidence still requires image pull + `docker compose up` on a machine with registry access.
 
+### 4.6 Image digests (M2/M3-D) — resolved 2026-09-30
+
+| Image | Tag | Multi-arch index digest |
+|-------|-----|-------------------------|
+| `oryd/kratos` | `v26.2.0` | `sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643` |
+| `oryd/hydra` | `v26.2.0` | `sha256:ff67c7fb5f95074fa53374d41151713554960504b340cd3f95b09e65deaea2a9` |
+
+**Correction:** the earlier draft pin `v26.3.17` is **not** published on Docker Hub `oryd/*`. Latest v26 line as of resolution is `v26.2.0`.
+
+Architecture-specific digests (informational):
+
+| Image | amd64 | arm64 |
+|-------|-------|-------|
+| kratos | `sha256:92eedc292ff8e1a918ac442c88ed0abe44610c75121700963114549908a45ac3` | `sha256:eaf37b0c1b7b5308ad7a3247706eee032588c9ef8a13fc59dd6422eaa4e079d6` |
+| hydra | `sha256:f59c2f7f4969269b154fa34c57bc4b849263ebedbcaf8114aaeb1658a3007b4b` | `sha256:7a4626d20bcec1e90c69bdbe4f9de50a2d4374656ca6b285f9228862efb5fce7` |
+
+`docker-compose.ory.yml` pins `image:tag@sha256:…` using the multi-arch index digests above.
+
 ---
 
 ## 5. Work breakdown
@@ -88,14 +106,14 @@ Live green evidence still requires image pull + `docker compose up` on a machine
 | **M2-B** | Kratos config + identity schema | Done |
 | **M3-B** | Hydra config + Compose `-c` | Done |
 | **M2/M3-C** | Smoke test + ops note | **Scaffold done; live run pending** |
-| **M2/M3-D** | Resolve image digests | Open (registry egress) |
+| **M2/M3-D** | Resolve image digests | **Done 2026-09-30** — pin corrected to published `v26.2.0`; multi-arch digests in `provider.lock.yaml` |
 
 ---
 
 ## 6. Exit criteria
 
 1. [x] `provider.lock.yaml` pins Kratos and Hydra versions used by Compose.
-2. [ ] Digests resolved **or** residual risk accepted (same pattern as Keycloak R-1).
+2. [x] Digests resolved for published `v26.2.0` (multi-arch index). Production promotion still requires operator re-verify against the intended registry mirror.
 3. [x] Compose overlay defines separate Postgres databases for Kratos and Hydra.
 4. [x] Admin ports bound to localhost in Compose.
 5. [ ] Kratos and Hydra health/ready succeed locally (requires image pull).
@@ -109,7 +127,7 @@ Live green evidence still requires image pull + `docker compose up` on a machine
 
 | ID | Risk | Mitigation |
 |----|------|------------|
-| **M23-R1** | Image digests unresolved | UNRESOLVED marker |
+| **M23-R1** | Image digests / wrong tag | Resolved to `v26.2.0` digests; re-verify on private mirrors |
 | **M23-R2** | Accidental admin exposure | 127.0.0.1 binds |
 | **M23-R3** | Shared DB with Keycloak | Separate services and DB names |
 | **M23-R4** | Business fields in identity schema | §37 schema |
@@ -135,3 +153,4 @@ In-repo work that can still proceed without live Ory images: M1-D evidence when 
 | 0.2 | 2026-09-27 | M2-B Kratos |
 | 0.3 | 2026-09-27 | M3-B Hydra |
 | 0.4 | 2026-09-27 | M2/M3-C smoke scaffold |
+| 0.5 | 2026-09-30 | **M2/M3-D:** `v26.3.17` not published; pin corrected to `v26.2.0` with multi-arch digests |
