@@ -18,6 +18,9 @@
 // ProvisionBridge (DISCOVERED→PROVISIONED via Identity/Workload provisioners),
 // and CredentialStage (PROVISIONED→CREDENTIAL_* without secrets on the ledger).
 //
+// Workload rows default to Shared federated_workload_token (M4-F / RFC 7523);
+// client_secret is M4-C only via explicit ClientSecretAllowList (ADR-IAM-0021).
+//
 // See docs/governance/gate-iam-m5-migration-ledger-scope.md and
 // docs/governance/gate-iam-m5-phase-c-design.md.
 package migration
