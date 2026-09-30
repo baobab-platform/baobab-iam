@@ -42,12 +42,12 @@ var m4Primary = []string{
 }
 
 var displayNames = map[string]string{
-	"baobab-trade-workload":       "Baobab Trade Workload",
-	"baobab-cms-workload":         "Baobab CMS Workload",
-	"baobab-erp-workload":         "Baobab ERP Workload",
-	"baobab-pulse-workload":       "Baobab Pulse Workload",
-	"thamani-backend-workload":    "Thamani Backend Workload",
-	"zuribeans-backend-workload":  "ZuriBeans Backend Workload",
+	"baobab-trade-workload":      "Baobab Trade Workload",
+	"baobab-cms-workload":        "Baobab CMS Workload",
+	"baobab-erp-workload":        "Baobab ERP Workload",
+	"baobab-pulse-workload":      "Baobab Pulse Workload",
+	"thamani-backend-workload":   "Thamani Backend Workload",
+	"zuribeans-backend-workload": "ZuriBeans Backend Workload",
 }
 
 func main() {
@@ -62,9 +62,11 @@ func main() {
 	issuer := envOr("ORY_PUBLIC_ISSUER", "http://127.0.0.1:4444")
 	logicalID := envOr("ORY_LOGICAL_CLIENT_ID", "baobab-trade-workload")
 
-	scopes := []string{"actor-type-workload", "context-resolve"}
+	// Default scopes use freeze spelling (context-resolve). Keycloak JSON may
+	// still list context:resolve — NormalizeAllowedScopes TRANSLATEs either form.
+	scopes := provider.NormalizeAllowedScopes([]string{"actor-type-workload", "context-resolve"})
 	if s := os.Getenv("ORY_ALLOWED_SCOPES"); s != "" {
-		scopes = splitCSV(s)
+		scopes = provider.NormalizeAllowedScopes(splitCSV(s))
 	}
 
 	adapter, err := ory.NewAdapter(ory.Config{
@@ -80,6 +82,13 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
+
+	// Fail fast if Hydra admin is not reachable (ADR-0021 admin plane).
+	// Kratos is still required by the adapter config but is unused for pure workload ops.
+	if ready, err := adapter.CheckReady(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "provision-workload: foundation not ready: %v (%s)\n", err, ready.Detail)
+		os.Exit(1)
+	}
 
 	switch action {
 	case "provision":

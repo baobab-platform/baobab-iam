@@ -6,10 +6,11 @@
 // for client_credentials workloads).
 //
 // Endpoints (Hydra Admin OpenAPI / OAuth2API):
-//   POST   /admin/clients
-//   GET    /admin/clients/{id}
-//   PUT    /admin/clients/{id}   (full replace — preserve fields when updating)
-//   DELETE /admin/clients/{id}   (not used for soft-disable)
+//
+//	POST   /admin/clients
+//	GET    /admin/clients/{id}
+//	PUT    /admin/clients/{id}   (full replace — preserve fields when updating)
+//	DELETE /admin/clients/{id}   (not used for soft-disable)
 package ory
 
 import (
@@ -49,6 +50,10 @@ func (c *hydraClient) provisionClient(
 	if err := spec.Validate(); err != nil {
 		return nil, err
 	}
+
+	// TRANSLATE scope spellings at the adapter boundary (M4 inventory).
+	// Keycloak JSON may still list context:resolve; Hydra gets context-resolve.
+	spec.AllowedScopes = provider.NormalizeAllowedScopes(spec.AllowedScopes)
 
 	// Prefer stable client_id = LogicalClientID (ADR-IAM-0019 §50).
 	clientID := spec.LogicalClientID

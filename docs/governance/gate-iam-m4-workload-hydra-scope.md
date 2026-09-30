@@ -1,7 +1,7 @@
 # Gate IAM-M4 — Workload identity on Hydra
 
-**Status:** Ready to start after M2/M3 foundation is healthy (inventory complete)  
-**Date:** 2026-09-27  
+**Status:** In progress — inventory + CLI + offline adapter tests; live Hydra evidence residual  
+**Date:** 2026-09-30  
 **Gate:** IAM-M4 (ADR-IAM-0019; ADR-0007 workload identity; ADR-0020 WorkloadProvisioner)  
 **Depends on:** M2/M3 Ory foundation (Hydra admin reachable); M1 provider contracts  
 **Primary repos:** `baobab-platform/baobab-iam`, consuming services under CP/Trade/etc.  
@@ -46,10 +46,11 @@ migration and proves admin-plane automation before M5 human migration tooling.
 ## 4. Deliverables
 
 1. [x] Inventory of workload clients classified as M4 candidates — **`gate-iam-m4-client-inventory.md`**.
-2. Bootstrap path: call `ProvisionWorkload` with `LogicalClientID`, `AllowedScopes`, `AuthMethod`.
-3. Evidence: client exists on Hydra admin; client_credentials token obtainable against local/public Hydra **in non-prod only**.
-4. Document rollback: disable Hydra client (clear grants) without deleting Keycloak client during dual-run.
-5. No change to production IssuerTrust or estate redirect URIs under this gate alone.
+2. [x] Bootstrap path: `cmd/provision-workload` + `Adapter.ProvisionWorkload` (`LogicalClientID`, `AllowedScopes`, `AuthMethod`).
+3. [ ] Evidence: client exists on Hydra admin; client_credentials token obtainable against local/public Hydra **in non-prod only** (requires live foundation).
+4. [x] Rollback path: `DisableWorkload` clears `grant_types` (soft-disable); Keycloak client untouched — covered by offline test.
+5. [x] No change to production IssuerTrust or estate redirect URIs under this gate alone.
+6. [x] Scope TRANSLATE: `context:resolve` → `context-resolve` via `provider.NormalizeAllowedScopes` (applied in Ory adapter + CLI).
 
 **Preferred first client:** `baobab-trade-workload`.
 
@@ -57,12 +58,12 @@ migration and proves admin-plane automation before M5 human migration tooling.
 
 ## 5. Exit criteria
 
-1. [ ] At least one non-prod workload client provisioned via adapter on Hydra.
-2. [ ] Logical client ID stability demonstrated (same id as config).
-3. [ ] Scope list matches freeze list subset — no renamed scopes.
-4. [ ] Disable / rotate credentials exercised via adapter in non-prod.
-5. [ ] Evidence linked from this document.
-6. [ ] Keycloak workload clients (if any) still available until explicit dual-run decision.
+1. [ ] At least one non-prod workload client provisioned via adapter on Hydra — **offline create path tested; live residual**.
+2. [x] Logical client ID stability demonstrated offline (`client_id` = `LogicalClientID`).
+3. [x] Scope TRANSLATE covered (`context:resolve` → `context-resolve`); freeze names preserved otherwise.
+4. [x] Disable path covered offline (clears grants); rotate remains live residual.
+5. [ ] Live evidence linked from this document.
+6. [x] Keycloak workload JSON under `config/clients/*` preserved (no production dual-run).
 
 ---
 
@@ -89,3 +90,4 @@ migration and proves admin-plane automation before M5 human migration tooling.
 |---------|------|--------|
 | 0.1 | 2026-09-27 | Initial M4 scope (design only) |
 | 0.2 | 2026-09-27 | Link full client inventory; preferred first client |
+| 0.3 | 2026-09-30 | **M4 residual hygiene:** NormalizeAllowedScopes, httptest provision/disable tests, CLI CheckReady |
