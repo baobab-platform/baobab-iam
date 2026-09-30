@@ -16,16 +16,14 @@
 #   - Control Plane owns activation, bindings, grants, health, resolution.
 #   - EA-09 owns certification (no certified field here).
 #
-# Current catalogue status (Shared main):
-#   No identity.* keys are catalogued yet (payment / billing / commerce /
-#   commercial only). support[] entries MUST use catalogued keys, so this
-#   declaration ships planned_capabilities until EA-02A indexes identity
-#   definitions (owner baobab-iam or Shared identity package).
-#
-# When identity capabilities are catalogued, add providers:
-#   - baobab-iam.ory      (implementation_key: ory, production path)
-#   - baobab-iam.keycloak (implementation_key: keycloak, migration/legacy)
-# with support[] + implementation_evidence pointing at internal/provider/.
+# Current catalogue status (Shared 59b577d):
+#   identity.authentication.perform and identity.workload-token.issue are
+#   catalogued (shared#150, provider-neutral since shared#151). Both are
+#   listed below as CONTRACTED for baobab-iam.ory, the provider ADR-IAM-0019
+#   targets. No support[] is declared: implementation status and evidence
+#   for baobab-iam.ory and baobab-iam.keycloak are recorded only once the
+#   canonical contracts are proven against a provider (IAM M2-M4 evidence),
+#   never ahead of it. Other identity families stay proposed keys.
 #
 # Validate (with a Shared checkout):
 #   python3 <shared>/scripts/capability_catalogue.py validate-declaration \
@@ -39,11 +37,35 @@ engine:
   # Repository name as engine identity (ADR-SHARED-012). Never "keycloak" or "ory".
   engine_id: baobab-iam
 
-# Providers omitted until at least one catalogued identity.* capability exists.
-# ADR-SHARED-017 / domain.schema explicitly anticipates dual providers:
-#   baobab-iam.ory and baobab-iam.keycloak during migration.
+# Providers omitted until a catalogued identity.* capability is proven
+# against the canonical contract. ADR-SHARED-017 / domain.schema anticipates
+# dual providers: baobab-iam.ory and baobab-iam.keycloak during migration.
 
 planned_capabilities:
+  # Catalogued in Shared (identity/v1); contracted, not yet declared as support.
+  - capability_key: identity.authentication.perform
+    proposal_status: CONTRACTED
+    description: >
+      Interactive human authentication (Authorization Code + PKCE, OIDC acr
+      values) through the identity/v1 contract, provider-neutral.
+    target_provider_key: baobab-iam.ory
+    provenance:
+      authority:
+        repository: baobab-platform/baobab-iam
+        decision: ADR-IAM-0019
+
+  - capability_key: identity.workload-token.issue
+    proposal_status: CONTRACTED
+    description: >
+      Issue short-lived Baobab workload access tokens for registered workloads;
+      federated_workload_token workloads use the RFC 7523 JWT bearer path and
+      hold no static secret (ADR-0007, M4-F).
+    target_provider_key: baobab-iam.ory
+    provenance:
+      authority:
+        repository: baobab-platform/baobab-iam
+        decision: ADR-IAM-0019
+
   # Human identity lifecycle (Kratos admin plane via internal/provider/ory).
   - proposed_key: identity.human.provision
     proposal_status: PROPOSED
