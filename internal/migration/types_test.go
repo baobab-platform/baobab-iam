@@ -37,6 +37,12 @@ func TestRecordValidateStructural(t *testing.T) {
 	if err := missingCI.ValidateStructural(); err == nil {
 		t.Fatal("expected error without canonical_identity_id")
 	}
+
+	unknownState := *ok
+	unknownState.MigrationState = migration.MigrationState("TYPO")
+	if err := unknownState.ValidateStructural(); err == nil {
+		t.Fatal("expected unknown migration state to be rejected")
+	}
 }
 
 func TestResolveCanonicalByEmailAloneRejected(t *testing.T) {
