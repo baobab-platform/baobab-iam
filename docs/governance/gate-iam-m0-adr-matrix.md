@@ -1,6 +1,6 @@
 # Gate IAM-M0 — ADR Traceability Matrix (Migration Edition)
 
-**Status:** Draft — Phase 0 (evidence refreshed 2026-09-28 for feature branch)  
+**Status:** Draft — Phase 0 (evidence refreshed 2026-09-30 for Ory digests)  
 **Date:** 2026-09-27  
 **Parent:** [gate-iam-m0-migration-baseline.md](./gate-iam-m0-migration-baseline.md)  
 **Purpose:** Map ADR-0001–0032 requirements to current evidence, provider coupling, migration target, and M-gate.  
@@ -24,7 +24,7 @@
 | Artifact | Path |
 |----------|------|
 | Provider contract (M1) | `internal/provider/` |
-| Ory foundation config (M2/M3) | `config/ory/`, `docker-compose.ory.yml`, `provider.lock.yaml` |
+| Ory foundation config (M2/M3) | `config/ory/`, `docker-compose.ory.yml`, `provider.lock.yaml` (v26.2.0 digests) |
 | Workload CLI (M4) | `cmd/provision-workload/` |
 | Migration ledger domain (M5) | `internal/migration/` |
 | M1–M5 scope/evidence docs | `docs/governance/gate-iam-m*.md` |
@@ -63,7 +63,7 @@
 |-----|----------------------------|------------------|--------------|-------|--------|--------|
 | **0019** | Migrate to Kratos+Hydra; provider-neutral architecture; M0–M19 gates | ADR accepted; baseline + matrix; branch implements M1–M5 scaffolding | N/A (decision) | PRESERVE decision | Entire programme | **M0** (this gate) |
 | **0020** | Provider contract; capability interfaces; no business semantics in IdP | `internal/provider` on feature branch + CI | No | PRESERVE | `baobab-iam` adapter + `shared` contracts | **M1** |
-| **0021** | Separate Kratos/Hydra; separate DBs; public vs admin; pinned images | `docker-compose.ory.yml`, `config/ory/*`, `provider.lock.yaml` (digests UNRESOLVED) | No | PRESERVE | Deployments + lock file | **M2 / M3** |
+| **0021** | Separate Kratos/Hydra; separate DBs; public vs admin; pinned images | `docker-compose.ory.yml`, `config/ory/*`, `provider.lock.yaml` (v26.2.0 digests resolved 2026-09-30) | No | PRESERVE | Deployments + lock file | **M2 / M3** |
 | **0022** | Dual ExternalIdentity; migration ledger; credential strategies; dual-issuer | `internal/migration` domain + memory store; M5 scope doc; dual-issuer still CP | N/A | PRESERVE | CP IssuerTrust + IAM ledger | **M5, M18, M19** |
 | **0023** | Estate-owned auth UX; BFF/session boundary | ADR only | No | PRESERVE | ZuriBeans/Thamani UX | **M7 / M8** |
 | **0024** | Assurance levels; MFA/passkeys; step-up | Partially IAM-11; policy ADR new | No | PRESERVE policy | Kratos + CP policy | **M12** |
@@ -109,7 +109,7 @@ From ADR-0019 §116 and baseline §13. These are not optional rows — they are 
 | Event SPI vs Admin Events poll | 0016 | M13 design | Prefer adapter normalization over KC SPI |
 | DR restore + reconciliation unproven | 0018 | M15 exit | Schedule non-prod exercise |
 | Provider interfaces not on `main` | 0020 | M1 close | Open/merge PR for this branch |
-| Ory image digests UNRESOLVED | 0021 | M2/M3 hard pin | Registry egress |
+| Ory image digests resolved (`v26.2.0`) | 0021 | M2/M3 hard pin | Live Compose smoke still open |
 | Durable migration ledger store | 0022 | M5 production | Memory store is pilot-only |
 | IssuerTrust dual-issuer not in CP | 0022 | M18 | CP change before dual-run traffic |
 
@@ -129,3 +129,4 @@ From ADR-0019 §116 and baseline §13. These are not optional rows — they are 
 |---------|------|--------|
 | 0.1 | 2026-09-27 | Initial migration matrix from baseline + ADR set 0001–0032 |
 | 0.2 | 2026-09-28 | Branch evidence snapshot; refresh 0020–0022 / 0007 / 0016 rows |
+| 0.3 | 2026-09-30 | Ory digests resolved to published v26.2.0; live smoke still open |
