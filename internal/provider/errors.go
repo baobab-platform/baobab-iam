@@ -84,6 +84,11 @@ func IsInvalidArgument(err error) bool {
 	return kindIs(err, ErrInvalidArgument)
 }
 
+// IsUnavailable reports whether err is (or wraps) an unavailable / not-ready error.
+func IsUnavailable(err error) bool {
+	return kindIs(err, ErrUnavailable)
+}
+
 func kindIs(err error, kind ErrorKind) bool {
 	var pe *ProviderError
 	if !errors.As(err, &pe) {
