@@ -8,7 +8,7 @@
 //	provision     — create/update one client (default: baobab-trade-workload)
 //	disable       — clear grants on one client
 //	rotate        — rotate client secret
-//	all-primary   — provision every M4-PRIMARY logical client id
+//	all-primary   — rejected; each workload must use its own Shared-registry scope set
 //
 //	export ORY_PROVISION=1
 //	export ORY_HYDRA_ADMIN_URL=http://127.0.0.1:4445
@@ -34,23 +34,34 @@ import (
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
 )
 
-// M4-PRIMARY logical client IDs (gate-iam-m4-client-inventory.md).
-var m4Primary = []string{
+// Client-secret M4 IDs already ACTIVE in Shared's workload registry.
+// Shared, not Keycloak JSON, is the authority for workload IDs and scopes.
+var m4ClientCredentials = []string{
 	"baobab-trade-workload",
 	"baobab-cms-workload",
 	"baobab-erp-workload",
 	"baobab-pulse-workload",
-	"thamani-backend-workload",
-	"zuribeans-backend-workload",
+	"thamani-backend",
+	"zuribeans-backend",
+}
+
+// These identities are deliberately PROVISIONED in Shared with
+// credential_type=federated_workload_token. Provisioning either with a client
+// secret would violate EA-04 and silently downgrade the intended trust model.
+var federatedNoSecretWorkloads = map[string]struct{}{
+	"baobab-cp-workload":            {},
+	"baobab-subscriptions-workload": {},
 }
 
 var displayNames = map[string]string{
-	"baobab-trade-workload":      "Baobab Trade Workload",
-	"baobab-cms-workload":        "Baobab CMS Workload",
-	"baobab-erp-workload":        "Baobab ERP Workload",
-	"baobab-pulse-workload":      "Baobab Pulse Workload",
-	"thamani-backend-workload":   "Thamani Backend Workload",
-	"zuribeans-backend-workload": "ZuriBeans Backend Workload",
+	"baobab-trade-workload":         "Baobab Trade Workload",
+	"baobab-cms-workload":           "Baobab CMS Workload",
+	"baobab-erp-workload":           "Baobab ERP Workload",
+	"baobab-pulse-workload":         "Baobab Pulse Workload",
+	"thamani-backend":               "Thamani Backend Workload",
+	"zuribeans-backend":             "ZuriBeans Backend Workload",
+	"baobab-cp-workload":            "Baobab Control Plane Workload",
+	"baobab-subscriptions-workload": "Baobab Subscriptions Workload",
 }
 
 func main() {
@@ -66,12 +77,10 @@ func main() {
 	logicalID := envOr("ORY_LOGICAL_CLIENT_ID", "baobab-trade-workload")
 	secretOutputDir := os.Getenv("ORY_SECRET_OUTPUT_DIR")
 
-	// Default scopes use freeze spelling (context-resolve). Keycloak JSON may
-	// still list context:resolve — NormalizeAllowedScopes TRANSLATEs either form.
-	scopes := provider.NormalizeAllowedScopes([]string{"actor-type-workload", "context-resolve"})
-	if s := os.Getenv("ORY_ALLOWED_SCOPES"); s != "" {
-		scopes = provider.NormalizeAllowedScopes(splitCSV(s))
-	}
+	// Shared's workload registry is authoritative for authorization scopes.
+	// The operator must extract the selected workload's allowed_scopes and pass
+	// them explicitly; this CLI intentionally has no Keycloak-derived default.
+	scopes := provider.NormalizeAllowedScopes(splitCSV(os.Getenv("ORY_ALLOWED_SCOPES")))
 
 	adapter, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: kratosAdmin,
@@ -96,6 +105,10 @@ func main() {
 
 	switch action {
 	case "provision":
+		if len(scopes) == 0 {
+			fmt.Fprintln(os.Stderr, "provision-workload: ORY_ALLOWED_SCOPES is required; use the selected workload's allowed_scopes from Shared workload-registry.yaml")
+			os.Exit(2)
+		}
 		if err := provisionOne(ctx, adapter, logicalID, scopes, secretOutputDir); err != nil {
 			fmt.Fprintf(os.Stderr, "provision-workload: %v\n", err)
 			os.Exit(1)
@@ -119,12 +132,8 @@ func main() {
 		}
 		fmt.Printf("rotated logical_client_id=%s secret_output=%s\n", w.LogicalClientID, secretPath)
 	case "all-primary":
-		for _, id := range m4Primary {
-			if err := provisionOne(ctx, adapter, id, scopes, secretOutputDir); err != nil {
-				fmt.Fprintf(os.Stderr, "provision-workload: %s: %v\n", id, err)
-				os.Exit(1)
-			}
-		}
+		fmt.Fprintf(os.Stderr, "provision-workload: all-primary is disabled: each workload has a distinct Shared-registry scope set; provision individually (%s)\n", strings.Join(m4ClientCredentials, ","))
+		os.Exit(2)
 	default:
 		fmt.Fprintf(os.Stderr, "provision-workload: unknown ORY_ACTION %q (want provision|disable|rotate|all-primary)\n", action)
 		os.Exit(2)
@@ -132,6 +141,9 @@ func main() {
 }
 
 func provisionOne(ctx context.Context, adapter *ory.Adapter, logicalID string, scopes []string, secretOutputDir string) error {
+	if _, federated := federatedNoSecretWorkloads[logicalID]; federated {
+		return fmt.Errorf("%s is credential_type=federated_workload_token in Shared; client-secret provisioning is forbidden until the projected-token/RFC7523 path is live-proven", logicalID)
+	}
 	spec := provider.WorkloadProvisioningSpec{
 		LogicalClientID: logicalID,
 		DisplayName:     displayNames[logicalID],
