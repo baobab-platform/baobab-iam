@@ -7,10 +7,13 @@ import (
 )
 
 // Service applies ledger transitions against a RecordStore.
-// It does not talk to Kratos, Hydra, or CP — only enforces ADR-0022 state rules.
+// It does not talk to Kratos, Hydra, or CP — only enforces ADR-0022 state rules
+// and an optional PolicyGate (Phase C defaults to denying production cutover).
 type Service struct {
 	Store RecordStore
-	Now   func() time.Time // optional clock; defaults to time.Now UTC
+	// Policy is consulted on every ApplyTransition. If nil, PhaseCPolicyGate is used.
+	Policy PolicyGate
+	Now    func() time.Time // optional clock; defaults to time.Now UTC
 }
 
 func (s *Service) now() time.Time {
@@ -47,6 +50,13 @@ func (s *Service) ApplyTransition(ctx context.Context, migrationID string, to Mi
 	}
 	r, err := s.Store.Get(ctx, migrationID)
 	if err != nil {
+		return nil, err
+	}
+	policy := s.Policy
+	if policy == nil {
+		policy = PhaseCPolicyGate{}
+	}
+	if err := policy.AllowTransition(ctx, migrationID, r.MigrationState, to); err != nil {
 		return nil, err
 	}
 	if err := r.Transition(to); err != nil {

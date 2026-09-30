@@ -13,5 +13,9 @@
 //     on ledger records (ADR-0022 §9).
 //   - Business authority (Tenant, Capability, …) is never recorded as Ory state.
 //
-// See docs/governance/gate-iam-m5-migration-ledger-scope.md.
+// Phase C adds DiscoveryPort, CanonicalResolver, PolicyGate (default deny
+// CUTOVER), FixtureDiscovery, MapCanonicalResolver, and RegisterBatch.
+//
+// See docs/governance/gate-iam-m5-migration-ledger-scope.md and
+// docs/governance/gate-iam-m5-phase-c-design.md.
 package migration
