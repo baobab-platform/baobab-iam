@@ -11,7 +11,7 @@ For end-to-end workload provision + token steps, use
 ## 1. Prerequisites
 
 - Docker Compose available
-- Network access to pull `oryd/kratos:v26.3.17` and `oryd/hydra:v26.3.17` (or mirrored images matching `provider.lock.yaml`)
+- Network access to pull `oryd/kratos:v26.2.0` and `oryd/hydra:v26.2.0` (or mirrored images matching `provider.lock.yaml` digests)
 - Branch with `config/ory/**` and `docker-compose.ory.yml`
 
 ---
@@ -79,3 +79,4 @@ docker compose -f docker-compose.ory.yml down
 - Admin traffic only from this host / tooling (ADR-0021 §8, §10).
 - `PublicIssuer` in the adapter must match `urls.self.issuer` in `config/ory/hydra/hydra.yml` for subject stability checks.
 - No production secrets; local placeholders only (ADR-0021 §40–41).
+- Image pins: see `provider.lock.yaml` (v26.2.0 digests resolved 2026-09-30).

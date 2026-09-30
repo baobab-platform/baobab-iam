@@ -13,8 +13,8 @@ Related: [ory-foundation-smoke.md](./ory-foundation-smoke.md), [gate-iam-m4-clie
 | Item | Notes |
 |------|--------|
 | Branch | `feat/adr-iam-ory-migration` (or main after merge) |
-| Images | `oryd/kratos:v26.3.17`, `oryd/hydra:v26.3.17` per `provider.lock.yaml` |
-| Registry | Egress or mirror; record digests when available |
+| Images | `oryd/kratos:v26.2.0`, `oryd/hydra:v26.2.0` per `provider.lock.yaml` (digest-pinned in Compose) |
+| Registry | Docker Hub or mirror; digests recorded 2026-09-30 |
 | Ports free | 4433, 4434, 4444, 4445, 5433, 5434 |
 
 Admin planes must stay on **localhost** (ADR-0021).
@@ -134,7 +134,7 @@ Still non-prod only; do not point `ORY_*` URLs at production.
 - [ ] Disable prevents token; provision restores grants
 - [ ] Rotate issues a new secret (redacted in logs)
 - [ ] Keycloak stack untouched
-- [ ] Digests recorded in `provider.lock.yaml` when registry inspect is available
+- [x] Digests recorded in `provider.lock.yaml` (v26.2.0, 2026-09-30)
 
 ---
 
@@ -167,3 +167,4 @@ Known follow-ups after first live run: confirm health path suffixes, password im
 | Version | Date | Change |
 |---------|------|--------|
 | 0.1 | 2026-09-28 | Initial live integration runbook |
+| 0.2 | 2026-09-30 | Image pin corrected to published v26.2.0; digests recorded |
