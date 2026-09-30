@@ -1,93 +1,146 @@
 # Gate IAM-M4 — Workload identity on Hydra
 
-**Status:** In progress — inventory + CLI + offline adapter tests; live Hydra evidence residual  
+**Status:** Client-credential migration scaffold hardened; federated path selected and awaiting live proof  
 **Date:** 2026-09-30  
-**Gate:** IAM-M4 (ADR-IAM-0019; ADR-0007 workload identity; ADR-0020 WorkloadProvisioner)  
-**Depends on:** M2/M3 Ory foundation (Hydra admin reachable); M1 provider contracts  
-**Primary repos:** `baobab-platform/baobab-iam`, consuming services under CP/Trade/etc.  
-**Does not:** Bulk human migration, dual-issuer production browser traffic, Keycloak retirement  
-
----
+**Gate:** IAM-M4 / EA-04  
+**Depends on:** M1 provider contracts; M2/M3 live Ory foundation; Shared workload registry  
+**Does not:** enable M18 human dual-issuer cutover or retire Keycloak
 
 ## 1. Goal
 
-Provision **machine / workload** OAuth clients on **Hydra** using the provider-neutral
-`WorkloadProvisioner` surface, while preserving Baobab **logical client IDs** and
-scope names from the Phase 0 freeze list.
+Move workload authentication to Ory without changing Baobab workload identity
+meaning.
 
-Rationale (ADR-IAM-0019): workload cutover is lower user risk than human login
-migration and proves admin-plane automation before M5 human migration tooling.
+There are now two explicit sub-paths:
 
----
+```text
+M4-C
+existing client_credentials workloads
+        |
+        v
+Hydra client credential / later stronger client auth
 
-## 2. Non-goals
+M4-F
+federated_workload_token workloads
+        |
+        v
+platform-projected JWT assertion
+        |
+        v
+Hydra RFC 7523 JWT bearer grant
+        |
+        v
+short-lived access token
+```
 
-| Non-goal | Gate |
-|----------|------|
-| Human identity bulk import | M5 |
-| Browser dual-issuer | M18 |
-| Keycloak decommission | M19 |
-| Changing scope **meanings** | Forbidden without ADR |
-| Putting Tenant/Capability into Hydra client metadata as authz source of truth | Forbidden (ADR-0020 Category C) |
+Shared selects the credential profile per workload.
 
----
+## 2. Canonical authority
 
-## 3. Inputs (preserve)
+The authoritative input is:
 
-| Asset | Location | M4 action |
-|-------|----------|-----------|
-| Logical client IDs | `config/clients/*` | PRESERVE IDs; provision Hydra client_id = logical id where possible |
-| Scope names | `config/scopes/*` + M0 §5 | PRESERVE names; attach only scopes the workload is allowed |
-| `WorkloadProvisioner` | `internal/provider` | Use Ory adapter against foundation / non-prod Hydra |
-| Client classification | `docs/governance/gate-iam-m4-client-inventory.md` | M4-PRIMARY first |
+`baobab-platform/shared/contracts/identity/v1/workload-registry.yaml`
 
----
+IAM SHALL consume/preserve:
 
-## 4. Deliverables
+- logical workload ID;
+- lifecycle state;
+- credential type;
+- allowed audience;
+- allowed scopes.
 
-1. [x] Inventory of workload clients classified as M4 candidates — **`gate-iam-m4-client-inventory.md`**.
-2. [x] Bootstrap path: `cmd/provision-workload` + `Adapter.ProvisionWorkload` (`LogicalClientID`, `AllowedScopes`, `AuthMethod`).
-3. [ ] Evidence: client exists on Hydra admin; client_credentials token obtainable against local/public Hydra **in non-prod only** (requires live foundation).
-4. [x] Rollback path: `DisableWorkload` clears `grant_types` (soft-disable); Keycloak client untouched — covered by offline test.
-5. [x] No change to production IssuerTrust or estate redirect URIs under this gate alone.
-6. [x] Scope TRANSLATE: `context:resolve` → `context-resolve` via `provider.NormalizeAllowedScopes` (applied in Ory adapter + CLI).
+`config/clients/*.json` is retained only as Keycloak migration evidence.
 
-**Preferred first client:** `baobab-trade-workload`.
+## 3. M4-C deliverables
 
----
+- [x] provider-neutral `WorkloadProvisioner`;
+- [x] Hydra create/update/disable/rotate adapter coverage;
+- [x] secure generated-secret handoff;
+- [x] canonical scope preservation (`context:resolve`);
+- [x] Shared-registry IDs for Thamani/ZuriBeans;
+- [x] fail closed unless `ORY_ALLOWED_SCOPES` is explicitly supplied;
+- [ ] live Hydra client + token evidence.
 
-## 5. Exit criteria
+## 4. M4-F design
 
-1. [ ] At least one non-prod workload client provisioned via adapter on Hydra — **offline create path tested; live residual**.
-2. [x] Logical client ID stability demonstrated offline (`client_id` = `LogicalClientID`).
-3. [x] Scope TRANSLATE covered (`context:resolve` → `context-resolve`); freeze names preserved otherwise.
-4. [x] Disable path covered offline (clears grants); rotate remains live residual.
-5. [ ] Live evidence linked from this document.
-6. [x] Keycloak workload JSON under `config/clients/*` preserved (no production dual-run).
+Initial federated workloads:
 
----
+| Workload | Audience | Scopes |
+|---|---|---|
+| `baobab-cp-workload` | `baobab-subscriptions` | `billing:manage`, `billing:read` |
+| `baobab-subscriptions-workload` | `baobab-payments` | `payment:execute`, `payment:refund`, `payment:read` |
 
-## 6. Risks
+ADR-IAM-0019 §93.1 / ADR-IAM-0021 §54.2 select RFC 7523 for the first Ory
+implementation. No static OAuth client secret is permitted for these identities.
 
-| Risk | Mitigation |
-|------|------------|
-| Divergent client_id vs Keycloak | Prefer LogicalClientID as Hydra client_id (adapter already does) |
-| Secrets in Git | Client secrets only from provision response / secret store |
-| Over-scoping | Explicit AllowedScopes from inventory §3; deny-by-default |
-| `context:resolve` vs `context-resolve` spelling | Normalize at TRANSLATE; prefer `context-resolve` (see inventory) |
+Required sequence:
 
----
+```text
+runtime projected JWT
+  iss = platform workload-token issuer
+  sub = workload-specific subject
+  aud = Hydra token endpoint
+        |
+        v
+Hydra trusted JWT issuer
+  allow_any_subject = false
+  subject = exact workload subject
+  JWK = governed signing public key
+  scope = Shared allowlist
+        |
+        v
+JWT bearer authorization grant
+        |
+        v
+Hydra access token
+        |
+        v
+actual resource-server verifier
+```
 
-## 7. Next after M4
+## 5. Activation criterion
 
-**IAM-M5** — migration ledger + human identity path (ADR-0022).
+A Shared lifecycle flip:
 
----
+```text
+PROVISIONED -> ACTIVE
+```
 
-## 8. Document control
+is permitted only after live evidence proves the resulting access token is
+accepted by its actual consumer and contains the existing Baobab workload token
+profile.
+
+For CP -> Subscriptions that means, at minimum:
+
+- issuer/signature accepted by Subscriptions;
+- audience `baobab-subscriptions`;
+- workload client identity resolves to `baobab-cp-workload`;
+- `actor_type=workload`;
+- requested scope is a subset of `billing:manage billing:read`.
+
+The same rule applies to Subscriptions -> Payments.
+
+A Hydra client record, trusted-issuer record, or successful token endpoint HTTP
+200 on its own is insufficient activation evidence.
+
+## 6. Current blockers
+
+| Blocker | Why it matters |
+|---|---|
+| Live Ory stack evidence | PR #42 currently has offline/CI evidence only |
+| Platform projected-token issuer/JWK | Infrastructure must provide the assertion issuer and signing-key lifecycle |
+| Hydra access-token claim proof | Consumer requires `actor_type=workload`; this must be proven from live token output rather than assumed |
+| Resource consumer E2E | status cannot move ACTIVE before Subscriptions/Payments accept the token |
+
+## 7. Rollback
+
+M4-F rollback is to stop issuing/exchanging projected assertions and keep the
+Shared workload lifecycle non-ACTIVE. It is **not** to introduce a client
+secret.
+
+## Document control
 
 | Version | Date | Change |
-|---------|------|--------|
-| 0.1 | 2026-09-27 | Initial M4 scope (design only) |
-| 0.2 | 2026-09-27 | Link full client inventory; preferred first client |
-| 0.3 | 2026-09-30 | **M4 residual hygiene:** NormalizeAllowedScopes, httptest provision/disable tests, CLI CheckReady |
+|---|---|---|
+| 0.1–0.3 | 2026-09-27..30 | Original client-credential M4 scaffold |
+| 0.4 | 2026-09-30 | Split M4-C/M4-F; selected RFC7523; made Shared authoritative; defined activation evidence |
