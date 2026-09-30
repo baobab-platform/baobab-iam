@@ -16,8 +16,8 @@ import (
 )
 
 // TestProvisionWorkload_CreateAndNormalizeScopes verifies M4 bootstrap:
-// LogicalClientID is used as Hydra client_id, and context:resolve is
-// TRANSLATEd to context-resolve before the Admin API write (ADR-0019 / M4 inventory).
+// LogicalClientID is used as Hydra client_id, and the temporary migration alias
+// context-resolve is translated back to Shared's canonical context:resolve.
 func TestProvisionWorkload_CreateAndNormalizeScopes(t *testing.T) {
 	var mu sync.Mutex
 	var posted map[string]any
@@ -56,8 +56,8 @@ func TestProvisionWorkload_CreateAndNormalizeScopes(t *testing.T) {
 	wload, err := a.ProvisionWorkload(context.Background(), provider.WorkloadProvisioningSpec{
 		LogicalClientID: "baobab-trade-workload",
 		DisplayName:     "Baobab Trade Workload",
-		// Keycloak freeze spelling — must be normalized before Hydra write.
-		AllowedScopes: []string{"actor-type-workload", "context:resolve"},
+		// Migration alias plus a canonical Baobab workload permission.
+		AllowedScopes: []string{"context-resolve", "provider-migration:task"},
 		AuthMethod:    provider.WorkloadAuthClientSecret,
 		Metadata: map[string]string{
 			"gate": "IAM-M4",
@@ -88,14 +88,14 @@ func TestProvisionWorkload_CreateAndNormalizeScopes(t *testing.T) {
 		t.Fatalf("client_id: %#v", posted["client_id"])
 	}
 	scope, _ := posted["scope"].(string)
-	if !strings.Contains(scope, "context-resolve") {
-		t.Fatalf("scope missing context-resolve after TRANSLATE: %q", scope)
+	if !strings.Contains(scope, "context:resolve") {
+		t.Fatalf("scope missing canonical context:resolve after TRANSLATE: %q", scope)
 	}
-	if strings.Contains(scope, "context:resolve") {
-		t.Fatalf("scope still has Keycloak spelling context:resolve: %q", scope)
+	if strings.Contains(scope, "context-resolve") {
+		t.Fatalf("scope still has non-canonical migration alias context-resolve: %q", scope)
 	}
-	if !strings.Contains(scope, "actor-type-workload") {
-		t.Fatalf("scope missing actor-type-workload: %q", scope)
+	if !strings.Contains(scope, "provider-migration:task") {
+		t.Fatalf("scope missing provider-migration:task: %q", scope)
 	}
 	grants, _ := posted["grant_types"].([]any)
 	if len(grants) != 1 || grants[0] != "client_credentials" {
