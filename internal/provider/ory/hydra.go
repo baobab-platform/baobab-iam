@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sort"
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
@@ -51,8 +53,8 @@ func (c *hydraClient) provisionClient(
 		return nil, err
 	}
 
-	// TRANSLATE scope spellings at the adapter boundary (M4 inventory).
-	// Keycloak JSON may still list context:resolve; Hydra gets context-resolve.
+	// Preserve Shared canonical scopes at the adapter boundary. The only
+	// translation accepted here is the retired migration alias back to Shared.
 	spec.AllowedScopes = provider.NormalizeAllowedScopes(spec.AllowedScopes)
 
 	// Prefer stable client_id = LogicalClientID (ADR-IAM-0019 §50).
@@ -141,6 +143,174 @@ func (c *hydraClient) provisionClient(
 		UpdatedAt:        now,
 		Metadata:         spec.Metadata,
 	}, nil
+}
+
+const hydraJWTBearerGrantType = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+
+// provisionFederatedWorkload configures Hydra for an RFC 7523 workload
+// assertion without creating or rotating a static OAuth client secret.
+// The returned trust is provider-side evidence only; Shared remains the
+// authority for whether the workload lifecycle may become ACTIVE.
+func (c *hydraClient) provisionFederatedWorkload(
+	ctx context.Context,
+	issuer string,
+	spec provider.FederatedWorkloadTrustSpec,
+) (*provider.FederatedWorkloadTrust, error) {
+	if err := spec.Validate(); err != nil {
+		return nil, err
+	}
+	spec.AllowedScopes = provider.NormalizeAllowedScopes(spec.AllowedScopes)
+	clientID := spec.LogicalClientID
+
+	existing, getErr := c.getClient(ctx, clientID)
+	if getErr != nil && !provider.IsNotFound(getErr) {
+		return nil, getErr
+	}
+	metadata := toAnyMap(spec.Metadata)
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	metadata["baobab_credential_type"] = "federated_workload_token"
+	metadata["baobab_intended_audiences"] = append([]string(nil), spec.IntendedAudiences...)
+
+	if existing == nil {
+		body := hydraOAuth2Client{
+			ClientID:                clientID,
+			ClientName:              spec.DisplayName,
+			GrantTypes:              []string{hydraJWTBearerGrantType},
+			ResponseTypes:           []string{},
+			Scope:                   joinScopes(spec.AllowedScopes),
+			TokenEndpointAuthMethod: "none",
+			Metadata:                metadata,
+		}
+		// Do not copy Shared logical audiences into Hydra Audience. Hydra models
+		// that field as URL resource indicators; the Baobab logical audience is
+		// an activation claim that must be proven by the live token profile.
+		if _, err := c.postClient(ctx, body); err != nil {
+			return nil, err
+		}
+	} else {
+		if existing.TokenEndpointAuthMethod != "" && existing.TokenEndpointAuthMethod != "none" {
+			return nil, &provider.ProviderError{
+				Kind: provider.ErrConflict, Provider: "ory",
+				Message: "refusing to convert a secret-backed workload client into federated JWT bearer trust",
+			}
+		}
+		if existing.ClientSecret != "" {
+			return nil, &provider.ProviderError{
+				Kind: provider.ErrConflict, Provider: "ory",
+				Message: "federated workload client unexpectedly carries a client secret",
+			}
+		}
+		existing.ClientName = spec.DisplayName
+		existing.GrantTypes = []string{hydraJWTBearerGrantType}
+		existing.Scope = joinScopes(spec.AllowedScopes)
+		existing.Audience = nil
+		existing.TokenEndpointAuthMethod = "none"
+		existing.Metadata = metadata
+		existing.ClientSecret = ""
+		if err := c.putClient(ctx, clientID, *existing); err != nil {
+			return nil, err
+		}
+	}
+
+	trustID, err := c.ensureTrustedJWTIssuer(ctx, spec)
+	if err != nil {
+		return nil, err
+	}
+	return &provider.FederatedWorkloadTrust{
+		Provider:          "ory",
+		LogicalClientID:   spec.LogicalClientID,
+		ProviderClientID:  clientID,
+		TrustID:           trustID,
+		Issuer:            issuer,
+		AuthMethod:        provider.WorkloadAuthFederatedJWTBearer,
+		AssertionIssuer:   spec.AssertionIssuer,
+		AssertionSubject:  spec.AssertionSubject,
+		AllowedScopes:     append([]string(nil), spec.AllowedScopes...),
+		IntendedAudiences: append([]string(nil), spec.IntendedAudiences...),
+		TrustExpiresAt:    spec.TrustExpiresAt.UTC(),
+	}, nil
+}
+
+func (c *hydraClient) ensureTrustedJWTIssuer(ctx context.Context, spec provider.FederatedWorkloadTrustSpec) (string, error) {
+	trusted, err := c.listTrustedJWTIssuers(ctx, spec.AssertionIssuer)
+	if err != nil {
+		return "", err
+	}
+	for _, item := range trusted {
+		if item.Subject != spec.AssertionSubject {
+			continue
+		}
+		if item.AllowAnySubject {
+			return "", &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "existing JWT bearer trust allows any subject"}
+		}
+		if !equalStringSet(item.Scope, spec.AllowedScopes) {
+			return "", &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "existing JWT bearer trust scope differs from Shared"}
+		}
+		if !item.ExpiresAt.IsZero() && !item.ExpiresAt.Equal(spec.TrustExpiresAt.UTC()) {
+			return "", &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "existing JWT bearer trust expiry differs from desired state"}
+		}
+		if item.ID == "" {
+			return "", wrapErr("hydra trusted jwt issuer", fmt.Errorf("existing trust has no id"))
+		}
+		return item.ID, nil
+	}
+
+	reqBody := hydraTrustJWTIssuerRequest{
+		AllowAnySubject: false,
+		ExpiresAt:       spec.TrustExpiresAt.UTC(),
+		Issuer:          spec.AssertionIssuer,
+		JWK:             spec.AssertionJWK,
+		Scope:           append([]string(nil), spec.AllowedScopes...),
+		Subject:         spec.AssertionSubject,
+	}
+	payload, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", wrapErr("hydra marshal trusted jwt issuer", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/admin/trust/grants/jwt-bearer/issuers", bytes.NewReader(payload))
+	if err != nil {
+		return "", wrapErr("hydra trust jwt issuer", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", wrapErr("hydra trust jwt issuer", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return "", mapHTTPError("hydra trust jwt issuer", resp)
+	}
+	var created hydraTrustedJWTIssuer
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		return "", wrapErr("hydra decode trusted jwt issuer", err)
+	}
+	if created.ID == "" {
+		return "", wrapErr("hydra trusted jwt issuer", fmt.Errorf("response has no id"))
+	}
+	return created.ID, nil
+}
+
+func (c *hydraClient) listTrustedJWTIssuers(ctx context.Context, issuer string) ([]hydraTrustedJWTIssuer, error) {
+	endpoint := c.baseURL + "/admin/trust/grants/jwt-bearer/issuers?issuer=" + url.QueryEscape(issuer)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, wrapErr("hydra list trusted jwt issuers", err)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, wrapErr("hydra list trusted jwt issuers", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, mapHTTPError("hydra list trusted jwt issuers", resp)
+	}
+	var out []hydraTrustedJWTIssuer
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, wrapErr("hydra decode trusted jwt issuers", err)
+	}
+	return out, nil
 }
 
 func (c *hydraClient) postClient(ctx context.Context, body hydraOAuth2Client) (*hydraOAuth2Client, error) {
@@ -310,6 +480,24 @@ func (c *hydraClient) getClient(ctx context.Context, clientID string) (*hydraOAu
 // Wire types (OAuth2Client subset)
 // ---------------------------------------------------------------------------
 
+type hydraTrustJWTIssuerRequest struct {
+	AllowAnySubject bool           `json:"allow_any_subject"`
+	ExpiresAt       time.Time      `json:"expires_at"`
+	Issuer          string         `json:"issuer"`
+	JWK             map[string]any `json:"jwk"`
+	Scope           []string       `json:"scope"`
+	Subject         string         `json:"subject"`
+}
+
+type hydraTrustedJWTIssuer struct {
+	ID              string    `json:"id"`
+	AllowAnySubject bool      `json:"allow_any_subject"`
+	ExpiresAt       time.Time `json:"expires_at"`
+	Issuer          string    `json:"issuer"`
+	Scope           []string  `json:"scope"`
+	Subject         string    `json:"subject"`
+}
+
 type hydraOAuth2Client struct {
 	ClientID                string         `json:"client_id,omitempty"`
 	ClientName              string         `json:"client_name,omitempty"`
@@ -342,6 +530,22 @@ func toAnyMap(m map[string]string) map[string]any {
 		out[k] = v
 	}
 	return out
+}
+
+func equalStringSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aa := append([]string(nil), a...)
+	bb := append([]string(nil), b...)
+	sort.Strings(aa)
+	sort.Strings(bb)
+	for i := range aa {
+		if aa[i] != bb[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func generateClientSecret() (string, error) {
