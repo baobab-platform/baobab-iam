@@ -116,7 +116,12 @@ func (a *Adapter) GetIdentity(ctx context.Context, subject provider.ExternalSubj
 	if err := a.requireIssuer(subject); err != nil {
 		return nil, err
 	}
-	return a.kratos.getIdentity(ctx, subject.Subject)
+	identity, err := a.kratos.getIdentity(ctx, subject.Subject)
+	if err != nil {
+		return nil, err
+	}
+	identity.Issuer = a.cfg.PublicIssuer
+	return identity, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -212,6 +217,7 @@ func (a *Adapter) ReconcileIdentity(ctx context.Context, subject provider.Extern
 		}
 		return nil, err
 	}
+	id.Issuer = a.cfg.PublicIssuer
 
 	return &provider.ReconciliationResult{
 		Subject:          subject,
