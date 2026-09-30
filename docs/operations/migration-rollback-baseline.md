@@ -1,10 +1,10 @@
 # Migration Rollback Baseline (Keycloak → Ory)
 
 **Governing ADRs:** ADR-IAM-0019 §55–90; ADR-IAM-0022 (dual-issuer, cutover, continuity); ADR-0018 (DR invariants)  
-**Related:** [gate-iam-m0-migration-baseline.md](../governance/gate-iam-m0-migration-baseline.md) §12; [disaster-recovery-runbook.md](./disaster-recovery-runbook.md); [break-glass-runbook.md](./break-glass-runbook.md)  
+**Related:** [gate-iam-m0-migration-baseline.md](../governance/gate-iam-m0-migration-baseline.md) §12; [disaster-recovery-runbook.md](./disaster-recovery-runbook.md); [break-glass-runbook.md](./break-glass-runbook.md); [m0-live-verify-playbook.md](./m0-live-verify-playbook.md)  
 **Owner:** `baobab-platform/baobab-iam` (jointly with `baobab-cp`, `infrastructure` for IssuerTrust and data plane)  
-**Status:** Draft — Phase 0 (Gate IAM-M0)  
-**Date:** 2026-09-27  
+**Status:** **Phase A baseline accepted for greenfield scaffolding** — dual-run / production abort procedures documented but not yet executable  
+**Date:** 2026-09-30  
 
 ---
 
@@ -18,8 +18,32 @@ It is **not** a substitute for the general [disaster-recovery-runbook.md](./disa
 2. **Aborting dual-run** (both issuers trusted) and returning to Keycloak-only trust.
 3. **Aborting cutover** after Ory is primary but before Keycloak is retired.
 4. Preserving **break-glass** and **kill-switch** capability on the path that remains authoritative.
+5. **Greenfield / non-prod Ory foundation abort** (the only scenario that applies while production Keycloak is absent).
 
 **Invariant (ADR-0018 / ADR-0022):** a rollback or restore MUST NOT silently resurrect revoked authority. Prefer “actors stay denied” over “availability at any cost.”
+
+---
+
+## 1.1 Greenfield context (Phase A — 2026-09-30)
+
+The programme is still **greenfield** relative to production Keycloak:
+
+| Fact | Implication for this baseline |
+|------|-------------------------------|
+| No production Keycloak traffic or LIVE-VERIFY against live KC | §3.1 realm export, §3.2 KC snapshot drill, §3.4 legacy break-glass re-verify, and §3.5 dual-run abort drill are **deferred** until a Keycloak environment exists (same class of waiver as M0 LIVE-VERIFY) |
+| Ory work is scaffolding + optional local Compose | **Scenario C** is the active abort path for Phase A–B foundation work |
+| CP Principal resolve is issuer+subject only (M1-C) | Abort never depends on `provider_type`; dual ExternalIdentity rows are independent |
+| IssuerTrust dual-run not implemented in CP | Scenarios A/B cannot be executed in production until CP lands IssuerTrust switches |
+
+**Phase A does not authorize dual-run or production issuer changes.** It only requires that abort procedures are written, ownership is clear, and non-prod Ory can be torn down without harming the Keycloak-oriented developer path.
+
+Cross-links (Phase A hygiene):
+
+| Work | Location |
+|------|----------|
+| IAM scaffolding M0–M5 | `baobab-iam` PR #42 (`feat/adr-iam-ory-migration`) |
+| M1-B provider_type neutrality | `shared` PR #147 |
+| M1-C resolve evidence | `baobab-cp` PR #224 |
 
 ---
 
@@ -29,7 +53,8 @@ It is **not** a substitute for the general [disaster-recovery-runbook.md](./disa
 |-----------|----------|
 | Keycloak or Ory data loss, infra failure, full IAM outage | [disaster-recovery-runbook.md](./disaster-recovery-runbook.md) |
 | Governed admins locked out of realm admin path | [break-glass-runbook.md](./break-glass-runbook.md) |
-| Dual-run or cutover must be reversed; migration decision undone | **This document** |
+| Dual-run or cutover must be reversed; migration decision undone | **This document** (Scenarios A/B) |
+| Non-prod Ory foundation failed or abandoned | **This document** (Scenario C) |
 | Compromised client/credential during migration window | [security-incident-runbook.md](./security-incident-runbook.md) first, then this if issuer trust must change |
 
 ---
@@ -42,33 +67,34 @@ Complete these under Gate IAM-M0 / before Gate IAM-M18 production dual-run.
 
 | Item | Requirement | Owner | Status |
 |------|-------------|-------|--------|
-| Git tag on `baobab-iam` | Annotated tag e.g. `pre-ory-dual-run-YYYYMMDD` pointing at last known-good Keycloak-oriented commit | IAM | **TODO** |
-| Related tags | Matching tags or recorded SHAs for `baobab-cp`, `shared` if IssuerTrust or contracts changed for dual-run | CP / shared | **TODO** |
-| Realm export | Off-box export of realm (clients, roles, flows) with **secrets redacted or referenced by secret-store ID only** | IAM + SecOps | **TODO** |
-| Config freeze note | List of `config/clients/*`, `config/scopes/*`, `config/realm/*` SHAs included in the tag | IAM | **TODO** |
+| Git tag on `baobab-iam` | Annotated tag e.g. `pre-ory-dual-run-YYYYMMDD` pointing at last known-good Keycloak-oriented commit | IAM | **Deferred (greenfield)** — create immediately before first dual-run window; tip of Keycloak-safe main is interim baseline |
+| Related tags | Matching tags or recorded SHAs for `baobab-cp`, `shared` if IssuerTrust or contracts changed for dual-run | CP / shared | **Deferred** — record PR #147 / #224 SHAs when dual-run is scheduled |
+| Realm export | Off-box export of realm (clients, roles, flows) with **secrets redacted or referenced by secret-store ID only** | IAM + SecOps | **Deferred (greenfield)** — no production realm |
+| Config freeze note | List of `config/clients/*`, `config/scopes/*`, `config/realm/*` SHAs included in the tag | IAM | **Process defined** — freeze at dual-run tag time from `config/` tree |
 
 ### 3.2 Data baseline
 
 | Item | Requirement | Owner | Status |
 |------|-------------|-------|--------|
-| Keycloak DB snapshot procedure | Documented PITR or snapshot job that has been **executed once successfully in non-prod** | Infrastructure | **TODO** |
-| Snapshot retention | Retention covers at least the planned dual-run + cutover observation window | Infrastructure | **TODO** |
-| Secret inventory | Map of workload client secret IDs, bootstrap admin secret ID, signing material IDs (no secret values in Git) | Infrastructure + IAM | **TODO** |
+| Keycloak DB snapshot procedure | Documented PITR or snapshot job that has been **executed once successfully in non-prod** | Infrastructure | **Deferred (greenfield)** — required before production dual-run |
+| Snapshot retention | Retention covers at least the planned dual-run + cutover observation window | Infrastructure | **Deferred** with snapshot procedure |
+| Secret inventory | Map of workload client secret IDs, bootstrap admin secret ID, signing material IDs (no secret values in Git) | Infrastructure + IAM | **Partial** — client inventory in M4 docs; secret-store IDs still operator-owned |
 
 ### 3.3 Trust / control-plane baseline
 
 | Item | Requirement | Owner | Status |
 |------|-------------|-------|--------|
-| IssuerTrust Keycloak-only config | Documented “production trusts only Keycloak issuer” configuration (code or config-as-code) | `baobab-cp` | **TODO** (before dual-run) |
-| IssuerTrust dual-run config | Documented enable/disable procedure for accepting Keycloak **and** Hydra issuers | `baobab-cp` | **TODO** |
-| IssuerTrust Ory-only config | Documented final state after successful cutover | `baobab-cp` | **TODO** |
+| IssuerTrust Keycloak-only config | Documented “production trusts only Keycloak issuer” configuration (code or config-as-code) | `baobab-cp` | **TODO** before dual-run |
+| IssuerTrust dual-run config | Documented enable/disable procedure for accepting Keycloak **and** Hydra issuers | `baobab-cp` | **TODO** (M18) |
+| IssuerTrust Ory-only config | Documented final state after successful cutover | `baobab-cp` | **TODO** (M18/M19) |
 | Feature flag or config switch | Prefer explicit, auditable switch over silent code deploy for issuer set changes | CP + IAM | **TODO** |
+| Principal resolve neutrality | Resolve by `(issuer, subject)` only; no authz on `provider_type` | `baobab-cp` | **Done (M1-C)** — PR #224 evidence |
 
 ### 3.4 Break-glass continuity
 
 | Item | Requirement | Owner | Status |
 |------|-------------|-------|--------|
-| Legacy break-glass tested | Master-realm bootstrap path still works per [break-glass-runbook.md](./break-glass-runbook.md) | IAM | **TODO** re-verify |
+| Legacy break-glass tested | Master-realm bootstrap path still works per [break-glass-runbook.md](./break-glass-runbook.md) | IAM | **Deferred (greenfield)** — re-verify when KC environment exists |
 | Target break-glass provisioned | Ory/Kratos admin or approved emergency path tested **before** Keycloak retirement (ADR-0022 §23) | IAM | Required before M19 |
 | No gap rule | Never retire legacy break-glass until target path is verified | SecOps | Process |
 
@@ -76,10 +102,11 @@ Complete these under Gate IAM-M0 / before Gate IAM-M18 production dual-run.
 
 | Item | Requirement | Status |
 |------|-------------|--------|
-| Non-prod: tag → export → snapshot → restore Keycloak → `make bootstrap` (if needed) → `tests/integration/run.sh` | At least one successful drill | **TODO** |
-| Non-prod: enable dual IssuerTrust → disable dual → Keycloak-only still authenticates | Drill recorded | **TODO** |
+| Non-prod: tag → export → snapshot → restore Keycloak → `make bootstrap` (if needed) → `tests/integration/run.sh` | At least one successful drill | **Deferred (greenfield)** — blocks **production** dual-run only |
+| Non-prod: enable dual IssuerTrust → disable dual → Keycloak-only still authenticates | Drill recorded | **Deferred** until IssuerTrust exists |
+| Non-prod: Scenario C drill (stop Ory Compose, Keycloak path still default) | Documented once | **Required for Phase B M2/M3 residual** — operator may record when Compose is available |
 
-Until §3.5 is done, dual-run against **production** traffic is not authorized. Isolated non-prod Ory foundation (M2/M3) may still proceed.
+Until §3.5 Keycloak dual-run drills are done, dual-run against **production** traffic is not authorized. Isolated non-prod Ory foundation (M2/M3) may still proceed under Scenario C.
 
 ---
 
@@ -95,11 +122,15 @@ Until §3.5 is done, dual-run against **production** traffic is not authorized. 
 
 Production issuer changes and production Keycloak restore require the same class of authority as DR declaration (ADR-0018 §88–89): not unilateral by a single engineer without recorded approval.
 
+**Greenfield:** stopping local/non-prod Ory Compose (Scenario C) does **not** require Security dual-run approval; it is a developer hygiene action. Destroying shared non-prod Ory data stores still requires team agreement if others rely on that environment.
+
 ---
 
 ## 5. Scenario A — Abort dual-run (both issuers trusted → Keycloak only)
 
 **Goal:** Stop accepting Ory/Hydra tokens; leave Keycloak as sole trusted issuer. Ory stack may remain running offline for diagnosis.
+
+**Executable when:** IssuerTrust dual-run is live in the target environment (not Phase A).
 
 ### 5.1 Immediate actions
 
@@ -110,6 +141,7 @@ Production issuer changes and production Keycloak restore require the same class
 4. **Confirm Keycloak path still works** — workforce admin login, one workload `client_credentials`, discovery + JWKS.
 5. **Notify** domain engine owners and estate owners if any traffic had switched to Ory endpoints.
 6. **Do not** mass-revoke Ory sessions unless security requires it; dual-run abort is a trust-boundary change, not necessarily a compromise.
+7. **Ledger** — for any migration ledger rows advanced during dual-run, transition to `ROLLED_BACK` (or leave `DUAL_RUN` with explicit abandon note per ADR-0022); never leave false `CUTOVER`.
 
 ### 5.2 Verification checklist
 
@@ -120,18 +152,22 @@ Production issuer changes and production Keycloak restore require the same class
 - [ ] Hydra token is rejected by CP
 - [ ] Break-glass Keycloak path still available
 - [ ] Migration log updated; dual-run window closed in tracking
+- [ ] Ory ExternalIdentity rows left in place or marked inactive — **not** bulk-deleted; Principal rows unchanged
 
 ### 5.3 What not to do
 
 - Do not wipe the Ory databases on abort without Architecture + Security approval (destroys evidence and retry path).
 - Do not re-enable dual-run without a new written decision and fresh baseline check.
-- Do not “fix” CanonicalIdentity rows that were linked to Ory ExternalIdentity during dual-run; mark target ExternalIdentity inactive per ADR-0022 if abandoning that path.
+- Do not “fix” CanonicalIdentity / Principal rows that were linked to Ory ExternalIdentity during dual-run; mark target ExternalIdentity inactive per ADR-0022 if abandoning that path.
+- Do not gate abort success on `provider_type` values.
 
 ---
 
 ## 6. Scenario B — Abort cutover (Ory primary → return to Keycloak primary)
 
 **Goal:** Ory was made primary; rollback makes Keycloak primary again and stops relying on Ory for production auth.
+
+**Executable when:** Cutover window was opened (M18+) and Keycloak is not yet retired (pre-M19).
 
 ### 6.1 Preconditions for this scenario to be possible
 
@@ -164,14 +200,31 @@ If Keycloak was already decommissioned (post M19), this scenario is **unavailabl
 
 ---
 
-## 7. Scenario C — Rollback after failed Ory-only foundation (non-prod)
+## 7. Scenario C — Rollback after failed Ory-only foundation (non-prod) — **Phase A active path**
 
-**Goal:** Non-prod Ory stack is broken; return developers to Keycloak-only local/CI workflow.
+**Goal:** Non-prod Ory stack is broken or abandoned; return developers to Keycloak-only local/CI workflow without affecting production (there is no production dual-run).
 
-1. Stop Ory compose/services; leave Keycloak compose as default `make dev-up`.
-2. Reset local `.env` / docs to Keycloak issuer URLs.
-3. No CP production IssuerTrust change required if production never dual-ran.
-4. Keep Ory config in Git on a branch; do not delete migration work.
+### 7.1 Immediate actions
+
+1. Stop Ory Compose/services (`docker compose -f docker-compose.ory.yml down` or environment equivalent).
+2. Leave Keycloak Compose / default `make dev-up` as the documented local path.
+3. Reset local `.env` / shell exports that pointed at Hydra/Kratos URLs back to Keycloak issuer URLs if any were set.
+4. Confirm default CI remains offline for Ory (`provider-contract` job only; no forced image pull).
+5. **No** CP production IssuerTrust change (production never dual-ran).
+6. Keep Ory config and migration packages in Git on the feature branch; do **not** delete migration work to “clean up.”
+
+### 7.2 Verification checklist
+
+- [ ] Ory containers stopped (or never started)
+- [ ] Keycloak-oriented local path documented as default
+- [ ] CI green without `ORY_SMOKE` / `ORY_PROVISION`
+- [ ] No production config changed
+- [ ] Decision recorded if shared non-prod Ory data was wiped
+
+### 7.3 What not to do
+
+- Do not delete `internal/provider`, `internal/migration`, or `config/ory/` solely because a smoke failed.
+- Do not enable production dual-run to “test rollback.”
 
 ---
 
@@ -186,6 +239,8 @@ If rollback requires **restoring Keycloak data** from backup (corruption, bad mi
 
 Bootstrap limitations (from DR runbook) still apply: `make bootstrap` fills **missing** objects; it does not fully reconcile drift on existing objects. Diff against `config/` if restore yields stale clients/scopes.
 
+**Greenfield:** this section activates when a Keycloak environment and backups exist.
+
 ---
 
 ## 9. Evidence to retain after any rollback
@@ -198,12 +253,24 @@ Bootstrap limitations (from DR runbook) still apply: `make bootstrap` fills **mi
 | Admin-event / security-event extracts for the window | SecOps |
 | Integration / smoke test output | IAM |
 | Whether Ory data was retained or wiped | Architecture decision record |
+| Scenario C: Compose stop time + operator | Team channel / PR comment acceptable for non-prod |
 
 ---
 
-## 10. Exit criteria for “rollback baseline ready” (Gate IAM-M0 §12)
+## 10. Exit criteria
 
-Gate IAM-M0 may mark rollback baseline **ready for non-prod dual-run experiments** when:
+### 10.1 Phase A — rollback baseline ready for greenfield continuation
+
+Phase A may mark this document **accepted for scaffolding continuation** when:
+
+- [x] Scenarios A/B/C written with clear ownership
+- [x] Greenfield deferrals explicit (do not block M1–M5 scaffolding)
+- [x] Scenario C is the documented abort path for non-prod Ory foundation
+- [x] CP resolve neutrality recorded (M1-C) — abort does not depend on `provider_type`
+- [x] Dual-run / production issuer change explicitly **not** authorized by Phase A
+- [x] Open gaps listed without papering over
+
+### 10.2 Gate IAM-M0 §12 — ready for non-prod dual-run experiments
 
 - [ ] §3.1 Git tag procedure agreed (tag need not exist until immediately before dual-run)
 - [ ] §3.2 DB snapshot procedure documented and non-prod tested once
@@ -211,9 +278,9 @@ Gate IAM-M0 may mark rollback baseline **ready for non-prod dual-run experiments
 - [ ] §3.4 Legacy break-glass re-verified
 - [ ] §3.5 Non-prod restore or dual-run abort drill completed **or** explicitly deferred with owner/date (defer blocks **production** dual-run only)
 
-Gate IAM-M18 production dual-run additionally requires:
+### 10.3 Gate IAM-M18 — production dual-run
 
-- [ ] All of the above without deferral on §3.5
+- [ ] All of §10.2 without deferral on §3.5
 - [ ] Target (Ory) break-glass path tested if cutover is in scope for that window
 - [ ] Communication plan for forced re-login if abort occurs
 
@@ -226,8 +293,9 @@ Gate IAM-M18 production dual-run additionally requires:
 | No automated post-backup security journal | Manual revocation re-apply on restore/abort | IAM-14 / M15; DR runbook steps 10–11 |
 | Bootstrap does not fully reconcile existing objects | Manual diff after KC restore | DR runbook; IAM-14 |
 | R-1 image digest unresolved | Pin integrity for KC restore | gate-iam-0 / upstream.lock.yaml |
-| IssuerTrust not yet implemented in CP | Dual-run/abort cannot be executed in prod | ADR-0022; CP backlog |
+| IssuerTrust not yet implemented in CP | Dual-run/abort cannot be executed in prod | ADR-0022; CP backlog (post M1-C) |
 | Ory break-glass not designed in detail | Blocks safe M19 | ADR-0022 §23; M6/M18 |
+| Greenfield: no production KC | Snapshot/export/break-glass drills deferred | M0 LIVE-VERIFY waivers; this §1.1 |
 
 ---
 
@@ -236,3 +304,4 @@ Gate IAM-M18 production dual-run additionally requires:
 | Version | Date | Change |
 |---------|------|--------|
 | 0.1 | 2026-09-27 | Initial migration rollback baseline for Gate IAM-M0; drills and CP IssuerTrust steps TODO |
+| 0.2 | 2026-09-30 | Phase A greenfield status; Scenario C active path; M1-B/C links; Phase A exit criteria; deferrals explicit |
