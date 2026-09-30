@@ -8,7 +8,7 @@ import (
 
 func TestExternalSubjectValidate(t *testing.T) {
 	if err := (provider.ExternalSubject{}).Validate(); !provider.IsInvalidArgument(err) {
-		t.Fatalf("expected invalid argument, got %v", err)
+		t.Fatalf("empty subject: %v", err)
 	}
 	if err := (provider.ExternalSubject{Issuer: "https://id.example", Subject: "sub"}).Validate(); err != nil {
 		t.Fatal(err)
@@ -17,7 +17,7 @@ func TestExternalSubjectValidate(t *testing.T) {
 
 func TestWorkloadProvisioningSpecValidate(t *testing.T) {
 	if err := (provider.WorkloadProvisioningSpec{}).Validate(); !provider.IsInvalidArgument(err) {
-		t.Fatalf("expected invalid argument, got %v", err)
+		t.Fatalf("empty: %v", err)
 	}
 	ok := provider.WorkloadProvisioningSpec{
 		LogicalClientID: "baobab-trade-workload",
@@ -29,20 +29,41 @@ func TestWorkloadProvisioningSpecValidate(t *testing.T) {
 	bad := ok
 	bad.AuthMethod = "not-a-method"
 	if err := bad.Validate(); !provider.IsInvalidArgument(err) {
-		t.Fatalf("expected invalid argument, got %v", err)
+		t.Fatalf("bad auth: %v", err)
 	}
 }
 
-func TestIdentityProvisioningSpecRejectsBusinessTraits(t *testing.T) {
-	err := (provider.IdentityProvisioningSpec{
+func TestIdentityProvisioningSpecValidate(t *testing.T) {
+	if err := (provider.IdentityProvisioningSpec{
 		Traits: map[string]any{"email": "a@b.c", "tenant": "t1"},
-	}).Validate()
-	if !provider.IsInvalidArgument(err) {
-		t.Fatalf("expected invalid argument for tenant trait, got %v", err)
+	}).Validate(); !provider.IsInvalidArgument(err) {
+		t.Fatalf("forbidden trait: %v", err)
 	}
 	if err := (provider.IdentityProvisioningSpec{
 		Traits: map[string]any{"email": "a@b.c"},
 	}).Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNormalizeAllowedScopes_ContextResolveTranslate(t *testing.T) {
+	in := []string{"actor-type-workload", "context:resolve", "context:resolve", ""}
+	got := provider.NormalizeAllowedScopes(in)
+	if len(got) != 2 {
+		t.Fatalf("len=%d want 2: %#v", len(got), got)
+	}
+	if got[0] != "actor-type-workload" || got[1] != "context-resolve" {
+		t.Fatalf("got %#v", got)
+	}
+	// Input must not be mutated.
+	if in[1] != "context:resolve" {
+		t.Fatal("input mutated")
+	}
+}
+
+func TestNormalizeAllowedScopes_Passthrough(t *testing.T) {
+	got := provider.NormalizeAllowedScopes([]string{"openid", "actor-type-workload"})
+	if len(got) != 2 || got[0] != "openid" {
+		t.Fatalf("%#v", got)
 	}
 }

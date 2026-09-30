@@ -61,3 +61,34 @@ func (s IdentityProvisioningSpec) Validate() error {
 	}
 	return nil
 }
+
+// NormalizeAllowedScopes applies Gate IAM-M4 TRANSLATE rules for scope names
+// frozen in Keycloak client JSON but normalized for Ory / shared contracts.
+//
+// ADR-IAM-0019 + gate-iam-m4-client-inventory:
+//   - "context:resolve" (Keycloak defaultClientScopes spelling) → "context-resolve"
+//
+// Unknown scopes pass through unchanged (PRESERVE). Empty strings are dropped.
+// The returned slice is a copy; the input is never mutated.
+func NormalizeAllowedScopes(scopes []string) []string {
+	if len(scopes) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(scopes))
+	seen := make(map[string]struct{}, len(scopes))
+	for _, s := range scopes {
+		if s == "" {
+			continue
+		}
+		// TRANSLATE: Keycloak historical scope name → Baobab freeze spelling.
+		if s == "context:resolve" {
+			s = "context-resolve"
+		}
+		if _, dup := seen[s]; dup {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
+}
