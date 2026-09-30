@@ -17,13 +17,16 @@
 //	export ORY_ACTION=provision
 //	go run ./cmd/provision-workload/
 //
-// Does not touch production Keycloak. Secrets are never printed in full.
+// Does not touch production Keycloak. Newly generated client secrets are never
+// printed; set ORY_SECRET_OUTPUT_DIR to a private directory so create/rotate can
+// atomically hand the cleartext secret to the workload deployment process.
 package main
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -61,6 +64,7 @@ func main() {
 	hydraAdmin := envOr("ORY_HYDRA_ADMIN_URL", "http://127.0.0.1:4445")
 	issuer := envOr("ORY_PUBLIC_ISSUER", "http://127.0.0.1:4444")
 	logicalID := envOr("ORY_LOGICAL_CLIENT_ID", "baobab-trade-workload")
+	secretOutputDir := os.Getenv("ORY_SECRET_OUTPUT_DIR")
 
 	// Default scopes use freeze spelling (context-resolve). Keycloak JSON may
 	// still list context:resolve — NormalizeAllowedScopes TRANSLATEs either form.
@@ -92,7 +96,7 @@ func main() {
 
 	switch action {
 	case "provision":
-		if err := provisionOne(ctx, adapter, logicalID, scopes); err != nil {
+		if err := provisionOne(ctx, adapter, logicalID, scopes, secretOutputDir); err != nil {
 			fmt.Fprintf(os.Stderr, "provision-workload: %v\n", err)
 			os.Exit(1)
 		}
@@ -108,10 +112,15 @@ func main() {
 			fmt.Fprintf(os.Stderr, "provision-workload: rotate: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("rotated logical_client_id=%s secret=%s\n", w.LogicalClientID, redactSecret(w.ClientSecret))
+		secretPath, err := persistGeneratedSecret(secretOutputDir, w)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "provision-workload: rotate secret handoff: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("rotated logical_client_id=%s secret_output=%s\n", w.LogicalClientID, secretPath)
 	case "all-primary":
 		for _, id := range m4Primary {
-			if err := provisionOne(ctx, adapter, id, scopes); err != nil {
+			if err := provisionOne(ctx, adapter, id, scopes, secretOutputDir); err != nil {
 				fmt.Fprintf(os.Stderr, "provision-workload: %s: %v\n", id, err)
 				os.Exit(1)
 			}
@@ -122,7 +131,7 @@ func main() {
 	}
 }
 
-func provisionOne(ctx context.Context, adapter *ory.Adapter, logicalID string, scopes []string) error {
+func provisionOne(ctx context.Context, adapter *ory.Adapter, logicalID string, scopes []string, secretOutputDir string) error {
 	spec := provider.WorkloadProvisioningSpec{
 		LogicalClientID: logicalID,
 		DisplayName:     displayNames[logicalID],
@@ -143,8 +152,12 @@ func provisionOne(ctx context.Context, adapter *ory.Adapter, logicalID string, s
 	if err != nil {
 		return fmt.Errorf("ProvisionWorkload %s (is Hydra up?): %w", logicalID, err)
 	}
-	fmt.Printf("provider=%s logical_client_id=%s provider_client_id=%s issuer=%s auth_method=%s secret=%s\n",
-		w.Provider, w.LogicalClientID, w.ProviderClientID, w.Issuer, w.AuthMethod, redactSecret(w.ClientSecret))
+	secretPath, err := persistGeneratedSecret(secretOutputDir, w)
+	if err != nil {
+		return fmt.Errorf("secret handoff: %w", err)
+	}
+	fmt.Printf("provider=%s logical_client_id=%s provider_client_id=%s issuer=%s auth_method=%s secret_output=%s\n",
+		w.Provider, w.LogicalClientID, w.ProviderClientID, w.Issuer, w.AuthMethod, secretPath)
 	return nil
 }
 
@@ -167,12 +180,46 @@ func splitCSV(s string) []string {
 	return out
 }
 
-func redactSecret(s string) string {
-	if s == "" {
-		return "(none)"
+func persistGeneratedSecret(dir string, w *provider.ProviderWorkload) (string, error) {
+	if w == nil || w.ClientSecret == "" {
+		return "(unchanged)", nil
 	}
-	if len(s) <= 4 {
-		return "****"
+	if dir == "" {
+		return "", fmt.Errorf("ORY_SECRET_OUTPUT_DIR is required when Hydra creates or rotates a client secret")
 	}
-	return s[:2] + "…" + s[len(s)-2:] + " (redacted; length=" + fmt.Sprintf("%d", len(s)) + ")"
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create secret output directory: %w", err)
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return "", fmt.Errorf("secure secret output directory: %w", err)
+	}
+	finalPath := filepath.Join(dir, w.LogicalClientID+".client-secret")
+	tmp, err := os.CreateTemp(dir, "."+w.LogicalClientID+".client-secret-*")
+	if err != nil {
+		return "", fmt.Errorf("create temporary secret file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return "", fmt.Errorf("secure temporary secret file: %w", err)
+	}
+	if _, err := tmp.WriteString(w.ClientSecret + "\n"); err != nil {
+		tmp.Close()
+		return "", fmt.Errorf("write workload secret: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return "", fmt.Errorf("sync workload secret: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return "", fmt.Errorf("close workload secret: %w", err)
+	}
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		return "", fmt.Errorf("publish workload secret: %w", err)
+	}
+	if err := os.Chmod(finalPath, 0o600); err != nil {
+		return "", fmt.Errorf("secure workload secret: %w", err)
+	}
+	return finalPath, nil
 }
