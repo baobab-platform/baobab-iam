@@ -6,6 +6,6 @@ contracts:
     # scope registry from Shared. This pin includes the PROVISIONED
     # federated_workload_token identities for baobab-cp-workload and
     # baobab-subscriptions-workload plus the current scope vocabulary.
-    # 59b577d (shared#151) adds the provider-neutral identity/v1 capability
-    # contracts this repository's declaration names.
-    sha: 59b577da4eb03551a84de509b682f73c9fdc095f
+    # Includes the provider-neutral identity/v1 capability contracts
+    # (shared#151) and evidence-backed workload activation (shared#148).
+    sha: 1bb1c94327d02a8040f267d6eed49ef181c74561
