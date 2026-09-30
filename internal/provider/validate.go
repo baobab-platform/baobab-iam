@@ -39,6 +39,29 @@ func (s WorkloadProvisioningSpec) Validate() error {
 	return nil
 }
 
+// Validate checks a no-static-secret federated workload trust request.
+func (s FederatedWorkloadTrustSpec) Validate() error {
+	if s.LogicalClientID == "" {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "LogicalClientID is required"}
+	}
+	if s.AssertionIssuer == "" || s.AssertionSubject == "" {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "AssertionIssuer and AssertionSubject are required"}
+	}
+	if len(s.AssertionJWK) == 0 {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "AssertionJWK public key is required"}
+	}
+	if s.TrustExpiresAt.IsZero() {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "TrustExpiresAt is required"}
+	}
+	if len(NormalizeAllowedScopes(s.AllowedScopes)) == 0 {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "AllowedScopes are required"}
+	}
+	if len(s.IntendedAudiences) == 0 {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "IntendedAudiences are required for consumer activation evidence"}
+	}
+	return nil
+}
+
 // Validate checks that IdentityProvisioningSpec has traits and does not
 // embed forbidden business keys in Traits (lightweight guard).
 func (s IdentityProvisioningSpec) Validate() error {
