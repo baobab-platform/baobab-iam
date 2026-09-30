@@ -11,6 +11,9 @@
 # Config:
 #   config/ory/kratos/{kratos.yml,identity.schema.json}  (M2-B)
 #   config/ory/hydra/hydra.yml                           (M3-B)
+#
+# Image digests: provider.lock.yaml (resolved 2026-09-30). Pins use
+# image:tag@sha256 multi-arch index digests from Docker Hub.
 
 services:
   postgres-kratos:
@@ -48,7 +51,7 @@ services:
       retries: 5
 
   kratos-migrate:
-    image: oryd/kratos:v26.3.17
+    image: oryd/kratos:v26.2.0@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643
     container_name: baobab-iam-kratos-migrate
     depends_on:
       postgres-kratos:
@@ -61,7 +64,7 @@ services:
     restart: on-failure
 
   kratos:
-    image: oryd/kratos:v26.3.17
+    image: oryd/kratos:v26.2.0@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643
     container_name: baobab-iam-kratos
     depends_on:
       kratos-migrate:
@@ -79,7 +82,7 @@ services:
     restart: unless-stopped
 
   hydra-migrate:
-    image: oryd/hydra:v26.3.17
+    image: oryd/hydra:v26.2.0@sha256:ff67c7fb5f95074fa53374d41151713554960504b340cd3f95b09e65deaea2a9
     container_name: baobab-iam-hydra-migrate
     depends_on:
       postgres-hydra:
@@ -92,7 +95,7 @@ services:
     restart: on-failure
 
   hydra:
-    image: oryd/hydra:v26.3.17
+    image: oryd/hydra:v26.2.0@sha256:ff67c7fb5f95074fa53374d41151713554960504b340cd3f95b09e65deaea2a9
     container_name: baobab-iam-hydra
     depends_on:
       hydra-migrate:
