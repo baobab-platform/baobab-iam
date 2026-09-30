@@ -1,16 +1,9 @@
-# contracts.lock.yaml – pins the Shared contract versions this repo implements
+# contracts.lock.yaml – pins the Shared contract version this repo implements
 version: 1
 contracts:
-  - source: nabhold/shared
-    # No tag covers this commit yet (newest tag is v1.3.0, SHA
-    # c0b1dfcb5049f4e994e926a6f1ea9ff2b4a02b6c) -- bumped past it to pick up
-    # contracts/identity/v1/workload-registry.yaml, added by
-    # nabhold/shared#31 and consumed by tests/integration/run.sh's
-    # workload-registry-consistency check (ADR-0007 §42-44, Gate IAM-4
-    # phase 3). Bumped once more past #31's own commit to nabhold/shared#32
-    # (squash-merged directly to main as this commit), which fixed a real
-    # bug #31's registry had: thamani-backend/zuribeans-backend don't
-    # carry a -workload suffix (see that PR, and gate-iam-0-discovery.md
-    # §4.9) -- caught by running the new consistency check locally against
-    # the pre-fix commit before this pin was bumped past it.
-    sha: 12f2ff221a16814644604b4b9af8abe7baa07fc2
+  - source: baobab-platform/shared
+    # EA-04 / IAM-M4 consumes the canonical workload registry and authorization
+    # scope registry from Shared. This pin includes the PROVISIONED
+    # federated_workload_token identities for baobab-cp-workload and
+    # baobab-subscriptions-workload plus the current scope vocabulary.
+    sha: a7ca1ed69a303a0300c555a02819c1eaca094861
