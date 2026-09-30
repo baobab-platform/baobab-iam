@@ -11,3 +11,9 @@
 # generic-api-key heuristic matched on the high-entropy-looking ULID after
 # a colon-delimited header name.
 683c4e467606bbac9572c5522187349eb0351ba7:docs/adr/Consolidated-Technical-Specification.md:generic-api-key:4488
+
+# docs/operations/ory-live-integration-runbook.md:90 — historical non-secret
+# documentation placeholder showing HTTP Basic syntax with literal SECRET.
+# The finding originates in commit 6b9c96a; it never contained credential
+# material. Keep this fingerprint exact so no other curl-auth finding is hidden.
+6b9c96ad3f082a7c8af154cb69edd958093be1d4:docs/operations/ory-live-integration-runbook.md:curl-auth-user:90
