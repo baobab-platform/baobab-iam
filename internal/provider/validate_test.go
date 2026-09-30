@@ -46,17 +46,17 @@ func TestIdentityProvisioningSpecValidate(t *testing.T) {
 	}
 }
 
-func TestNormalizeAllowedScopes_ContextResolveTranslate(t *testing.T) {
-	in := []string{"actor-type-workload", "context:resolve", "context:resolve", ""}
+func TestNormalizeAllowedScopes_ContextResolveCanonical(t *testing.T) {
+	in := []string{"context:resolve", "context-resolve", ""}
 	got := provider.NormalizeAllowedScopes(in)
-	if len(got) != 2 {
-		t.Fatalf("len=%d want 2: %#v", len(got), got)
+	if len(got) != 1 {
+		t.Fatalf("len=%d want 1: %#v", len(got), got)
 	}
-	if got[0] != "actor-type-workload" || got[1] != "context-resolve" {
+	if got[0] != "context:resolve" {
 		t.Fatalf("got %#v", got)
 	}
 	// Input must not be mutated.
-	if in[1] != "context:resolve" {
+	if in[1] != "context-resolve" {
 		t.Fatal("input mutated")
 	}
 }
