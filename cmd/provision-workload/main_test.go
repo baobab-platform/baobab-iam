@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
@@ -38,6 +39,13 @@ func TestPersistGeneratedSecretRequiresPrivateOutput(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("mode=%#o want 0600", info.Mode().Perm())
+	}
+}
+
+func TestFederatedWorkloadCannotFallBackToClientSecret(t *testing.T) {
+	err := provisionOne(t.Context(), nil, "baobab-cp-workload", []string{"billing:manage"}, "")
+	if err == nil || !strings.Contains(err.Error(), "federated_workload_token") {
+		t.Fatalf("expected fail-closed federated workload guard, got %v", err)
 	}
 }
 
