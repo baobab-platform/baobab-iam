@@ -251,6 +251,10 @@ func (c *hydraClient) ensureTrustedJWTIssuer(ctx context.Context, spec provider.
 		if !item.ExpiresAt.IsZero() && !item.ExpiresAt.Equal(spec.TrustExpiresAt.UTC()) {
 			return "", &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "existing JWT bearer trust expiry differs from desired state"}
 		}
+		desiredKID, _ := spec.AssertionJWK["kid"].(string)
+		if item.PublicKey.KID != "" && item.PublicKey.KID != desiredKID {
+			return "", &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "existing JWT bearer trust key id differs from desired public JWK"}
+		}
 		if item.ID == "" {
 			return "", wrapErr("hydra trusted jwt issuer", fmt.Errorf("existing trust has no id"))
 		}
@@ -490,12 +494,18 @@ type hydraTrustJWTIssuerRequest struct {
 }
 
 type hydraTrustedJWTIssuer struct {
-	ID              string    `json:"id"`
-	AllowAnySubject bool      `json:"allow_any_subject"`
-	ExpiresAt       time.Time `json:"expires_at"`
-	Issuer          string    `json:"issuer"`
-	Scope           []string  `json:"scope"`
-	Subject         string    `json:"subject"`
+	ID              string                    `json:"id"`
+	AllowAnySubject bool                      `json:"allow_any_subject"`
+	ExpiresAt       time.Time                 `json:"expires_at"`
+	Issuer          string                    `json:"issuer"`
+	PublicKey       hydraTrustedJWTGrantKey   `json:"public_key"`
+	Scope           []string                  `json:"scope"`
+	Subject         string                    `json:"subject"`
+}
+
+type hydraTrustedJWTGrantKey struct {
+	KID string `json:"kid"`
+	Set string `json:"set"`
 }
 
 type hydraOAuth2Client struct {
