@@ -1,11 +1,28 @@
-# contracts.lock.yaml – pins the Shared contract version this repo implements
-version: 1
+# The baobab-platform/shared contracts this engine implements or consumes
+# (EA Plan v2.0 EA-01A; schema: shared .baobab/contract-consumer-lock.schema.json).
+# Foundation checks that the commit is on Shared main and that every listed
+# contract exists and parses there. tests/integration/run.sh section 9 reads
+# workload-registry.yaml at this commit.
+#
+# The pin includes the PROVISIONED federated_workload_token identities for
+# baobab-cp-workload and baobab-subscriptions-workload, the current scope
+# vocabulary, the provider-neutral identity/v1 capability contracts
+# (shared#151) and evidence-backed workload activation (shared#148).
+schema: baobab-contract-consumer-lock
+version: "1.0"
+source:
+  repository: baobab-platform/shared
+  commit: 1bb1c94327d02a8040f267d6eed49ef181c74561
 contracts:
-  - source: baobab-platform/shared
-    # EA-04 / IAM-M4 consumes the canonical workload registry and authorization
-    # scope registry from Shared. This pin includes the PROVISIONED
-    # federated_workload_token identities for baobab-cp-workload and
-    # baobab-subscriptions-workload plus the current scope vocabulary.
-    # Includes the provider-neutral identity/v1 capability contracts
-    # (shared#151) and evidence-backed workload activation (shared#148).
-    sha: 1bb1c94327d02a8040f267d6eed49ef181c74561
+  # Scope vocabulary the provider adapters grant (internal/provider/validate.go).
+  - contracts/authorization/v1/scope-registry.yaml
+  # Token profile IAM issues (ADR-0006): claims and required-claim policy.
+  - contracts/control-plane/v1/access-token-claims.schema.json
+  - contracts/control-plane/v1/security-policy.yaml
+  # Capabilities declared in .baobab/capability-provider.yaml.
+  - contracts/identity/v1/capabilities.yaml
+  # Canonical workloads, credential types and allowed scopes (ADR-0007).
+  - contracts/identity/v1/workload-registry.yaml
+policy:
+  updates: explicit_pull_request
+  compatibility: validate_before_merge

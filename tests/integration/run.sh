@@ -243,7 +243,7 @@ curl -sf --max-time 30 -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Conten
   -d '{"enabled": true}' > /dev/null
 
 echo "== 9. Workload registry consistency (ADR-0007 §42-44) =="
-LOCK_SHA=$(yq -o=json '.' contracts.lock.yaml | jq -r '.contracts[0].sha')
+LOCK_SHA=$(yq -o=json '.' contracts.lock.yaml | jq -r '.source.commit')
 REGISTRY_YAML=$(curl -sf --max-time 30 "https://raw.githubusercontent.com/baobab-platform/shared/$LOCK_SHA/contracts/identity/v1/workload-registry.yaml" || echo "")
 if [ -z "$REGISTRY_YAML" ]; then
   fail "could not fetch baobab-platform/shared's workload-registry.yaml at pinned commit $LOCK_SHA (contracts.lock.yaml)"
