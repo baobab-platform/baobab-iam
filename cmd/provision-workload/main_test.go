@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,7 +44,7 @@ func TestPersistGeneratedSecretRequiresPrivateOutput(t *testing.T) {
 }
 
 func TestFederatedWorkloadCannotFallBackToClientSecret(t *testing.T) {
-	err := provisionOne(t.Context(), nil, "baobab-cp-workload", []string{"billing:manage"}, "")
+	err := provisionOne(context.Background(), nil, "baobab-cp-workload", []string{"billing:manage"}, "")
 	if err == nil || !strings.Contains(err.Error(), "federated_workload_token") {
 		t.Fatalf("expected fail-closed federated workload guard, got %v", err)
 	}
