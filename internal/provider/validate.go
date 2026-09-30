@@ -1,6 +1,9 @@
 package provider
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Validate checks that ExternalSubject has both issuer and subject.
 func (s ExternalSubject) Validate() error {
@@ -50,8 +53,16 @@ func (s FederatedWorkloadTrustSpec) Validate() error {
 	if len(s.AssertionJWK) == 0 {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "AssertionJWK public key is required"}
 	}
-	if s.TrustExpiresAt.IsZero() {
-		return &ProviderError{Kind: ErrInvalidArgument, Message: "TrustExpiresAt is required"}
+	if kid, _ := s.AssertionJWK["kid"].(string); kid == "" {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "AssertionJWK must contain kid"}
+	}
+	for _, privateField := range []string{"d", "p", "q", "dp", "dq", "qi", "oth", "k"} {
+		if _, ok := s.AssertionJWK[privateField]; ok {
+			return &ProviderError{Kind: ErrInvalidArgument, Message: fmt.Sprintf("AssertionJWK must contain public key material only; private field %q is forbidden", privateField)}
+		}
+	}
+	if s.TrustExpiresAt.IsZero() || !s.TrustExpiresAt.After(time.Now().UTC()) {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "TrustExpiresAt must be in the future"}
 	}
 	if len(NormalizeAllowedScopes(s.AllowedScopes)) == 0 {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "AllowedScopes are required"}
