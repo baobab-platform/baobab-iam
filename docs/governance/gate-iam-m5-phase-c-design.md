@@ -53,16 +53,22 @@ Keycloak (source)                    Ory (target)
 | `internal/migration/store.go` | `RecordStore` interface |
 | `internal/migration/memory.go` | In-memory pilot store (non-durable) |
 | `internal/migration/service.go` | Register, ApplyTransition, SetTargetBinding |
+| `internal/migration/ports.go` | DiscoveryPort, CanonicalResolver, PolicyGate |
+| `internal/migration/policy.go` | PhaseCPolicyGate (deny CUTOVER), AllowAllPolicyGate |
+| `internal/migration/discovery.go` | FixtureDiscovery, MapCanonicalResolver |
+| `internal/migration/batch.go` | RegisterBatch |
 | `internal/migration/*_test.go` | Offline unit coverage |
 
 ### Phase C design (not production runners)
 
 | Work item | Status | Notes |
 |-----------|--------|-------|
-| Forbidden metadata / secret field guards | **In this phase** | Code: reject sensitive keys on `Record` |
-| Cohort / batch registration API shape | Design | `migration_batch_id` grouping only |
-| Discovery adapter interface (Keycloak read) | Design only | No live Keycloak required for greenfield |
-| Provision bridge to `IdentityProvisioner` / M4 workload | Design only | Call-out ports; no production worker |
+| Forbidden metadata / secret field guards | **Done** | `checkForbiddenLedgerStrings` on Record |
+| Cohort / batch registration | **Done** | `Service.RegisterBatch` + `BatchRegisterRequest` |
+| DiscoveryPort + FixtureDiscovery | **Done** | Fixture for greenfield; live Keycloak deferred |
+| CanonicalResolver + MapCanonicalResolver | **Done** | In-memory map; CP RPC deferred |
+| PolicyGate default deny CUTOVER | **Done** | `PhaseCPolicyGate` wired into `ApplyTransition` |
+| Provision bridge to `IdentityProvisioner` / M4 | Design only | Call-out ports; no production worker |
 | Durable store (Postgres / CP-owned) | Deferred | Memory store remains pilot |
 | Cutover controller + IssuerTrust | **Forbidden in Phase C** | M18 |
 
@@ -99,7 +105,7 @@ DISCOVERED → VALIDATED → READY → PROVISIONING → PROVISIONED
 |-------|-------------------------------------|------------------------|
 | DISCOVERED … VERIFIED | Yes (synthetic rows) | Only under later gate approval |
 | CUTOVER_READY | Yes (synthetic) | Requires M18 prerequisites |
-| CUTOVER / LEGACY_RETIRED | Synthetic unit tests only | **Not authorized** in Phase C |
+| CUTOVER / LEGACY_RETIRED | Synthetic only with AllowAllPolicyGate | **Not authorized** (PhaseCPolicyGate) |
 | ROLLED_BACK / QUARANTINED | Yes | Yes when dual-run exists |
 
 Workers must treat `CUTOVER` as a **policy gate**, not a mere enum value.
@@ -109,33 +115,29 @@ Workers must treat `CUTOVER` as a **policy gate**, not a mere enum value.
 ## 6. Mapping algorithm (Phase C design)
 
 ```text
-1. DISCOVER source (issuer, subject) — fixture or future Keycloak admin export
-2. Resolve CanonicalIdentity via CP (issuer+subject) — refuse email-only
-3. No mapping → class ORPHAN_CANDIDATE; manual review; do not invent Principal
-4. Register ledger row DISCOVERED with batch id
+1. DISCOVER source (issuer, subject) — FixtureDiscovery or future Keycloak export
+2. Resolve CanonicalIdentity via CanonicalResolver — refuse email-only
+3. No mapping → ORPHAN_CANDIDATE + placeholder canonical id
+4. RegisterBatch → DISCOVERED rows with batch id
 5. VALIDATED → READY when structural + class/strategy rules pass
-6. PROVISIONING:
-     - HUMAN* → IdentityProvisioner (Kratos) in non-prod only
-     - WORKLOAD → prefer existing M4 Hydra client; ledger records binding
+6. PROVISIONING (later): HUMAN* → IdentityProvisioner; WORKLOAD → M4 Hydra
 7. CREDENTIAL_* per strategy (no secret material on row)
-8. VERIFICATION_PENDING → VERIFIED via non-prod login/token proof
-9. STOP before production CUTOVER unless M18 authorizes cohort
+8. VERIFICATION_PENDING → VERIFIED via non-prod proof
+9. STOP before production CUTOVER unless M18 PolicyGate authorizes cohort
 ```
 
 ---
 
-## 7. Ports (interfaces to implement later)
+## 7. Ports (interfaces)
 
 ```text
-DiscoveryPort       // list source bindings (Keycloak admin / export)
-CanonicalResolver   // CP: issuer+subject → canonical_identity_id
-IdentityProvisioner // already internal/provider
-WorkloadProvisioner // already internal/provider (M4)
-LedgerStore         // RecordStore — memory now; durable later
-PolicyGate          // mayAdvanceTo(CUTOVER) → false in Phase C default
+DiscoveryPort       // ListSourceBindings — FixtureDiscovery landed
+CanonicalResolver   // issuer+subject → canonical_identity_id — MapCanonicalResolver landed
+IdentityProvisioner // already internal/provider — not wired in Phase C workers
+WorkloadProvisioner // already internal/provider (M4) — not wired in Phase C workers
+LedgerStore         // RecordStore — MemoryStore pilot
+PolicyGate          // PhaseCPolicyGate default deny CUTOVER / LEGACY_RETIRED
 ```
-
-Phase C does **not** wire production DiscoveryPort or PolicyGate to live systems.
 
 ---
 
@@ -147,6 +149,8 @@ Phase C does **not** wire production DiscoveryPort or PolicyGate to live systems
 4. [x] Synthetic end-to-end **unit** flow DISCOVERED → VERIFIED (no network)
 5. [x] Explicit list of deferred durable-store and cutover work
 6. [x] No production IssuerTrust, dual-issuer, or Keycloak disablement
+7. [x] DiscoveryPort / CanonicalResolver / PolicyGate ports + FixtureDiscovery
+8. [x] RegisterBatch (maps + orphans) + Phase C deny CUTOVER tests
 
 ---
 
@@ -154,7 +158,7 @@ Phase C does **not** wire production DiscoveryPort or PolicyGate to live systems
 
 | ID | Risk | Mitigation |
 |----|------|------------|
-| M5-R1 | Operators treat CUTOVER as local-only flag | PolicyGate + docs; rollback baseline |
+| M5-R1 | Operators treat CUTOVER as local-only flag | PhaseCPolicyGate + docs; rollback baseline |
 | M5-R2 | Email merge creates duplicate Principals | Reject email-only resolve in code |
 | M5-R3 | Secrets leak into ledger JSON | Forbidden marker validation |
 | M5-R4 | Workload double-provision vs M4 | WORKLOAD strategy NO_CREDENTIAL_REQUIRED; prefer M4 client_id |
@@ -167,3 +171,4 @@ Phase C does **not** wire production DiscoveryPort or PolicyGate to live systems
 | Version | Date | Change |
 |---------|------|--------|
 | 0.1 | 2026-09-30 | Phase C design opened after Phase B closeout |
+| 0.2 | 2026-09-30 | Ports, RegisterBatch, PhaseCPolicyGate implementation |
