@@ -71,8 +71,9 @@ func (p *ProviderIdentity) ExternalSubject() ExternalSubject {
 type WorkloadAuthenticationMethod string
 
 const (
-	WorkloadAuthClientSecret  WorkloadAuthenticationMethod = "client_secret"
-	WorkloadAuthPrivateKeyJWT WorkloadAuthenticationMethod = "private_key_jwt"
+	WorkloadAuthClientSecret       WorkloadAuthenticationMethod = "client_secret"
+	WorkloadAuthPrivateKeyJWT      WorkloadAuthenticationMethod = "private_key_jwt"
+	WorkloadAuthFederatedJWTBearer WorkloadAuthenticationMethod = "federated_jwt_bearer"
 )
 
 // WorkloadProvisioningSpec is the input for creating or updating a workload client.
@@ -94,6 +95,55 @@ type WorkloadProvisioningSpec struct {
 
 	// Metadata that the adapter may persist with the provider client.
 	Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+// FederatedWorkloadTrustSpec describes the provider mechanics for a Shared
+// credential_type=federated_workload_token workload. It carries only identity
+// and OAuth trust material; tenant, legal-entity and capability authority stay
+// outside IAM.
+type FederatedWorkloadTrustSpec struct {
+	LogicalClientID string `json:"logical_client_id"`
+	DisplayName     string `json:"display_name,omitempty"`
+
+	// AllowedScopes MUST come from the canonical Shared workload registry.
+	AllowedScopes []string `json:"allowed_scopes"`
+
+	// IntendedAudiences records the Baobab resource-server audiences that live
+	// consumer evidence must prove. They are not blindly copied into the Hydra
+	// client audience field because Hydra models that field as URL resource
+	// indicators while Shared currently uses logical service audience names.
+	IntendedAudiences []string `json:"intended_audiences"`
+
+	// AssertionIssuer/Subject identify the short-lived platform-projected JWT
+	// that Hydra is allowed to exchange under RFC 7523.
+	AssertionIssuer  string `json:"assertion_issuer"`
+	AssertionSubject string `json:"assertion_subject"`
+
+	// AssertionJWK is the public verification key only. Private key material
+	// MUST never enter this contract or the Hydra trusted-issuer API.
+	AssertionJWK map[string]any `json:"assertion_jwk"`
+
+	// TrustExpiresAt bounds the provider-side trust relationship.
+	TrustExpiresAt time.Time `json:"trust_expires_at"`
+
+	Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+// FederatedWorkloadTrust is evidence that the provider-side client and exact
+// issuer/subject trust relationship exist. It does not by itself mean the
+// Shared workload lifecycle may become ACTIVE.
+type FederatedWorkloadTrust struct {
+	Provider          string                       `json:"provider"`
+	LogicalClientID   string                       `json:"logical_client_id"`
+	ProviderClientID  string                       `json:"provider_client_id"`
+	TrustID           string                       `json:"trust_id"`
+	Issuer            string                       `json:"issuer"`
+	AuthMethod        WorkloadAuthenticationMethod `json:"auth_method"`
+	AssertionIssuer   string                       `json:"assertion_issuer"`
+	AssertionSubject  string                       `json:"assertion_subject"`
+	AllowedScopes     []string                     `json:"allowed_scopes"`
+	IntendedAudiences []string                     `json:"intended_audiences"`
+	TrustExpiresAt    time.Time                    `json:"trust_expires_at"`
 }
 
 // ProviderWorkload is the normalized result of provisioning a workload.
@@ -241,6 +291,14 @@ type WorkloadProvisioner interface {
 	ProvisionWorkload(ctx context.Context, spec WorkloadProvisioningSpec) (*ProviderWorkload, error)
 	DisableWorkload(ctx context.Context, ref ProviderWorkloadReference) error
 	RotateWorkloadCredentials(ctx context.Context, ref ProviderWorkloadReference) (*ProviderWorkload, error)
+}
+
+// FederatedWorkloadProvisioner is an optional provider capability for
+// no-static-secret projected workload assertions. It is intentionally separate
+// from WorkloadProvisioner so callers cannot accidentally downgrade a
+// federated workload into client_credentials.
+type FederatedWorkloadProvisioner interface {
+	ProvisionFederatedWorkload(ctx context.Context, spec FederatedWorkloadTrustSpec) (*FederatedWorkloadTrust, error)
 }
 
 // IdentityReconciler compares provider state with expected Baobab state
