@@ -1,97 +1,89 @@
-# Phase B closeout — Ory foundation + M4 residual (greenfield)
+# Phase B closeout — Ory foundation and workload migration evidence
 
-**Status:** Closed for in-repo scaffolding (2026-09-30)  
-**Branch / PR:** `feat/adr-iam-ory-migration` — [PR #42](https://github.com/baobab-platform/baobab-iam/pull/42)  
-**Normative ADRs:** ADR-IAM-0019 (M0–M19 order), ADR-IAM-0020, ADR-IAM-0021, ADR-0007  
-**Environment posture:** **Greenfield** — no production dual-run, no IssuerTrust change, no Keycloak retirement  
+**Status:** In-repo hardening substantially complete; live M2/M3/M4 evidence still open  
+**Date:** 2026-09-30  
+**Branch / PR:** `feat/adr-iam-ory-migration` — PR #42  
+**Normative ADRs:** ADR-IAM-0019, ADR-IAM-0020, ADR-IAM-0021, ADR-IAM-0022, ADR-0007
 
----
+## What is now complete in repository
 
-## 1. What Phase B covered
+- pinned Ory foundation configuration and provider adapter;
+- provider-neutral IAM contract surface;
+- Kratos/Hydra readiness code;
+- workload create/disable/rotate support for existing client-credential workloads;
+- secure client-secret handoff for create/rotate;
+- Shared contract pin updated to current `baobab-platform/shared`;
+- Shared workload registry established as M4 authority;
+- M4 scope spelling corrected to Shared's `context:resolve`;
+- legacy `actor-type-workload` authorization-scope assumption removed;
+- federated CP and Subscriptions workloads protected from client-secret downgrade;
+- RFC 7523 selected as the initial Hydra exchange profile for
+  `federated_workload_token`;
+- M1-C provider-neutral CP evidence opened as `baobab-cp#225`;
+- review defects corrected for cipher-key length, issuer propagation, migration
+  state validation and workload secret handoff.
 
-| Action | Gate | Outcome |
-|--------|------|--------|
-| **B-1** Image pin correction | M2/M3-D | `oryd/kratos` + `oryd/hydra` **v26.2.0** with multi-arch digests in `provider.lock.yaml` + Compose digest pins |
-| **B-2** Admin-plane readiness | M2/M3-C | `Adapter.CheckReady`, httptest offline tests, expanded `ORY_SMOKE=1` path |
-| **B-3** M4 residual hygiene | M4 | `NormalizeAllowedScopes` (`context:resolve` → `context-resolve`), offline provision/disable tests, CLI `CheckReady` |
+## Residual evidence register
 
-Phase A (M0 waivers, M1-B/C cross-repo, rollback baseline v0.2) remains prerequisite context; this note does not re-open those gates.
+| ID | Residual | Blocks |
+|---|---|---|
+| PB-R1 | Live Compose up and health against pinned images | M2/M3 |
+| PB-R2 | Ory provider smoke against live stack | M2/M3 |
+| PB-R3 | One Shared-authorized client-credential workload provisioned and token-tested | M4-C |
+| PB-R4 | Rotate + disable exercised live | M4-C |
+| PB-R5 | CP #225 merged | M1 |
+| PB-R6 | Platform projected-token issuer + governed JWK available | M4-F |
+| PB-R7 | Hydra trusted JWT issuer configured with exact subject and no wildcard | M4-F |
+| PB-R8 | Hydra access token proven to satisfy Baobab audience/client/actor/scope profile | M4-F |
+| PB-R9 | CP -> Subscriptions real call succeeds with federated token | `baobab-cp-workload` ACTIVE |
+| PB-R10 | Subscriptions outbound Payments adapter exists and real call succeeds | `baobab-subscriptions-workload` ACTIVE |
 
----
+## Important correction to the earlier closeout
 
-## 2. In-repo deliverables (done)
+The earlier M4 inventory was Keycloak-config-driven. That is no longer
+acceptable after EA-04 introduced `federated_workload_token` in Shared.
 
-### Foundation (M2/M3)
-
-| Artifact | Path |
-|----------|------|
-| Version + digests | `provider.lock.yaml` |
-| Compose overlay | `docker-compose.ory.yml` |
-| Kratos / Hydra config | `config/ory/**` |
-| Readiness | `internal/provider/ory/readiness.go` |
-| Smoke (opt-in) | `internal/provider/ory/smoke_test.go` |
-| Scope | `docs/governance/gate-iam-m2-m3-ory-foundation-scope.md` (v0.6) |
-| Operator smoke | `docs/operations/ory-foundation-smoke.md` |
-
-### Workload path (M4)
-
-| Artifact | Path |
-|----------|------|
-| Client inventory | `docs/governance/gate-iam-m4-client-inventory.md` |
-| Scope | `docs/governance/gate-iam-m4-workload-hydra-scope.md` (v0.3) |
-| Provision CLI | `cmd/provision-workload` |
-| Scope TRANSLATE | `provider.NormalizeAllowedScopes` + hydra adapter |
-| Offline tests | `internal/provider/ory/hydra_workload_test.go` |
-| **Live evidence checklist** | `docs/operations/m4-live-evidence-checklist.md` |
-
-### Offline verification (agent / CI)
+The authoritative sequence is now:
 
 ```text
-go test ./internal/provider/ ./internal/provider/ory/ ./internal/migration/ -count=1
+Shared workload registry
+        |
+        +--> credential profile
+        +--> audience
+        +--> scopes
+        +--> lifecycle
+        |
+        v
+IAM/Ory provider mechanics
+        |
+        v
+actual resource-server verification
+        |
+        v
+Shared lifecycle activation
 ```
 
-Live Docker Compose and `ORY_SMOKE` / `ORY_PROVISION` were **not** executable in the agent environment (no Docker). That residual is **explicit**, not silent.
+## Exit decisions
 
----
+- M1: **pending IAM #42 + CP #225 merge**
+- M2/M3: **offline implementation ready; live evidence open**
+- M4-C: **implementation ready; live provider evidence open**
+- `baobab-cp-workload`: **PROVISIONED; do not mark ACTIVE yet**
+- `baobab-subscriptions-workload`: **PROVISIONED; downstream caller not yet implemented**
+- production dual issuer: **not authorized; M18**
+- Keycloak retirement: **not authorized; M19**
 
-## 3. Explicit non-claims (Phase B)
+## Why ACTIVE is intentionally withheld
 
-Phase B does **not**:
+For federated workloads, an ACTIVE status means the platform can prove the
+workload can obtain a standards-based token and the intended resource server
+will accept it under the unchanged Baobab workload profile.
 
-- Authorize production dual-issuer or CP `IssuerTrust` changes (M18)
-- Retire or disable production Keycloak (M19)
-- Bulk-migrate human identities (M5 runtime)
-- Treat offline httptest coverage as a substitute for operator live evidence
-- Change freeze-list client IDs or scope **meanings**
+A configured Hydra client or trusted JWT issuer is not enough evidence.
 
----
-
-## 4. Residual register (must clear before claiming M2/M3/M4 Complete)
-
-| ID | Residual | Owner | Blocks |
-|----|----------|-------|--------|
-| **PB-R1** | Live Compose up + health/ready on pinned digests | Operator workstation | M2/M3 exit criteria 5–6 |
-| **PB-R2** | `ORY_SMOKE=1` green log attached to PR or ops ticket | Operator | M2/M3-C evidence |
-| **PB-R3** | `ORY_PROVISION=1` for `baobab-trade-workload` + client_credentials token | Operator | M4 exit criteria 1, 5 |
-| **PB-R4** | Rotate credentials exercised once on non-prod Hydra | Operator | M4 exit criterion 4 (rotate leg) |
-| **PB-R5** | Re-verify digests against intended registry mirror before any shared non-prod promotion | Platform | Production-adjacent envs only |
-
-Use **`docs/operations/m4-live-evidence-checklist.md`** (and foundation smoke ops note) to capture PB-R1–R4.
-
----
-
-## 5. Exit decision
-
-| Question | Answer |
-|----------|--------|
-| May Phase **C / Gate IAM-M5 design** start? | **Yes** — design and in-memory ledger domain only |
-| May production or shared dual-run start? | **No** — blocked until rollback baseline Scenario C/D authorization + residuals above |
-| Is M2/M3/M4 “Complete”? | **No** — scaffolding + offline tests Complete; live evidence open |
-
----
-
-## 6. Document control
+## Document control
 
 | Version | Date | Change |
-|---------|------|--------|
-| 1.0 | 2026-09-30 | Phase B closeout after pin, CheckReady, M4 residual hygiene |
+|---|---|---|
+| 1.0 | 2026-09-30 | Original closeout |
+| 2.0 | 2026-09-30 | Cross-repo EA-04 audit; Shared authority and M4-F activation gates |
