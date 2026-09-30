@@ -29,7 +29,7 @@ Primary scope: `docs/governance/gate-iam-m1-provider-neutral-contracts-scope.md`
 | 5 | At least one CP fixture with non-Keycloak provider_type/issuer | **Out of repo** — M1-C | **Open** |
 | 6 | Forbidden canonical field names checked | Manual: no `keycloak_user_id` / `ory_identity_id` added under this branch’s contracts surface (none introduced in iam) | **Pass for baobab-iam**; shared/cp greps still required |
 | 7 | Phase 0 freeze list acknowledged; no scope/client ID renames in M1 | M0 §13 freeze; this branch did not rename `config/clients/*` or `config/scopes/*` | **Done on branch** |
-| 8 | Scope doc Complete with PR links | Update after PR number known | **Pending PR** |
+| 8 | Scope doc Complete with PR links | [PR #42](https://github.com/baobab-platform/baobab-iam/pull/42) | **Linked** |
 
 ---
 
@@ -93,3 +93,4 @@ Per ADR-0020 and M1 scope §3:
 | Version | Date | Change |
 |---------|------|--------|
 | 0.1 | 2026-09-27 | Initial M1-D checklist from branch state |
+| 0.2 | 2026-09-30 | Link PR #42; offline CI verified on tip |

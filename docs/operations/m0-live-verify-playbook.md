@@ -49,8 +49,20 @@
 
 ---
 
-## 5. Document control
+## 5. Greenfield waiver record (2026-09-30)
+
+Items 1–6, 8 in the parent baseline §14 are **waived** for M0 close because the migration
+programme has no production identity population to census. Item 7 remains documentation-only
+until a non-prod break-glass exercise. Item 9 (digests) remains an open residual with explicit
+policy: tags OK for isolated non-prod; digests required before production promotion.
+
+Re-execute this playbook before dual-run against shared non-prod traffic.
+
+---
+
+## 6. Document control
 
 | Version | Date | Change |
 |---------|------|--------|
 | 0.1 | 2026-09-28 | Initial playbook from M0 §14 |
+| 0.2 | 2026-09-30 | Greenfield waiver cross-reference |
