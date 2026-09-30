@@ -2710,6 +2710,7 @@ Test:
 
 ```text
 client credentials
+federated workload assertions
 scope enforcement
 audience enforcement
 CP context resolution
@@ -2717,6 +2718,49 @@ revocation
 lifecycle status
 cross-estate credential rejection
 ```
+
+## 93.1 Federated workload refinement
+
+Shared now distinguishes ordinary `client_credentials` workloads from
+`credential_type: federated_workload_token`. IAM SHALL preserve that
+distinction.
+
+For a `federated_workload_token` identity, the initial Ory implementation
+SHALL use the standards-based **JWT Profile for OAuth 2.0 Authorization Grants
+(RFC 7523)** supported by Hydra:
+
+```text
+platform-projected short-lived JWT assertion
+        |
+        | issuer + subject + signing key are explicitly trusted
+        v
+Hydra JWT bearer grant
+        |
+        v
+short-lived Hydra access token
+        |
+        v
+Baobab resource server
+```
+
+The projected assertion is a bootstrap credential, not the Baobab API access
+token. It SHALL be short lived, SHALL target Hydra's token endpoint as its
+audience, SHALL be bound to the workload subject, and SHALL NOT be replaced by
+a stored OAuth client secret as a convenience.
+
+Hydra trust SHALL be fail-closed:
+
+- `allow_any_subject` SHALL be false;
+- permitted scopes SHALL come from Shared's canonical workload registry;
+- the trusted public JWK SHALL be governed and rotated;
+- each workload SHALL retain a distinct logical client identity;
+- the resulting Hydra access token SHALL still satisfy the Baobab token
+  profile expected by resource servers, including workload actor type,
+  intended audience, client identity and canonical scopes.
+
+A workload in Shared SHALL remain `PROVISIONED` until a live token obtained by
+this flow passes the actual consumer verifier. Creating a Hydra client or a
+trust record alone is not activation evidence.
 
 ---
 

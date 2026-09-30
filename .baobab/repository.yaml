@@ -1,18 +1,42 @@
+# Baobab Foundation Repository Contract
+#
+# Purpose:
+#   Describes what this repository technically is so Foundation CI can
+#   classify it and apply the correct engineering, security, runtime and
+#   artifact controls.
+#
+# This file does NOT declare Baobab domain capabilities such as
+# payment.capture or commerce.order.manage.
+#
+# Guidance: baobab-platform/engine-template/.baobab/repository.yaml.example
+
 schema_version: 1
+
 repository:
+  # IAM is an in-programme engine (IdP packaging + provider adapters).
   lifecycle: active
+
+# Foundation technical classifications only.
+# These are NOT Control Plane Capability keys.
 capabilities:
-  - container
   - engine
+  - container
+  - go
+  - documentation
+
 environment:
   baobab_dev:
+    # Application development is active; .baobab/environment.yaml is required.
     required: true
     profile: full
+
 artifacts:
+  # Runtime image (Keycloak-based packaging until Ory cutover completes).
   container:
     enabled: true
     dockerfile: Dockerfile
     context: .
     runtime: true
+
 security:
   sast_provider: fallback

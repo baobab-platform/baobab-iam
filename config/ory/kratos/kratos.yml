@@ -1,0 +1,145 @@
+# Kratos serve configuration — Gate IAM-M2 (ADR-IAM-0021).
+#
+# Scope: NON-PRODUCTION foundation only. Production secrets, TLS, and
+# network policy are out of scope until M17 / infrastructure wiring.
+#
+# ADR constraints applied here:
+#   - ADR-0021 §6–8  public vs admin planes (admin not for Digital Estates)
+#   - ADR-0021 §37   identity schema = profile traits only (see identity.schema.json)
+#   - ADR-0021 §40–41 secrets are local-dev placeholders; never production values
+#   - ADR-0020       no Tenant / LegalEntity / Capability / domain auth in IdP
+#   - ADR-0023       browser UI URLs are placeholders; estate-owned UX is later
+#
+# DSN is supplied by docker-compose.ory.yml via the DSN environment variable
+# (separate PostgreSQL database from Hydra and from Keycloak).
+
+version: v0.13.0
+
+serve:
+  public:
+    # Local-dev base URL for public self-service and browser redirects.
+    base_url: http://127.0.0.1:4433/
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://127.0.0.1:3000
+        - http://127.0.0.1:4455
+      allowed_methods:
+        - POST
+        - GET
+        - PUT
+        - PATCH
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Cookie
+        - Content-Type
+      exposed_headers:
+        - Content-Type
+        - Set-Cookie
+      allow_credentials: true
+  admin:
+    # Admin plane is consumed by baobab-iam adapter and tooling only
+    # (ADR-0021 §8). Compose binds host port 4434 to 127.0.0.1.
+    base_url: http://127.0.0.1:4434/
+
+selfservice:
+  # Placeholder return URLs until Digital Estate BFF/UX (ADR-0023 / M7).
+  # Do not point these at production estate hosts from this foundation file.
+  default_browser_return_url: http://127.0.0.1:4455/
+  allowed_return_urls:
+    - http://127.0.0.1:4455
+    - http://127.0.0.1:3000
+
+  methods:
+    password:
+      enabled: true
+    # TOTP enabled for local experiments; assurance policy is ADR-0024 / M12.
+    totp:
+      enabled: true
+      config:
+        issuer: BaobabLocal
+    code:
+      enabled: true
+    link:
+      enabled: true
+
+  flows:
+    error:
+      ui_url: http://127.0.0.1:4455/error
+
+    settings:
+      ui_url: http://127.0.0.1:4455/settings
+      privileged_session_max_age: 15m
+      required_aal: highest_available
+
+    recovery:
+      enabled: true
+      ui_url: http://127.0.0.1:4455/recovery
+      use: code
+
+    verification:
+      enabled: true
+      ui_url: http://127.0.0.1:4455/verification
+      use: code
+      after:
+        default_browser_return_url: http://127.0.0.1:4455/
+
+    logout:
+      after:
+        default_browser_return_url: http://127.0.0.1:4455/login
+
+    login:
+      ui_url: http://127.0.0.1:4455/login
+      lifespan: 10m
+
+    registration:
+      lifespan: 10m
+      ui_url: http://127.0.0.1:4455/registration
+      after:
+        password:
+          hooks:
+            - hook: session
+
+log:
+  level: info
+  format: text
+  # Never true outside local foundation stacks.
+  leak_sensitive_values: false
+
+# LOCAL DEVELOPMENT ONLY — replace via secret store before any shared env
+# (ADR-0021 §40–41). Values must be long enough for Kratos cipher requirements.
+secrets:
+  cookie:
+    - local_dev_only_cookie_secret_32b
+  cipher:
+    - local_dev_only_cipher_secret_32b
+
+ciphers:
+  algorithm: xchacha20-poly1305
+
+hashers:
+  algorithm: bcrypt
+  bcrypt:
+    # Cost 8 is acceptable for local foundation; raise under M12/production.
+    cost: 8
+
+identity:
+  default_schema_id: default
+  schemas:
+    - id: default
+      url: file:///etc/config/kratos/identity.schema.json
+
+# Courier is required for recovery/verification email. This SMTP URI is a
+# local stub (no real mailer in the foundation overlay). Admin API identity
+# operations used by internal/provider/ory do not depend on successful send.
+courier:
+  smtp:
+    connection_uri: smtp://127.0.0.1:1025/?disable_starttls=true
+    from_address: kratos-local@baobab.invalid
+    from_name: Baobab IAM Local
+
+session:
+  lifespan: 24h
+  cookie:
+    same_site: Lax

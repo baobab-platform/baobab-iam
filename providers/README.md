@@ -9,3 +9,6 @@ been written yet, and per ADR-0002 the preference is to avoid one unless a
 requirement cannot be met by native Keycloak configuration. Any provider
 added here SHALL have automated tests, a documented supported Keycloak
 version range, and an explicit owner (ADR-0002 Section 27).
+
+Note: Gate IAM migration adapters live under `internal/provider/` (ADR-IAM-0020),
+not in this Keycloak SPI directory.

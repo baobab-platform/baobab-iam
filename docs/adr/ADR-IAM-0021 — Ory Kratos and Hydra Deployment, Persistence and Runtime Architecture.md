@@ -1144,27 +1144,63 @@ credential.
 
 # 54. Workload Authentication
 
-The normal M2M pattern is:
+Baobab supports two governed workload credential profiles. Shared's workload
+registry selects the profile per workload; IAM SHALL NOT silently convert one
+into the other.
+
+### 54.1 Client-credential profile
+
+Existing workloads whose canonical `credential_type` is
+`client_credentials` use:
 
 ```text
-Trade Worker
-      │
-      │ OAuth client credentials
-      ▼
+Workload
+   │ client credential / later stronger client auth
+   ▼
 Hydra
-      │
-      ▼
+   ▼
 short-lived access token
-      │
-      ▼
-CP/API
-      │
-      ▼
-WorkloadIdentity resolution
-      │
-      ▼
-Capability authorization
+   ▼
+Baobab resource server
 ```
+
+### 54.2 Federated projected-token profile
+
+Workloads whose canonical `credential_type` is
+`federated_workload_token` SHALL hold no static OAuth client secret. The
+initial Hydra implementation uses RFC 7523:
+
+```text
+Workload runtime
+   │
+   │ short-lived platform-projected JWT
+   │ aud = Hydra token endpoint
+   ▼
+Hydra trusted JWT issuer + subject
+   │
+   │ urn:ietf:params:oauth:grant-type:jwt-bearer
+   ▼
+Hydra access token
+   │
+   ▼
+Baobab resource server
+```
+
+Hydra SHALL trust an explicit issuer, subject and public JWK. Production trust
+SHALL NOT use `allow_any_subject=true`. Scope authority comes from
+`baobab-platform/shared/contracts/identity/v1/workload-registry.yaml`, not
+from legacy Keycloak client JSON.
+
+The OAuth client used with the JWT bearer grant SHALL not require a stored
+client secret. Because Hydra currently requires a client identity on this grant
+path, the stable logical workload ID SHALL be supplied as `client_id`; the
+projected assertion remains the credential.
+
+The assertion and the resulting access token are different trust artefacts.
+Activation requires evidence that the access token carries the Baobab workload
+profile required by the consumer: valid Hydra issuer/signature, intended API
+audience, workload actor classification, workload client identity and only the
+canonical scopes registered for that workload.
 
 mTLS MAY additionally authenticate the network/workload channel.
 

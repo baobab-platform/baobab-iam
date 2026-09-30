@@ -64,6 +64,41 @@ RUN set -eu; mkdir /fm; cd /fm; \
       0fac87dddd78f1223139e8ef88e819c7f483c0a3835cdf5982ad5e4576d1d896 freemarker.jar \
       | sha256sum --check --strict
 
+# CVE-2026-68497 (HIGH, CPU denial of service via unbounded numeric
+# parsing): Keycloak 26.7.4 vendors jackson-databind 2.21.5 twice, as a
+# server library and unrelocated inside the fat keycloak-admin-cli jar that
+# kcadm.sh (and so bootstrap.sh) runs. The fix is 2.21.6; 2.21.7 is the
+# current 2.21 patch, so the rest of the 2.21 Jackson modules (core,
+# annotations, datatypes) stay as vendored. The fixed jar is fetched from
+# Maven Central, verified against its pinned SHA-256 (cross-checked with
+# Maven Central's published SHA-1, a2ebbc72e3092323f0f3defa786ff3bb0c47218c).
+# The server jar is swapped whole in the builder stage below; the admin CLI
+# has its databind classes and Maven metadata replaced here, leaving the
+# fat jar's manifest, services and module-info untouched. The final check
+# fails the build unless the patched CLI declares the fixed version. Remove
+# this stage once upstream.lock.yaml pins a Keycloak release that vendors
+# jackson-databind >= 2.21.6.
+FROM registry.access.redhat.com/ubi9:9.4 AS jackson
+RUN dnf install -y --setopt install_weak_deps=false --nodocs zip unzip && dnf clean all
+COPY --from=quay.io/keycloak/keycloak:26.7.4 /opt/keycloak/bin/client/keycloak-admin-cli-26.7.4.jar /jk/keycloak-admin-cli.jar
+RUN set -eu; cd /jk; \
+    curl -fsSL -o jackson-databind.jar \
+      https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.jar; \
+    printf '%s  %s\n' \
+      1290c2795e93e8a6861a6c4d9ff0d844d32f5ea178362cb2721edf5561e828b1 jackson-databind.jar \
+      | sha256sum --check --strict; \
+    unzip -p keycloak-admin-cli.jar META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties \
+      | grep -qx 'version=2.21.5' \
+      || { echo "keycloak-admin-cli no longer vendors jackson-databind 2.21.5; revisit this override" >&2; exit 1; }; \
+    mkdir databind; \
+    (cd databind && unzip -q ../jackson-databind.jar \
+      -x 'META-INF/MANIFEST.MF' 'META-INF/LICENSE' 'META-INF/NOTICE' 'META-INF/versions/*' 'META-INF/services/*'); \
+    zip -q -d keycloak-admin-cli.jar 'com/fasterxml/jackson/databind/*' \
+      'META-INF/maven/com.fasterxml.jackson.core/jackson-databind/*'; \
+    (cd databind && zip -q -r ../keycloak-admin-cli.jar com META-INF/maven); \
+    unzip -p keycloak-admin-cli.jar META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties \
+      | grep -qx 'version=2.21.7'
+
 FROM quay.io/keycloak/keycloak:26.7.4 AS builder
 
 # The upstream image already switches to its non-root runtime user (see
@@ -99,6 +134,17 @@ COPY --from=bouncycastle /bc/bcprov.jar /opt/keycloak/bin/client/lib/bcprov-jdk1
 RUN test -f /opt/keycloak/lib/lib/main/org.freemarker.freemarker-2.3.32.jar \
     || { echo "expected Keycloak jar org.freemarker.freemarker-2.3.32.jar is missing" >&2; exit 1; }
 COPY --from=freemarker /fm/freemarker.jar /opt/keycloak/lib/lib/main/org.freemarker.freemarker-2.3.32.jar
+
+# Replace Keycloak's vendored jackson-databind 2.21.5 (see the jackson
+# stage above): the server jar in place, keeping its filename for the same
+# fast-jar classpath reason, and the admin CLI with its patched copy. The
+# guard fails the build if Keycloak stops shipping exactly these jars.
+RUN for f in lib/lib/main/com.fasterxml.jackson.core.jackson-databind-2.21.5.jar \
+             bin/client/keycloak-admin-cli-26.7.4.jar; do \
+      test -f "/opt/keycloak/$f" || { echo "expected Keycloak jar $f is missing" >&2; exit 1; }; \
+    done
+COPY --from=jackson /jk/jackson-databind.jar /opt/keycloak/lib/lib/main/com.fasterxml.jackson.core.jackson-databind-2.21.5.jar
+COPY --from=jackson /jk/keycloak-admin-cli.jar /opt/keycloak/bin/client/keycloak-admin-cli-26.7.4.jar
 
 # Copy custom theme and providers (if any)
 COPY themes/ /opt/keycloak/themes/

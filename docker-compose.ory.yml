@@ -1,0 +1,119 @@
+# docker-compose.ory.yml — optional NON-PRODUCTION Ory stack (Gate IAM-M2/M3)
+#
+# Does NOT replace docker-compose.yml (Keycloak). Run side-by-side or alone:
+#
+#   docker compose -f docker-compose.ory.yml up -d
+#
+# Admin APIs are bound to localhost only (ADR-0021 §6–10). Public ports are
+# for local dev. Secrets in config files are development defaults only — never
+# use in shared or production environments (ADR-0021 §40–41).
+#
+# Config:
+#   config/ory/kratos/{kratos.yml,identity.schema.json}  (M2-B)
+#   config/ory/hydra/hydra.yml                           (M3-B)
+#
+# Image digests: provider.lock.yaml (resolved 2026-09-30). Pins use
+# image:tag@sha256 multi-arch index digests from Docker Hub.
+
+services:
+  postgres-kratos:
+    image: postgres:17-alpine
+    container_name: baobab-iam-postgres-kratos
+    environment:
+      POSTGRES_USER: ${KRATOS_DB_USER:-kratos}
+      POSTGRES_PASSWORD: ${KRATOS_DB_PASSWORD:-kratos_dev_only}
+      POSTGRES_DB: ${KRATOS_DB_NAME:-kratos}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_kratos_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KRATOS_DB_USER:-kratos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-hydra:
+    image: postgres:17-alpine
+    container_name: baobab-iam-postgres-hydra
+    environment:
+      POSTGRES_USER: ${HYDRA_DB_USER:-hydra}
+      POSTGRES_PASSWORD: ${HYDRA_DB_PASSWORD:-hydra_dev_only}
+      POSTGRES_DB: ${HYDRA_DB_NAME:-hydra}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_hydra_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HYDRA_DB_USER:-hydra}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kratos-migrate:
+    image: oryd/kratos:v26.2.0@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643
+    container_name: baobab-iam-kratos-migrate
+    depends_on:
+      postgres-kratos:
+        condition: service_healthy
+    environment:
+      DSN: postgres://${KRATOS_DB_USER:-kratos}:${KRATOS_DB_PASSWORD:-kratos_dev_only}@postgres-kratos:5432/${KRATOS_DB_NAME:-kratos}?sslmode=disable&max_conns=20&max_idle_conns=4
+    volumes:
+      - ./config/ory/kratos:/etc/config/kratos:ro
+    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
+    restart: on-failure
+
+  kratos:
+    image: oryd/kratos:v26.2.0@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643
+    container_name: baobab-iam-kratos
+    depends_on:
+      kratos-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://${KRATOS_DB_USER:-kratos}:${KRATOS_DB_PASSWORD:-kratos_dev_only}@postgres-kratos:5432/${KRATOS_DB_NAME:-kratos}?sslmode=disable&max_conns=20&max_idle_conns=4
+    ports:
+      # Public API (local dev) — ADR-0021 §7
+      - "4433:4433"
+      # Admin API — localhost only — ADR-0021 §8
+      - "127.0.0.1:4434:4434"
+    volumes:
+      - ./config/ory/kratos:/etc/config/kratos:ro
+    command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
+    restart: unless-stopped
+
+  hydra-migrate:
+    image: oryd/hydra:v26.2.0@sha256:ff67c7fb5f95074fa53374d41151713554960504b340cd3f95b09e65deaea2a9
+    container_name: baobab-iam-hydra-migrate
+    depends_on:
+      postgres-hydra:
+        condition: service_healthy
+    environment:
+      DSN: postgres://${HYDRA_DB_USER:-hydra}:${HYDRA_DB_PASSWORD:-hydra_dev_only}@postgres-hydra:5432/${HYDRA_DB_NAME:-hydra}?sslmode=disable&max_conns=20&max_idle_conns=4
+    volumes:
+      - ./config/ory/hydra:/etc/config/hydra:ro
+    command: -c /etc/config/hydra/hydra.yml migrate sql -e --yes
+    restart: on-failure
+
+  hydra:
+    image: oryd/hydra:v26.2.0@sha256:ff67c7fb5f95074fa53374d41151713554960504b340cd3f95b09e65deaea2a9
+    container_name: baobab-iam-hydra
+    depends_on:
+      hydra-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://${HYDRA_DB_USER:-hydra}:${HYDRA_DB_PASSWORD:-hydra_dev_only}@postgres-hydra:5432/${HYDRA_DB_NAME:-hydra}?sslmode=disable&max_conns=20&max_idle_conns=4
+      # Optional override of secrets.system from hydra.yml for local experiments.
+      SECRETS_SYSTEM: ${HYDRA_SECRETS_SYSTEM:-local_dev_only_hydra_system_secret_change_me}
+    ports:
+      # Public OAuth/OIDC (local dev) — ADR-0021 §9
+      - "4444:4444"
+      # Admin API — localhost only — ADR-0021 §10
+      - "127.0.0.1:4445:4445"
+    volumes:
+      - ./config/ory/hydra:/etc/config/hydra:ro
+    command: serve all -c /etc/config/hydra/hydra.yml --dev
+    restart: unless-stopped
+
+volumes:
+  postgres_kratos_data:
+  postgres_hydra_data:

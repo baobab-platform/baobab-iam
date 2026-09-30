@@ -1,0 +1,31 @@
+# provider.lock.yaml
+# Pins the Ory Kratos and Hydra versions for Gate IAM-M2/M3 (ADR-IAM-0021).
+# Keycloak remains pinned in upstream.lock.yaml until Gate IAM-M19.
+#
+# Digests resolved 2026-09-30 from Docker Hub registry-1.docker.io
+# (multi-arch manifest list / image index). Architecture-specific digests
+# are recorded in docs/governance/gate-iam-m2-m3-ory-foundation-scope.md.
+#
+# Note: v26.3.17 was never published on oryd/*; Phase B corrected the pin
+# to the latest published v26 line (v26.2.0 as of 2026-09-30).
+
+kratos:
+  version: "v26.2.0"
+  image: "oryd/kratos"
+  # Multi-arch index digest (linux/amd64, arm64, arm/v6, arm/v7)
+  digest: "sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643"
+  resolved_at: "2026-09-30"
+  registry: "registry-1.docker.io"
+
+hydra:
+  version: "v26.2.0"
+  image: "oryd/hydra"
+  # Multi-arch index digest (linux/amd64, arm64, arm/v6, arm/v7)
+  digest: "sha256:ff67c7fb5f95074fa53374d41151713554960504b340cd3f95b09e65deaea2a9"
+  resolved_at: "2026-09-30"
+  registry: "registry-1.docker.io"
+
+# PostgreSQL generation target for Ory persistence (ADR-0021 §13).
+# Confirm against the pinned Ory release notes before production promotion.
+postgres:
+  version: "17"

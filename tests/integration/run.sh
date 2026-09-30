@@ -11,7 +11,7 @@
 #   KEYCLOAK_ADMIN / KEYCLOAK_ADMIN_PASSWORD (default: admin / admin123)
 #   BOOTSTRAP_WORKLOAD_CLIENT_SECRET   the same value bootstrap.sh was run with
 #
-# Section 9 also fetches nabhold/shared's workload-registry.yaml (pinned in
+# Section 9 also fetches baobab-platform/shared's workload-registry.yaml (pinned in
 # contracts.lock.yaml) over the network and needs yq in addition to
 # curl/jq/bash -- this happens here, not in scripts/bootstrap.sh, because
 # the Keycloak container bootstrap.sh runs in deliberately has neither curl
@@ -244,9 +244,9 @@ curl -sf --max-time 30 -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Conten
 
 echo "== 9. Workload registry consistency (ADR-0007 §42-44) =="
 LOCK_SHA=$(yq -o=json '.' contracts.lock.yaml | jq -r '.contracts[0].sha')
-REGISTRY_YAML=$(curl -sf --max-time 30 "https://raw.githubusercontent.com/nabhold/shared/$LOCK_SHA/contracts/identity/v1/workload-registry.yaml" || echo "")
+REGISTRY_YAML=$(curl -sf --max-time 30 "https://raw.githubusercontent.com/baobab-platform/shared/$LOCK_SHA/contracts/identity/v1/workload-registry.yaml" || echo "")
 if [ -z "$REGISTRY_YAML" ]; then
-  fail "could not fetch nabhold/shared's workload-registry.yaml at pinned commit $LOCK_SHA (contracts.lock.yaml)"
+  fail "could not fetch baobab-platform/shared's workload-registry.yaml at pinned commit $LOCK_SHA (contracts.lock.yaml)"
 else
   REGISTRY_JSON=$(echo "$REGISTRY_YAML" | yq -o=json '.')
   REGISTRY_IDS=$(echo "$REGISTRY_JSON" | jq -r '.workloads | keys[]')
@@ -261,7 +261,7 @@ else
     CLIENT_ID=$(jq -r '.clientId' "$CLIENT_FILE")
     LOCAL_CLIENT_IDS=$(printf '%s\n%s' "$LOCAL_CLIENT_IDS" "$CLIENT_ID")
     if ! echo "$REGISTRY_IDS" | grep -qx "$CLIENT_ID"; then
-      fail "workload client '$CLIENT_ID' ($CLIENT_FILE) is not registered in nabhold/shared's workload registry (ADR-0007 §44: an orphaned IAM client is a security defect)"
+      fail "workload client '$CLIENT_ID' ($CLIENT_FILE) is not registered in baobab-platform/shared's workload registry (ADR-0007 §44: an orphaned IAM client is a security defect)"
       DRIFT=1
       continue
     fi

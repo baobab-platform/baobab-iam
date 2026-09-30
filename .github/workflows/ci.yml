@@ -9,15 +9,22 @@ on:
 permissions:
   contents: read
 
-# NOTE: Foundation Repository Gates run via the separately-maintained
-# .github/workflows/foundation.yml (pinned to baobab-platform/shared's v1.2.0 tag).
-# This file previously also declared its own "foundation" job pointing at a
-# nonexistent workflow path (foundation-gates.yml vs. the real
-# foundation-repository-gates.yml) with an unresolved "<SHA>" placeholder;
-# that job never could have run. Removed rather than fixed in place to
-# avoid maintaining the same gate twice.
-
 jobs:
+  provider-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build packages
+        run: go build ./internal/provider/... ./internal/migration/... ./cmd/provision-workload/
+      - name: Test packages
+        run: go test ./internal/provider/... ./internal/migration/... ./cmd/provision-workload ./cmd/provision-federated-workload -count=1
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -32,26 +39,12 @@ jobs:
           push: false
           load: true
           tags: baobab-iam:test
-      # A standalone `docker run` health check was previously attempted here,
-      # but this image's CMD runs Keycloak in production mode ("start", not
-      # "start-dev"), which requires a reachable PostgreSQL database to ever
-      # reach /health/ready — a bare `docker run` with no database would
-      # just hang until the curl timeout. The integration-test job below
-      # runs the full docker-compose stack (with Postgres) and is where
-      # boot/health/bootstrap is actually exercised.
       - name: Security scan (Trivy)
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: baobab-iam:test
           severity: CRITICAL,HIGH
           format: table
-      # Gate IAM-16 (Production Hardening): §219's checklist requires an
-      # SBOM, and nothing in this repo or baobab-platform/shared's reusable
-      # foundation gates generated one before this -- both only ran Trivy in
-      # vulnerability/secret-scan mode. Reusing the same already-approved
-      # trivy-action (no new third-party action to vet) in cyclonedx mode
-      # produces a real software bill of materials for the exact image this
-      # job just built, uploaded as a build artifact so it survives the run.
       - name: Generate SBOM (Trivy, CycloneDX)
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
@@ -71,9 +64,6 @@ jobs:
     env:
       BOOTSTRAP_WORKLOAD_CLIENT_SECRET: ci-test-only-secret-do-not-use-in-prod
       KC_URL: http://localhost:8080
-      # Keycloak 26 serves health/metrics on a separate management
-      # interface (port 9000 by default), not the main HTTP port —
-      # see https://www.keycloak.org/server/management-interface.
       KC_MANAGEMENT_URL: http://localhost:9000
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

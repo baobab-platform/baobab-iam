@@ -1,0 +1,83 @@
+# Hydra serve configuration — Gate IAM-M3 (ADR-IAM-0021).
+#
+# Scope: NON-PRODUCTION foundation only. Production secrets, TLS, and
+# network policy are out of scope until M17 / infrastructure wiring.
+#
+# ADR constraints applied here:
+#   - ADR-0021 §9–10  public OAuth/OIDC vs private admin plane
+#   - ADR-0021 §11    Hydra is NOT Baobab's human identity database;
+#                     login/consent are integration points (estate/BFF),
+#                     not a substitute for Kratos or CP
+#   - ADR-0021 §13–14 separate PostgreSQL database (DSN from Compose env)
+#   - ADR-0021 §40–41 secrets are local-dev placeholders only
+#   - ADR-0020        no Tenant / LegalEntity / Capability in OAuth config
+#   - ADR-0023        login/consent UI URLs are placeholders until estate UX
+#
+# DSN is supplied by docker-compose.ory.yml via the DSN environment variable
+# (database name hydra — isolated from kratos and Keycloak).
+
+log:
+  level: info
+  format: text
+  leak_sensitive_values: false
+
+serve:
+  public:
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://127.0.0.1:3000
+        - http://127.0.0.1:4455
+      allowed_methods:
+        - POST
+        - GET
+        - PUT
+        - PATCH
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Content-Type
+      exposed_headers:
+        - Content-Type
+      allow_credentials: true
+  cookies:
+    same_site_mode: Lax
+
+# Issuer and browser integration endpoints (local foundation).
+# Issuer must match the PublicIssuer configured on internal/provider/ory.Adapter
+# when exercising dual-run or M4 workload smoke tests against this stack.
+urls:
+  self:
+    issuer: http://127.0.0.1:4444
+  # Placeholders until Digital Estate login/consent (ADR-0023 / M7).
+  # Hydra will redirect here during authorization_code flows; admin client
+  # provisioning (client_credentials workloads) does not require these UIs.
+  login: http://127.0.0.1:3000/login
+  consent: http://127.0.0.1:3000/consent
+  logout: http://127.0.0.1:3000/logout
+  error: http://127.0.0.1:3000/error
+
+# LOCAL DEVELOPMENT ONLY — override via SECRETS_SYSTEM env or secret store
+# before any shared environment (ADR-0021 §40–41).
+secrets:
+  system:
+    - local_dev_only_hydra_system_secret_change_me
+
+oidc:
+  subject_identifiers:
+    # public is required for machine/workload clients and for a stable
+    # subject string that CP can store as ExternalIdentity.subject.
+    # pairwise may be enabled later for specific human-facing clients under
+    # a deliberate privacy decision — not default for foundation.
+    supported_types:
+      - public
+    pairwise:
+      salt: local_dev_only_pairwise_salt_change_me
+
+strategies:
+  access_token: jwt
+
+oauth2:
+  # Expose standard grant types needed by Baobab; client registration still
+  # controls which grants each client may use (WorkloadProvisioner).
+  expose_internal_errors: false
