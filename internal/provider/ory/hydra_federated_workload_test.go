@@ -69,7 +69,7 @@ func TestProvisionFederatedWorkloadCreatesNoSecretClientAndExactTrust(t *testing
 		t.Fatal(err)
 	}
 
-	expires := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	expires := time.Now().UTC().Add(24 * time.Hour)
 	got, err := a.ProvisionFederatedWorkload(context.Background(), provider.FederatedWorkloadTrustSpec{
 		LogicalClientID:  "baobab-cp-workload",
 		DisplayName:      "Baobab Control Plane Workload",
