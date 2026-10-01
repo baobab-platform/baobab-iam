@@ -1,6 +1,6 @@
 {
   "name": "authority:self",
-  "description": "baobab-cp's authority:self scope (ADR-BCP-020 sections 99-102, 110): a human administrator reads their own effective administrative authority, GET /v1/admin/effective-authority. Read-only, non-privileged, human-only; it reveals only the caller's own grants and confers no authority. Baobab owns its semantics (Shared scope-registry.yaml); this provider only issues it. Carries aud=baobab-control-plane.",
+  "description": "baobab-cp's authority:self scope (ADR-BCP-020 §§99-102, 110): a human administrator reads their own effective authority. Read-only, human-only, confers no authority. Carries aud=baobab-control-plane.",
   "protocol": "openid-connect",
   "attributes": {
     "include.in.token.scope": "true",
