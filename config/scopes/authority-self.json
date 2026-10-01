@@ -1,0 +1,22 @@
+{
+  "name": "authority:self",
+  "description": "baobab-cp's authority:self scope (ADR-BCP-020 §§99-102, 110): a human administrator reads their own effective authority. Read-only, human-only, confers no authority. Carries aud=baobab-control-plane.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}

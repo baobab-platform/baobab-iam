@@ -993,6 +993,39 @@ else
   fail "onboarding scopes are attached to:$OTHER_CLIENTS_WITH_ONBOARDING"
 fi
 
+# authority:self (ADR-BCP-020 sections 99-102, 110; Shared scope-registry.yaml):
+# a human administrator reads their own effective authority. It is read-only
+# and confers nothing, so it needs no client role, but it is human-only: it is
+# an optional scope of the workforce client alone and no workload or other
+# client can obtain it. Baobab owns its meaning; this provider only issues it.
+AUTHORITY_SELF_JSON=$(admin_api "$KC_ADMIN_API/client-scopes" | jq '[.[] | select(.name == "authority:self")][0]')
+AUTHORITY_SELF_AUDIENCE=$(echo "$AUTHORITY_SELF_JSON" | jq -r '[.protocolMappers[]? | select(.protocolMapper == "oidc-audience-mapper") | .config["included.custom.audience"]] | join(",")')
+if [ "$(echo "$AUTHORITY_SELF_JSON" | jq -r '.attributes["include.in.token.scope"] // empty')" = "true" ] && [ "$AUTHORITY_SELF_AUDIENCE" = "baobab-control-plane" ]; then
+  pass "client scope authority:self appears in the token's scope claim and adds aud=baobab-control-plane"
+else
+  fail "client scope authority:self is missing, hidden from the scope claim, or has audience '$AUTHORITY_SELF_AUDIENCE'"
+fi
+if [[ ",$CP_ADMIN_OPTIONAL," == *",authority:self,"* ]] && [[ ",$CP_ADMIN_DEFAULT," != *",authority:self,"* ]]; then
+  pass "authority:self is optional (requested deliberately), not default, on baobab-control-plane-admin"
+else
+  fail "authority:self is not an optional-only scope of baobab-control-plane-admin (optional: $CP_ADMIN_OPTIONAL; default: $CP_ADMIN_DEFAULT)"
+fi
+OTHER_CLIENTS_WITH_AUTHORITY_SELF=""
+for client_file in config/clients/*.json; do
+  CLIENT_ID=$(jq -r '.clientId' "$client_file")
+  [ "$CLIENT_ID" = "baobab-control-plane-admin" ] && continue
+  CLIENT_UUID=$(admin_api "$KC_ADMIN_API/clients?clientId=$CLIENT_ID" | jq -r '.[0].id')
+  ATTACHED=$( (admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/optional-client-scopes"; admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/default-client-scopes") | jq -r '.[].name')
+  if echo "$ATTACHED" | grep -qx 'authority:self'; then
+    OTHER_CLIENTS_WITH_AUTHORITY_SELF="$OTHER_CLIENTS_WITH_AUTHORITY_SELF $CLIENT_ID"
+  fi
+done
+if [ -z "$OTHER_CLIENTS_WITH_AUTHORITY_SELF" ]; then
+  pass "no client other than baobab-control-plane-admin (no workload, applicant, estate or engine client) can obtain authority:self"
+else
+  fail "authority:self is attached to:$OTHER_CLIENTS_WITH_AUTHORITY_SELF"
+fi
+
 # Probe identities. Tokens come from Keycloak's own evaluate-scopes endpoint:
 # the workforce client allows no direct grant, and this is exactly what the
 # browser flow would issue for that user and scope request.

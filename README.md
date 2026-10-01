@@ -117,6 +117,11 @@
   `baobab-control-plane-admin`, carrying `onboarding:request` / `onboarding:authorise`) and
   their toxic-combination check `scripts/check-role-policy.sh` — see
   [the onboarding entitlements runbook](./docs/operations/cp-onboarding-entitlements-runbook.md).
+- **Control Plane `authority:self`:** the human-only, read-only scope with which a workforce
+  administrator reads their own effective administrative authority (ADR-BCP-020). An optional
+  scope of `baobab-control-plane-admin` only, never of a workload or other client. Baobab owns
+  its semantics (Shared `scope-registry.yaml`); this provider only issues it, and it stays
+  valid unchanged when the identity provider changes.
 
 ## What this repository is
 
