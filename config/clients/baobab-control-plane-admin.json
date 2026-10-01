@@ -33,7 +33,9 @@
     "microprofile-jwt",
     "onboarding:request",
     "onboarding:authorise",
-    "authority:self"
+    "authority:self",
+    "administrator:read",
+    "administrator:write"
   ],
   "redirectUris": [
     "http://localhost:3003/*"

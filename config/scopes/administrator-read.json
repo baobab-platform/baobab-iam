@@ -1,0 +1,22 @@
+{
+  "name": "administrator:read",
+  "description": "baobab-cp's administrator:read scope (ADR-BCP-020): a human administrator inspects AdministrativeGrants. Confers no authority itself. Carries aud=baobab-control-plane.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}

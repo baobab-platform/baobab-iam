@@ -123,6 +123,11 @@
   its semantics (Shared `scope-registry.yaml`); this provider only issues it, and it stays
   valid unchanged when the identity provider changes.
 
+- **Control Plane `administrator:read` / `administrator:write`:** human-only optional scopes of
+  `baobab-control-plane-admin` only, for inspecting and administering AdministrativeGrants
+  (ADR-BCP-020). They only make the Control Plane routes callable and confer no authority;
+  `administrator:write` is privileged and is never attached to a workload or other client.
+
 ## What this repository is
 
 `baobab-iam` runs **Keycloak** as the authentication runtime. It owns:

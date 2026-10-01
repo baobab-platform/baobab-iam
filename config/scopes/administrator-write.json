@@ -1,0 +1,22 @@
+{
+  "name": "administrator:write",
+  "description": "baobab-cp's administrator:write scope (ADR-BCP-020): issue, change and delegate AdministrativeGrants. Privileged, human-only, confers no authority itself. aud=baobab-control-plane.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}
