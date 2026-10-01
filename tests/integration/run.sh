@@ -1029,7 +1029,7 @@ fi
 # administrator:read / administrator:write (ADR-BCP-020 grant administration,
 # ADA-05): human-only, optional scopes of the workforce client alone. They only
 # make the Control Plane routes callable; authority comes from AdministrativeGrants.
-for ADMIN_SCOPE in administrator:read administrator:write; do
+for ADMIN_SCOPE in administrator:read administrator:write administrator:approve; do
   ADMIN_SCOPE_JSON=$(admin_api "$KC_ADMIN_API/client-scopes" | jq --arg n "$ADMIN_SCOPE" '[.[] | select(.name == $n)][0]')
   ADMIN_SCOPE_AUD=$(echo "$ADMIN_SCOPE_JSON" | jq -r '[.protocolMappers[]? | select(.protocolMapper == "oidc-audience-mapper") | .config["included.custom.audience"]] | join(",")')
   if [ "$(echo "$ADMIN_SCOPE_JSON" | jq -r '.attributes["include.in.token.scope"] // empty')" = "true" ] && [ "$ADMIN_SCOPE_AUD" = "baobab-control-plane" ]; then

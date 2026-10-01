@@ -123,10 +123,10 @@
   its semantics (Shared `scope-registry.yaml`); this provider only issues it, and it stays
   valid unchanged when the identity provider changes.
 
-- **Control Plane `administrator:read` / `administrator:write`:** human-only optional scopes of
+- **Control Plane `administrator:read` / `administrator:write` / `administrator:approve`:** human-only optional scopes of
   `baobab-control-plane-admin` only, for inspecting and administering AdministrativeGrants
   (ADR-BCP-020). They only make the Control Plane routes callable and confer no authority;
-  `administrator:write` is privileged and is never attached to a workload or other client.
+  `administrator:write` and `administrator:approve` are privileged and are never attached to a workload or other client; `administrator:approve` lets a checker decide a grant change but is not approval authority (the Control Plane also requires `changeset:approve` and enforces separation of duties).
 
 ## What this repository is
 

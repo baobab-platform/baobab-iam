@@ -1,0 +1,22 @@
+{
+  "name": "administrator:approve",
+  "description": "baobab-cp's administrator:approve scope (ADR-BCP-020): decide an AdministrativeGrant change as its checker. Privileged, human-only; confers no authority itself. aud=baobab-control-plane.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}

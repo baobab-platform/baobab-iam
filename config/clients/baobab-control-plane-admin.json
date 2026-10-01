@@ -35,7 +35,8 @@
     "onboarding:authorise",
     "authority:self",
     "administrator:read",
-    "administrator:write"
+    "administrator:write",
+    "administrator:approve"
   ],
   "redirectUris": [
     "http://localhost:3003/*"
