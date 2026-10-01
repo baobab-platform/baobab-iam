@@ -1026,6 +1026,37 @@ else
   fail "authority:self is attached to:$OTHER_CLIENTS_WITH_AUTHORITY_SELF"
 fi
 
+# administrator:read / administrator:write (ADR-BCP-020 grant administration,
+# ADA-05): human-only, optional scopes of the workforce client alone. They only
+# make the Control Plane routes callable; authority comes from AdministrativeGrants.
+for ADMIN_SCOPE in administrator:read administrator:write; do
+  ADMIN_SCOPE_JSON=$(admin_api "$KC_ADMIN_API/client-scopes" | jq --arg n "$ADMIN_SCOPE" '[.[] | select(.name == $n)][0]')
+  ADMIN_SCOPE_AUD=$(echo "$ADMIN_SCOPE_JSON" | jq -r '[.protocolMappers[]? | select(.protocolMapper == "oidc-audience-mapper") | .config["included.custom.audience"]] | join(",")')
+  if [ "$(echo "$ADMIN_SCOPE_JSON" | jq -r '.attributes["include.in.token.scope"] // empty')" = "true" ] && [ "$ADMIN_SCOPE_AUD" = "baobab-control-plane" ]; then
+    pass "client scope $ADMIN_SCOPE appears in the token's scope claim and adds aud=baobab-control-plane"
+  else
+    fail "client scope $ADMIN_SCOPE is missing, hidden from the scope claim, or has audience '$ADMIN_SCOPE_AUD'"
+  fi
+  if [[ ",$CP_ADMIN_OPTIONAL," == *",$ADMIN_SCOPE,"* ]] && [[ ",$CP_ADMIN_DEFAULT," != *",$ADMIN_SCOPE,"* ]]; then
+    pass "$ADMIN_SCOPE is optional (requested deliberately), not default, on baobab-control-plane-admin"
+  else
+    fail "$ADMIN_SCOPE is not an optional-only scope of baobab-control-plane-admin"
+  fi
+  OTHERS=""
+  for client_file in config/clients/*.json; do
+    CLIENT_ID=$(jq -r '.clientId' "$client_file")
+    [ "$CLIENT_ID" = "baobab-control-plane-admin" ] && continue
+    CLIENT_UUID=$(admin_api "$KC_ADMIN_API/clients?clientId=$CLIENT_ID" | jq -r '.[0].id')
+    ATTACHED=$( (admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/optional-client-scopes"; admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/default-client-scopes") | jq -r '.[].name')
+    if echo "$ATTACHED" | grep -qx "$ADMIN_SCOPE"; then OTHERS="$OTHERS $CLIENT_ID"; fi
+  done
+  if [ -z "$OTHERS" ]; then
+    pass "no client other than baobab-control-plane-admin (no workload, applicant, estate or engine client) can obtain $ADMIN_SCOPE"
+  else
+    fail "$ADMIN_SCOPE is attached to:$OTHERS"
+  fi
+done
+
 # Probe identities. Tokens come from Keycloak's own evaluate-scopes endpoint:
 # the workforce client allows no direct grant, and this is exactly what the
 # browser flow would issue for that user and scope request.
