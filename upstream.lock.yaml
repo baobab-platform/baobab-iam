@@ -1,16 +1,9 @@
 # upstream.lock.yaml
 # Pins the exact Keycloak version and container digest for production.
 keycloak:
-  version: "26.7.4"
+  version: "26.7.5"
   image: "quay.io/keycloak/keycloak"
-  # UNRESOLVED — this is not yet a real digest and SHALL NOT be treated as
-  # one. ADR-0002 Section 10 requires the digest pinned here, but resolving
-  # it requires registry access this development environment's network
-  # policy denies (quay.io is blocked). A human or a CI job with registry
-  # egress must run the command below and replace this value before this
-  # pin can be relied on. Tracked as R-1 in
-  # docs/governance/gate-iam-0-discovery.md.
-  #
-  #   docker buildx imagetools inspect quay.io/keycloak/keycloak:26.7.4
-  #
-  digest: "UNRESOLVED-see-R-1-in-docs/governance/gate-iam-0-discovery.md"
+  # Resolved from the registry by scripts/keycloak-baseline.sh (CI job
+  # keycloak-baseline), which fails if this, the registry and the
+  # Dockerfile FROM lines disagree. Closes R-1.
+  digest: "sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85"
