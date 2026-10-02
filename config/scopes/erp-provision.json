@@ -1,0 +1,22 @@
+{
+  "name": "erp:provision",
+  "description": "Grants permission to submit provisioning commands to baobab-erp's Boundary API. Audience baobab-erp. Grants no tenant authority and authorises nothing by itself (ADR-0007 sections 88-91).",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-erp",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-erp",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}

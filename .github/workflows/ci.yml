@@ -26,6 +26,8 @@ jobs:
         run: go test ./internal/provider/... ./internal/migration/... ./cmd/provision-workload ./cmd/provision-federated-workload -count=1
       - name: Every issued scope exists in the pinned Shared scope registry
         run: ./scripts/check-issued-scopes.sh
+      - name: Every client and scope description fits Keycloak's 255-character limit
+        run: ./scripts/check-config-limits.sh
 
   keycloak-baseline:
     runs-on: ubuntu-latest
