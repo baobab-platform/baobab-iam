@@ -28,77 +28,6 @@ RUN mkdir -p /mnt/rootfs && \
       jq \
     && dnf clean all --installroot /mnt/rootfs
 
-# Bouncy Castle override. Keycloak 26.7.3 and 26.7.4 vendors Bouncy
-# Castle 1.84, whose bcprov has CRITICAL CVE-2026-8763 (name-constraints
-# bypass) and HIGH CVE-2026-13506, both fixed in 1.85; Quarkus 3.33.3.2's
-# BOM still pins 1.84, so no Keycloak release carries the fix yet. The
-# patched jars are fetched here, verified against pinned SHA-256 digests
-# (cross-checked with Maven Central's published SHA-1), and swapped into
-# the builder stage below. Remove this stage once upstream.lock.yaml pins
-# a Keycloak release that vendors Bouncy Castle >= 1.85.
-FROM registry.access.redhat.com/ubi9:9.4 AS bouncycastle
-RUN set -eu; mkdir /bc; cd /bc; \
-    m=https://repo1.maven.org/maven2/org/bouncycastle; \
-    curl -fsSL -o bcprov.jar "$m/bcprov-jdk18on/1.85.2/bcprov-jdk18on-1.85.2.jar"; \
-    curl -fsSL -o bcpkix.jar "$m/bcpkix-jdk18on/1.85/bcpkix-jdk18on-1.85.jar"; \
-    curl -fsSL -o bcutil.jar "$m/bcutil-jdk18on/1.85/bcutil-jdk18on-1.85.jar"; \
-    printf '%s  %s\n' \
-      986b0fb92ec10e0c66b43e036ce0077e6150cfaecd1db9fb92b56672e157afe5 bcprov.jar \
-      c9f82b2d4e99c4bbdfccf684e52cc06ea06a0b567bfd0d08f9c5a3f417055996 bcpkix.jar \
-      590f55ed5d68529239898a4a5c4f730b6e37f45d1cfa3fbe51f8485abe32c42d bcutil.jar \
-      | sha256sum --check --strict
-
-# CVE-2026-84939 (CRITICAL, path traversal via a malformed locale
-# identifier): Keycloak 26.7.4 vendored Apache FreeMarker 2.3.32, which
-# renders every login, account and email template; the fix is 2.3.35. As
-# with Bouncy Castle above, the fixed jar is fetched from Maven Central,
-# verified against its pinned SHA-256 (cross-checked with Maven Central's
-# published SHA-1, dd1d9737c3e8b8a5bf0d44981eb308df4822e241), and swapped
-# into the builder stage below. Remove this stage once upstream.lock.yaml
-# pins a Keycloak release that vendors FreeMarker >= 2.3.35.
-FROM registry.access.redhat.com/ubi9:9.4 AS freemarker
-RUN set -eu; mkdir /fm; cd /fm; \
-    curl -fsSL -o freemarker.jar \
-      https://repo1.maven.org/maven2/org/freemarker/freemarker/2.3.35/freemarker-2.3.35.jar; \
-    printf '%s  %s\n' \
-      0fac87dddd78f1223139e8ef88e819c7f483c0a3835cdf5982ad5e4576d1d896 freemarker.jar \
-      | sha256sum --check --strict
-
-# CVE-2026-68497 (HIGH, CPU denial of service via unbounded numeric
-# parsing): Keycloak 26.7.4 vendored jackson-databind 2.21.5 twice, as a
-# server library and unrelocated inside the fat keycloak-admin-cli jar that
-# kcadm.sh (and so bootstrap.sh) runs. The fix is 2.21.6; 2.21.7 is the
-# current 2.21 patch, so the rest of the 2.21 Jackson modules (core,
-# annotations, datatypes) stay as vendored. The fixed jar is fetched from
-# Maven Central, verified against its pinned SHA-256 (cross-checked with
-# Maven Central's published SHA-1, a2ebbc72e3092323f0f3defa786ff3bb0c47218c).
-# The server jar is swapped whole in the builder stage below; the admin CLI
-# has its databind classes and Maven metadata replaced here, leaving the
-# fat jar's manifest, services and module-info untouched. The final check
-# fails the build unless the patched CLI declares the fixed version. Remove
-# this stage once upstream.lock.yaml pins a Keycloak release that vendors
-# jackson-databind >= 2.21.6.
-FROM registry.access.redhat.com/ubi9:9.4 AS jackson
-RUN dnf install -y --setopt install_weak_deps=false --nodocs zip unzip && dnf clean all
-COPY --from=quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 /opt/keycloak/bin/client/keycloak-admin-cli-26.7.5.jar /jk/keycloak-admin-cli.jar
-RUN set -eu; cd /jk; \
-    curl -fsSL -o jackson-databind.jar \
-      https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.jar; \
-    printf '%s  %s\n' \
-      1290c2795e93e8a6861a6c4d9ff0d844d32f5ea178362cb2721edf5561e828b1 jackson-databind.jar \
-      | sha256sum --check --strict; \
-    unzip -p keycloak-admin-cli.jar META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties \
-      | grep -qx 'version=2.21.5' \
-      || { echo "keycloak-admin-cli no longer vendors jackson-databind 2.21.5; revisit this override" >&2; exit 1; }; \
-    mkdir databind; \
-    (cd databind && unzip -q ../jackson-databind.jar \
-      -x 'META-INF/MANIFEST.MF' 'META-INF/LICENSE' 'META-INF/NOTICE' 'META-INF/versions/*' 'META-INF/services/*'); \
-    zip -q -d keycloak-admin-cli.jar 'com/fasterxml/jackson/databind/*' \
-      'META-INF/maven/com.fasterxml.jackson.core/jackson-databind/*'; \
-    (cd databind && zip -q -r ../keycloak-admin-cli.jar com META-INF/maven); \
-    unzip -p keycloak-admin-cli.jar META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties \
-      | grep -qx 'version=2.21.7'
-
 FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS builder
 
 # The upstream image already switches to its non-root runtime user (see
@@ -109,42 +38,6 @@ FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6c
 # so building it as root has no effect on the shipped runtime image, which
 # still ends with USER 1000.
 USER root
-
-# Replace Keycloak's vendored Bouncy Castle 1.84 jars in place (see the
-# bouncycastle stage above). Filenames are kept because Quarkus' fast-jar
-# classpath references them by name and the final stage's COPY of
-# /opt/keycloak would otherwise leave the base image's 1.84 files behind.
-# The guard fails the build if Keycloak stops shipping exactly these jars,
-# so this override is revisited rather than silently applied to new files.
-RUN for f in lib/lib/main/org.bouncycastle.bcprov-jdk18on-1.84.jar \
-             lib/lib/main/org.bouncycastle.bcpkix-jdk18on-1.84.jar \
-             lib/lib/main/org.bouncycastle.bcutil-jdk18on-1.84.jar \
-             bin/client/lib/bcprov-jdk18on-1.84.jar; do \
-      test -f "/opt/keycloak/$f" || { echo "expected Keycloak jar $f is missing" >&2; exit 1; }; \
-    done
-COPY --from=bouncycastle /bc/bcprov.jar /opt/keycloak/lib/lib/main/org.bouncycastle.bcprov-jdk18on-1.84.jar
-COPY --from=bouncycastle /bc/bcpkix.jar /opt/keycloak/lib/lib/main/org.bouncycastle.bcpkix-jdk18on-1.84.jar
-COPY --from=bouncycastle /bc/bcutil.jar /opt/keycloak/lib/lib/main/org.bouncycastle.bcutil-jdk18on-1.84.jar
-COPY --from=bouncycastle /bc/bcprov.jar /opt/keycloak/bin/client/lib/bcprov-jdk18on-1.84.jar
-
-# Replace Keycloak's vendored FreeMarker 2.3.32 in place (see the
-# freemarker stage above), keeping the filename for the same fast-jar
-# classpath reason. The guard fails the build if Keycloak stops shipping
-# exactly this jar, so the override is revisited rather than misapplied.
-RUN test -f /opt/keycloak/lib/lib/main/org.freemarker.freemarker-2.3.32.jar \
-    || { echo "expected Keycloak jar org.freemarker.freemarker-2.3.32.jar is missing" >&2; exit 1; }
-COPY --from=freemarker /fm/freemarker.jar /opt/keycloak/lib/lib/main/org.freemarker.freemarker-2.3.32.jar
-
-# Replace Keycloak's vendored jackson-databind 2.21.5 (see the jackson
-# stage above): the server jar in place, keeping its filename for the same
-# fast-jar classpath reason, and the admin CLI with its patched copy. The
-# guard fails the build if Keycloak stops shipping exactly these jars.
-RUN for f in lib/lib/main/com.fasterxml.jackson.core.jackson-databind-2.21.5.jar \
-             bin/client/keycloak-admin-cli-26.7.5.jar; do \
-      test -f "/opt/keycloak/$f" || { echo "expected Keycloak jar $f is missing" >&2; exit 1; }; \
-    done
-COPY --from=jackson /jk/jackson-databind.jar /opt/keycloak/lib/lib/main/com.fasterxml.jackson.core.jackson-databind-2.21.5.jar
-COPY --from=jackson /jk/keycloak-admin-cli.jar /opt/keycloak/bin/client/keycloak-admin-cli-26.7.5.jar
 
 # Copy custom theme and providers (if any)
 COPY themes/ /opt/keycloak/themes/

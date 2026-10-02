@@ -30,6 +30,12 @@ cli_db=$(unzip -p "$out/admin-cli.jar" META-INF/maven/com.fasterxml.jackson.core
 rm -f "$out/admin-cli.jar"
 echo "admin-cli embedded jackson-databind: ${cli_db:-none}" | tee -a "$out/vendored-libraries.txt"
 fail=0
+# The base image must carry the fixes itself (no jar overrides in the Dockerfile).
+ge() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$2" ]; }  # $1 >= $2
+ge "${cli_db:-0}" 2.21.6 || { echo "::error::admin-cli embeds jackson-databind ${cli_db:-none} < 2.21.6"; fail=1; }
+grep -q 'freemarker-2\.3\.\(3[5-9]\|[4-9]\)' "$out/vendored-libraries.txt" || { echo "::error::FreeMarker < 2.3.35"; fail=1; }
+grep -q 'bcprov-jdk18on-1\.\(8[5-9]\|9\)' "$out/vendored-libraries.txt" || { echo "::error::Bouncy Castle < 1.85"; fail=1; }
+! grep -q 'COPY --from=\(bouncycastle\|freemarker\|jackson\)' Dockerfile || { echo "::error::obsolete jar override present"; fail=1; }
 case "$pin" in
   sha256:*) [ "$pin" = "$live" ] || { echo "::error::upstream.lock.yaml digest $pin != registry $live"; fail=1; } ;;
   *) echo "::error::upstream.lock.yaml digest is not pinned (R-1). Set keycloak.digest to $live"; fail=1 ;;
