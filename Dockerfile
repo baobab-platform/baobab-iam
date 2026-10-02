@@ -80,7 +80,7 @@ RUN set -eu; mkdir /fm; cd /fm; \
 # jackson-databind >= 2.21.6.
 FROM registry.access.redhat.com/ubi9:9.4 AS jackson
 RUN dnf install -y --setopt install_weak_deps=false --nodocs zip unzip && dnf clean all
-COPY --from=quay.io/keycloak/keycloak:26.7.5 /opt/keycloak/bin/client/keycloak-admin-cli-26.7.5.jar /jk/keycloak-admin-cli.jar
+COPY --from=quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 /opt/keycloak/bin/client/keycloak-admin-cli-26.7.5.jar /jk/keycloak-admin-cli.jar
 RUN set -eu; cd /jk; \
     curl -fsSL -o jackson-databind.jar \
       https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.jar; \
@@ -99,7 +99,7 @@ RUN set -eu; cd /jk; \
     unzip -p keycloak-admin-cli.jar META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties \
       | grep -qx 'version=2.21.7'
 
-FROM quay.io/keycloak/keycloak:26.7.5 AS builder
+FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS builder
 
 # The upstream image already switches to its non-root runtime user (see
 # the final stage's own USER 1000 below), which this build stage inherits.
@@ -179,7 +179,7 @@ ENV KC_HEALTH_ENABLED=true
 RUN /opt/keycloak/bin/kc.sh build
 
 # Final stage – minimal distroless image
-FROM quay.io/keycloak/keycloak:26.7.5
+FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85
 ARG VERSION=0.0.0-dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.source="https://github.com/baobab-platform/baobab-iam" \

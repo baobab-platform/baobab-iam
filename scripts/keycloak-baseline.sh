@@ -24,6 +24,11 @@ trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
   echo "## bin/client"; docker cp "$cid:/opt/keycloak/bin/client" - | tar -t | grep -E 'jar$' | sed 's|.*/||' | sort -u
 } | tee "$out/vendored-libraries.txt"
 
+# Admin CLI is a fat jar: record the Jackson databind it embeds.
+docker cp "$cid:/opt/keycloak/bin/client/keycloak-admin-cli-$ver.jar" "$out/admin-cli.jar"
+cli_db=$(unzip -p "$out/admin-cli.jar" META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties | sed -n 's/^version=//p')
+rm -f "$out/admin-cli.jar"
+echo "admin-cli embedded jackson-databind: ${cli_db:-none}" | tee -a "$out/vendored-libraries.txt"
 fail=0
 case "$pin" in
   sha256:*) [ "$pin" = "$live" ] || { echo "::error::upstream.lock.yaml digest $pin != registry $live"; fail=1; } ;;
