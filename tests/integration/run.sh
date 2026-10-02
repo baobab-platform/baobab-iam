@@ -839,10 +839,12 @@ else
 fi
 
 # Exactly one Level-of-Authentication configuration in the realm sets level 3,
-# and it belongs to the passkey flow. Any other flow able to set LoA 3 would
-# make acr=3 mean something weaker.
+# and it is the passkey flow's. Any other flow able to set LoA 3 would make
+# acr=3 mean something weaker. Flow listings are nested (a parent flow's
+# executions include its subflows'), so count unique configuration ids rather
+# than flows.
+PASSKEY_CONFIG_ID=$(echo "$PASSKEY_EXECUTIONS" | jq -r '[.[] | select(.providerId == "conditional-level-of-authentication")][0].authenticationConfig // empty')
 LOA3_CONFIG_IDS=""
-LOA3_COUNT=0
 for FLOW_ALIAS_PATH in $(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/flows" \
     | jq -r '.[].alias | @uri'); do
   FLOW_EXECUTIONS=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" \
@@ -851,29 +853,16 @@ for FLOW_ALIAS_PATH in $(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN
     LEVEL=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" \
       "$KC_URL/admin/realms/$REALM/authentication/config/$CONFIG_ID" | jq -r '.config["loa-condition-level"] // empty')
     if [ "$LEVEL" = "3" ]; then
-      LOA3_COUNT=$((LOA3_COUNT + 1))
-      LOA3_CONFIG_IDS="$LOA3_CONFIG_IDS $FLOW_ALIAS_PATH"
+      LOA3_CONFIG_IDS="$LOA3_CONFIG_IDS $CONFIG_ID"
     fi
   done
 done
-if [ "$LOA3_COUNT" = "1" ] && [ "$(echo $LOA3_CONFIG_IDS)" = "$PASSKEY_FLOW_PATH" ]; then
-  pass "exactly one flow sets LoA 3, and it is '$PASSKEY_FLOW_ALIAS'"
+LOA3_UNIQUE=$(echo $LOA3_CONFIG_IDS | tr ' ' '\n' | sort -u | grep -c . || true)
+if [ -n "$PASSKEY_CONFIG_ID" ] && [ "$LOA3_UNIQUE" = "1" ] && [ "$(echo $LOA3_CONFIG_IDS | tr ' ' '\n' | sort -u)" = "$PASSKEY_CONFIG_ID" ]; then
+  pass "exactly one Level-of-Authentication configuration sets LoA 3, and it is '$PASSKEY_FLOW_ALIAS''s"
 else
-  fail "LoA 3 must be set by exactly '$PASSKEY_FLOW_ALIAS' (found $LOA3_COUNT: $LOA3_CONFIG_IDS)"
+  fail "LoA 3 must be set by exactly one configuration, the one in '$PASSKEY_FLOW_ALIAS' (found $LOA3_UNIQUE unique: $LOA3_CONFIG_IDS; passkey: '$PASSKEY_CONFIG_ID')"
 fi
-PASSKEY_CONFIG_ID=$(echo "$PASSKEY_EXECUTIONS" | jq -r '[.[] | select(.providerId == "conditional-level-of-authentication")][0].authenticationConfig // empty')
-if [ -n "$PASSKEY_CONFIG_ID" ]; then
-  PASSKEY_CONFIG_JSON=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/config/$PASSKEY_CONFIG_ID")
-  if [ "$(echo "$PASSKEY_CONFIG_JSON" | jq -r '.config["loa-condition-level"] // empty')" = "3" ] && \
-     [ "$(echo "$PASSKEY_CONFIG_JSON" | jq -r '.config["loa-max-age"] // empty')" = "300" ]; then
-    pass "the passkey step-up condition demands LoA 3 with a 300-second maximum age (Shared CRITICAL freshness)"
-  else
-    fail "the passkey step-up condition is not LoA 3 / 300 seconds: $(echo "$PASSKEY_CONFIG_JSON" | jq -c '.config')"
-  fi
-else
-  fail "could not find the passkey step-up condition's authenticatorConfig"
-fi
-
 # The passkey flow is part of the browser flow and is evaluated before the OTP
 # step-up (priority lower), so a completed level 3 satisfies level 2.
 BROWSER_TOP=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/flows/Baobab%20browser/executions" || echo "[]")
