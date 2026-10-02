@@ -117,7 +117,7 @@ Source: `config/scopes/*.json`.
 | Themes (`loginTheme`/`accountTheme: baobab`) | RETIRE / REPLACE | Digital Estate UX (ADR-0023); known missing theme left open under IAM-14 | |
 | Admin Events API / event-listener SPI choice | REPLACE | Ory events → Baobab security events via adapter (Gate IAM-M14) | Architectural fork under IAM-12 |
 | `scripts/bootstrap.sh` Keycloak kcadm paths | REPLACE | Ory bootstrap + adapter provisioning | |
-| `upstream.lock.yaml` Keycloak 26.7.4 + **UNRESOLVED** digest | RETIRE after cutover; **R-1 still open** for remaining Keycloak life | New `provider.lock.yaml` for Kratos/Hydra digests | |
+| `upstream.lock.yaml` Keycloak 26.7.5 + digest digest | RETIRE after cutover; **R-1 still open** for remaining Keycloak life | New `provider.lock.yaml` for Kratos/Hydra digests | |
 | Dockerfile Keycloak image | REPLACE | Kratos + Hydra images (digest-pinned) | ADR-0021 |
 | `docker-compose.yml` Keycloak + Postgres | TRANSLATE / REPLACE | Kratos + Hydra + separate DBs | ADR-0021 §14 |
 
@@ -248,7 +248,7 @@ below with owner and date so M0 can close and Phase A can proceed. Re-run the pl
 | 5 | Auth flow graph | **Waived** | Platform Architecture / 2026-09-30 | Flows REPLACE under Kratos (ADR-0024); no live graph required for greenfield M0 |
 | 6 | Admin events enabled | **Waived** | Platform Architecture / 2026-09-30 | Gate IAM-13 phase 1 assumed from prior programme; re-check on live stack before dual-run |
 | 7 | Break-glass accounts / runbook | **Open (doc only)** | Platform Architecture / 2026-09-30 | Runbook exists (`break-glass-runbook.md`); live account proof deferred to non-prod exercise |
-| 8 | Running KC version vs lockfile | **Waived** | Platform Architecture / 2026-09-30 | Pin remains `upstream.lock.yaml` 26.7.4 for remaining KC life |
+| 8 | Running KC version vs lockfile | **Waived** | Platform Architecture / 2026-09-30 | Pin is `upstream.lock.yaml` 26.7.5 for remaining KC life |
 | 9 | R-1 / Ory digest resolution | **Open residual** | Operator with registry egress | `provider.lock.yaml` digests **UNRESOLVED**; **policy:** tags allowed for isolated non-prod only; production promotion requires real digests |
 | 10 | Tests asserting KC-only URLs/claims | **Partial** | Platform Architecture / 2026-09-30 | Inventory deferred to M7+ rewrite list; integration suite still Keycloak-oriented by design until dual-run |
 

@@ -28,7 +28,7 @@ RUN mkdir -p /mnt/rootfs && \
       jq \
     && dnf clean all --installroot /mnt/rootfs
 
-# Bouncy Castle override. Keycloak 26.7.4 (and 26.7.3) vendors Bouncy
+# Bouncy Castle override. Keycloak 26.7.3 and 26.7.4 vendors Bouncy
 # Castle 1.84, whose bcprov has CRITICAL CVE-2026-8763 (name-constraints
 # bypass) and HIGH CVE-2026-13506, both fixed in 1.85; Quarkus 3.33.3.2's
 # BOM still pins 1.84, so no Keycloak release carries the fix yet. The
@@ -49,7 +49,7 @@ RUN set -eu; mkdir /bc; cd /bc; \
       | sha256sum --check --strict
 
 # CVE-2026-84939 (CRITICAL, path traversal via a malformed locale
-# identifier): Keycloak 26.7.4 vendors Apache FreeMarker 2.3.32, which
+# identifier): Keycloak 26.7.4 vendored Apache FreeMarker 2.3.32, which
 # renders every login, account and email template; the fix is 2.3.35. As
 # with Bouncy Castle above, the fixed jar is fetched from Maven Central,
 # verified against its pinned SHA-256 (cross-checked with Maven Central's
@@ -65,7 +65,7 @@ RUN set -eu; mkdir /fm; cd /fm; \
       | sha256sum --check --strict
 
 # CVE-2026-68497 (HIGH, CPU denial of service via unbounded numeric
-# parsing): Keycloak 26.7.4 vendors jackson-databind 2.21.5 twice, as a
+# parsing): Keycloak 26.7.4 vendored jackson-databind 2.21.5 twice, as a
 # server library and unrelocated inside the fat keycloak-admin-cli jar that
 # kcadm.sh (and so bootstrap.sh) runs. The fix is 2.21.6; 2.21.7 is the
 # current 2.21 patch, so the rest of the 2.21 Jackson modules (core,
@@ -80,7 +80,7 @@ RUN set -eu; mkdir /fm; cd /fm; \
 # jackson-databind >= 2.21.6.
 FROM registry.access.redhat.com/ubi9:9.4 AS jackson
 RUN dnf install -y --setopt install_weak_deps=false --nodocs zip unzip && dnf clean all
-COPY --from=quay.io/keycloak/keycloak:26.7.4 /opt/keycloak/bin/client/keycloak-admin-cli-26.7.4.jar /jk/keycloak-admin-cli.jar
+COPY --from=quay.io/keycloak/keycloak:26.7.5 /opt/keycloak/bin/client/keycloak-admin-cli-26.7.5.jar /jk/keycloak-admin-cli.jar
 RUN set -eu; cd /jk; \
     curl -fsSL -o jackson-databind.jar \
       https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.jar; \
@@ -99,7 +99,7 @@ RUN set -eu; cd /jk; \
     unzip -p keycloak-admin-cli.jar META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties \
       | grep -qx 'version=2.21.7'
 
-FROM quay.io/keycloak/keycloak:26.7.4 AS builder
+FROM quay.io/keycloak/keycloak:26.7.5 AS builder
 
 # The upstream image already switches to its non-root runtime user (see
 # the final stage's own USER 1000 below), which this build stage inherits.
@@ -140,11 +140,11 @@ COPY --from=freemarker /fm/freemarker.jar /opt/keycloak/lib/lib/main/org.freemar
 # fast-jar classpath reason, and the admin CLI with its patched copy. The
 # guard fails the build if Keycloak stops shipping exactly these jars.
 RUN for f in lib/lib/main/com.fasterxml.jackson.core.jackson-databind-2.21.5.jar \
-             bin/client/keycloak-admin-cli-26.7.4.jar; do \
+             bin/client/keycloak-admin-cli-26.7.5.jar; do \
       test -f "/opt/keycloak/$f" || { echo "expected Keycloak jar $f is missing" >&2; exit 1; }; \
     done
 COPY --from=jackson /jk/jackson-databind.jar /opt/keycloak/lib/lib/main/com.fasterxml.jackson.core.jackson-databind-2.21.5.jar
-COPY --from=jackson /jk/keycloak-admin-cli.jar /opt/keycloak/bin/client/keycloak-admin-cli-26.7.4.jar
+COPY --from=jackson /jk/keycloak-admin-cli.jar /opt/keycloak/bin/client/keycloak-admin-cli-26.7.5.jar
 
 # Copy custom theme and providers (if any)
 COPY themes/ /opt/keycloak/themes/
@@ -179,7 +179,7 @@ ENV KC_HEALTH_ENABLED=true
 RUN /opt/keycloak/bin/kc.sh build
 
 # Final stage – minimal distroless image
-FROM quay.io/keycloak/keycloak:26.7.4
+FROM quay.io/keycloak/keycloak:26.7.5
 ARG VERSION=0.0.0-dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.source="https://github.com/baobab-platform/baobab-iam" \
