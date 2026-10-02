@@ -5,14 +5,20 @@
 # workload-registry.yaml at this commit.
 #
 # The pin includes the PROVISIONED federated_workload_token identities for
-# baobab-cp-workload and baobab-subscriptions-workload, the current scope
-# vocabulary, the provider-neutral identity/v1 capability contracts
-# (shared#151) and evidence-backed workload activation (shared#148).
+# baobab-cp-workload, baobab-subscriptions-workload and the production
+# deployment controller, the current scope vocabulary (including the
+# administrator:read/write/approve scopes this repository issues, iam#50 and
+# iam#51), the provider-neutral identity/v1 capability contracts (shared#151)
+# and evidence-backed workload activation (shared#148).
+#
+# Every scope this repository issues must exist in the scope registry at this
+# exact commit: scripts/check-issued-scopes.sh, run in CI and in
+# tests/integration/run.sh section 9b.
 schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: 1bb1c94327d02a8040f267d6eed49ef181c74561
+  commit: a503649f323f9e8bb1556d709669a04a49549cb9
 contracts:
   # Scope vocabulary the provider adapters grant (internal/provider/validate.go).
   - contracts/authorization/v1/scope-registry.yaml

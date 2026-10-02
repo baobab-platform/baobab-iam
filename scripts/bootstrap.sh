@@ -92,6 +92,72 @@ reconcile_step_up_flow() {
   rm -f "$TMP_FILE"
 }
 
+# reconcile_passkey_step_up_flow adds the phishing-resistant step-up
+# (ADR-IAM-0024 BAOBAB-A3; Shared urn:baobab:acr:step-up) to an
+# already-existing realm: the "Baobab - Passkey Step-Up" subflow (raw LoA 3,
+# WebAuthn with user verification, no weaker alternative) and the passwordless
+# WebAuthn policy that requires user verification. Like the OTP step-up above,
+# `kcadm create realms` only applies flows from baobab-realm.json on first
+# bootstrap, so a persistent realm needs this to pick the flow up.
+#
+# LoA 3 must have exactly one security meaning, so the subflow is created
+# with only the Level-of-Authentication condition and the passwordless
+# WebAuthn authenticator, evaluated BEFORE "Baobab - Step-Up" (priority 35 <
+# 40) so a completed level 3 satisfies level 2 without a second factor.
+# tests/integration/run.sh section 19b proves the result.
+#
+# Idempotent: skips the flow once "Baobab - Passkey Step-Up" is present; the
+# realm-policy update is a no-op PUT of the same values on every run.
+reconcile_passkey_step_up_flow() {
+  if kcadm get "authentication/flows/Baobab%20-%20Passkey%20Step-Up/executions" -r baobab > /dev/null 2>&1; then
+    echo "'Baobab - Passkey Step-Up' subflow already present. Skipping passkey step-up reconciliation."
+  else
+    echo "Reconciling the 'Baobab - Passkey Step-Up' subflow (LoA 3) into the existing realm..."
+    kcadm create "authentication/flows/Baobab%20browser/executions/flow" -r baobab \
+      -s alias="Baobab - Passkey Step-Up" -s provider=basic-flow -s type=basic-flow \
+      -s "description=Phishing-resistant step-up (ADR-IAM-0024 BAOBAB-A3): WebAuthn with user verification, raw LoA 3." \
+      > /dev/null
+
+    PASSKEY_EXECUTION_JSON=$(kcadm get "authentication/flows/Baobab%20browser/executions" -r baobab \
+      | jq -c '[.[] | select(.displayName == "Baobab - Passkey Step-Up")][0]')
+    TMP_FILE=$(mktemp)
+    echo "$PASSKEY_EXECUTION_JSON" | jq '.requirement = "CONDITIONAL" | .priority = 35' > "$TMP_FILE"
+    kcadm update "authentication/flows/Baobab%20browser/executions" -r baobab -f "$TMP_FILE"
+    rm -f "$TMP_FILE"
+
+    kcadm create "authentication/flows/Baobab%20-%20Passkey%20Step-Up/executions/execution" -r baobab -s provider=conditional-level-of-authentication > /dev/null
+    kcadm create "authentication/flows/Baobab%20-%20Passkey%20Step-Up/executions/execution" -r baobab -s provider=webauthn-authenticator-passwordless > /dev/null
+
+    PASSKEY_EXECUTIONS_JSON=$(kcadm get "authentication/flows/Baobab%20-%20Passkey%20Step-Up/executions" -r baobab)
+    PASSKEY_LOA_ID=$(echo "$PASSKEY_EXECUTIONS_JSON" | jq -r '[.[] | select(.providerId == "conditional-level-of-authentication")][0].id')
+    PASSKEY_WEBAUTHN_ID=$(echo "$PASSKEY_EXECUTIONS_JSON" | jq -r '[.[] | select(.providerId == "webauthn-authenticator-passwordless")][0].id')
+
+    for EXECUTION_ID in "$PASSKEY_LOA_ID" "$PASSKEY_WEBAUTHN_ID"; do
+      TMP_FILE=$(mktemp)
+      echo "$PASSKEY_EXECUTIONS_JSON" | jq --arg id "$EXECUTION_ID" '[.[] | select(.id == $id)][0] | .requirement = "REQUIRED"' > "$TMP_FILE"
+      kcadm update "authentication/flows/Baobab%20-%20Passkey%20Step-Up/executions" -r baobab -f "$TMP_FILE"
+      rm -f "$TMP_FILE"
+    done
+
+    # Matches authenticatorConfig "baobab-passkey-step-up-loa-3" in
+    # config/realm/baobab-realm.json: loa-condition-level 3, loa-max-age 300.
+    kcadm create "authentication/executions/$PASSKEY_LOA_ID/config" -r baobab \
+      -s alias=baobab-passkey-step-up-loa-3 -s 'config."loa-condition-level"=3' -s 'config."loa-max-age"=300' > /dev/null
+
+    echo "'Baobab - Passkey Step-Up' subflow reconciled."
+  fi
+
+  echo "Reconciling the passwordless WebAuthn policy (user verification required)..."
+  TMP_FILE=$(mktemp)
+  kcadm get realms/baobab -r baobab | jq '
+    .webAuthnPolicyPasswordlessUserVerificationRequirement = "required"
+    | .webAuthnPolicyPasswordlessRequireResidentKey = "Yes"
+    | .webAuthnPolicyPasswordlessRpEntityName = (.webAuthnPolicyPasswordlessRpEntityName // "Baobab")
+    | .webAuthnPolicyPasswordlessSignatureAlgorithms = (.webAuthnPolicyPasswordlessSignatureAlgorithms // ["ES256","RS256"])' > "$TMP_FILE"
+  kcadm update realms/baobab -f "$TMP_FILE"
+  rm -f "$TMP_FILE"
+}
+
 # Wait for Keycloak to be ready, then log in as admin.
 #
 # This retries kcadm's own login rather than curl-polling a health
@@ -134,6 +200,7 @@ else
   # idempotently, rather than leaving every persistent deployment stuck on
   # whatever authenticationFlows/attributes existed at first bootstrap.
   reconcile_step_up_flow
+  reconcile_passkey_step_up_flow
 fi
 
 # Import client scopes (custom scopes required by ADR-0006's token profile,

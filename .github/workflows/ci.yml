@@ -24,6 +24,8 @@ jobs:
         run: go build ./internal/provider/... ./internal/migration/... ./cmd/provision-workload/
       - name: Test packages
         run: go test ./internal/provider/... ./internal/migration/... ./cmd/provision-workload ./cmd/provision-federated-workload -count=1
+      - name: Every issued scope exists in the pinned Shared scope registry
+        run: ./scripts/check-issued-scopes.sh
 
   keycloak-baseline:
     runs-on: ubuntu-latest

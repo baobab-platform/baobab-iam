@@ -82,6 +82,16 @@
   "webAuthnPolicyCreateTimeout": 0,
   "webAuthnPolicyAvoidSameAuthenticatorRegister": false,
   "webAuthnPolicyAcceptableAaguids": [],
+  "webAuthnPolicyPasswordlessRpEntityName": "Baobab",
+  "webAuthnPolicyPasswordlessSignatureAlgorithms": ["ES256", "RS256"],
+  "webAuthnPolicyPasswordlessRpId": "localhost",
+  "webAuthnPolicyPasswordlessAttestationConveyancePreference": "not specified",
+  "webAuthnPolicyPasswordlessAuthenticatorAttachment": "not specified",
+  "webAuthnPolicyPasswordlessRequireResidentKey": "Yes",
+  "webAuthnPolicyPasswordlessUserVerificationRequirement": "required",
+  "webAuthnPolicyPasswordlessCreateTimeout": 0,
+  "webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister": false,
+  "webAuthnPolicyPasswordlessAcceptableAaguids": [],
   "oauth2DeviceCodeLifespan": 600,
   "oauth2DevicePollingInterval": 5,
   "smtpServer": {},
@@ -186,6 +196,13 @@
         {
           "authenticatorFlow": true,
           "requirement": "CONDITIONAL",
+          "priority": 35,
+          "flowAlias": "Baobab - Passkey Step-Up",
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
           "priority": 40,
           "flowAlias": "Baobab - Step-Up",
           "userSetupAllowed": false
@@ -262,6 +279,30 @@
           "userSetupAllowed": false
         }
       ]
+    },
+    {
+      "alias": "Baobab - Passkey Step-Up",
+      "description": "Phishing-resistant step-up (ADR-IAM-0024 BAOBAB-A3): raw LoA 3 means WebAuthn with user verification, nothing weaker. See docs/governance/gate-iam-passkey-step-up-scope.md.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-level-of-authentication",
+          "authenticatorConfig": "baobab-passkey-step-up-loa-3",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "webauthn-authenticator-passwordless",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
     }
   ],
   "authenticatorConfig": [
@@ -275,6 +316,13 @@
       "alias": "baobab-step-up-loa-gold",
       "config": {
         "loa-condition-level": "2",
+        "loa-max-age": "300"
+      }
+    },
+    {
+      "alias": "baobab-passkey-step-up-loa-3",
+      "config": {
+        "loa-condition-level": "3",
         "loa-max-age": "300"
       }
     }
