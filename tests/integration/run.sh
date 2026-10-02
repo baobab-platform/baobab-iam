@@ -309,6 +309,12 @@ else
   fi
 fi
 
+echo "== 9b. Issued scopes exist in the pinned Shared scope registry (EA-01C) =="
+if ./scripts/check-issued-scopes.sh; then
+  pass "every scope IAM issues exists in the scope registry at the commit contracts.lock.yaml pins"
+else
+  fail "an issued scope is missing from the pinned Shared scope registry (see scripts/check-issued-scopes.sh)"
+fi
 echo "== 10. Cross-workload identity isolation (ADR-0007 §102 impersonation checks) =="
 PULSE_TOKEN_RESPONSE=$(curl -s --max-time 30 -X POST "$TOKEN_ENDPOINT" \
   -d "client_id=baobab-pulse-workload" \
