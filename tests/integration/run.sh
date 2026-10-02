@@ -788,23 +788,140 @@ if echo "$BROWSER_FLOW_EXECUTIONS" | jq -e '[.[].displayName] | any(. == "Condit
 else
   fail "the step-up subflow is missing its Level-of-Authentication condition (got: $(echo "$BROWSER_FLOW_EXECUTIONS" | jq -c '[.[].displayName]'))"
 fi
-STEPUP_EXECUTION_ID=$(echo "$BROWSER_FLOW_EXECUTIONS" | jq -r '[.[] | select(.providerId == "conditional-level-of-authentication")][0].authenticationConfig // empty')
-if [ -n "$STEPUP_EXECUTION_ID" ]; then
-  STEPUP_CONFIG_JSON=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/config/$STEPUP_EXECUTION_ID")
-  STEPUP_LOA_LEVEL=$(echo "$STEPUP_CONFIG_JSON" | jq -r '.config["loa-condition-level"] // empty')
-  if [ "$STEPUP_LOA_LEVEL" = "2" ]; then
-    pass "the step-up condition demands LOA 2 ('gold'), matching acr.loa.map"
-  else
-    fail "the step-up condition demands LOA '$STEPUP_LOA_LEVEL', expected '2'"
-  fi
+# The browser flow holds more than one Level-of-Authentication condition (the
+# OTP step-up at LoA 2 and the passkey step-up at LoA 3, section 19b), so look
+# at every one rather than the first.
+STEPUP_LOA_LEVELS=""
+for STEPUP_CONFIG_ID in $(echo "$BROWSER_FLOW_EXECUTIONS" | jq -r '.[] | select(.providerId == "conditional-level-of-authentication") | .authenticationConfig // empty'); do
+  STEPUP_CONFIG_JSON=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/config/$STEPUP_CONFIG_ID")
+  STEPUP_LOA_LEVELS="$STEPUP_LOA_LEVELS $(echo "$STEPUP_CONFIG_JSON" | jq -r '.config["loa-condition-level"] // empty')"
+done
+if echo " $STEPUP_LOA_LEVELS " | grep -q " 2 "; then
+  pass "a step-up condition demands LOA 2 ('gold'), matching acr.loa.map"
 else
-  fail "could not find the Level-of-Authentication condition's authenticatorConfig id"
+  fail "no step-up condition demands LOA 2 (levels found:$STEPUP_LOA_LEVELS)"
 fi
 # What this suite cannot verify: an actual relying party requesting
 # acr_values=gold and being challenged for a fresh OTP entry end to end --
 # the same headless-browser limitation documented in section 15 for the
 # privileged-MFA subflow applies here too. This section proves the step-up
 # mechanism is *configured* correctly; it does not drive a real login.
+
+echo "== 19b. Phishing-resistant step-up: raw LoA 3 means WebAuthn and nothing weaker (ADR-IAM-0024 BAOBAB-A3; Shared urn:baobab:acr:step-up) =="
+# Baobab's Control Plane treats a signed token from this issuer carrying
+# acr=3 as evidence that a phishing-resistant authentication was performed
+# (Shared administration/v1 assurance-policy.yaml, phishing_resistant_evidence).
+# That is only sound if LoA 3 has exactly one security meaning, so this
+# section proves the configuration cannot emit it through anything weaker.
+PASSKEY_FLOW_ALIAS="Baobab - Passkey Step-Up"
+PASSKEY_FLOW_PATH="Baobab%20-%20Passkey%20Step-Up"
+PASSKEY_EXECUTIONS=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$KC_URL/admin/realms/$REALM/authentication/flows/$PASSKEY_FLOW_PATH/executions" || echo "[]")
+if echo "$PASSKEY_EXECUTIONS" | jq -e 'length == 2' > /dev/null; then
+  pass "'$PASSKEY_FLOW_ALIAS' contains exactly two executions"
+else
+  fail "'$PASSKEY_FLOW_ALIAS' must contain exactly the LoA condition and the passwordless WebAuthn authenticator (got: $(echo "$PASSKEY_EXECUTIONS" | jq -c '[.[].providerId]'))"
+fi
+if echo "$PASSKEY_EXECUTIONS" | jq -e '[.[].providerId] | sort == ["conditional-level-of-authentication","webauthn-authenticator-passwordless"]' > /dev/null; then
+  pass "'$PASSKEY_FLOW_ALIAS' is the LoA condition plus the passwordless WebAuthn authenticator"
+else
+  fail "'$PASSKEY_FLOW_ALIAS' has unexpected executions: $(echo "$PASSKEY_EXECUTIONS" | jq -c '[.[].providerId]')"
+fi
+if echo "$PASSKEY_EXECUTIONS" | jq -e 'all(.[]; .requirement == "REQUIRED")' > /dev/null; then
+  pass "every execution in '$PASSKEY_FLOW_ALIAS' is REQUIRED: WebAuthn cannot be skipped or replaced"
+else
+  fail "an execution in '$PASSKEY_FLOW_ALIAS' is not REQUIRED: $(echo "$PASSKEY_EXECUTIONS" | jq -c '[.[] | {providerId, requirement}]')"
+fi
+if echo "$PASSKEY_EXECUTIONS" | jq -e 'any(.[]; .providerId == "auth-otp-form" or .providerId == "auth-username-password-form" or .providerId == "auth-password-form" or .providerId == "webauthn-authenticator")' > /dev/null; then
+  fail "'$PASSKEY_FLOW_ALIAS' offers a weaker alternative (OTP, password or two-factor WebAuthn)"
+else
+  pass "'$PASSKEY_FLOW_ALIAS' offers no OTP-only, password-only or two-factor alternative"
+fi
+
+# Exactly one Level-of-Authentication configuration in the realm sets level 3,
+# and it belongs to the passkey flow. Any other flow able to set LoA 3 would
+# make acr=3 mean something weaker.
+LOA3_CONFIG_IDS=""
+LOA3_COUNT=0
+for FLOW_ALIAS_PATH in $(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/flows" \
+    | jq -r '.[].alias | @uri'); do
+  FLOW_EXECUTIONS=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" \
+    "$KC_URL/admin/realms/$REALM/authentication/flows/$FLOW_ALIAS_PATH/executions" || echo "[]")
+  for CONFIG_ID in $(echo "$FLOW_EXECUTIONS" | jq -r '.[] | select(.providerId == "conditional-level-of-authentication") | .authenticationConfig // empty'); do
+    LEVEL=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" \
+      "$KC_URL/admin/realms/$REALM/authentication/config/$CONFIG_ID" | jq -r '.config["loa-condition-level"] // empty')
+    if [ "$LEVEL" = "3" ]; then
+      LOA3_COUNT=$((LOA3_COUNT + 1))
+      LOA3_CONFIG_IDS="$LOA3_CONFIG_IDS $FLOW_ALIAS_PATH"
+    fi
+  done
+done
+if [ "$LOA3_COUNT" = "1" ] && [ "$(echo $LOA3_CONFIG_IDS)" = "$PASSKEY_FLOW_PATH" ]; then
+  pass "exactly one flow sets LoA 3, and it is '$PASSKEY_FLOW_ALIAS'"
+else
+  fail "LoA 3 must be set by exactly '$PASSKEY_FLOW_ALIAS' (found $LOA3_COUNT: $LOA3_CONFIG_IDS)"
+fi
+PASSKEY_CONFIG_ID=$(echo "$PASSKEY_EXECUTIONS" | jq -r '[.[] | select(.providerId == "conditional-level-of-authentication")][0].authenticationConfig // empty')
+if [ -n "$PASSKEY_CONFIG_ID" ]; then
+  PASSKEY_CONFIG_JSON=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/config/$PASSKEY_CONFIG_ID")
+  if [ "$(echo "$PASSKEY_CONFIG_JSON" | jq -r '.config["loa-condition-level"] // empty')" = "3" ] && \
+     [ "$(echo "$PASSKEY_CONFIG_JSON" | jq -r '.config["loa-max-age"] // empty')" = "300" ]; then
+    pass "the passkey step-up condition demands LoA 3 with a 300-second maximum age (Shared CRITICAL freshness)"
+  else
+    fail "the passkey step-up condition is not LoA 3 / 300 seconds: $(echo "$PASSKEY_CONFIG_JSON" | jq -c '.config')"
+  fi
+else
+  fail "could not find the passkey step-up condition's authenticatorConfig"
+fi
+
+# The passkey flow is part of the browser flow and is evaluated before the OTP
+# step-up (priority lower), so a completed level 3 satisfies level 2.
+BROWSER_TOP=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/flows/Baobab%20browser/executions" || echo "[]")
+PASSKEY_PRIORITY=$(echo "$BROWSER_TOP" | jq -r '[.[] | select(.displayName == "Baobab - Passkey Step-Up")][0].priority // empty')
+OTP_PRIORITY=$(echo "$BROWSER_TOP" | jq -r '[.[] | select(.displayName == "Baobab - Step-Up")][0].priority // empty')
+if [ -n "$PASSKEY_PRIORITY" ] && [ -n "$OTP_PRIORITY" ] && [ "$PASSKEY_PRIORITY" -lt "$OTP_PRIORITY" ]; then
+  pass "'Baobab browser' evaluates the passkey step-up (priority $PASSKEY_PRIORITY) before the OTP step-up (priority $OTP_PRIORITY)"
+else
+  fail "the passkey step-up must precede the OTP step-up in 'Baobab browser' (passkey: '$PASSKEY_PRIORITY', otp: '$OTP_PRIORITY')"
+fi
+if [ "$(echo "$BROWSER_TOP" | jq -r '[.[] | select(.displayName == "Baobab - Passkey Step-Up")][0].requirement // empty')" = "CONDITIONAL" ]; then
+  pass "the passkey step-up is CONDITIONAL: ordinary logins never enter it"
+else
+  fail "the passkey step-up must be CONDITIONAL in 'Baobab browser'"
+fi
+
+# WebAuthn must require user verification (BAOBAB-A3 "appropriate user verification").
+if [ "$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM" | jq -r '.webAuthnPolicyPasswordlessUserVerificationRequirement // empty')" = "required" ]; then
+  pass "the passwordless WebAuthn policy requires user verification"
+else
+  fail "the passwordless WebAuthn policy must require user verification"
+fi
+
+# A password-only token never carries acr=3 (the admin-cli password grant is
+# the one human-style authentication this suite can perform headlessly).
+PASSWORD_ACR=$(jwt_payload "$ADMIN_TOKEN" | jq -r '.acr // empty')
+if [ "$PASSWORD_ACR" != "3" ]; then
+  pass "a password-only authentication does not yield acr=3 (got acr='${PASSWORD_ACR:-<none>}')"
+else
+  fail "a password-only authentication yielded acr=3"
+fi
+
+# Native amr evidence is probed, never depended on: the programme must not
+# require a custom SPI (ADR-0002 extension hierarchy). Whether Keycloak's
+# built-in oidc-amr-mapper is available here is reported, not asserted.
+if curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/serverinfo" \
+    | jq -e '[.providers["protocol-mapper"].providers | keys[]] | any(. == "oidc-amr-mapper")' > /dev/null 2>&1; then
+  echo "  INFO: Keycloak's native oidc-amr-mapper is available; amr=webauthn can be tested against a real passkey step-up when one can be driven."
+else
+  echo "  INFO: no native oidc-amr-mapper in this Keycloak; Baobab relies on acr=3 as the phishing-resistant evidence (no SPI)."
+fi
+# What this suite cannot verify: a real passkey login end to end (a
+# headless runner has no authenticator, the same limitation as sections 15
+# and 19), and that asking for acr_values=3 without WebAuthn fails instead of
+# falling back to a lower level. The second is enforced on the consumer side:
+# the Control Plane meets a CRITICAL requirement only with acr 3 and a fresh
+# authentication, so a fallback to acr 1 or 2 never satisfies it. Both need a
+# live proof before CRITICAL enforcement is lifted.
 
 echo "== 20. Thamani ≠ ZuriBeans structural isolation (ZuriBeans Go-Live Implementation Plan, Gate ZB-03) =="
 # The ZuriBeans Go-Live Implementation Plan's Gate ZB-03 ("IAM and
