@@ -1,7 +1,7 @@
 {
   "clientId": "baobab-erp-workload",
   "name": "Baobab ERP Workload",
-  "description": "Workload identity for the ERP engine. Gate IAM-10 (ADR-0014 §111): carries erp:integrate alongside context:resolve so iDempiere's own OSGi bundles can authenticate to baobab-app's integration boundary, not only baobab-cp.",
+  "description": "Workload identity for the ERP engine. Gate IAM-10 (ADR-0014 §111): carries erp:integrate alongside context:resolve so iDempiere's own OSGi bundles can authenticate to baobab-app's integration boundary, not only baobab-cp. Also carries erp:read and erp:provision for the Boundary API (Shared#206); the client is tenant-neutral and carries no tenant_id, because tenant entitlement is a Control Plane decision (ADR-0007 sections 88-91).",
   "enabled": true,
   "publicClient": false,
   "bearerOnly": false,
@@ -25,7 +25,9 @@
     "openid",
     "actor-type-workload",
     "context:resolve",
-    "erp:integrate"
+    "erp:integrate",
+    "erp:read",
+    "erp:provision"
   ],
   "optionalClientScopes": [
     "address",

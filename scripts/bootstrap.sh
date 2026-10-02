@@ -288,6 +288,15 @@ reconcile_client_scopes_and_roles() {
     client_id=$(jq -r '.clientId' "$client_file")
     client_uuid=$(kcadm get clients -r baobab -q clientId="$client_id" --fields id | jq -r '.[0].id // empty')
     [ -n "$client_uuid" ] || continue
+    # Default scopes: only Baobab vocabulary (a scope defined under config/scopes/), only ever added. This is how a scope
+    # newly declared for an existing client (e.g. erp:read and erp:provision on baobab-erp-workload) reaches a deployment
+    # bootstrapped before it existed; Keycloak's own built-in default scopes are left alone.
+    for scope_name in $(jq -r '.defaultClientScopes // [] | .[]' "$client_file"); do
+      [ -f "/opt/keycloak/config/scopes/$(echo "$scope_name" | tr ':' '-').json" ] || continue
+      scope_uuid=$(kcadm get client-scopes -r baobab --fields id,name | jq -r --arg n "$scope_name" '[.[] | select(.name == $n)][0].id // empty')
+      [ -n "$scope_uuid" ] || continue
+      kcadm update "clients/$client_uuid/default-client-scopes/$scope_uuid" -r baobab -n
+    done
     for scope_name in $(jq -r '.optionalClientScopes // [] | .[]' "$client_file"); do
       scope_uuid=$(kcadm get client-scopes -r baobab --fields id,name | jq -r --arg n "$scope_name" '[.[] | select(.name == $n)][0].id // empty')
       if [ -z "$scope_uuid" ]; then

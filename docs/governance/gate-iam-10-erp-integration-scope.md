@@ -51,3 +51,22 @@ Two separate, real gaps existed in `baobab-erp`, found by reading its code direc
 4. **Local account migration** (§44-49) — not applicable yet; no existing iDempiere deployment with real local users exists in this codebase (same "greenfield, nothing to migrate" reasoning as Gate IAM-9 §3's migration note).
 5. **Break-glass emergency access** (§41-43) — not started; needs an explicit ADR-level decision on the emergency credential mechanism, out of this gate's bounded scope.
 6. **Live integration tests against a real Keycloak+iDempiere stack** (§123-129) — this environment has neither a running iDempiere instance nor Docker Compose orchestration available in this session; today's verification is source-level (§1-2) plus `baobab-iam`'s own Keycloak-only integration suite (§14). Revisit once such an environment exists.
+
+## 6. Boundary API scopes (`erp:read`, `erp:provision`)
+
+`baobab-erp-workload` also carries `erp:read` and `erp:provision` (`config/scopes/erp-read.json`, `erp-provision.json`; audience
+`baobab-erp`), the scopes the ERP Boundary API (`contracts/erp/v1/openapi.yaml`) requires. They were defined in Shared first
+(shared#206, which also allows them to `baobab-erp-workload` and to no other workload), and `contracts.lock.yaml` now pins that
+commit; `scripts/check-issued-scopes.sh` proves every issued scope is registered.
+
+**The client stays tenant-neutral.** No `tenant_id` is stamped on `baobab-erp-workload` and no tenant list is placed in its tokens.
+One shared workload identity serves many tenants, and tenant entitlement is a Control Plane decision (ADR-0007 sections 88-91:
+IAM scope plus Control Plane context; "Scope is not tenant access"; IAM does not own the workload-to-tenant relationship).
+Per the programme owner's ruling of 2026-10-02, the ERP Boundary API takes its tenant from a trusted Control Plane context
+(`context_id`), and a token `tenant_id`, when present, is only an additional binding that must equal the context's tenant. The
+Shared and ERP changes for that are separate; until they land the ERP routes still require a tenant and answer 403, so these
+scopes reach no tenant's data. `tests/integration/run.sh` section 14 asserts the scopes are held by this client only, that a token
+carries `aud=baobab-erp`, and that it carries no `tenant_id`.
+
+`scripts/bootstrap.sh` also reconciles *default* client scopes now, additively and for Baobab-vocabulary scopes only (those defined
+under `config/scopes/`), so a scope newly declared for an existing client reaches a deployment bootstrapped before it existed.

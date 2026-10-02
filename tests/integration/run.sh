@@ -514,6 +514,47 @@ else
   fail "could not obtain a baobab-erp-workload token with the erp:integrate scope"
 fi
 
+# erp:read / erp:provision (the ERP Boundary API, shared#206): issued to the ERP workload only, audience baobab-erp, and the
+# client stays tenant-neutral. Tenant entitlement is a Control Plane decision (ADR-0007 sections 88-91), so no tenant_id is stamped.
+for ERP_API_SCOPE in "erp:read" "erp:provision"; do
+  if [[ ",$ERP_WORKLOAD_SCOPES," == *",$ERP_API_SCOPE,"* ]]; then
+    pass "baobab-erp-workload carries the $ERP_API_SCOPE scope"
+  else
+    fail "baobab-erp-workload is missing the $ERP_API_SCOPE scope (scopes: $ERP_WORKLOAD_SCOPES)"
+  fi
+  HOLDERS=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/clients?max=200" \
+    | jq -r --arg s "$ERP_API_SCOPE" '[.[] | select((.defaultClientScopes // []) + (.optionalClientScopes // []) | index($s)) | .clientId] | sort | join(",")')
+  if [ "$HOLDERS" = "baobab-erp-workload" ]; then
+    pass "$ERP_API_SCOPE is held by baobab-erp-workload and by no other client"
+  else
+    fail "$ERP_API_SCOPE must be held by baobab-erp-workload only (holders: $HOLDERS)"
+  fi
+done
+ERP_API_TOKEN_RESPONSE=$(curl -s --max-time 30 -X POST \
+  "$KC_URL/realms/$REALM/protocol/openid-connect/token" \
+  -d "client_id=baobab-erp-workload" \
+  -d "client_secret=$WORKLOAD_SECRET" \
+  -d "grant_type=client_credentials" \
+  -d "scope=erp:read erp:provision")
+ERP_API_ACCESS_TOKEN=$(echo "$ERP_API_TOKEN_RESPONSE" | jq -r '.access_token // empty')
+if [ -n "$ERP_API_ACCESS_TOKEN" ]; then
+  ERP_API_CLAIMS=$(jwt_payload "$ERP_API_ACCESS_TOKEN")
+  ERP_API_AUD=$(echo "$ERP_API_CLAIMS" | jq -r 'if (.aud | type) == "array" then .aud[] else .aud end' | tr '\n' ',')
+  ERP_API_GRANTED=$(echo "$ERP_API_CLAIMS" | jq -r '.scope // ""')
+  if [[ "$ERP_API_AUD" == *"baobab-erp"* ]] && [[ " $ERP_API_GRANTED " == *" erp:read "* ]] && [[ " $ERP_API_GRANTED " == *" erp:provision "* ]]; then
+    pass "a baobab-erp-workload token carries aud=baobab-erp and the erp:read and erp:provision scopes"
+  else
+    fail "a baobab-erp-workload ERP API token has aud='$ERP_API_AUD' scope='$ERP_API_GRANTED'"
+  fi
+  if [ "$(echo "$ERP_API_CLAIMS" | jq 'has("tenant_id")')" = "false" ]; then
+    pass "the baobab-erp-workload token carries no tenant_id (tenant entitlement is a Control Plane decision, ADR-0007 sections 88-91)"
+  else
+    fail "the baobab-erp-workload token carries a tenant_id; a shared workload client must stay tenant-neutral"
+  fi
+else
+  fail "could not obtain a baobab-erp-workload token with the erp:read and erp:provision scopes"
+fi
+
 echo "== 15. Credential security and privileged MFA (Gate IAM-11, ADR-0015 §11-14, §21-25, §45) =="
 REALM_JSON=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM")
 REALM_PASSWORD_POLICY=$(echo "$REALM_JSON" | jq -r '.passwordPolicy')

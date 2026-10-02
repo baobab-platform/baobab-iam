@@ -11,6 +11,8 @@
 # iam#51), the provider-neutral identity/v1 capability contracts (shared#151)
 # and evidence-backed workload activation (shared#148).
 #
+# erp:read and erp:provision (the ERP Boundary API, shared#206) are issued to baobab-erp-workload only and carry no tenant_id.
+#
 # Every scope this repository issues must exist in the scope registry at this
 # exact commit: scripts/check-issued-scopes.sh, run in CI and in
 # tests/integration/run.sh section 9b.
@@ -18,7 +20,7 @@ schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: a503649f323f9e8bb1556d709669a04a49549cb9
+  commit: 10810e20473709d4626da310fc9a84680f8efddd
 contracts:
   # Scope vocabulary the provider adapters grant (internal/provider/validate.go).
   - contracts/authorization/v1/scope-registry.yaml
