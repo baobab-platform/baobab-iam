@@ -133,6 +133,18 @@ func (a *Adapter) GetIdentity(ctx context.Context, subject provider.ExternalSubj
 // On success the returned ProviderIdentity.Subject is the Kratos identity ID
 // and Issuer is the configured PublicIssuer.
 func (a *Adapter) ProvisionIdentity(ctx context.Context, spec provider.IdentityProvisioningSpec) (*provider.ProviderIdentity, error) {
+	caps := a.capabilities()
+	if spec.Credentials != nil {
+		if spec.Credentials.PasswordHash != nil && !caps.PasswordImport {
+			return nil, provider.NewUnsupported("ory", "unverified password import")
+		}
+		if spec.Credentials.TOTP != nil && !caps.TOTPImport {
+			return nil, provider.NewUnsupported("ory", "unverified TOTP import")
+		}
+		if len(spec.Credentials.WebAuthn) != 0 && !caps.PasskeyImport {
+			return nil, provider.NewUnsupported("ory", "unverified passkey import")
+		}
+	}
 	return a.kratos.provisionIdentity(ctx, a.cfg.PublicIssuer, spec)
 }
 

@@ -22,10 +22,10 @@ func (a *Adapter) capabilities() provider.ProviderCapabilities {
 		WorkloadIdentity:  true, // Hydra OAuth2 clients
 
 		// Credential import: only advertise capabilities verified against the
-		// pinned Kratos version lock. Password hash import is well-supported.
+		// pinned Kratos version lock. Password import requires live hash/login fixtures.
 		// TOTP/passkey admin import is version-dependent — leave false until
 		// the pin is confirmed in the version lock / conformance suite.
-		PasswordImport: true,
+		PasswordImport: false, // UNVERIFIED: no pinned-version live login evidence
 		TOTPImport:     false, // UNVERIFIED against version lock
 		PasskeyImport:  false, // UNVERIFIED against version lock
 

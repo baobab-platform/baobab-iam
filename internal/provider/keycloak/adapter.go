@@ -81,9 +81,9 @@ func (a *Adapter) ProviderInfo(ctx context.Context) (provider.ProviderInfo, erro
 		Version: "", // optionally probe server info
 		Capabilities: provider.ProviderCapabilities{
 			Provider:          "keycloak",
-			HumanIdentity:     true,
-			SessionRevocation: true,
-			WorkloadIdentity:  true,
+			HumanIdentity:     false, // adapter methods are ErrUnsupported stubs
+			SessionRevocation: false,
+			WorkloadIdentity:  false,
 			PasswordImport:    false, // dual-run does not re-import into Keycloak
 			TOTPImport:        false,
 			PasskeyImport:     false,

@@ -103,3 +103,32 @@ func TestGetIdentityPopulatesConfiguredIssuer(t *testing.T) {
 
 // Compile-time / runtime assertion that Adapter satisfies IdentityProvider.
 var _ provider.IdentityProvider = (*ory.Adapter)(nil)
+
+
+func TestUnverifiedCredentialImportsFailBeforeHTTP(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	adapter, err := ory.NewAdapter(ory.Config{KratosAdminURL: server.URL, HydraAdminURL: server.URL, PublicIssuer: "https://identity.example"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, credentials := range []*provider.ImportedCredentials{
+		{PasswordHash: &provider.PasswordHashImport{Algorithm: "bcrypt", Hash: "test"}},
+		{TOTP: &provider.TOTPImport{Secret: "test"}},
+		{WebAuthn: []provider.WebAuthnImport{{CredentialJSON: []byte(`{}`)}}},
+	} {
+		_, err := adapter.ProvisionIdentity(context.Background(), provider.IdentityProvisioningSpec{
+			Traits: map[string]any{"email": "source@example.com"}, Credentials: credentials,
+		})
+		if !provider.IsUnsupported(err) {
+			t.Fatalf("unverified import accepted: %v", err)
+		}
+	}
+	if requests != 0 {
+		t.Fatal("unverified credential material reached provider")
+	}
+}

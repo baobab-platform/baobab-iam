@@ -23,9 +23,9 @@ package migration
 import (
 	"context"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
@@ -59,12 +59,21 @@ type FederatedTrustTemplate struct {
 	AudiencesByLogicalID map[string][]string
 }
 
+// HumanTraitsSource loads authorized schema traits from the exact source binding.
+// SnapshotReference is an opaque evidence locator, never a login identifier.
+// Implementations must validate provenance and must not resolve canonical identity by email.
+type HumanTraitsSource interface {
+	LoadHumanTraits(context.Context, ProviderBinding, string) (map[string]any, error)
+}
+
 // ProvisionBridge orchestrates ledger state + target provider provisioning.
 // Zero-value is not usable; construct with NewProvisionBridge.
 type ProvisionBridge struct {
 	Service *Service
 	// Human provisions Kratos (or equivalent) identities.
 	Human provider.IdentityProvisioner
+	// HumanTraits is required for human migration; missing source data fails closed.
+	HumanTraits HumanTraitsSource
 	// Workload provisions confidential OAuth clients (M4-C only).
 	Workload provider.WorkloadProvisioner
 	// Federated provisions RFC 7523 trust (M4-F default for platform workloads).
@@ -276,11 +285,18 @@ func (b *ProvisionBridge) provisionHuman(ctx context.Context, r *Record) (Provid
 	if b.Human == nil {
 		return ProviderBinding{}, fmt.Errorf("migration: IdentityProvisioner is required for human identities")
 	}
-	email := humanSchemaEmail(r)
+	if b.HumanTraits == nil {
+		return ProviderBinding{}, fmt.Errorf("migration: authorized HumanTraitsSource is required")
+	}
+	traits, err := b.HumanTraits.LoadHumanTraits(ctx, r.Source, r.SourceSnapshotReference)
+	if err != nil {
+		return ProviderBinding{}, fmt.Errorf("migration: load authorized human traits: %w", err)
+	}
+	if err := validateHumanTraits(traits); err != nil {
+		return ProviderBinding{}, err
+	}
 	spec := provider.IdentityProvisioningSpec{
-		Traits: map[string]any{
-			"email": email,
-		},
+		Traits: traits,
 		MigrationID: r.MigrationID,
 		Metadata: map[string]string{
 			"gate":                  "IAM-M5",
@@ -313,64 +329,31 @@ func (b *ProvisionBridge) provisionHuman(ctx context.Context, r *Record) (Provid
 	}, nil
 }
 
-// humanSchemaEmail returns a traits.email value that satisfies the Kratos
-// schema. Prefer an authorized source email when discovery stored it under
-// a conventional key on SourceSnapshotReference (mailto: prefix) or when
-// future ports pass it; otherwise use a non-routable migration placeholder.
-//
-// The placeholder uses the RFC 2606 .invalid TLD so it cannot be confused
-// with a real mailbox or with CanonicalIdentity resolution.
-func humanSchemaEmail(r *Record) string {
-	if r == nil {
-		return "migration+unknown@users.migration.invalid"
+// validateHumanTraits follows the configured default schema without synthesizing identifiers.
+func validateHumanTraits(traits map[string]any) error {
+	email, ok := traits["email"].(string)
+	address, err := mail.ParseAddress(email)
+	if !ok || err != nil || address.Address != email || len(email) < 3 || len(email) > 320 {
+		return fmt.Errorf("migration: authorized source email is required")
 	}
-	// Optional: discovery may record "mailto:user@example.com" on the snapshot ref.
-	ref := strings.TrimSpace(r.SourceSnapshotReference)
-	if strings.HasPrefix(strings.ToLower(ref), "mailto:") {
-		cand := strings.TrimSpace(ref[len("mailto:"):])
-		if looksLikeEmail(cand) {
-			return cand
+	for key := range traits {
+		if key != "email" && key != "name" {
+			return fmt.Errorf("migration: unsupported human trait %q", key)
 		}
 	}
-	local := sanitizeEmailLocal(r.Source.Subject)
-	if local == "" {
-		local = "unknown"
-	}
-	// Cap local-part length for practical email limits.
-	if len(local) > 64 {
-		local = local[:64]
-	}
-	return fmt.Sprintf("migration+%s@users.migration.invalid", local)
-}
-
-func looksLikeEmail(s string) bool {
-	if len(s) < 3 || len(s) > 320 {
-		return false
-	}
-	at := strings.LastIndex(s, "@")
-	if at <= 0 || at == len(s)-1 {
-		return false
-	}
-	return strings.Contains(s[at+1:], ".")
-}
-
-func sanitizeEmailLocal(s string) string {
-	var b strings.Builder
-	for _, r := range strings.TrimSpace(s) {
-		switch {
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
-			b.WriteRune(unicode.ToLower(r))
-		case r == '.' || r == '_' || r == '-':
-			b.WriteRune(r)
-		default:
-			b.WriteByte('-')
+	if value, exists := traits["name"]; exists {
+		name, ok := value.(map[string]any)
+		if !ok {
+			return fmt.Errorf("migration: name must be an object")
+		}
+		for key, value := range name {
+			text, ok := value.(string)
+			if (key != "first" && key != "last") || !ok || len([]rune(text)) > 128 {
+				return fmt.Errorf("migration: invalid name field %q", key)
+			}
 		}
 	}
-	out := strings.Trim(b.String(), "-.")
-	for strings.Contains(out, "--") {
-		out = strings.ReplaceAll(out, "--", "-")
-	}
-	return out
+	return nil
 }
 
 func (b *ProvisionBridge) provisionWorkload(ctx context.Context, r *Record) (ProviderBinding, WorkloadCredentialProfile, error) {

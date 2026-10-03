@@ -60,7 +60,7 @@ capabilities:
     security_requirements: Federated-first (RFC 7523); no static secret for platform workloads; Shared scopes only
     retirement_dependency: Keycloak client-credentials clients after M4 live evidence
     migration_phase: Phase B / C
-    implementation_status: Implemented in adapter contract and validation
+    implementation_status: Partial (adapter and validation implemented; live consumer evidence pending)
     tests: Ory Hydra workload tests
     conformance_evidence: Client secret and federated JWT trust validation
 
@@ -316,6 +316,6 @@ capabilities:
     security_requirements: No provider-native IDs in Baobab contracts; scope normalization fail-closed
     retirement_dependency: Keycloak adapter after LEGACY_RETIRED
     migration_phase: Phase B / C
-    implementation_status: Implemented
+    implementation_status: Partial
     tests: Provider adapter tests
     conformance_evidence: No provider-native canonical IDs allowed in Baobab contracts

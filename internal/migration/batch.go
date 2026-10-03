@@ -6,6 +6,8 @@ package migration
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -103,7 +105,7 @@ func (s *Service) RegisterBatch(
 			Subject:  b.Subject,
 		}
 		// Deterministic id: batch + provider + issuer + subject (issuer required).
-		migrationID := fmt.Sprintf("%s:%s:%s:%s", req.BatchID, b.Provider, b.Issuer, b.Subject)
+		migrationID := BatchMigrationID(req.BatchID, source)
 
 		_, getErr := s.Store.Get(ctx, migrationID)
 		switch {
@@ -161,5 +163,13 @@ func isNoCanonical(err error) bool {
 	if err == ErrNoCanonicalMapping {
 		return true
 	}
-	return err.Error() == ErrNoCanonicalMapping.Error()
+	return errors.Is(err, ErrNoCanonicalMapping)
+}
+
+
+// BatchMigrationID hashes an unambiguous tuple; separators in issuers or subjects
+// cannot collapse distinct external identities. The ledger retains the source tuple.
+func BatchMigrationID(batchID string, source ProviderBinding) string {
+	encoded, _ := json.Marshal([4]string{batchID, source.Provider, source.Issuer, source.Subject})
+	return fmt.Sprintf("migration-v1-%x", sha256.Sum256(encoded))
 }
