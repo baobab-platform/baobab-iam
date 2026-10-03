@@ -2,6 +2,7 @@ package migration
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -157,20 +158,20 @@ func (r *Record) ValidateStructural() error {
 	if r == nil {
 		return fmt.Errorf("migration: record is nil")
 	}
-	if r.MigrationID == "" {
+	if strings.TrimSpace(r.MigrationID) == "" {
 		return fmt.Errorf("migration: migration_id is required")
 	}
-	if r.CanonicalIdentityID == "" {
+	if strings.TrimSpace(r.CanonicalIdentityID) == "" {
 		return fmt.Errorf("migration: canonical_identity_id is required (do not invent from email)")
 	}
-	if r.Source.Issuer == "" || r.Source.Subject == "" {
+	if strings.TrimSpace(r.Source.Issuer) == "" || strings.TrimSpace(r.Source.Subject) == "" {
 		return fmt.Errorf("migration: source issuer and subject are required")
 	}
-	if r.Source.Provider == "" {
+	if strings.TrimSpace(r.Source.Provider) == "" {
 		return fmt.Errorf("migration: source provider is required")
 	}
 	if !targetOptional(r.MigrationState) {
-		if r.Target.Issuer == "" || r.Target.Subject == "" {
+		if strings.TrimSpace(r.Target.Issuer) == "" || strings.TrimSpace(r.Target.Subject) == "" {
 			return fmt.Errorf("migration: target issuer and subject required in state %s", r.MigrationState)
 		}
 	}
@@ -196,7 +197,7 @@ func (r *Record) ValidateStructural() error {
 // pilot/memory stores; durable schemas must also omit secret columns.
 func checkForbiddenLedgerStrings(values ...string) error {
 	for _, v := range values {
-		lower := toLowerASCII(v)
+		lower := toLowerASCII(strings.TrimSpace(v))
 		for _, bad := range forbiddenLedgerSubstrings {
 			if containsASCII(lower, bad) {
 				return fmt.Errorf("migration: field must not contain sensitive material marker %q (ADR-0022 §9)", bad)
@@ -204,6 +205,34 @@ func checkForbiddenLedgerStrings(values ...string) error {
 		}
 	}
 	return nil
+}
+
+// NormalizeAllowedScopes keeps migration ledger scopes aligned with the provider
+// canonical vocabulary while accepting the migration alias used by earlier M4 work.
+func NormalizeAllowedScopes(scopes []string) []string {
+	if len(scopes) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(scopes))
+	seen := make(map[string]struct{}, len(scopes))
+	for _, s := range scopes {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if s == "context-resolve" {
+			s = "context:resolve"
+		}
+		if _, dup := seen[s]; dup {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // forbiddenLedgerSubstrings are case-insensitive markers. Prefer structured

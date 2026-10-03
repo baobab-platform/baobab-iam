@@ -69,7 +69,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	logicalID := envOr("ORY_LOGICAL_CLIENT_ID", "baobab-cp-workload")
+	logicalID, err := envRequired("ORY_LOGICAL_CLIENT_ID")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "migrate-ledger-provision: invalid ORY_LOGICAL_CLIENT_ID: %v\n", err)
+		os.Exit(1)
+	}
+	if logicalID == "" {
+		logicalID = "baobab-cp-workload"
+	}
 	profile := strings.TrimSpace(os.Getenv("ORY_WORKLOAD_PROFILE"))
 	if profile == "" || profile == string(migration.WorkloadProfileFederated) {
 		if err := configureFederated(bridge, adapter, logicalID); err != nil {
@@ -131,16 +138,16 @@ func main() {
 }
 
 func configureFederated(bridge *migration.ProvisionBridge, adapter *ory.Adapter, logicalID string) error {
-	assertionIssuer := os.Getenv("ORY_ASSERTION_ISSUER")
-	jwkJSON := os.Getenv("ORY_ASSERTION_JWK_JSON")
+	assertionIssuer, err := envRequired("ORY_ASSERTION_ISSUER")
+	if err != nil {
+		return fmt.Errorf("ORY_ASSERTION_ISSUER: %w", err)
+	}
+	jwkJSON, err := envRequired("ORY_ASSERTION_JWK_JSON")
+	if err != nil {
+		return fmt.Errorf("ORY_ASSERTION_JWK_JSON: %w", err)
+	}
 	scopes := splitCSV(os.Getenv("ORY_ALLOWED_SCOPES"))
 	audiences := splitCSV(os.Getenv("ORY_INTENDED_AUDIENCES"))
-	if assertionIssuer == "" {
-		return fmt.Errorf("ORY_ASSERTION_ISSUER is required for federated_workload_token")
-	}
-	if jwkJSON == "" {
-		return fmt.Errorf("ORY_ASSERTION_JWK_JSON (public JWK) is required for federated_workload_token")
-	}
 	if len(scopes) == 0 {
 		return fmt.Errorf("ORY_ALLOWED_SCOPES required from Shared registry")
 	}
@@ -166,20 +173,34 @@ func configureFederated(bridge *migration.ProvisionBridge, adapter *ory.Adapter,
 }
 
 func envOr(k, fallback string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
+	if v := os.Getenv(k); strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v)
 	}
 	return fallback
+}
+
+func envRequired(k string) (string, error) {
+	v := strings.TrimSpace(os.Getenv(k))
+	if v == "" {
+		return "", fmt.Errorf("%s is required", k)
+	}
+	return v, nil
 }
 
 func splitCSV(s string) []string {
 	parts := strings.Split(s, ",")
 	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
+		if p == "" {
+			continue
 		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
 	}
 	return out
 }

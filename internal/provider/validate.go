@@ -2,16 +2,27 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
-// Validate checks that ExternalSubject has both issuer and subject.
-func (s ExternalSubject) Validate() error {
-	if s.Issuer == "" || s.Subject == "" {
+func requireNonEmptyTrimmed(label, value string) error {
+	if strings.TrimSpace(value) == "" {
 		return &ProviderError{
 			Kind:    ErrInvalidArgument,
-			Message: "issuer and subject are required",
+			Message: fmt.Sprintf("%s is required", label),
 		}
+	}
+	return nil
+}
+
+// Validate checks that ExternalSubject has both issuer and subject.
+func (s ExternalSubject) Validate() error {
+	if err := requireNonEmptyTrimmed("issuer", s.Issuer); err != nil {
+		return err
+	}
+	if err := requireNonEmptyTrimmed("subject", s.Subject); err != nil {
+		return err
 	}
 	return nil
 }
@@ -19,15 +30,18 @@ func (s ExternalSubject) Validate() error {
 // Validate checks required fields on a workload provisioning request.
 // It does not contact the provider.
 func (s WorkloadProvisioningSpec) Validate() error {
-	if s.LogicalClientID == "" {
-		return &ProviderError{
-			Kind:    ErrInvalidArgument,
-			Message: "LogicalClientID is required",
-		}
+	if err := requireNonEmptyTrimmed("LogicalClientID", s.LogicalClientID); err != nil {
+		return err
 	}
-	switch s.AuthMethod {
+	authMethod := strings.TrimSpace(string(s.AuthMethod))
+	switch WorkloadAuthenticationMethod(authMethod) {
 	case WorkloadAuthClientSecret, WorkloadAuthPrivateKeyJWT:
 		// ok
+	case WorkloadAuthFederatedJWTBearer:
+		return &ProviderError{
+			Kind:    ErrInvalidArgument,
+			Message: "federated JWT bearer workloads must use FederatedWorkloadTrustSpec instead of WorkloadProvisioningSpec",
+		}
 	case "":
 		return &ProviderError{
 			Kind:    ErrInvalidArgument,
@@ -39,21 +53,33 @@ func (s WorkloadProvisioningSpec) Validate() error {
 			Message: fmt.Sprintf("unknown AuthMethod %q", s.AuthMethod),
 		}
 	}
+	if err := s.LifecycleStatus.Validate(); err != nil {
+		return err
+	}
+	if len(NormalizeAllowedScopes(s.AllowedScopes)) == 0 {
+		return &ProviderError{
+			Kind:    ErrInvalidArgument,
+			Message: "AllowedScopes are required for workload provisioning",
+		}
+	}
 	return nil
 }
 
 // Validate checks a no-static-secret federated workload trust request.
 func (s FederatedWorkloadTrustSpec) Validate() error {
-	if s.LogicalClientID == "" {
-		return &ProviderError{Kind: ErrInvalidArgument, Message: "LogicalClientID is required"}
+	if err := requireNonEmptyTrimmed("LogicalClientID", s.LogicalClientID); err != nil {
+		return err
 	}
-	if s.AssertionIssuer == "" || s.AssertionSubject == "" {
-		return &ProviderError{Kind: ErrInvalidArgument, Message: "AssertionIssuer and AssertionSubject are required"}
+	if err := requireNonEmptyTrimmed("AssertionIssuer", s.AssertionIssuer); err != nil {
+		return err
+	}
+	if err := requireNonEmptyTrimmed("AssertionSubject", s.AssertionSubject); err != nil {
+		return err
 	}
 	if len(s.AssertionJWK) == 0 {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "AssertionJWK public key is required"}
 	}
-	if kid, _ := s.AssertionJWK["kid"].(string); kid == "" {
+	if kid, _ := s.AssertionJWK["kid"].(string); strings.TrimSpace(kid) == "" {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "AssertionJWK must contain kid"}
 	}
 	for _, privateField := range []string{"d", "p", "q", "dp", "dq", "qi", "oth", "k"} {
@@ -63,6 +89,9 @@ func (s FederatedWorkloadTrustSpec) Validate() error {
 	}
 	if s.TrustExpiresAt.IsZero() || !s.TrustExpiresAt.After(time.Now().UTC()) {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "TrustExpiresAt must be in the future"}
+	}
+	if err := s.LifecycleStatus.Validate(); err != nil {
+		return err
 	}
 	if len(NormalizeAllowedScopes(s.AllowedScopes)) == 0 {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "AllowedScopes are required"}
@@ -113,6 +142,7 @@ func NormalizeAllowedScopes(scopes []string) []string {
 	out := make([]string, 0, len(scopes))
 	seen := make(map[string]struct{}, len(scopes))
 	for _, s := range scopes {
+		s = strings.TrimSpace(s)
 		if s == "" {
 			continue
 		}
@@ -125,6 +155,9 @@ func NormalizeAllowedScopes(scopes []string) []string {
 		}
 		seen[s] = struct{}{}
 		out = append(out, s)
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }

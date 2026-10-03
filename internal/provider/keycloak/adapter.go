@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
@@ -175,17 +176,19 @@ func (a *Adapter) ReconcileIdentity(ctx context.Context, subject provider.Extern
 // ---------------------------------------------------------------------------
 
 func (a *Adapter) requireIssuer(subject provider.ExternalSubject) error {
-	if subject.Issuer == "" || subject.Subject == "" {
+	issuer := strings.TrimSpace(subject.Issuer)
+	subjectID := strings.TrimSpace(subject.Subject)
+	if issuer == "" || subjectID == "" {
 		return &provider.ProviderError{
 			Kind:     provider.ErrInvalidArgument,
 			Message:  "issuer and subject are required",
 			Provider: "keycloak",
 		}
 	}
-	if subject.Issuer != a.cfg.PublicIssuer {
+	if issuer != a.cfg.PublicIssuer {
 		return &provider.ProviderError{
 			Kind:     provider.ErrInvalidArgument,
-			Message:  fmt.Sprintf("issuer mismatch: got %q, want %q", subject.Issuer, a.cfg.PublicIssuer),
+			Message:  fmt.Sprintf("issuer mismatch: got %q, want %q", issuer, a.cfg.PublicIssuer),
 			Provider: "keycloak",
 		}
 	}

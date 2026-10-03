@@ -52,6 +52,16 @@ func (c *hydraClient) provisionClient(
 	if err := spec.Validate(); err != nil {
 		return nil, err
 	}
+	if spec.AuthMethod == provider.WorkloadAuthFederatedJWTBearer {
+		return nil, &provider.ProviderError{
+			Kind:     provider.ErrConflict,
+			Message:  "federated JWT bearer workloads must be provisioned via ProvisionFederatedWorkload, not ProvisionWorkload",
+			Provider: "ory",
+		}
+	}
+	if spec.LifecycleStatus == "" {
+		spec.LifecycleStatus = provider.WorkloadStatusProvisioned
+	}
 
 	// Preserve Shared canonical scopes at the adapter boundary. The only
 	// translation accepted here is the retired migration alias back to Shared.
@@ -74,6 +84,10 @@ func (c *hydraClient) provisionClient(
 		secret string
 		err    error
 	)
+	if spec.LifecycleStatus == "" {
+		spec.LifecycleStatus = provider.WorkloadStatusProvisioned
+	}
+
 	if existing == nil {
 		// Create path: generate secret for client_secret methods only.
 		if spec.AuthMethod != provider.WorkloadAuthPrivateKeyJWT {
@@ -113,6 +127,7 @@ func (c *hydraClient) provisionClient(
 			ProviderClientID: created.ClientID,
 			Issuer:           issuer,
 			AuthMethod:       spec.AuthMethod,
+			LifecycleStatus:  spec.LifecycleStatus,
 			ClientSecret:     secret,
 			CreatedAt:        now,
 			UpdatedAt:        now,
@@ -138,6 +153,7 @@ func (c *hydraClient) provisionClient(
 		ProviderClientID: clientID,
 		Issuer:           issuer,
 		AuthMethod:       spec.AuthMethod,
+		LifecycleStatus:  spec.LifecycleStatus,
 		ClientSecret:     "", // not rotated
 		CreatedAt:        now,
 		UpdatedAt:        now,
@@ -218,6 +234,9 @@ func (c *hydraClient) provisionFederatedWorkload(
 	if err != nil {
 		return nil, err
 	}
+	if spec.LifecycleStatus == "" {
+		spec.LifecycleStatus = provider.WorkloadStatusProvisioned
+	}
 	return &provider.FederatedWorkloadTrust{
 		Provider:          "ory",
 		LogicalClientID:   spec.LogicalClientID,
@@ -225,6 +244,7 @@ func (c *hydraClient) provisionFederatedWorkload(
 		TrustID:           trustID,
 		Issuer:            issuer,
 		AuthMethod:        provider.WorkloadAuthFederatedJWTBearer,
+		LifecycleStatus:   spec.LifecycleStatus,
 		AssertionIssuer:   spec.AssertionIssuer,
 		AssertionSubject:  spec.AssertionSubject,
 		AllowedScopes:     append([]string(nil), spec.AllowedScopes...),
@@ -426,6 +446,13 @@ func (c *hydraClient) rotateClientCredentials(
 	if err != nil {
 		return nil, err
 	}
+	if isFederatedJWTBearerClient(*existing) {
+		return nil, &provider.ProviderError{
+			Kind:     provider.ErrConflict,
+			Message:  "federated JWT bearer workload cannot rotate a static client secret",
+			Provider: "ory",
+		}
+	}
 
 	secret, err := generateClientSecret()
 	if err != nil {
@@ -447,6 +474,26 @@ func (c *hydraClient) rotateClientCredentials(
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}, nil
+}
+
+func isFederatedJWTBearerClient(client hydraOAuth2Client) bool {
+	if client.TokenEndpointAuthMethod == "none" {
+		return true
+	}
+	for _, grant := range client.GrantTypes {
+		if grant == hydraJWTBearerGrantType {
+			return true
+		}
+	}
+	if client.Metadata == nil {
+		return false
+	}
+	if kind, ok := client.Metadata["baobab_credential_type"]; ok {
+		if s, ok := kind.(string); ok && s == "federated_workload_token" {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *hydraClient) getClient(ctx context.Context, clientID string) (*hydraOAuth2Client, error) {

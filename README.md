@@ -128,6 +128,13 @@
   (ADR-BCP-020). They only make the Control Plane routes callable and confer no authority;
   `administrator:write` and `administrator:approve` are privileged and are never attached to a workload or other client; `administrator:approve` lets a checker decide a grant change but is not approval authority (the Control Plane also requires `changeset:approve` and enforces separation of duties).
 
+## Capability baseline
+
+The migration baseline and provider-neutral capability map are documented in:
+
+- [docs/governance/iam-capability-matrix.md](./docs/governance/iam-capability-matrix.md)
+- [.baobab/iam-capability-matrix.yaml](./.baobab/iam-capability-matrix.yaml)
+
 ## What this repository is
 
 `baobab-iam` runs **Keycloak** as the authentication runtime. It owns:

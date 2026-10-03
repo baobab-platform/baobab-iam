@@ -16,6 +16,8 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -76,6 +78,45 @@ const (
 	WorkloadAuthFederatedJWTBearer WorkloadAuthenticationMethod = "federated_jwt_bearer"
 )
 
+// WorkloadLifecycleStatus captures the lifecycle state of a workload within
+// the provider-neutral contract. This is intentionally provider-agnostic and
+// describes Baobab-controlled lifecycle semantics rather than Hydra-native
+// client state.
+type WorkloadLifecycleStatus string
+
+const (
+	WorkloadStatusProvisioned WorkloadLifecycleStatus = "PROVISIONED"
+	WorkloadStatusActive       WorkloadLifecycleStatus = "ACTIVE"
+	WorkloadStatusSuspended    WorkloadLifecycleStatus = "SUSPENDED"
+	WorkloadStatusRevoked      WorkloadLifecycleStatus = "REVOKED"
+	WorkloadStatusRetired      WorkloadLifecycleStatus = "RETIRED"
+)
+
+// Validate checks that the workload lifecycle status is one of the supported
+// Baobab values.
+func (s WorkloadLifecycleStatus) Validate() error {
+	value := string(s)
+	if value == "" {
+		return nil
+	}
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return &ProviderError{
+			Kind:    ErrInvalidArgument,
+			Message: fmt.Sprintf("WorkloadLifecycleStatus is required; whitespace-only values are invalid: %q", value),
+		}
+	}
+	switch WorkloadLifecycleStatus(trimmed) {
+	case WorkloadStatusProvisioned, WorkloadStatusActive, WorkloadStatusSuspended, WorkloadStatusRevoked, WorkloadStatusRetired:
+		return nil
+	default:
+		return &ProviderError{
+			Kind:    ErrInvalidArgument,
+			Message: fmt.Sprintf("unknown WorkloadLifecycleStatus %q", value),
+		}
+	}
+}
+
 // WorkloadProvisioningSpec is the input for creating or updating a workload client.
 type WorkloadProvisioningSpec struct {
 	// LogicalClientID is the Baobab-stable identifier (e.g. "baobab-trade-workload").
@@ -92,6 +133,11 @@ type WorkloadProvisioningSpec struct {
 
 	// AuthMethod for the client.
 	AuthMethod WorkloadAuthenticationMethod `json:"auth_method"`
+
+	// LifecycleStatus describes the Baobab-owned lifecycle state of the
+	// workload; the adapter may persist it as provider metadata but must not
+	// treat it as provider-native state alone.
+	LifecycleStatus WorkloadLifecycleStatus `json:"lifecycle_status,omitempty"`
 
 	// Metadata that the adapter may persist with the provider client.
 	Metadata map[string]string `json:"metadata,omitempty"`
@@ -113,6 +159,9 @@ type FederatedWorkloadTrustSpec struct {
 	// client audience field because Hydra models that field as URL resource
 	// indicators while Shared currently uses logical service audience names.
 	IntendedAudiences []string `json:"intended_audiences"`
+
+	// LifecycleStatus is the Baobab-owned state for the federated workload.
+	LifecycleStatus WorkloadLifecycleStatus `json:"lifecycle_status,omitempty"`
 
 	// AssertionIssuer/Subject identify the short-lived platform-projected JWT
 	// that Hydra is allowed to exchange under RFC 7523.
@@ -139,6 +188,7 @@ type FederatedWorkloadTrust struct {
 	TrustID           string                       `json:"trust_id"`
 	Issuer            string                       `json:"issuer"`
 	AuthMethod        WorkloadAuthenticationMethod `json:"auth_method"`
+	LifecycleStatus   WorkloadLifecycleStatus      `json:"lifecycle_status,omitempty"`
 	AssertionIssuer   string                       `json:"assertion_issuer"`
 	AssertionSubject  string                       `json:"assertion_subject"`
 	AllowedScopes     []string                     `json:"allowed_scopes"`
@@ -153,6 +203,7 @@ type ProviderWorkload struct {
 	ProviderClientID string                       `json:"provider_client_id"` // IdP-native ID
 	Issuer           string                       `json:"issuer"`
 	AuthMethod       WorkloadAuthenticationMethod `json:"auth_method"`
+	LifecycleStatus  WorkloadLifecycleStatus      `json:"lifecycle_status,omitempty"`
 	// ClientSecret is returned only on create/rotate when AuthMethod == client_secret.
 	// Callers MUST treat it as sensitive and never log it.
 	ClientSecret string            `json:"-"`
@@ -291,6 +342,14 @@ type WorkloadProvisioner interface {
 	ProvisionWorkload(ctx context.Context, spec WorkloadProvisioningSpec) (*ProviderWorkload, error)
 	DisableWorkload(ctx context.Context, ref ProviderWorkloadReference) error
 	RotateWorkloadCredentials(ctx context.Context, ref ProviderWorkloadReference) (*ProviderWorkload, error)
+}
+
+// WorkloadLifecycleManager provides provider-neutral lifecycle commands for
+// workloads, matching the Baobab semantic model rather than provider-native
+// implementation details.
+type WorkloadLifecycleManager interface {
+	SuspendWorkload(ctx context.Context, ref ProviderWorkloadReference) error
+	RevokeWorkload(ctx context.Context, ref ProviderWorkloadReference) error
 }
 
 // FederatedWorkloadProvisioner is an optional provider capability for

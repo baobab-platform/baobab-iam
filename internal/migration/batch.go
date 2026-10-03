@@ -7,6 +7,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // BatchRegisterRequest configures a non-production cohort registration.
@@ -57,24 +58,32 @@ func (s *Service) RegisterBatch(
 	if resolver == nil {
 		return nil, fmt.Errorf("migration: CanonicalResolver is required")
 	}
+	req.BatchID = strings.TrimSpace(req.BatchID)
 	if req.BatchID == "" {
 		return nil, fmt.Errorf("migration: BatchID is required")
 	}
 	if req.DefaultStrategy == "" {
 		req.DefaultStrategy = StrategyNoCredentialRequired
+	} else {
+		req.DefaultStrategy = CredentialStrategy(strings.TrimSpace(string(req.DefaultStrategy)))
 	}
 	if !req.DefaultStrategy.Valid() {
 		return nil, fmt.Errorf("migration: invalid DefaultStrategy %q", req.DefaultStrategy)
 	}
 	if req.DefaultClass == "" {
 		req.DefaultClass = ClassTestOrNonProd
+	} else {
+		req.DefaultClass = IdentityClass(strings.TrimSpace(string(req.DefaultClass)))
 	}
 	if !req.DefaultClass.Valid() {
 		return nil, fmt.Errorf("migration: invalid DefaultClass %q", req.DefaultClass)
 	}
 	if req.OrphanClass == "" {
 		req.OrphanClass = ClassOrphanCandidate
+	} else {
+		req.OrphanClass = IdentityClass(strings.TrimSpace(string(req.OrphanClass)))
 	}
+	req.OrphanCanonicalPlaceholder = strings.TrimSpace(req.OrphanCanonicalPlaceholder)
 	if req.OrphanCanonicalPlaceholder == "" {
 		req.OrphanCanonicalPlaceholder = "orphan:pending-review"
 	}
@@ -86,6 +95,9 @@ func (s *Service) RegisterBatch(
 
 	result := &BatchRegisterResult{BatchID: req.BatchID}
 	for i, b := range bindings {
+		b.Provider = strings.TrimSpace(b.Provider)
+		b.Issuer = strings.TrimSpace(b.Issuer)
+		b.Subject = strings.TrimSpace(b.Subject)
 		if b.Provider == "" || b.Issuer == "" || b.Subject == "" {
 			return nil, fmt.Errorf("migration: binding[%d] missing provider/issuer/subject", i)
 		}

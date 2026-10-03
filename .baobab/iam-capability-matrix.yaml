@@ -1,0 +1,219 @@
+metadata:
+  title: Baobab IAM Capability Matrix
+  purpose: >
+    Canonical migration baseline for provider-neutral IAM capabilities.
+    This matrix separates Baobab-owned identity meaning from Ory/Keycloak
+    implementation mechanics and is stable across the migration window.
+  authority: >
+    Baobab Shared contracts and Control Plane resolution own capability
+    meaning; IAM owns the provider-neutral interface and adapter mechanics.
+  updated: 2026-10-03
+
+capabilities:
+  - capability_family: Human Identity Lifecycle
+    capability_operation: identity.human.provision
+    classification: PLATFORM_RESOLVABLE_CAPABILITY
+    tier: Tier 0
+    owning_adr: ADR-IAM-0019, ADR-IAM-0020, ADR-IAM-0022
+    shared_contract: Shared identity contract; no tenant/legal-entity semantics in IAM traits
+    iam_port: IdentityProvisioner / ProviderIdentity
+    ory_mechanism: Kratos identity creation and import
+    keycloak_source: Keycloak realm-user creation/import
+    cp_dependency: CanonicalIdentity mapping in Control Plane
+    digital_estate_dependency: Digital estates consume the resulting subject identity, not a provider-native user object
+    migration_phase: Phase B / C
+    implementation_status: Partial
+    tests: Provider validation and migration bridge tests
+    conformance_evidence: Provider-neutral validation plus migration ledger evidence
+
+  - capability_family: Human Identity Lifecycle
+    capability_operation: identity.human.disable
+    classification: IAM_MANAGEMENT_OPERATION
+    tier: Tier 0
+    owning_adr: ADR-IAM-0016, ADR-IAM-0020, ADR-IAM-0022
+    shared_contract: Admin lifecycle contract only; not a business role
+    iam_port: IdentityLifecycleManager
+    ory_mechanism: Kratos admin disable + session kill-switch
+    keycloak_source: Keycloak user disable / session logout
+    cp_dependency: CP membership revocation remains separate
+    digital_estate_dependency: Estate clients rely on the CP authorization path
+    migration_phase: Phase C
+    implementation_status: Partial
+    tests: Kill-switch tests
+    conformance_evidence: Admin disable + session kill-switch evidence
+
+  - capability_family: Authentication
+    capability_operation: identity.authentication.perform
+    classification: PLATFORM_RESOLVABLE_CAPABILITY
+    tier: Tier 0
+    owning_adr: ADR-IAM-0019, ADR-IAM-0023, ADR-IAM-0024
+    shared_contract: Standard OIDC/OAuth login contract
+    iam_port: Provider-neutral IAM auth boundary
+    ory_mechanism: Ory Kratos login + Hydra/OIDC issuance
+    keycloak_source: Keycloak realm login flows and MFA
+    cp_dependency: CP resolves canonical identity and assurance from issuer+subject
+    digital_estate_dependency: Estate BFF owns browser session boundary
+    migration_phase: Phase B / C
+    implementation_status: Partial
+    tests: Auth flow and validation tests
+    conformance_evidence: OIDC discovery, PKCE/state/nonce validation evidence
+
+  - capability_family: Authentication Assurance
+    capability_operation: identity.authentication.assurance
+    classification: PLATFORM_RESOLVABLE_CAPABILITY
+    tier: Tier 0
+    owning_adr: ADR-IAM-0024
+    shared_contract: Assurance model in identity contract
+    iam_port: IAM assurance boundary
+    ory_mechanism: Kratos / Ory security policy and ACR/AMR claims
+    keycloak_source: Keycloak realm-level MFA and role-based flows
+    cp_dependency: CP policy decides operation-level assurance need
+    digital_estate_dependency: Estate front-end requests step-up according to domain policy
+    migration_phase: Phase C
+    implementation_status: Partial
+    tests: Assurance and session tests
+    conformance_evidence: ACR/AMR propagation and policy mapping evidence
+
+  - capability_family: Session Security
+    capability_operation: identity.session.revoke
+    classification: IAM_MANAGEMENT_OPERATION
+    tier: Tier 0
+    owning_adr: ADR-IAM-0016, ADR-IAM-0023
+    shared_contract: Session contract is provider-neutral
+    iam_port: SessionRevoker
+    ory_mechanism: Kratos session revocation and Hydra logout flow
+    keycloak_source: Keycloak logout and session invalidation
+    cp_dependency: CP revocation bound to canonical identity and context
+    digital_estate_dependency: Estate BFF manages secure browser session lifecycle
+    migration_phase: Phase C
+    implementation_status: Partial
+    tests: Session kill-switch tests
+    conformance_evidence: Revoke sessions + global logout evidence
+
+  - capability_family: OAuth / OIDC
+    capability_operation: identity.token.issuance
+    classification: PLATFORM_RESOLVABLE_CAPABILITY
+    tier: Tier 0
+    owning_adr: ADR-IAM-0019, ADR-IAM-0021
+    shared_contract: OIDC/OAuth standards contract
+    iam_port: Provider-neutral OAuth/OIDC boundary
+    ory_mechanism: Hydra token issuance and JWKS publication
+    keycloak_source: Keycloak realm client and token issuance
+    cp_dependency: CP resolves audience and canonical subject
+    digital_estate_dependency: Estate resource servers validate tokens
+    migration_phase: Phase B / C
+    implementation_status: Partial
+    tests: Provider token and client tests
+    conformance_evidence: Discovery, JWKS, PKCE and audience handling
+
+  - capability_family: Workload Identity
+    capability_operation: identity.workload-token.issue
+    classification: PLATFORM_RESOLVABLE_CAPABILITY
+    tier: Tier 0
+    owning_adr: ADR-IAM-0019, ADR-IAM-0021, ADR-IAM-0022
+    shared_contract: Canonical workload identity contract
+    iam_port: WorkloadProvisioner / FederatedWorkloadProvisioner
+    ory_mechanism: Hydra OAuth client issuance and JWT bearer federation
+    keycloak_source: Keycloak client credentials / realm clients
+    cp_dependency: CP owns workload binding and capability grant
+    digital_estate_dependency: Domain engines consume workload tokens and enforce audience/scope
+    migration_phase: Phase B / C
+    implementation_status: Implemented in adapter contract and validation
+    tests: Ory Hydra workload tests
+    conformance_evidence: Client secret and federated JWT trust validation
+
+  - capability_family: Workload Identity
+    capability_operation: identity.workload.provision
+    classification: IAM_MANAGEMENT_OPERATION
+    tier: Tier 1
+    owning_adr: ADR-IAM-0019, ADR-IAM-0020
+    shared_contract: Workload registration contract; no business authorization
+    iam_port: WorkloadProvisioner
+    ory_mechanism: Hydra client registration
+    keycloak_source: Keycloak client provisioning
+    cp_dependency: CP workload registration remains separate from provider mechanics
+    digital_estate_dependency: Estate workload config relies on stable logical client IDs
+    migration_phase: Phase B / C
+    implementation_status: Partial
+    tests: Provision + rotate tests
+    conformance_evidence: Logical client ID stability and scope enforcement
+
+  - capability_family: Enterprise Federation
+    capability_operation: identity.federation.enterprise
+    classification: PLATFORM_RESOLVABLE_CAPABILITY
+    tier: Tier 1
+    owning_adr: ADR-IAM-0026
+    shared_contract: Federation contract
+    iam_port: Provider adapter boundary
+    ory_mechanism: Ory OIDC/SAML social / federation settings
+    keycloak_source: Keycloak identity providers and organizations
+    cp_dependency: CP canonical identity and membership mapping remain authoritative
+    digital_estate_dependency: Estate uses identity claims only as external identity evidence
+    migration_phase: Phase C / D
+    implementation_status: Partial
+    tests: Federation contract tests
+    conformance_evidence: Explicit mapping from external IdP group to Baobab membership
+
+  - capability_family: Recovery and Proofing
+    capability_operation: identity.recovery.perform
+    classification: IAM_MANAGEMENT_OPERATION
+    tier: Tier 1
+    owning_adr: ADR-IAM-0025
+    shared_contract: Recovery and verification evidence contract
+    iam_port: IAM recovery boundary
+    ory_mechanism: Kratos recovery flows and verification states
+    keycloak_source: Keycloak recovery flows
+    cp_dependency: CP decides whether recovered account changes authority
+    digital_estate_dependency: Estate UX orchestrates user recovery flow
+    migration_phase: Phase C
+    implementation_status: Partial
+    tests: Recovery flow tests
+    conformance_evidence: Recovery tokens, throttling and audit evidence
+
+  - capability_family: Security Operations
+    capability_operation: identity.security.revoke
+    classification: IAM_MANAGEMENT_OPERATION
+    tier: Tier 1
+    owning_adr: ADR-IAM-0029, ADR-IAM-0031
+    shared_contract: Security event and revocation contract
+    iam_port: Kill-switch boundary
+    ory_mechanism: Kratos/Hydra revocation and security operations hooks
+    keycloak_source: Keycloak admin events and logout actions
+    cp_dependency: CP and domain engines enforce business-authority removal
+    digital_estate_dependency: Estates rely on standardized security signals and audit flow
+    migration_phase: Phase C / D
+    implementation_status: Partial
+    tests: Kill-switch tests
+    conformance_evidence: Bulk revocation and incident-response evidence
+
+  - capability_family: Privacy / Lifecycle Governance
+    capability_operation: identity.human.anonymise
+    classification: IAM_MANAGEMENT_OPERATION
+    tier: Tier 1
+    owning_adr: ADR-IAM-0030
+    shared_contract: Retention / erasure contract
+    iam_port: IAM lifecycle boundary
+    ory_mechanism: Kratos identity lifecycle and data minimization strategy
+    keycloak_source: Keycloak user deletion / disable flows
+    cp_dependency: CP and domain engines preserve legal and operational evidence obligations
+    digital_estate_dependency: Estates do not conflate IAM profile removal with domain-data erasure
+    migration_phase: Phase C
+    implementation_status: Partial
+    tests: Lifecycle governance tests
+    conformance_evidence: PII minimization and retention evidence
+
+  - capability_family: Provider Abstraction
+    capability_operation: provider.adapter.normalize
+    classification: PROVIDER_INTERNAL_OPERATION
+    tier: Tier 0
+    owning_adr: ADR-IAM-0020, ADR-IAM-0021
+    shared_contract: Provider-neutral IAM contract
+    iam_port: internal/provider and adapter boundary
+    ory_mechanism: Ory adapter normalization only; no leakage of provider semantics
+    keycloak_source: Keycloak adapter mapping remains legacy only during migration
+    cp_dependency: CP resolves canonical identity externally to provider-native IDs
+    digital_estate_dependency: Estate layers depend on normalized contracts, not provider SDKs
+    migration_phase: Phase B / C
+    implementation_status: Implemented
+    tests: Provider adapter tests
+    conformance_evidence: No provider-native canonical IDs allowed in Baobab contracts

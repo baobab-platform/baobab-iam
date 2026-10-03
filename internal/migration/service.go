@@ -3,6 +3,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -90,6 +91,9 @@ func (s *Service) SetTargetBinding(ctx context.Context, migrationID string, targ
 	if s == nil || s.Store == nil {
 		return nil, fmt.Errorf("migration: service or store is nil")
 	}
+	target.Provider = strings.TrimSpace(target.Provider)
+	target.Issuer = strings.TrimSpace(target.Issuer)
+	target.Subject = strings.TrimSpace(target.Subject)
 	if target.Issuer == "" || target.Subject == "" || target.Provider == "" {
 		return nil, fmt.Errorf("migration: target provider, issuer, and subject are required")
 	}
