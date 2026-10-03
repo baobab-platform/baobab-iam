@@ -12,6 +12,23 @@ Only exact governed credential grants, subjects, scopes and audiences can receiv
 
 The test runner generates its JSON profile projection using the same exact-Shared-pin reader as the capability validator. CI assertion bindings and signing keys are disposable `.invalid` fixtures. Production bindings must be reconciled with governed provider trust and real infrastructure issuer/key lifecycle. The standalone command accepts a trusted deployment projection, not user-provided configuration; metadata claiming a commit is not independent proof of its contents. Production delivery must generate and protect that projection from the pinned Shared source.
 
+## Governed deployment projection
+
+Generate the command's configuration using
+`scripts/build_workload_token_profiles.py --workload <registered-client-id>`
+(repeat for each selected workload), `--bindings <governed-bindings.json>` when
+federation is selected, and `--output <protected-config.json>`. The script reads
+Shared at `contracts.lock.yaml` and copies credential/lifecycle/scope/audience
+fields directly. The bindings input may supply only exact HTTPS issuer and
+subject pairs; wildcard subjects, unrelated clients, missing bindings and
+attempted Shared field overrides fail validation. Read access uses
+`SHARED_REPO_DIR` or `GH_TOKEN` as with the existing pin validator.
+
+Neither generated projection nor a token hook establishes provider trust by
+itself. Reconcile the same binding through the provider trust port and govern
+signing keys in infrastructure. Protect the generated projection as deployment
+configuration; do not accept it through an ordinary workload API.
+
 ## Native audiences and claims
 
 Hydra v26.2.0 accepts the client-credentials resource audience through its native `audience` form parameter and registered client audience. The hook validates the granted audience against Shared and refuses missing or unintended audiences. It does not rewrite `aud`.

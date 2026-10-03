@@ -13,6 +13,8 @@ python3 - "$task_dir" <<'PY'
 import json, secrets, sys
 from pathlib import Path
 import yaml
+sys.path.insert(0, str(Path.cwd() / "scripts"))
+from build_workload_token_profiles import build
 root = Path(sys.argv[1])
 key = secrets.token_hex(32)
 (root / 'key').write_text(key)
@@ -22,6 +24,8 @@ profiles['bindings'] = {name: {'issuer': 'https://projected.m4-ci.invalid/' + na
                               'subject': 'system:serviceaccount:m4-ci:' + name}
                         for name, profile in profiles['workloads'].items()
                         if profile['credential_type'] == 'federated_workload_token'}
+profiles = build(profiles['shared_commit'], {'workloads': profiles['workloads']},
+                 list(profiles['workloads']), profiles['bindings'])
 (root / 'profiles.json').write_text(json.dumps(profiles))
 config = yaml.safe_load(Path('config/ory/hydra/hydra.yml').read_text())
 config['ttl'] = {'access_token': '15m'}

@@ -27,6 +27,8 @@ jobs:
           fi
       - name: Install pin validator dependency
         run: python3 -m pip install PyYAML==6.0.3
+      - name: Verify governed Shared projection builder
+        run: python3 -m unittest discover -s tests/unit -p 'test_workload_token_profiles.py'
       - name: Verify isolated foundation, live provider boundary and M4 workload mechanics
         env:
           GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
