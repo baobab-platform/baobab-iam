@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
 // IdentityClass classifies a migration row (ADR-IAM-0022 §12).
@@ -207,32 +209,11 @@ func checkForbiddenLedgerStrings(values ...string) error {
 	return nil
 }
 
-// NormalizeAllowedScopes keeps migration ledger scopes aligned with the provider
-// canonical vocabulary while accepting the migration alias used by earlier M4 work.
+// NormalizeAllowedScopes delegates to provider.NormalizeAllowedScopes so the
+// migration package cannot drift from Shared's canonical vocabulary
+// (context:resolve is canonical; context-resolve is accepted as an alias).
 func NormalizeAllowedScopes(scopes []string) []string {
-	if len(scopes) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(scopes))
-	seen := make(map[string]struct{}, len(scopes))
-	for _, s := range scopes {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			continue
-		}
-		if s == "context-resolve" {
-			s = "context:resolve"
-		}
-		if _, dup := seen[s]; dup {
-			continue
-		}
-		seen[s] = struct{}{}
-		out = append(out, s)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return provider.NormalizeAllowedScopes(scopes)
 }
 
 // forbiddenLedgerSubstrings are case-insensitive markers. Prefer structured
