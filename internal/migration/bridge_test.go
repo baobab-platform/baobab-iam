@@ -3,6 +3,7 @@ package migration_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -115,6 +116,31 @@ func federatedTemplate(logicalID string, scopes, audiences []string) migration.F
 	}
 }
 
+// assertKratosSchemaTraits checks traits against config/ory/kratos/identity.schema.json:
+// required email; additionalProperties false (only email and name allowed).
+func assertKratosSchemaTraits(t *testing.T, traits map[string]any) string {
+	t.Helper()
+	if traits == nil {
+		t.Fatal("traits is nil")
+	}
+	email, ok := traits["email"].(string)
+	if !ok || strings.TrimSpace(email) == "" {
+		t.Fatalf("traits.email missing or empty: %#v", traits)
+	}
+	for k := range traits {
+		switch k {
+		case "email", "name":
+			// allowed by identity.schema.json
+		default:
+			t.Fatalf("traits contains forbidden key %q (schema additionalProperties: false); got %#v", k, traits)
+		}
+	}
+	if _, has := traits["legacy_subject"]; has {
+		t.Fatal("traits must not contain legacy_subject")
+	}
+	return email
+}
+
 func TestProvisionBridge_HumanToProvisioned(t *testing.T) {
 	ctx := context.Background()
 	store := migration.NewMemoryStore()
@@ -149,9 +175,71 @@ func TestProvisionBridge_HumanToProvisioned(t *testing.T) {
 	if human.lastSpec.MigrationID != "mig-human-1" {
 		t.Fatalf("MigrationID not passed")
 	}
+
+	// P1-2: traits must satisfy configured Kratos schema; no legacy_subject.
+	email := assertKratosSchemaTraits(t, human.lastSpec.Traits)
+	if !strings.HasSuffix(email, "@users.migration.invalid") {
+		t.Fatalf("expected non-authoritative migration placeholder email, got %q", email)
+	}
+	if !strings.Contains(email, "kc-user-1") && !strings.Contains(email, "kc-user") {
+		t.Fatalf("placeholder should embed sanitized source subject, got %q", email)
+	}
+	if human.lastSpec.Metadata["email_role"] != "kratos_schema_identifier_only" {
+		t.Fatalf("email_role metadata missing: %#v", human.lastSpec.Metadata)
+	}
+	if human.lastSpec.Metadata["source_subject"] != "kc-user-1" {
+		t.Fatalf("source_subject metadata: %#v", human.lastSpec.Metadata)
+	}
+	if human.lastSpec.Metadata["migration_id"] != "mig-human-1" {
+		t.Fatalf("migration_id metadata: %#v", human.lastSpec.Metadata)
+	}
+
 	res2, err := bridge.Provision(ctx, "mig-human-1")
 	if err != nil || !res2.AlreadyProvisioned {
 		t.Fatalf("idempotent: err=%v already=%v", err, res2.AlreadyProvisioned)
+	}
+}
+
+// TestProvisionBridge_HumanMailtoSnapshot prefers an authorized source email
+// from SourceSnapshotReference (mailto:) over the migration placeholder.
+// Email still is not CanonicalIdentity authority.
+func TestProvisionBridge_HumanMailtoSnapshot(t *testing.T) {
+	ctx := context.Background()
+	store := migration.NewMemoryStore()
+	svc := &migration.Service{Store: store}
+	human := &fakeHuman{}
+	bridge, err := migration.NewProvisionBridge(svc, "http://127.0.0.1:4444", human, &fakeWorkload{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &migration.Record{
+		MigrationID:             "mig-human-mailto",
+		CanonicalIdentityID:     "ci_h2",
+		SourceSnapshotReference: "mailto:alice@example.com",
+		Source: migration.ProviderBinding{
+			Provider: "keycloak",
+			Issuer:   "https://kc.example/realms/baobab",
+			Subject:  "kc-alice",
+		},
+		IdentityClass:      migration.ClassHuman,
+		CredentialStrategy: migration.StrategyFirstLoginMigration,
+		MigrationState:     migration.StateDiscovered,
+	}
+	if err := svc.Register(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bridge.Provision(ctx, "mig-human-mailto"); err != nil {
+		t.Fatalf("Provision: %v", err)
+	}
+	email := assertKratosSchemaTraits(t, human.lastSpec.Traits)
+	if email != "alice@example.com" {
+		t.Fatalf("expected mailto source email, got %q", email)
+	}
+	if human.lastSpec.Metadata["canonical_identity_id"] != "ci_h2" {
+		t.Fatalf("canonical_identity_id should remain on metadata, not traits: %#v", human.lastSpec.Metadata)
+	}
+	if _, has := human.lastSpec.Traits["legacy_subject"]; has {
+		t.Fatal("legacy_subject must not appear in traits")
 	}
 }
 
