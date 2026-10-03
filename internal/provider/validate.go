@@ -16,6 +16,19 @@ func requireNonEmptyTrimmed(label, value string) error {
 	return nil
 }
 
+// requireCanonicalEnum rejects values that are not already in canonical form.
+// Security-sensitive enums must not accept padded input that later fails a
+// raw equality comparison (audit finding: private_key_jwt → client_secret).
+func requireCanonicalEnum(label, value string) error {
+	if value != strings.TrimSpace(value) {
+		return &ProviderError{
+			Kind:    ErrInvalidArgument,
+			Message: fmt.Sprintf("%s must be canonical (no leading/trailing whitespace): %q", label, value),
+		}
+	}
+	return nil
+}
+
 // Validate checks that ExternalSubject has both issuer and subject.
 func (s ExternalSubject) Validate() error {
 	if err := requireNonEmptyTrimmed("issuer", s.Issuer); err != nil {
@@ -29,12 +42,18 @@ func (s ExternalSubject) Validate() error {
 
 // Validate checks required fields on a workload provisioning request.
 // It does not contact the provider.
+//
+// AuthMethod and LifecycleStatus are fail-closed: non-canonical (padded)
+// representations are rejected so downstream adapters never branch on a
+// different string than Validate accepted.
 func (s WorkloadProvisioningSpec) Validate() error {
 	if err := requireNonEmptyTrimmed("LogicalClientID", s.LogicalClientID); err != nil {
 		return err
 	}
-	authMethod := strings.TrimSpace(string(s.AuthMethod))
-	switch WorkloadAuthenticationMethod(authMethod) {
+	if err := requireCanonicalEnum("AuthMethod", string(s.AuthMethod)); err != nil {
+		return err
+	}
+	switch s.AuthMethod {
 	case WorkloadAuthClientSecret, WorkloadAuthPrivateKeyJWT:
 		// ok
 	case WorkloadAuthFederatedJWTBearer:
@@ -53,7 +72,7 @@ func (s WorkloadProvisioningSpec) Validate() error {
 			Message: fmt.Sprintf("unknown AuthMethod %q", s.AuthMethod),
 		}
 	}
-	if err := s.LifecycleStatus.Validate(); err != nil {
+	if err := s.LifecycleStatus.ValidateForProvision(); err != nil {
 		return err
 	}
 	if len(NormalizeAllowedScopes(s.AllowedScopes)) == 0 {
@@ -90,7 +109,7 @@ func (s FederatedWorkloadTrustSpec) Validate() error {
 	if s.TrustExpiresAt.IsZero() || !s.TrustExpiresAt.After(time.Now().UTC()) {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "TrustExpiresAt must be in the future"}
 	}
-	if err := s.LifecycleStatus.Validate(); err != nil {
+	if err := s.LifecycleStatus.ValidateForProvision(); err != nil {
 		return err
 	}
 	if len(NormalizeAllowedScopes(s.AllowedScopes)) == 0 {
