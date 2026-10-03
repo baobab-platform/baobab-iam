@@ -23,6 +23,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -58,12 +59,21 @@ type FederatedTrustTemplate struct {
 	AudiencesByLogicalID map[string][]string
 }
 
+// HumanTraitsSource loads authorized schema traits from the exact source binding.
+// SnapshotReference is an opaque evidence locator, never a login identifier.
+// Implementations must validate provenance and must not resolve canonical identity by email.
+type HumanTraitsSource interface {
+	LoadHumanTraits(context.Context, ProviderBinding, string) (map[string]any, error)
+}
+
 // ProvisionBridge orchestrates ledger state + target provider provisioning.
 // Zero-value is not usable; construct with NewProvisionBridge.
 type ProvisionBridge struct {
 	Service *Service
 	// Human provisions Kratos (or equivalent) identities.
 	Human provider.IdentityProvisioner
+	// HumanTraits is required for human migration; missing source data fails closed.
+	HumanTraits HumanTraitsSource
 	// Workload provisions confidential OAuth clients (M4-C only).
 	Workload provider.WorkloadProvisioner
 	// Federated provisions RFC 7523 trust (M4-F default for platform workloads).
@@ -259,84 +269,133 @@ func (b *ProvisionBridge) provisionTarget(ctx context.Context, r *Record) (Provi
 	case ClassWorkload, ClassServiceIntegration:
 		return b.provisionWorkload(ctx, r)
 	default:
-		return ProviderBinding{}, "", fmt.Errorf("migration: unsupported identity_class %q for auto-provision", r.IdentityClass)
+		return ProviderBinding{}, "", fmt.Errorf("migration: unsupported identity class %q", r.IdentityClass)
 	}
 }
 
+// provisionHuman creates a target human identity with traits that satisfy the
+// configured Kratos identity schema (config/ory/kratos/identity.schema.json):
+// required email; only email and name permitted (additionalProperties: false).
+//
+// Email is schema / login-identifier material only. It MUST NOT be treated as
+// CanonicalIdentity authority — that remains issuer+subject → CP mapping
+// (ADR-IAM-0022). Migration correlation is carried exclusively on
+// MigrationID and Metadata (never as a traits key).
 func (b *ProvisionBridge) provisionHuman(ctx context.Context, r *Record) (ProviderBinding, error) {
 	if b.Human == nil {
-		return ProviderBinding{}, fmt.Errorf("migration: IdentityProvisioner is not configured")
+		return ProviderBinding{}, fmt.Errorf("migration: IdentityProvisioner is required for human identities")
+	}
+	if b.HumanTraits == nil {
+		return ProviderBinding{}, fmt.Errorf("migration: authorized HumanTraitsSource is required")
+	}
+	traits, err := b.HumanTraits.LoadHumanTraits(ctx, r.Source, r.SourceSnapshotReference)
+	if err != nil {
+		return ProviderBinding{}, fmt.Errorf("migration: load authorized human traits: %w", err)
+	}
+	if err := validateHumanTraits(traits); err != nil {
+		return ProviderBinding{}, err
 	}
 	spec := provider.IdentityProvisioningSpec{
-		Traits: map[string]any{
-			"migration_source_subject": r.Source.Subject,
-			"migration_id":             r.MigrationID,
-		},
+		Traits: traits,
 		MigrationID: r.MigrationID,
 		Metadata: map[string]string{
 			"gate":                  "IAM-M5",
-			"canonical_identity_id": r.CanonicalIdentityID,
+			"migration_id":          r.MigrationID,
 			"source_issuer":         r.Source.Issuer,
+			"source_subject":        r.Source.Subject,
+			"canonical_identity_id": r.CanonicalIdentityID,
+			// Documents that traits.email is not identity authority.
+			"email_role": "kratos_schema_identifier_only",
 		},
 	}
-	id, err := b.Human.ProvisionIdentity(ctx, spec)
+	if err := spec.Validate(); err != nil {
+		return ProviderBinding{}, err
+	}
+	ident, err := b.Human.ProvisionIdentity(ctx, spec)
 	if err != nil {
 		return ProviderBinding{}, err
 	}
-	if id == nil || id.Subject == "" {
-		return ProviderBinding{}, fmt.Errorf("migration: provisioner returned empty subject")
+	if ident == nil || ident.Subject == "" {
+		return ProviderBinding{}, fmt.Errorf("migration: human provisioner returned empty subject")
 	}
-	issuer := id.Issuer
+	issuer := ident.Issuer
 	if issuer == "" {
 		issuer = b.TargetIssuer
 	}
 	return ProviderBinding{
-		Provider: b.targetProviderName(id.Provider),
+		Provider: b.targetProviderName(ident.Provider),
 		Issuer:   issuer,
-		Subject:  id.Subject,
+		Subject:  ident.Subject,
 	}, nil
 }
 
-// resolveWorkloadProfile chooses M4-F (default) vs M4-C (explicit allow-list).
-func (b *ProvisionBridge) resolveWorkloadProfile(logicalID string) WorkloadCredentialProfile {
-	if _, ok := b.ClientSecretAllowList[logicalID]; ok {
-		return WorkloadProfileClientSecret
+// validateHumanTraits follows the configured default schema without synthesizing identifiers.
+func validateHumanTraits(traits map[string]any) error {
+	email, ok := traits["email"].(string)
+	address, err := mail.ParseAddress(email)
+	if !ok || err != nil || address.Address != email || len(email) < 3 || len(email) > 320 {
+		return fmt.Errorf("migration: authorized source email is required")
 	}
-	return WorkloadProfileFederated
+	for key := range traits {
+		if key != "email" && key != "name" {
+			return fmt.Errorf("migration: unsupported human trait %q", key)
+		}
+	}
+	if value, exists := traits["name"]; exists {
+		name, ok := value.(map[string]any)
+		if !ok {
+			return fmt.Errorf("migration: name must be an object")
+		}
+		for key, value := range name {
+			text, ok := value.(string)
+			if (key != "first" && key != "last") || !ok || len([]rune(text)) > 128 {
+				return fmt.Errorf("migration: invalid name field %q", key)
+			}
+		}
+	}
+	return nil
 }
 
 func (b *ProvisionBridge) provisionWorkload(ctx context.Context, r *Record) (ProviderBinding, WorkloadCredentialProfile, error) {
 	logicalID := r.Source.Subject
 	if logicalID == "" {
-		return ProviderBinding{}, "", fmt.Errorf("migration: workload source subject (logical client id) is required")
+		return ProviderBinding{}, "", fmt.Errorf("migration: workload logical client id (Source.Subject) is required")
 	}
-	profile := b.resolveWorkloadProfile(logicalID)
-	switch profile {
-	case WorkloadProfileClientSecret:
+
+	// M4-C only when explicitly allow-listed; otherwise federated-first.
+	if _, ok := b.ClientSecretAllowList[logicalID]; ok {
 		binding, err := b.provisionWorkloadClientSecret(ctx, r, logicalID)
 		return binding, WorkloadProfileClientSecret, err
-	default:
-		binding, err := b.provisionWorkloadFederated(ctx, r, logicalID)
-		return binding, WorkloadProfileFederated, err
 	}
+
+	profile := b.DefaultWorkloadProfile
+	if profile == "" {
+		profile = WorkloadProfileFederated
+	}
+	if profile != WorkloadProfileFederated {
+		return ProviderBinding{}, "", fmt.Errorf("migration: non-federated profile %q requires ClientSecretAllowList entry for %q", profile, logicalID)
+	}
+	if b.Federated == nil {
+		return ProviderBinding{}, "", fmt.Errorf("migration: FederatedWorkloadProvisioner required for M4-F (logical client %q)", logicalID)
+	}
+	binding, err := b.provisionFederatedWorkload(ctx, r, logicalID)
+	return binding, WorkloadProfileFederated, err
 }
 
 func (b *ProvisionBridge) provisionWorkloadClientSecret(ctx context.Context, r *Record, logicalID string) (ProviderBinding, error) {
 	if b.Workload == nil {
-		return ProviderBinding{}, fmt.Errorf("migration: WorkloadProvisioner is not configured for M4-C client_secret path")
+		return ProviderBinding{}, fmt.Errorf("migration: WorkloadProvisioner required for M4-C client_secret")
 	}
-	if _, ok := b.ClientSecretAllowList[logicalID]; !ok {
-		return ProviderBinding{}, fmt.Errorf("migration: logical client %q is not on ClientSecretAllowList (ADR-0021: federated default; M4-C requires explicit allow)", logicalID)
-	}
-	scopes := provider.NormalizeAllowedScopes(b.ClientSecretScopesByLogicalID[logicalID])
-	if len(scopes) == 0 {
-		return ProviderBinding{}, fmt.Errorf("migration: Shared-authorized scopes required for M4-C client %q (no hardcoded defaults)", logicalID)
+	scopes, ok := b.ClientSecretScopesByLogicalID[logicalID]
+	if !ok || len(scopes) == 0 {
+		return ProviderBinding{}, fmt.Errorf("migration: ClientSecretScopesByLogicalID missing for allow-listed client %q", logicalID)
 	}
 	spec := provider.WorkloadProvisioningSpec{
 		LogicalClientID: logicalID,
 		DisplayName:     logicalID,
-		AllowedScopes:   scopes,
 		AuthMethod:      provider.WorkloadAuthClientSecret,
+		AllowedScopes:   append([]string(nil), scopes...),
+		LifecycleStatus: provider.WorkloadStatusProvisioned,
 		Metadata: map[string]string{
 			"gate":                   "IAM-M5",
 			"migration_id":           r.MigrationID,
@@ -345,20 +404,17 @@ func (b *ProvisionBridge) provisionWorkloadClientSecret(ctx context.Context, r *
 			"m4_path":                "M4-C",
 		},
 	}
+	if err := spec.Validate(); err != nil {
+		return ProviderBinding{}, err
+	}
 	w, err := b.Workload.ProvisionWorkload(ctx, spec)
 	if err != nil {
 		return ProviderBinding{}, err
 	}
-	if w == nil {
-		return ProviderBinding{}, fmt.Errorf("migration: workload provisioner returned nil")
-	}
-	subject := w.ProviderClientID
-	if subject == "" {
-		subject = w.LogicalClientID
-	}
-	if subject == "" {
+	if w == nil || w.ProviderClientID == "" {
 		return ProviderBinding{}, fmt.Errorf("migration: workload provisioner returned empty client id")
 	}
+	// Intentionally do not return or store the client secret on the ledger.
 	issuer := w.Issuer
 	if issuer == "" {
 		issuer = b.TargetIssuer
@@ -366,29 +422,27 @@ func (b *ProvisionBridge) provisionWorkloadClientSecret(ctx context.Context, r *
 	return ProviderBinding{
 		Provider: b.targetProviderName(w.Provider),
 		Issuer:   issuer,
-		Subject:  subject,
+		Subject:  w.ProviderClientID,
 	}, nil
 }
 
-func (b *ProvisionBridge) provisionWorkloadFederated(ctx context.Context, r *Record, logicalID string) (ProviderBinding, error) {
-	if b.Federated == nil {
-		return ProviderBinding{}, fmt.Errorf("migration: FederatedWorkloadProvisioner is required for federated_workload_token path (ADR-0021); attach WithFederated or allow-list M4-C client_secret explicitly")
-	}
+func (b *ProvisionBridge) provisionFederatedWorkload(ctx context.Context, r *Record, logicalID string) (ProviderBinding, error) {
 	tpl := b.FederatedTrust
 	if strings.TrimSpace(tpl.AssertionIssuer) == "" {
-		return ProviderBinding{}, fmt.Errorf("migration: FederatedTrust.AssertionIssuer is required (platform projected-token issuer)")
+		return ProviderBinding{}, fmt.Errorf("migration: FederatedTrust.AssertionIssuer is required")
 	}
 	if len(tpl.AssertionJWK) == 0 {
-		return ProviderBinding{}, fmt.Errorf("migration: FederatedTrust.AssertionJWK public key is required")
+		return ProviderBinding{}, fmt.Errorf("migration: FederatedTrust.AssertionJWK is required")
 	}
-	scopes := provider.NormalizeAllowedScopes(tpl.ScopesByLogicalID[logicalID])
-	if len(scopes) == 0 {
-		return ProviderBinding{}, fmt.Errorf("migration: Shared registry scopes missing for federated client %q (ScopesByLogicalID)", logicalID)
+	scopes, ok := tpl.ScopesByLogicalID[logicalID]
+	if !ok || len(scopes) == 0 {
+		return ProviderBinding{}, fmt.Errorf("migration: FederatedTrust.ScopesByLogicalID missing for %q (Shared registry)", logicalID)
 	}
-	audiences := append([]string(nil), tpl.AudiencesByLogicalID[logicalID]...)
-	if len(audiences) == 0 {
-		return ProviderBinding{}, fmt.Errorf("migration: Shared registry audiences missing for federated client %q (AudiencesByLogicalID)", logicalID)
+	audiences, ok := tpl.AudiencesByLogicalID[logicalID]
+	if !ok || len(audiences) == 0 {
+		return ProviderBinding{}, fmt.Errorf("migration: FederatedTrust.AudiencesByLogicalID missing for %q (Shared registry)", logicalID)
 	}
+
 	subject := "system:serviceaccount:baobab:" + logicalID
 	if tpl.AssertionSubjectFor != nil {
 		subject = tpl.AssertionSubjectFor(logicalID)
@@ -410,6 +464,7 @@ func (b *ProvisionBridge) provisionWorkloadFederated(ctx context.Context, r *Rec
 		AssertionSubject:  subject,
 		AssertionJWK:      jwk,
 		TrustExpiresAt:    time.Now().UTC().Add(ttl),
+		LifecycleStatus:   provider.WorkloadStatusProvisioned,
 		Metadata: map[string]string{
 			"gate":                   "IAM-M5",
 			"migration_id":           r.MigrationID,

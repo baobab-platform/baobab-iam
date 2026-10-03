@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
@@ -132,6 +133,18 @@ func (a *Adapter) GetIdentity(ctx context.Context, subject provider.ExternalSubj
 // On success the returned ProviderIdentity.Subject is the Kratos identity ID
 // and Issuer is the configured PublicIssuer.
 func (a *Adapter) ProvisionIdentity(ctx context.Context, spec provider.IdentityProvisioningSpec) (*provider.ProviderIdentity, error) {
+	caps := a.capabilities()
+	if spec.Credentials != nil {
+		if spec.Credentials.PasswordHash != nil && !caps.PasswordImport {
+			return nil, provider.NewUnsupported("ory", "unverified password import")
+		}
+		if spec.Credentials.TOTP != nil && !caps.TOTPImport {
+			return nil, provider.NewUnsupported("ory", "unverified TOTP import")
+		}
+		if len(spec.Credentials.WebAuthn) != 0 && !caps.PasskeyImport {
+			return nil, provider.NewUnsupported("ory", "unverified passkey import")
+		}
+	}
 	return a.kratos.provisionIdentity(ctx, a.cfg.PublicIssuer, spec)
 }
 
@@ -188,9 +201,24 @@ func (a *Adapter) ProvisionFederatedWorkload(ctx context.Context, spec provider.
 	return a.hydra.provisionFederatedWorkload(ctx, a.cfg.PublicIssuer, spec)
 }
 
-// DisableWorkload deactivates or deletes the Hydra client corresponding
-// to the workload reference.
+// DisableWorkload deactivates provider-side token issuance for the workload
+// (clears Hydra grant types). It does not perform CP or network containment.
 func (a *Adapter) DisableWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
+	return a.hydra.disableClient(ctx, ref)
+}
+
+// SuspendWorkload disables provider-side token issuance (same mechanics as DisableWorkload).
+func (a *Adapter) SuspendWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
+	return a.hydra.disableClient(ctx, ref)
+}
+
+// RevokeWorkload disables provider-side token issuance only (Hydra client grants cleared).
+//
+// This is NOT a complete Baobab revocation path. ADR-IAM-0029 requires broader
+// containment (credential revocation, CapabilityBinding suspension, network
+// isolation, deployment quarantine, and an independent kill-switch outside a
+// compromised IAM component). Mental model: DisableProviderWorkloadIssuance.
+func (a *Adapter) RevokeWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
 	return a.hydra.disableClient(ctx, ref)
 }
 
@@ -243,17 +271,19 @@ func (a *Adapter) ReconcileIdentity(ctx context.Context, subject provider.Extern
 // requireIssuer ensures the ExternalSubject.Issuer matches this deployment.
 // Mismatched issuers are rejected so we never mutate the wrong provider.
 func (a *Adapter) requireIssuer(subject provider.ExternalSubject) error {
-	if subject.Issuer == "" || subject.Subject == "" {
+	issuer := strings.TrimSpace(subject.Issuer)
+	subjectID := strings.TrimSpace(subject.Subject)
+	if issuer == "" || subjectID == "" {
 		return &provider.ProviderError{
 			Kind:     provider.ErrInvalidArgument,
 			Message:  "issuer and subject are required",
 			Provider: "ory",
 		}
 	}
-	if subject.Issuer != a.cfg.PublicIssuer {
+	if issuer != a.cfg.PublicIssuer {
 		return &provider.ProviderError{
 			Kind:     provider.ErrInvalidArgument,
-			Message:  fmt.Sprintf("issuer mismatch: got %q, want %q", subject.Issuer, a.cfg.PublicIssuer),
+			Message:  fmt.Sprintf("issuer mismatch: got %q, want %q", issuer, a.cfg.PublicIssuer),
 			Provider: "ory",
 		}
 	}
@@ -263,3 +293,4 @@ func (a *Adapter) requireIssuer(subject provider.ExternalSubject) error {
 // Compile-time assertions for the provider capabilities this adapter exposes.
 var _ provider.IdentityProvider = (*Adapter)(nil)
 var _ provider.FederatedWorkloadProvisioner = (*Adapter)(nil)
+var _ provider.WorkloadLifecycleManager = (*Adapter)(nil)

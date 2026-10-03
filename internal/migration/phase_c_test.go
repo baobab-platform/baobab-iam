@@ -90,7 +90,7 @@ func TestRegisterBatch_MapsAndOrphans(t *testing.T) {
 	}
 
 	// Mapped row
-	mappedID := "batch-phase-c-1:keycloak:mapped-user-1"
+	mappedID := res.MigrationIDs[0]
 	mapped, err := store.Get(ctx, mappedID)
 	if err != nil {
 		t.Fatal(err)
@@ -106,12 +106,12 @@ func TestRegisterBatch_MapsAndOrphans(t *testing.T) {
 	}
 
 	// Orphan row
-	orphanID := "batch-phase-c-1:keycloak:orphan-user-9"
+	orphanID := res.MigrationIDs[1]
 	orphan, err := store.Get(ctx, orphanID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if orphan.CanonicalIdentityID != "orphan:pending-review" {
+	if orphan.CanonicalIdentityID != "" {
 		t.Fatalf("orphan canonical=%q", orphan.CanonicalIdentityID)
 	}
 	if orphan.IdentityClass != migration.ClassOrphanCandidate {
