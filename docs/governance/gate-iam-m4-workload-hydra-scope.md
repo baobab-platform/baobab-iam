@@ -1,7 +1,7 @@
 # Gate IAM-M4 — Workload identity on Hydra
 
-**Status:** Client-credential migration scaffold hardened; federated path selected and awaiting live proof  
-**Date:** 2026-09-30  
+**Status:** Live isolated provider mechanics proven for M4-C and M4-F; canonical activation blocked  
+**Date:** 2026-10-03  
 **Gate:** IAM-M4 / EA-04  
 **Depends on:** M1 provider contracts; M2/M3 live Ory foundation; Shared workload registry  
 **Does not:** enable M18 human dual-issuer cutover or retire Keycloak
@@ -59,7 +59,8 @@ IAM SHALL consume/preserve:
 - [x] canonical scope preservation (`context:resolve`);
 - [x] Shared-registry IDs for Thamani/ZuriBeans;
 - [x] fail closed unless `ORY_ALLOWED_SCOPES` is explicitly supplied;
-- [ ] live Hydra client + token evidence.
+- [x] live isolated Hydra client + cryptographically verified token evidence;
+- [x] wrong credential and scope rejected; rotation invalidates old credential; suspension denies future issuance.
 
 ## 4. M4-F design
 
@@ -127,12 +128,50 @@ A Hydra client record, trusted-issuer record, or successful token endpoint HTTP
 
 | Blocker | Why it matters |
 |---|---|
-| Live Ory stack evidence | PR #42 currently has offline/CI evidence only |
+| Live Ory stack evidence | Closed for the isolated pinned stack by PR #57; M4 provider mechanics evidenced in PR #58 |
 | Platform projected-token issuer/JWK | Infrastructure must provide the assertion issuer and signing-key lifecycle |
-| Hydra access-token claim proof | Consumer requires `actor_type=workload`; this must be proven from live token output rather than assumed |
+| Hydra access-token profile | Live tokens lack `actor_type=workload` and do not match Shared logical consumer audiences; governed claim/audience integration is required |
 | Resource consumer E2E | status cannot move ACTIVE before Subscriptions/Payments accept the token |
 
-## 7. Rollback
+## 7. Isolated live M4 evidence
+
+[PR #58](https://github.com/baobab-platform/baobab-iam/pull/58) stacks on the
+foundation PR #57. [Live run 37158448607](https://github.com/baobab-platform/baobab-iam/actions/runs/37158448607)
+passed at `e831a12512e43e232d2e6ee900b2045627b79a32`, using the Compose image
+versions and digests in `provider.lock.yaml` (Hydra/Kratos v26.2.0).
+
+The runner reads the selected profiles directly from Shared at the exact
+`contracts.lock.yaml` commit. It creates disposable clients for
+`baobab-trade-workload`, `baobab-cp-workload` and
+`baobab-subscriptions-workload` inside an isolated local issuer. Assertions use
+an ephemeral RSA signer and a synthetic `.invalid` issuer, not a deployed
+platform issuer. No production credential, registry lifecycle or consumer
+trust configuration is changed.
+
+The tests verify RS256 signatures against Hydra's public JWKS, issuer, bounded
+lifetime, stable `client_id`, exact signed scopes and provider subjects. Both
+federated paths reject wrong issuer, subject, audience, expiry, not-before,
+signature and scope, plus replay. Clients have no static secret; static-secret
+rotation is rejected. Revocation prevents new exchanges. Client credentials
+prove old-secret rejection after rotation and future-issuance rejection after
+suspension. These commands do not invalidate every already-issued JWT.
+
+The client-credentials token has an empty audience. Both federated tokens
+carry `http://127.0.0.1:4444/oauth2/token` as audience, inherited from their
+assertions by pinned Hydra v26.2.0. These are not the Shared logical consumer
+audiences. All three observed token profiles have `logical_audience_matches=false` and
+`actor_type_is_workload=false`. Successful provider mechanics therefore do not
+satisfy the existing Baobab token profile or close M4 activation. Profile JSON
+artifacts explicitly record `canonical_activation_proven=false` and
+`actual_consumer_tested=false`. HTTP 200 is never recorded as ACTIVE evidence.
+
+Remaining work: governed workload claim/audience integration, the real
+infrastructure projected issuer and signing-key lifecycle, and live acceptance
+by CP, Subscriptions and Payments as applicable. An isolated JWT test verifier
+is not an actual resource server. The Shared federated entries stay
+PROVISIONED. No Keycloak retirement or issuer cutover is attempted.
+
+## 8. Rollback
 
 M4-F rollback is to stop issuing/exchanging projected assertions and keep the
 Shared workload lifecycle non-ACTIVE. It is **not** to introduce a client
@@ -144,3 +183,5 @@ secret.
 |---|---|---|
 | 0.1–0.3 | 2026-09-27..30 | Original client-credential M4 scaffold |
 | 0.4 | 2026-09-30 | Split M4-C/M4-F; selected RFC7523; made Shared authoritative; defined activation evidence |
+
+| 0.5 | 2026-10-03 | Recorded isolated M4-C/M4-F live evidence and observed token-profile activation blockers |

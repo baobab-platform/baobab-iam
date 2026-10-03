@@ -34,6 +34,11 @@ for port in 4434 4445; do
   echo "Admin listener $port ready" | tee -a ory-foundation-evidence/readiness.txt
 done
 python3 tests/ory-foundation/workload_profiles.py
+# Always address this disposable Compose stack, never inherited remote endpoints.
+export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434
+export ORY_KRATOS_PUBLIC_URL=http://127.0.0.1:4433
+export ORY_HYDRA_ADMIN_URL=http://127.0.0.1:4445
+export ORY_PUBLIC_ISSUER=http://127.0.0.1:4444
 export ORY_SMOKE=1 ORY_FOUNDATION=1 ORY_WORKLOAD=1
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
