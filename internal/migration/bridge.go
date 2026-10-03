@@ -267,9 +267,13 @@ func (b *ProvisionBridge) provisionHuman(ctx context.Context, r *Record) (Provid
 	if b.Human == nil {
 		return ProviderBinding{}, fmt.Errorf("migration: IdentityProvisioner is required for human identities")
 	}
+	// IdentityProvisioningSpec requires Traits (provider-neutral schema fields).
+	// Correlation is carried on MigrationID + Metadata; no business keys in Traits.
 	spec := provider.IdentityProvisioningSpec{
-		Subject:     r.Source.Subject,
-		DisplayName: r.Source.Subject,
+		Traits: map[string]any{
+			"legacy_subject": r.Source.Subject,
+		},
+		MigrationID: r.MigrationID,
 		Metadata: map[string]string{
 			"gate":          "IAM-M5",
 			"migration_id":  r.MigrationID,
