@@ -39,5 +39,10 @@ Raw access tokens, assertions, callback credentials and private keys are never e
 - Assertion audience propagation: https://github.com/ory/hydra/blob/v26.2.0/fosite/handler/rfc7523/handler.go
 - Pinned configuration schema: https://github.com/ory/hydra/blob/v26.2.0/.schema/config.schema.json
 
-Live validation is pending; do not treat these test implementations as execution evidence until CI passes.
+Live validation passed at `49277dcf55025c13e52eb07f3ffd0add1297bed2`:
+https://github.com/baobab-platform/baobab-iam/actions/runs/37160126628
+The client-credentials profile proved all required signed claims/audience and
+lifetime checks; both federated profiles were denied by the policy with
+`access_denied`. This closes the isolated M4-C token-profile gap, not actual
+consumer acceptance or full M4-F issuance.
 

@@ -1,6 +1,6 @@
 # Gate IAM-M4 — Workload identity on Hydra
 
-**Status:** Live isolated provider mechanics proven for M4-C and M4-F; canonical activation blocked  
+**Status:** Live provider mechanics and opt-in M4-C token profile proven; M4-F profile issuance and canonical activation blocked  
 **Date:** 2026-10-03  
 **Gate:** IAM-M4 / EA-04  
 **Depends on:** M1 provider contracts; M2/M3 live Ory foundation; Shared workload registry  
@@ -130,7 +130,7 @@ A Hydra client record, trusted-issuer record, or successful token endpoint HTTP
 |---|---|
 | Live Ory stack evidence | Closed for the isolated pinned stack by PR #57; M4 provider mechanics evidenced in PR #58 |
 | Platform projected-token issuer/JWK | Infrastructure must provide the assertion issuer and signing-key lifecycle |
-| Hydra access-token profile | Live tokens lack `actor_type=workload` and do not match Shared logical consumer audiences; governed claim/audience integration is required |
+| Hydra access-token profile | Opt-in M4-C profile proven in PR #59. Pinned RFC 7523 copies the assertion audience into access tokens; the governed hook denies that M4-F mismatch |
 | Resource consumer E2E | status cannot move ACTIVE before Subscriptions/Payments accept the token |
 
 ## 7. Isolated live M4 evidence
@@ -159,13 +159,21 @@ suspension. These commands do not invalidate every already-issued JWT.
 The client-credentials token has an empty audience. Both federated tokens
 carry `http://127.0.0.1:4444/oauth2/token` as audience, inherited from their
 assertions by pinned Hydra v26.2.0. These are not the Shared logical consumer
-audiences. All three observed token profiles have `logical_audience_matches=false` and
+audiences. All three baseline token profiles have `logical_audience_matches=false` and
 `actor_type_is_workload=false`. Successful provider mechanics therefore do not
 satisfy the existing Baobab token profile or close M4 activation. Profile JSON
 artifacts explicitly record `canonical_activation_proven=false` and
 `actual_consumer_tested=false`. HTTP 200 is never recorded as ACTIVE evidence.
 
-Remaining work: governed workload claim/audience integration, the real
+The opt-in [PR #59 token-profile integration](../operations/ory-workload-token-profile.md)
+now proves the M4-C logical audience, workload actor, stable authorized client,
+string scopes and maximum 15-minute lifetime. It consumes the same exact Shared
+pin and privately authenticated provider evidence. Pinned Hydra v26.2.0 cannot
+remove its propagated assertion audience through the token hook; both M4-F
+profiles are denied with `access_denied` by the governed policy. The baseline
+foundation config is unchanged, and no provider pin is upgraded implicitly.
+
+Remaining work: compatible M4-F resource audience mechanics, the real
 infrastructure projected issuer and signing-key lifecycle, and live acceptance
 by CP, Subscriptions and Payments as applicable. An isolated JWT test verifier
 is not an actual resource server. The Shared federated entries stay

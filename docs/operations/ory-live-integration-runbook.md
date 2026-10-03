@@ -91,6 +91,14 @@ verified issuance and rejection mechanics but observed missing logical
 consumer audiences and `actor_type=workload` on all three profiles. These
 fixtures do not establish canonical ACTIVE or actual-consumer acceptance.
 
+The optional [governed token-profile runner](./ory-workload-token-profile.md)
+(`bash tests/ory-foundation/token_profile.sh`, after the foundation runner)
+adds the Shared audience, workload claims, string scope and 15-minute lifetime
+for the client-credentials fixture. It denies the current pinned RFC 7523
+audience mismatch. Its private callback key/configuration is temporary input,
+never evidence. The hook is workload-only; do not enable it globally on a
+human/browser issuer. The workflow runs both baseline and profile proofs.
+
 ## 4. Manually provision one client-credentials workload
 
 ```bash
