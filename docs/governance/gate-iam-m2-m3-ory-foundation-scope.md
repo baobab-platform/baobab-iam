@@ -19,7 +19,7 @@ After M2/M3:
 - Public vs administrative planes are distinct; admin APIs are not internet-facing.
 - Versions and image digests are pinned in `provider.lock.yaml`.
 - Local Compose overlay coexists with the existing Keycloak `docker-compose.yml`.
-- CI can optionally boot the Ory stack for adapter integration tests (follow-up).
+- CI boots the isolated Ory stack for live adapter integration tests.
 
 **Keycloak remains the production path until M18/M19.**
 
@@ -157,3 +157,15 @@ In-repo work that can still proceed without live Ory images: M1-D evidence when 
 | 0.4 | 2026-09-27 | M2/M3-C smoke scaffold |
 | 0.5 | 2026-09-30 | **M2/M3-D:** `v26.3.17` not published; pin corrected to `v26.2.0` with multi-arch digests |
 | 0.6 | 2026-09-30 | **M2/M3-C code:** `CheckReady` + httptest tests; live Compose residual documented |
+
+
+## 10. M2/M3-C automated evidence follow-up
+
+The `Ory Foundation Live` workflow now runs the pinned Compose overlay on PRs.
+`tests/ory-foundation/run.sh` requires explicit PASS events for readiness smoke,
+authorized human migration/lifecycle, and effective real-session revocation.
+Startup is bounded, diagnostic evidence sanitized, and CI teardown unconditional.
+
+Status remains pending until the workflow succeeds on the implementation head.
+Record the green run URL and commit before checking exit criteria 5, 6 and 8.
+Production mirror verification and M4 token/resource-server evidence remain separate.
