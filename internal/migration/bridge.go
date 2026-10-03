@@ -1,1 +1,2 @@
-placeholder
+// RESTORED_MARKER
+package migration
