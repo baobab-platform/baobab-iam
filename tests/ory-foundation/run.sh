@@ -19,7 +19,7 @@ PY
 timeout 240 docker compose -p ory-foundation-ci -f docker-compose.ory.yml up -d
 for port in 4434 4445; do
   ready=0
-  for attempt in $(seq 1 60); do
+  for attempt in $(seq 1 30); do
     if curl --connect-timeout 2 --max-time 3 -fsS -o /dev/null "http://127.0.0.1:$port/admin/health/ready" 2>/dev/null ||
        curl --connect-timeout 2 --max-time 3 -fsS -o /dev/null "http://127.0.0.1:$port/health/ready" 2>/dev/null; then
       ready=1
