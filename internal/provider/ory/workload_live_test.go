@@ -170,9 +170,11 @@ func TestLiveWorkloadClientCredentials(t *testing.T) {
 	})
 	if os.Getenv("ORY_TOKEN_PROFILE") == "1" {
 		t.Run("wrong-and-missing-resource-audience", func(t *testing.T) {
-			wrong := form(w.ClientSecret, p.Scopes[0]); wrong.Set("audience", "baobab-payments")
+			wrong := form(w.ClientSecret, p.Scopes[0])
+			wrong.Set("audience", "baobab-payments")
 			f.exchange(t, wrong, true)
-			missing := form(w.ClientSecret, p.Scopes[0]); missing.Del("audience")
+			missing := form(w.ClientSecret, p.Scopes[0])
+			missing.Del("audience")
 			f.exchange(t, missing, true)
 		})
 	}
