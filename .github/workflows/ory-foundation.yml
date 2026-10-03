@@ -21,8 +21,8 @@ jobs:
           cache: true
       - name: Check M4 Go formatting
         run: |
-          if [ -n "$(gofmt -l internal/provider/ory/workload_live_test.go)" ]; then
-            gofmt -d internal/provider/ory/workload_live_test.go
+          if [ -n "$(gofmt -l internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go)" ]; then
+            gofmt -d internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go
             exit 1
           fi
       - name: Install pin validator dependency
@@ -31,6 +31,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
         run: bash tests/ory-foundation/run.sh
+      - name: Verify governed workload claims and audience boundaries
+        run: bash tests/ory-foundation/token_profile.sh
       - name: Collect sanitized runtime evidence
         if: always()
         run: |

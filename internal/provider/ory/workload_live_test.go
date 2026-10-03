@@ -117,7 +117,7 @@ func (f *workloadFixture) exchange(t *testing.T, form url.Values, denied bool) w
 	}
 	if denied {
 		// A server failure, malformed response or HTTP 200 is not rejection proof.
-		if (resp.StatusCode != 400 && resp.StatusCode != 401) || token.Error == "" || token.AccessToken != "" {
+		if (resp.StatusCode != 400 && resp.StatusCode != 401 && resp.StatusCode != 403) || token.Error == "" || token.AccessToken != "" {
 			t.Fatalf("expected OAuth rejection, received HTTP %d", resp.StatusCode)
 		}
 	} else if resp.StatusCode != 200 || token.AccessToken == "" || !strings.EqualFold(token.TokenType, "bearer") || token.ExpiresIn <= 0 || token.ExpiresIn > 3600 {
@@ -144,32 +144,52 @@ func TestLiveWorkloadClientCredentials(t *testing.T) {
 		t.Fatal("incorrect provider workload result")
 	}
 	ref := provider.ProviderWorkloadReference{LogicalClientID: id}
+	form := func(secret, scope string) url.Values {
+		values := secretForm(id, secret, scope)
+		if os.Getenv("ORY_TOKEN_PROFILE") == "1" {
+			values.Set("audience", strings.Join(p.Audiences, " "))
+		}
+		return values
+	}
 	t.Run("signed-token-and-shared-scopes", func(t *testing.T) {
-		token := f.exchange(t, secretForm(id, w.ClientSecret, strings.Join(p.Scopes, " ")), false)
+		token := f.exchange(t, form(w.ClientSecret, strings.Join(p.Scopes, " ")), false)
 		claims := f.verify(t, token, p.Scopes, id)
 		if claims["sub"] != id {
 			t.Fatal("client-credentials subject is not stable client ID")
 		}
+		if os.Getenv("ORY_TOKEN_PROFILE") == "1" {
+			if claims["actor_type"] != "workload" || claims["azp"] != id || claims["scope"] != strings.Join(p.Scopes, " ") || !sameScopes(claimStrings(claims["aud"]), p.Audiences) || claims["exp"].(float64)-claims["iat"].(float64) > 900 {
+				t.Fatal("signed token does not satisfy governed workload profile")
+			}
+		}
 		f.recordProfile(t, id, p, claims)
 	})
 	t.Run("invalid-credential-and-scope", func(t *testing.T) {
-		f.exchange(t, secretForm(id, "invalid-ci-credential", p.Scopes[0]), true)
-		f.exchange(t, secretForm(id, w.ClientSecret, "billing:manage"), true)
+		f.exchange(t, form("invalid-ci-credential", p.Scopes[0]), true)
+		f.exchange(t, form(w.ClientSecret, "billing:manage"), true)
 	})
+	if os.Getenv("ORY_TOKEN_PROFILE") == "1" {
+		t.Run("wrong-and-missing-resource-audience", func(t *testing.T) {
+			wrong := form(w.ClientSecret, p.Scopes[0]); wrong.Set("audience", "baobab-payments")
+			f.exchange(t, wrong, true)
+			missing := form(w.ClientSecret, p.Scopes[0]); missing.Del("audience")
+			f.exchange(t, missing, true)
+		})
+	}
 	t.Run("rotation-invalidates-old-credential", func(t *testing.T) {
 		rotated, err := f.adapter.RotateWorkloadCredentials(f.ctx, ref)
 		if err != nil || rotated.ClientSecret == "" || rotated.ClientSecret == w.ClientSecret {
 			t.Fatal("rotate workload credential")
 		}
-		f.exchange(t, secretForm(id, w.ClientSecret, p.Scopes[0]), true)
-		f.verify(t, f.exchange(t, secretForm(id, rotated.ClientSecret, p.Scopes[0]), false), []string{p.Scopes[0]}, id)
+		f.exchange(t, form(w.ClientSecret, p.Scopes[0]), true)
+		f.verify(t, f.exchange(t, form(rotated.ClientSecret, p.Scopes[0]), false), []string{p.Scopes[0]}, id)
 		w = rotated
 	})
 	t.Run("suspend-denies-future-issuance", func(t *testing.T) {
 		if err := f.adapter.SuspendWorkload(f.ctx, ref); err != nil {
 			t.Fatal("suspend provider issuance")
 		}
-		f.exchange(t, secretForm(id, w.ClientSecret, p.Scopes[0]), true)
+		f.exchange(t, form(w.ClientSecret, p.Scopes[0]), true)
 	})
 }
 
