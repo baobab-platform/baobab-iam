@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
@@ -263,21 +264,32 @@ func (b *ProvisionBridge) provisionTarget(ctx context.Context, r *Record) (Provi
 	}
 }
 
+// provisionHuman creates a target human identity with traits that satisfy the
+// configured Kratos identity schema (config/ory/kratos/identity.schema.json):
+// required email; only email and name permitted (additionalProperties: false).
+//
+// Email is schema / login-identifier material only. It MUST NOT be treated as
+// CanonicalIdentity authority — that remains issuer+subject → CP mapping
+// (ADR-IAM-0022). Migration correlation is carried exclusively on
+// MigrationID and Metadata (never as a traits key).
 func (b *ProvisionBridge) provisionHuman(ctx context.Context, r *Record) (ProviderBinding, error) {
 	if b.Human == nil {
 		return ProviderBinding{}, fmt.Errorf("migration: IdentityProvisioner is required for human identities")
 	}
-	// IdentityProvisioningSpec requires Traits (provider-neutral schema fields).
-	// Correlation is carried on MigrationID + Metadata; no business keys in Traits.
+	email := humanSchemaEmail(r)
 	spec := provider.IdentityProvisioningSpec{
 		Traits: map[string]any{
-			"legacy_subject": r.Source.Subject,
+			"email": email,
 		},
 		MigrationID: r.MigrationID,
 		Metadata: map[string]string{
-			"gate":          "IAM-M5",
-			"migration_id":  r.MigrationID,
-			"source_issuer": r.Source.Issuer,
+			"gate":                  "IAM-M5",
+			"migration_id":          r.MigrationID,
+			"source_issuer":         r.Source.Issuer,
+			"source_subject":        r.Source.Subject,
+			"canonical_identity_id": r.CanonicalIdentityID,
+			// Documents that traits.email is not identity authority.
+			"email_role": "kratos_schema_identifier_only",
 		},
 	}
 	if err := spec.Validate(); err != nil {
@@ -299,6 +311,66 @@ func (b *ProvisionBridge) provisionHuman(ctx context.Context, r *Record) (Provid
 		Issuer:   issuer,
 		Subject:  ident.Subject,
 	}, nil
+}
+
+// humanSchemaEmail returns a traits.email value that satisfies the Kratos
+// schema. Prefer an authorized source email when discovery stored it under
+// a conventional key on SourceSnapshotReference (mailto: prefix) or when
+// future ports pass it; otherwise use a non-routable migration placeholder.
+//
+// The placeholder uses the RFC 2606 .invalid TLD so it cannot be confused
+// with a real mailbox or with CanonicalIdentity resolution.
+func humanSchemaEmail(r *Record) string {
+	if r == nil {
+		return "migration+unknown@users.migration.invalid"
+	}
+	// Optional: discovery may record "mailto:user@example.com" on the snapshot ref.
+	ref := strings.TrimSpace(r.SourceSnapshotReference)
+	if strings.HasPrefix(strings.ToLower(ref), "mailto:") {
+		cand := strings.TrimSpace(ref[len("mailto:"):])
+		if looksLikeEmail(cand) {
+			return cand
+		}
+	}
+	local := sanitizeEmailLocal(r.Source.Subject)
+	if local == "" {
+		local = "unknown"
+	}
+	// Cap local-part length for practical email limits.
+	if len(local) > 64 {
+		local = local[:64]
+	}
+	return fmt.Sprintf("migration+%s@users.migration.invalid", local)
+}
+
+func looksLikeEmail(s string) bool {
+	if len(s) < 3 || len(s) > 320 {
+		return false
+	}
+	at := strings.LastIndex(s, "@")
+	if at <= 0 || at == len(s)-1 {
+		return false
+	}
+	return strings.Contains(s[at+1:], ".")
+}
+
+func sanitizeEmailLocal(s string) string {
+	var b strings.Builder
+	for _, r := range strings.TrimSpace(s) {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(unicode.ToLower(r))
+		case r == '.' || r == '_' || r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	out := strings.Trim(b.String(), "-.")
+	for strings.Contains(out, "--") {
+		out = strings.ReplaceAll(out, "--", "-")
+	}
+	return out
 }
 
 func (b *ProvisionBridge) provisionWorkload(ctx context.Context, r *Record) (ProviderBinding, WorkloadCredentialProfile, error) {

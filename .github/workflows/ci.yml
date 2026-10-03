@@ -75,10 +75,42 @@ jobs:
           path: sbom.cyclonedx.json
           retention-days: 90
 
+  # Keycloak baseline verification suite (ADR-0002 §48).
+  # Restores full fixture lifecycle required by tests/integration/run.sh:
+  # secret env, Compose up, readiness, realm bootstrap, suite, logs, teardown.
   integration-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      BOOTSTRAP_WORKLOAD_CLIENT_SECRET: ci-test-only-secret-do-not-use-in-prod
+      KC_URL: http://localhost:8080
+      KC_MANAGEMENT_URL: http://localhost:9000
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: Run integration suite
-        run: tests/integration/run.sh
+      - name: Build and start stack
+        run: docker compose up -d --build
+      - name: Wait for Keycloak to accept connections
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null "$KC_MANAGEMENT_URL/health/ready"; then
+              echo "Keycloak is ready."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Keycloak did not become ready in time." >&2
+          docker compose logs keycloak
+          exit 1
+      - name: Bootstrap realm (ADR-0002 configuration-as-code)
+        run: |
+          docker compose exec -T \
+            -e "BOOTSTRAP_WORKLOAD_CLIENT_SECRET=$BOOTSTRAP_WORKLOAD_CLIENT_SECRET" \
+            keycloak /opt/keycloak/bootstrap.sh
+      - name: Run ADR-0002 Section 48 verification suite
+        run: ./tests/integration/run.sh
+      - name: Dump Keycloak logs on failure
+        if: failure()
+        run: docker compose logs keycloak
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
