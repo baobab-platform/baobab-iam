@@ -118,7 +118,8 @@ type Record struct {
 	MigrationBatchID string `json:"migration_batch_id,omitempty"`
 	// CanonicalIdentityID is the CP Principal / canonical id. It MUST come from
 	// an authoritative mapping, never from email equality alone.
-	CanonicalIdentityID string `json:"canonical_identity_id"`
+	// Empty is allowed only when IdentityClass is ORPHAN_CANDIDATE (unresolved).
+	CanonicalIdentityID string `json:"canonical_identity_id,omitempty"`
 
 	Source ProviderBinding `json:"source"`
 	Target ProviderBinding `json:"target"`
@@ -163,8 +164,12 @@ func (r *Record) ValidateStructural() error {
 	if strings.TrimSpace(r.MigrationID) == "" {
 		return fmt.Errorf("migration: migration_id is required")
 	}
+	// CanonicalIdentityID MUST come from an authoritative mapping (ADR-IAM-0022).
+	// ORPHAN_CANDIDATE is the only class allowed to have an empty value.
 	if strings.TrimSpace(r.CanonicalIdentityID) == "" {
-		return fmt.Errorf("migration: canonical_identity_id is required (do not invent from email)")
+		if r.IdentityClass != ClassOrphanCandidate {
+			return fmt.Errorf("migration: canonical_identity_id is required (do not invent from email)")
+		}
 	}
 	if strings.TrimSpace(r.Source.Issuer) == "" || strings.TrimSpace(r.Source.Subject) == "" {
 		return fmt.Errorf("migration: source issuer and subject are required")

@@ -6,6 +6,7 @@ package migration
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -21,10 +22,6 @@ type BatchRegisterRequest struct {
 	// OrphanClass is used when CanonicalResolver returns ErrNoCanonicalMapping.
 	// Defaults to ClassOrphanCandidate.
 	OrphanClass IdentityClass
-	// OrphanCanonicalPlaceholder is stored as CanonicalIdentityID for orphans
-	// so structural validation still requires a non-empty id without inventing
-	// a real Principal. Default: "orphan:pending-review".
-	OrphanCanonicalPlaceholder string
 }
 
 // BatchRegisterResult summarizes a RegisterBatch run.
@@ -43,6 +40,9 @@ type BatchRegisterResult struct {
 //
 // Idempotent per migration_id: if a row already exists, it is counted in
 // SkippedExists and left unchanged.
+//
+// Migration identity (ADR-IAM-0022): deterministic key includes issuer so that
+// issuer A / subject 123 and issuer B / subject 123 never collapse.
 func (s *Service) RegisterBatch(
 	ctx context.Context,
 	discovery DiscoveryPort,
@@ -83,10 +83,6 @@ func (s *Service) RegisterBatch(
 	} else {
 		req.OrphanClass = IdentityClass(strings.TrimSpace(string(req.OrphanClass)))
 	}
-	req.OrphanCanonicalPlaceholder = strings.TrimSpace(req.OrphanCanonicalPlaceholder)
-	if req.OrphanCanonicalPlaceholder == "" {
-		req.OrphanCanonicalPlaceholder = "orphan:pending-review"
-	}
 
 	bindings, err := discovery.ListSourceBindings(ctx, req.BatchID)
 	if err != nil {
@@ -106,13 +102,19 @@ func (s *Service) RegisterBatch(
 			Issuer:   b.Issuer,
 			Subject:  b.Subject,
 		}
-		// Deterministic id for greenfield: batch + provider + subject.
-		// Production runners may prefer UUIDs; this keeps tests stable.
-		migrationID := fmt.Sprintf("%s:%s:%s", req.BatchID, b.Provider, b.Subject)
+		// Deterministic id: batch + provider + issuer + subject (issuer required).
+		migrationID := fmt.Sprintf("%s:%s:%s:%s", req.BatchID, b.Provider, b.Issuer, b.Subject)
 
-		if _, err := s.Store.Get(ctx, migrationID); err == nil {
+		_, getErr := s.Store.Get(ctx, migrationID)
+		switch {
+		case getErr == nil:
 			result.SkippedExists++
 			continue
+		case errors.Is(getErr, ErrNotFound):
+			// proceed to register
+		default:
+			// Fail closed: timeouts, permission errors, etc. are not "missing".
+			return nil, fmt.Errorf("migration: store get %s: %w", migrationID, getErr)
 		}
 
 		canonicalID, resErr := resolver.ResolveCanonical(ctx, source)
@@ -126,7 +128,9 @@ func (s *Service) RegisterBatch(
 			if !isNoCanonical(resErr) {
 				return nil, fmt.Errorf("migration: resolve %s: %w", migrationID, resErr)
 			}
-			canonicalID = req.OrphanCanonicalPlaceholder
+			// ORPHAN_CANDIDATE: no authoritative CanonicalIdentity yet.
+			// Do not fabricate a placeholder id (ADR-IAM-0022).
+			canonicalID = ""
 			class = req.OrphanClass
 			result.Orphans++
 		}
@@ -157,6 +161,5 @@ func isNoCanonical(err error) bool {
 	if err == ErrNoCanonicalMapping {
 		return true
 	}
-	// string fallback for wrapped errors without requiring errors.Is on sentinel
 	return err.Error() == ErrNoCanonicalMapping.Error()
 }
