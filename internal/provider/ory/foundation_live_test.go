@@ -42,6 +42,9 @@ func TestLiveFoundation(t *testing.T) {
 	seed := make([]byte, 24)
 	if _, err := rand.Read(seed); err != nil { t.Fatal(err) }
 	unique := hex.EncodeToString(seed)
+	passwordSeed := make([]byte, 32)
+	if _, err := rand.Read(passwordSeed); err != nil { t.Fatal(err) }
+	password := "Aa!9-" + hex.EncodeToString(passwordSeed)
 	cleanup := func(id string) {
 		t.Cleanup(func() {
 			cleanupCtx, done := context.WithTimeout(context.Background(), 10*time.Second)
@@ -80,7 +83,7 @@ func TestLiveFoundation(t *testing.T) {
 			Identity struct { ID string `json:"id"` } `json:"identity"`
 		}
 		foundationRequest(t, ctx, client, http.MethodPost, public+"/self-service/registration?flow="+flow.ID,
-			map[string]any{"method":"password", "password":"Aa!9-"+unique, "traits":map[string]any{"email":"session-"+unique+"@baobab.invalid"}}, "", http.StatusOK, &registered)
+			map[string]any{"method":"password", "password":password, "traits":map[string]any{"email":"session-"+unique+"@baobab.invalid"}}, "", http.StatusOK, &registered)
 		if registered.Identity.ID == "" || registered.SessionToken == "" { t.Fatal("registration did not issue identity and session") }
 		cleanup(registered.Identity.ID)
 		foundationRequest(t, ctx, client, http.MethodGet, public+"/sessions/whoami", nil, registered.SessionToken, http.StatusOK, nil)
@@ -105,7 +108,16 @@ func foundationRequest(t *testing.T, ctx context.Context, client *http.Client, m
 	if err != nil { t.Fatal("fixture transport failure") }
 	defer response.Body.Close()
 	// Never log request/response bodies: they may contain passwords or session tokens.
-	if response.StatusCode != expected { t.Fatalf("fixture %s expected HTTP %d, received %d", method, expected, response.StatusCode) }
+	if response.StatusCode != expected {
+		var diagnostic struct {
+			UI struct { Messages []struct { ID int `json:"id"` } `json:"messages"`; Nodes []struct { Messages []struct { ID int `json:"id"` } `json:"messages"` } `json:"nodes"` } `json:"ui"`
+		}
+		_ = json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&diagnostic)
+		var ids []int
+		for _, message := range diagnostic.UI.Messages { ids = append(ids, message.ID) }
+		for _, node := range diagnostic.UI.Nodes { for _, message := range node.Messages { ids = append(ids, message.ID) } }
+		t.Fatalf("fixture %s expected HTTP %d, received %d; Ory message IDs %v", method, expected, response.StatusCode, ids)
+	}
 	if target != nil {
 		if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(target); err != nil { t.Fatal("decode fixture response") }
 	}
