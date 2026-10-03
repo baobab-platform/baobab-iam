@@ -2,9 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
 
 permissions:
   contents: read
@@ -15,15 +14,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: go.mod
           cache: true
       - name: Build packages
-        run: go build ./internal/provider/... ./internal/migration/... ./cmd/provision-workload/
+        run: go build ./internal/provider/... ./internal/migration/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/
       - name: Test packages
-        run: go test ./internal/provider/... ./internal/migration/... ./cmd/provision-workload ./cmd/provision-federated-workload -count=1
+        run: go test ./internal/provider/... ./internal/migration/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision -count=1
       - name: Every issued scope exists in the pinned Shared scope registry
         run: ./scripts/check-issued-scopes.sh
       - name: Every client and scope description fits Keycloak's 255-character limit
@@ -79,37 +77,8 @@ jobs:
 
   integration-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      BOOTSTRAP_WORKLOAD_CLIENT_SECRET: ci-test-only-secret-do-not-use-in-prod
-      KC_URL: http://localhost:8080
-      KC_MANAGEMENT_URL: http://localhost:9000
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: Build and start stack
-        run: docker compose up -d --build
-      - name: Wait for Keycloak to accept connections
-        run: |
-          for i in $(seq 1 60); do
-            if curl -sf -o /dev/null "$KC_MANAGEMENT_URL/health/ready"; then
-              echo "Keycloak is ready."
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Keycloak did not become ready in time." >&2
-          docker compose logs keycloak
-          exit 1
-      - name: Bootstrap realm (ADR-0002 configuration-as-code)
-        run: |
-          docker compose exec -T \
-            -e "BOOTSTRAP_WORKLOAD_CLIENT_SECRET=$BOOTSTRAP_WORKLOAD_CLIENT_SECRET" \
-            keycloak /opt/keycloak/bootstrap.sh
-      - name: Run ADR-0002 Section 48 verification suite
-        run: ./tests/integration/run.sh
-      - name: Dump Keycloak logs on failure
-        if: failure()
-        run: docker compose logs keycloak
-      - name: Tear down
-        if: always()
-        run: docker compose down -v
+      - name: Run integration suite
+        run: tests/integration/run.sh
