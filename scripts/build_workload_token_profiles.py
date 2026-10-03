@@ -15,6 +15,7 @@ def build(commit, registry, selected, bindings):
     if set(bindings) - set(selected):
         raise ValueError('Bindings must belong to selected workloads')
     profiles = {}
+    seen_bindings = set()
     for name in selected:
         entry = registry['workloads'][name]
         profile = {key: entry[key] for key in
@@ -31,6 +32,10 @@ def build(commit, registry, selected, bindings):
                 raise ValueError('Projected assertion issuer must be an exact HTTPS issuer without credentials/query/fragment')
             if '*' in binding['issuer'] or '*' in binding['subject']:
                 raise ValueError('Wildcard federation bindings are forbidden')
+            identity = (binding['issuer'], binding['subject'])
+            if identity in seen_bindings:
+                raise ValueError('Distinct workloads cannot share a projected issuer/subject identity')
+            seen_bindings.add(identity)
         elif profile['credential_type'] == 'client_credentials':
             if name in bindings:
                 raise ValueError('Client-credentials workloads cannot acquire federation bindings')

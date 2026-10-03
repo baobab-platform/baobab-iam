@@ -67,11 +67,13 @@ func (c Config) Validate() error {
 			}
 		}
 	}
+	seenBindings := map[Binding]bool{}
 	for id, binding := range c.Bindings {
 		p, ok := c.Workloads[id]
-		if !ok || p.CredentialType != "federated_workload_token" || binding.Issuer == "" || binding.Subject == "" {
-			return fmt.Errorf("invalid federated workload binding")
+		if !ok || p.CredentialType != "federated_workload_token" || binding.Issuer == "" || binding.Subject == "" || seenBindings[binding] {
+			return fmt.Errorf("invalid or shared federated workload binding")
 		}
+		seenBindings[binding] = true
 	}
 	return nil
 }

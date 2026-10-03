@@ -21,7 +21,9 @@ federation is selected, and `--output <protected-config.json>`. The script reads
 Shared at `contracts.lock.yaml` and copies credential/lifecycle/scope/audience
 fields directly. The bindings input may supply only exact HTTPS issuer and
 subject pairs; wildcard subjects, unrelated clients, missing bindings and
-attempted Shared field overrides fail validation. Read access uses
+attempted Shared field overrides fail validation. Distinct workload clients
+cannot share a projected issuer/subject identity, preserving independent
+workload credential boundaries. Read access uses
 `SHARED_REPO_DIR` or `GH_TOKEN` as with the existing pin validator.
 
 Neither generated projection nor a token hook establishes provider trust by

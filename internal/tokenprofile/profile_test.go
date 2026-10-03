@@ -75,3 +75,16 @@ func TestWorkloadClaimsFailClosed(t *testing.T) {
 		})
 	}
 }
+
+func TestDistinctWorkloadsCannotShareProjectedIdentity(t *testing.T) {
+	profile := Workload{CredentialType: "federated_workload_token", Status: "PROVISIONED", Scopes: []string{"billing:read"}, Audiences: []string{"baobab-subscriptions"}}
+	binding := Binding{Issuer: "https://projected.invalid", Subject: "shared-service-account"}
+	config := Config{
+		SharedCommit: "10810e20473709d4626da310fc9a84680f8efddd",
+		Workloads:    map[string]Workload{"cp": profile, "other": profile},
+		Bindings:     map[string]Binding{"cp": binding, "other": binding},
+	}
+	if config.Validate() == nil {
+		t.Fatal("distinct workloads may not share a projected issuer/subject identity")
+	}
+}

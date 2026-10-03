@@ -35,6 +35,12 @@ class WorkloadProjectionTests(unittest.TestCase):
             with self.subTest(selected=selected), self.assertRaises(ValueError):
                 module.build('a' * 40, self.registry, selected, bindings)
 
+    def test_distinct_workloads_cannot_share_projected_identity(self):
+        self.registry['workloads']['other'] = dict(self.registry['workloads']['cp'])
+        bindings = {'cp': self.binding['cp'], 'other': dict(self.binding['cp'])}
+        with self.assertRaises(ValueError):
+            module.build('a' * 40, self.registry, ['cp', 'other'], bindings)
+
     def test_wildcard_and_noncanonical_issuer_denied(self):
         for issuer in ('http://projected.invalid', 'https://*.invalid', 'https://user:pass@projected.invalid',
                        'https://projected.invalid?issuer=another', ' https://projected.invalid'):
