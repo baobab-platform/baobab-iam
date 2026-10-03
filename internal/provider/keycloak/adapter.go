@@ -161,6 +161,18 @@ func (a *Adapter) RotateWorkloadCredentials(ctx context.Context, ref provider.Pr
 }
 
 // ---------------------------------------------------------------------------
+// WorkloadLifecycleManager (stubs during dual-run; Ory is the target path)
+// ---------------------------------------------------------------------------
+
+func (a *Adapter) SuspendWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
+	return provider.NewUnsupported("keycloak", "SuspendWorkload")
+}
+
+func (a *Adapter) RevokeWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
+	return provider.NewUnsupported("keycloak", "RevokeWorkload")
+}
+
+// ---------------------------------------------------------------------------
 // IdentityReconciler
 // ---------------------------------------------------------------------------
 
@@ -198,3 +210,5 @@ func (a *Adapter) requireIssuer(subject provider.ExternalSubject) error {
 // Compile-time assertion that Adapter implements the full IdentityProvider.
 // Methods that return ErrUnsupported still satisfy the interface.
 var _ provider.IdentityProvider = (*Adapter)(nil)
+
+var _ provider.WorkloadLifecycleManager = (*Adapter)(nil)
