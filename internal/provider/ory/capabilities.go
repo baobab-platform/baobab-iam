@@ -3,6 +3,9 @@
 // Declares the capabilities of the Ory (Kratos + Hydra) adapter.
 // Missing required capabilities MUST fail deployment validation
 // (ADR-IAM-0020 §11).
+//
+// Boolean true means verified against the pinned provider version for this
+// build. Do not set true for "probably supported" features.
 package ory
 
 import "github.com/baobab-platform/baobab-iam/internal/provider"
@@ -18,12 +21,13 @@ func (a *Adapter) capabilities() provider.ProviderCapabilities {
 		SessionRevocation: true, // Kratos admin sessions API
 		WorkloadIdentity:  true, // Hydra OAuth2 clients
 
-		// Credential import support depends on the pinned Kratos version.
-		// Password hash import is well-supported; TOTP/passkey import landed
-		// in recent releases — confirm against the version lock file.
+		// Credential import: only advertise capabilities verified against the
+		// pinned Kratos version lock. Password hash import is well-supported.
+		// TOTP/passkey admin import is version-dependent — leave false until
+		// the pin is confirmed in the version lock / conformance suite.
 		PasswordImport: true,
-		TOTPImport:     true,
-		PasskeyImport:  true, // set false if pinned Kratos lacks admin WebAuthn import
+		TOTPImport:     false, // UNVERIFIED against version lock
+		PasskeyImport:  false, // UNVERIFIED against version lock
 
 		// Enterprise SSO (OIDC/SAML IdP connections) is deployment-dependent
 		// on Kratos configuration and available social/OIDC providers.
