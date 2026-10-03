@@ -158,6 +158,10 @@ func TestLiveWorkloadClientCredentials(t *testing.T) {
 			t.Fatal("client-credentials subject is not stable client ID")
 		}
 		if os.Getenv("ORY_TOKEN_PROFILE") == "1" {
+			jti, ok := claims["jti"].(string)
+			if !ok || jti == "" || len(jti) > 255 {
+				t.Fatal("signed workload token lacks the required provider JWT ID")
+			}
 			if claims["actor_type"] != "workload" || claims["azp"] != id || claims["scope"] != strings.Join(p.Scopes, " ") || !sameScopes(claimStrings(claims["aud"]), p.Audiences) || claims["exp"].(float64)-claims["iat"].(float64) > 900 {
 				t.Fatal("signed token does not satisfy governed workload profile")
 			}
