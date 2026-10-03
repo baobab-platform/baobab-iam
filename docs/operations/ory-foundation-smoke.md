@@ -108,3 +108,7 @@ The local runner leaves its disposable stack available for diagnosis; remove it 
 A green run closes foundation runtime verification, not production deployment,
 canonical workload ACTIVE, credential-import certification, or resource-server
 acceptance. Hydra token exchange and actual consumer enforcement belong to M4.
+
+Verified non-production run:
+[37157590467](https://github.com/baobab-platform/baobab-iam/actions/runs/37157590467),
+commit `c63e0ed08f1e7aa9a0d9d9d7b4d5e727f1dd28a8`.
