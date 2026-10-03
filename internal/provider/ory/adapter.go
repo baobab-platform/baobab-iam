@@ -189,20 +189,23 @@ func (a *Adapter) ProvisionFederatedWorkload(ctx context.Context, spec provider.
 	return a.hydra.provisionFederatedWorkload(ctx, a.cfg.PublicIssuer, spec)
 }
 
-// DisableWorkload deactivates or deletes the Hydra client corresponding
-// to the workload reference.
+// DisableWorkload deactivates provider-side token issuance for the workload
+// (clears Hydra grant types). It does not perform CP or network containment.
 func (a *Adapter) DisableWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
 	return a.hydra.disableClient(ctx, ref)
 }
 
-// SuspendWorkload keeps the provider-neutral Baobab semantics explicit: a
-// workload is suspended in the same way it is disabled for Hydra.
+// SuspendWorkload disables provider-side token issuance (same mechanics as DisableWorkload).
 func (a *Adapter) SuspendWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
 	return a.hydra.disableClient(ctx, ref)
 }
 
-// RevokeWorkload is the stronger lifecycle action: a revoked workload may not
-// obtain or use provider-issued authority and is treated as disabled here.
+// RevokeWorkload disables provider-side token issuance only (Hydra client grants cleared).
+//
+// This is NOT a complete Baobab revocation path. ADR-IAM-0029 requires broader
+// containment (credential revocation, CapabilityBinding suspension, network
+// isolation, deployment quarantine, and an independent kill-switch outside a
+// compromised IAM component). Mental model: DisableProviderWorkloadIssuance.
 func (a *Adapter) RevokeWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
 	return a.hydra.disableClient(ctx, ref)
 }

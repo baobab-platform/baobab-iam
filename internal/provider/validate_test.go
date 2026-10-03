@@ -51,6 +51,31 @@ func TestWorkloadProvisioningSpecValidate(t *testing.T) {
 	}
 }
 
+// TestWorkloadAuthMethodRejectsPaddedEnum proves private_key_jwt cannot
+// silently degrade into a generated client secret via whitespace padding.
+func TestWorkloadAuthMethodRejectsPaddedEnum(t *testing.T) {
+	spec := provider.WorkloadProvisioningSpec{
+		LogicalClientID: "baobab-trade-workload",
+		AllowedScopes:   []string{"context:resolve"},
+		AuthMethod:      provider.WorkloadAuthenticationMethod(" private_key_jwt "),
+	}
+	if err := spec.Validate(); !provider.IsInvalidArgument(err) {
+		t.Fatalf("padded private_key_jwt must be rejected fail-closed: %v", err)
+	}
+}
+
+func TestWorkloadLifecycleStatusRejectsActiveOnProvision(t *testing.T) {
+	spec := provider.WorkloadProvisioningSpec{
+		LogicalClientID:  "baobab-trade-workload",
+		AllowedScopes:    []string{"context:resolve"},
+		AuthMethod:       provider.WorkloadAuthClientSecret,
+		LifecycleStatus:  provider.WorkloadStatusActive,
+	}
+	if err := spec.Validate(); !provider.IsInvalidArgument(err) {
+		t.Fatalf("ACTIVE on provision must be rejected (Shared owns activation): %v", err)
+	}
+}
+
 func TestIdentityProvisioningSpecValidate(t *testing.T) {
 	if err := (provider.IdentityProvisioningSpec{
 		Traits: map[string]any{"email": "a@b.c", "tenant": "t1"},

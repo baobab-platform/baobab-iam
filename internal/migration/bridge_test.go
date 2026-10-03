@@ -270,9 +270,10 @@ func TestProvisionBridge_RefuseOrphan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Orphans must not fabricate CanonicalIdentityID (ADR-IAM-0022).
 	r := &migration.Record{
 		MigrationID:         "mig-orphan",
-		CanonicalIdentityID: "orphan:pending-review",
+		CanonicalIdentityID: "",
 		Source:              migration.ProviderBinding{Provider: "keycloak", Issuer: "https://kc.example/realms/baobab", Subject: "x"},
 		IdentityClass:       migration.ClassOrphanCandidate,
 		CredentialStrategy:  migration.StrategyNoCredentialRequired,
