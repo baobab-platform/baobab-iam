@@ -433,4 +433,3 @@ func (f *workloadFixture) recordProfile(t *testing.T, id string, p workloadProfi
 	}
 	t.Logf("Verified provider token; Shared audience match=%t, actor_type=workload=%t; canonical activation remains unproven", logicalAudience, actor == "workload")
 }
-
