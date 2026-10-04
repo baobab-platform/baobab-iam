@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -49,6 +50,7 @@ type committedTrust struct {
 
 var trustsBucket = []byte("federation-trusts-v1")
 var trustProposalsBucket = []byte("federation-trust-proposals-v1")
+var trustHistoryBucket = []byte("federation-trust-history-v1")
 var trustClockBucket = []byte("federation-trust-clock-v1")
 
 func OpenTrustLedger(path string, actors ApprovalAuthority, targets ApprovalTargets, references interface {
@@ -62,7 +64,7 @@ func OpenTrustLedger(path string, actors ApprovalAuthority, targets ApprovalTarg
 		return nil, ErrUnavailable
 	}
 	if err := db.Update(func(tx *bolt.Tx) error {
-		for _, bucket := range [][]byte{trustsBucket, trustProposalsBucket, trustClockBucket} {
+		for _, bucket := range [][]byte{trustsBucket, trustProposalsBucket, trustClockBucket, trustHistoryBucket} {
 			if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 				return err
 			}
@@ -295,7 +297,7 @@ func (l *TrustLedger) Decide(ctx context.Context, id, digest string, approve boo
 			}
 			value := committedTrust{Snapshot: p.Snapshot, Scope: p.Target.Scope, ProposalID: p.ID, Maker: p.Maker, Checker: p.Checker, DecidedAt: p.DecidedAt}
 			encoded, _ := json.Marshal(value)
-			if err := tx.Bucket(trustsBucket).Put([]byte(p.Snapshot.Trust.ID), encoded); err != nil {
+			if err := putTrustRevision(tx, value.Snapshot.Trust.ID, value.Snapshot.ApprovedRevision, encoded); err != nil {
 				return err
 			}
 		}
@@ -392,7 +394,7 @@ func (l *TrustLedger) Contain(ctx context.Context, id string, revision uint64, s
 		if decodeAuthority(tx.Bucket(trustsBucket).Get([]byte(id)), &live) != nil || live.Snapshot.ApprovedRevision != revision || live.Snapshot.SnapshotID != want.SnapshotID {
 			return ErrDenied
 		}
-		return tx.Bucket(trustsBucket).Put([]byte(id), encoded)
+		return putTrustRevision(tx, id, s.ApprovedRevision, encoded)
 	}))
 }
 
@@ -415,4 +417,31 @@ func (l *TrustLedger) fence() error {
 		return ErrUnavailable
 	}
 	return authorityErrorUnlessNil(l.db.Update(l.observeClock))
+}
+
+// Every committed revision is retained independently of the mutable current
+// pointer. No update/delete history command exists; both writes are atomic.
+func putTrustRevision(tx *bolt.Tx, id string, revision uint64, data []byte) error {
+	key := []byte(fmt.Sprintf("%s:%020d", id, revision))
+	history := tx.Bucket(trustHistoryBucket)
+	if history.Get(key) != nil {
+		return ErrDenied
+	}
+	if err := history.Put(key, data); err != nil {
+		return err
+	}
+	return tx.Bucket(trustsBucket).Put([]byte(id), data)
+}
+func (l *TrustLedger) historicalRevision(ctx context.Context, id string, revision uint64) (committedTrust, error) {
+	if l == nil || l.db == nil || ctx == nil || ctx.Err() != nil || !uuidPattern.MatchString(id) || revision == 0 {
+		return committedTrust{}, ErrInvalid
+	}
+	var value committedTrust
+	err := l.db.View(func(tx *bolt.Tx) error {
+		return decodeAuthority(tx.Bucket(trustHistoryBucket).Get([]byte(fmt.Sprintf("%s:%020d", id, revision))), &value)
+	})
+	if err != nil {
+		return committedTrust{}, authorityError(err)
+	}
+	return value, nil
 }

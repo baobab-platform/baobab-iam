@@ -29,6 +29,9 @@ current revision; source outages fail closed.
 An explicitly authorized emergency suspension or terminal revocation does not
 need the target or receipt service to be available. It advances the revision,
 records the containment actor/time separately and preserves approval history.
+Every committed revision, including suspension/revocation, is retained atomically
+in append-only history independently of the current pointer; subsequent approvals
+and additional containment cannot erase its actor, time or snapshot.
 Re-entry from suspension still requires VERIFYING and an independent approval.
 Revocation is terminal. A durable clock watermark prevents expired trust
 windows reopening through clock rollback after restart.

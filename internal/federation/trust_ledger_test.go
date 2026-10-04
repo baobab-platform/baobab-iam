@@ -321,3 +321,47 @@ func TestTrustCannotMoveAuthorityToDestinationScope(t *testing.T) {
 		}
 	}
 }
+
+func TestTrustContainmentHistorySurvivesReapprovalAndRestart(t *testing.T) {
+	l, a, s, w, path := trustSetup(t)
+	ctx := context.Background()
+	for i, status := range []string{"REQUESTED", "CONFIGURING", "VERIFYING", "ACTIVE"} {
+		if i > 0 {
+			advanceTrust(&s, &w, status, a.clock)
+		}
+		trustCommit(t, l, a, s, w, i+1)
+	}
+	if err := l.Contain(ctx, s.Trust.ID, s.ApprovedRevision, "SUSPENDED"); err != nil {
+		t.Fatal(err)
+	}
+	suspended, err := l.read(ctx, s.Trust.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s = suspended.Snapshot
+	w.SnapshotID = s.SnapshotID
+	w.TrustRevision = s.ApprovedRevision
+	advanceTrust(&s, &w, "VERIFYING", a.clock)
+	trustCommit(t, l, a, s, w, 6)
+	advanceTrust(&s, &w, "ACTIVE", a.clock)
+	trustCommit(t, l, a, s, w, 7)
+	if err = l.Contain(ctx, s.Trust.ID, s.ApprovedRevision, "REVOKED"); err != nil {
+		t.Fatal(err)
+	}
+	if err = l.Close(); err != nil {
+		t.Fatal(err)
+	}
+	l, err = OpenTrustLedger(path, a, a, a, func() time.Time { return a.clock })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	history, err := l.historicalRevision(ctx, s.Trust.ID, suspended.Snapshot.ApprovedRevision)
+	if err != nil || !sameSnapshot(history.Snapshot, suspended.Snapshot) || history.ContainmentActor != suspended.ContainmentActor || history.ContainedAt == nil || !history.ContainedAt.Equal(*suspended.ContainedAt) {
+		t.Fatal("suspension history lost", err)
+	}
+	history, err = l.historicalRevision(ctx, s.Trust.ID, s.ApprovedRevision+1)
+	if err != nil || history.Snapshot.Trust.Status != "REVOKED" || history.ContainmentActor == "" {
+		t.Fatal("revocation history lost", err)
+	}
+}
