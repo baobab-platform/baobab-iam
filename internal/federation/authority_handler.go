@@ -170,12 +170,11 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 			}
 		case "/internal/federation/v1/binding":
 			var req platformBindingWire
-			scope := req.platformScope()
 			if decodeAuthority(data, &req) != nil {
 				fail(ErrInvalid)
 				return
 			}
-			scope = req.platformScope()
+			scope := req.platformScope()
 			if !validBinding(req.Binding) || !validScope(scope) || !validFederationRuntimeCapability(req.RuntimeCapability) {
 				fail(ErrInvalid)
 				return
