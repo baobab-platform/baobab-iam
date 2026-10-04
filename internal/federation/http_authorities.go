@@ -103,8 +103,9 @@ func (w referenceExpectationWire) expectation() ReferenceExpectation {
 }
 
 type approvalAuthorityWire struct {
-	Action string                   `json:"action"`
-	Target referenceExpectationWire `json:"target"`
+	Action       string                   `json:"action"`
+	Target       referenceExpectationWire `json:"target"`
+	SubjectToken string                   `json:"subject_token"`
 }
 
 type approvalActorWire struct {
