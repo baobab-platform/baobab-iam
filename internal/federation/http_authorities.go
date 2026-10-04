@@ -30,7 +30,7 @@ type HTTPAuthority struct {
 
 type platformBindingWire struct {
 	Binding Binding `json:"binding"`
-	Scope struct {
+	Scope   struct {
 		OrganisationID string `json:"organisation_id"`
 		EstateID       string `json:"estate_id"`
 	} `json:"scope"`
