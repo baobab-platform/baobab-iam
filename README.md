@@ -6,14 +6,20 @@
 
 ## Provider migration status
 
-Keycloak remains the legacy configured runtime. Ory Kratos (human identities and sessions)
-and Hydra (OAuth and workloads) are the migration target under Accepted ADR-IAM-0019–0032.
+Accepted ADR-IAM-0033 defines the multi-provider target: **Kratos for native
+human identities/credentials/sessions; Hydra for general OAuth/OIDC and workloads;
+Keycloak retained for enterprise SAML/OIDC federation and identity brokering**.
+Current Keycloak configuration still carries legacy native/client capabilities;
+retention does not prove that its scope has already been reduced.
 Provider-neutral interfaces preserve CP canonical identity and Shared capability/lifecycle authority.
-The Keycloak Go adapter remains a partial compatibility skeleton; its unsupported methods
-must not be mistaken for the capabilities of the separately configured Keycloak runtime.
-Production dual-run, cutover, canonical workload activation, and retirement remain blocked
-until their separate evidence gates are satisfied. Unit and mock conformance tests do not
-establish live provider interoperability or resource-server token acceptance.
+The Keycloak Go adapter remains incomplete: it is a retained boundary, but the
+permanent EnterpriseFederationProvider port/adapter is not implemented.
+Production dual-run, per-capability cutover and canonical workload activation
+remain blocked by their evidence gates. Global Keycloak deletion is not a target.
+Unit/mock tests do not establish production interoperability or activation.
+
+The [MP implementation plan](docs/governance/iam-mp-implementation-plan.md)
+sequences Shared contracts, provider registry/resolution and federation work.
 
 Human migration requires an authorized `HumanTraitsSource` keyed by the exact source
 binding and opaque snapshot reference. Missing traits fail closed; neither synthetic
@@ -156,17 +162,20 @@ The migration baseline and provider-neutral capability map are documented in:
 
 - [docs/governance/iam-capability-matrix.md](./docs/governance/iam-capability-matrix.md)
 - [.baobab/iam-capability-matrix.yaml](./.baobab/iam-capability-matrix.yaml)
+- [ADR-IAM-0033 migration rebaseline](./docs/governance/gate-iam-m0-migration-baseline.md)
+- [MP0–MP20 implementation plan](./docs/governance/iam-mp-implementation-plan.md)
 
 ## What this repository is
 
-`baobab-iam` runs **Keycloak** as the authentication runtime. It owns:
+`baobab-iam` owns the provider-neutral authentication boundary. Its assigned
+runtimes are Kratos, Hydra and retained Keycloak enterprise federation. It owns:
 
 - Authentication (OIDC, OAuth, MFA, passkeys)
 - Credential management
 - Authentication sessions
 - Account recovery
 - Identity federation
-- Workload client credentials
+- Workload authentication and governed token issuance
 
 It does **not** own:
 
@@ -192,7 +201,7 @@ It does **not** own:
 
 | Concern | Choice |
 |---------|--------|
-| Identity provider | Keycloak 26.7.5 |
+| Identity runtimes | Kratos (native humans), Hydra (OAuth/workloads), Keycloak 26.7.5 (retained enterprise federation target) |
 | Database | PostgreSQL 17 |
 | Container | Distroless image, version-pinned (digest pin pending registry access — see R-1) |
 | Configuration | JSON realm exports + idempotent bootstrap |
@@ -219,3 +228,4 @@ Run the ADR-0002 Section 48 verification suite against a running, bootstrapped s
 BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret make bootstrap
 BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret ./tests/integration/run.sh
 ```
+

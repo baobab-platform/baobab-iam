@@ -14,6 +14,10 @@ const (
 )
 
 // ParseProviderName normalizes a configuration string to a known ProviderName.
+// This compatibility parser is not capability resolution. Kratos/Hydra aliases
+// select the existing Ory adapter family only; they do not establish provider
+// support, an approved binding, placement or authority. ADR-IAM-0033 MP2–MP4
+// must supply those contracts and dispatch without caller-selected providers.
 func ParseProviderName(s string) (ProviderName, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "ory", "kratos", "hydra":

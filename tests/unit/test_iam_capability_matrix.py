@@ -37,3 +37,25 @@ class MatrixTests(unittest.TestCase):
         del self.matrix['capabilities'][0]['observability']
         with self.assertRaises(ValueError):
             module.validate(self.matrix, self.entries, self.entries)
+
+
+    def test_workloads_cannot_return_to_keycloak(self):
+        row = next(r for r in self.matrix['capabilities'] if r['capability_operation'] == 'identity.workload-token.issue')
+        row['primary_provider'] = 'Keycloak'
+        with self.assertRaises(ValueError):
+            module.validate(self.matrix, self.entries, self.entries)
+
+    def test_enterprise_federation_cannot_move_to_ory_by_assumption(self):
+        row = next(r for r in self.matrix['capabilities'] if r['capability_operation'] == 'identity.federation.enterprise')
+        row['primary_provider'] = 'Ory Hydra'
+        with self.assertRaises(ValueError):
+            module.validate(self.matrix, self.entries, self.entries)
+
+    def test_retained_capability_and_adapter_cannot_require_retirement(self):
+        for key in ('identity.federation.enterprise', 'provider.adapter.normalize'):
+            with self.subTest(key=key):
+                matrix = copy.deepcopy(self.matrix)
+                row = next(r for r in matrix['capabilities'] if r['capability_operation'] == key)
+                row['retirement_dependency'] = 'Keycloak deleted after cutover'
+                with self.assertRaises(ValueError):
+                    module.validate(matrix, self.entries, self.entries)
