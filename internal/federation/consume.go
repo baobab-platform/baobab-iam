@@ -12,7 +12,7 @@ import (
 
 // SharedCommit is the accepted immutable MP2-A/B contract revision. The lock,
 // fixture provenance manifest and this constant are checked together in CI.
-const SharedCommit = "b10388460c23ac6d7d99bb8a22e2ee4821ad22f6"
+const SharedCommit = "6e9c6865de69b136db3de1b9f7cff72b4561243c"
 
 type Policy struct {
 	Scope                Scope

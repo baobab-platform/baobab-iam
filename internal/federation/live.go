@@ -140,3 +140,50 @@ var _ ApprovalAuthority = (*HTTPAuthority)(nil)
 var _ ApprovalTargets = (*HTTPAuthority)(nil)
 var _ OIDCConfigurationAuthority = (*HTTPAuthority)(nil)
 var _ AssuranceMapper = (*HTTPAuthority)(nil)
+
+func (a *HTTPAuthority) ProposeTrust(ctx context.Context, id string, snapshot TrustSnapshot, target ReferenceExpectation) (TrustProposal, error) {
+	var out TrustProposal
+	if !uuidPattern.MatchString(id) || ValidateTrust(snapshot.Trust) != nil || !validExpectation(target) {
+		return out, ErrInvalid
+	}
+	err := a.call(ctx, "/internal/federation/v1/trusts/propose", struct {
+		ID       string
+		Snapshot TrustSnapshot
+		Target   ReferenceExpectation
+	}{id, snapshot, target}, &out)
+	if err != nil {
+		return TrustProposal{}, err
+	}
+	return out, nil
+}
+func (a *HTTPAuthority) DecideTrust(ctx context.Context, id, digest string, approve bool) (TrustProposal, error) {
+	var out TrustProposal
+	if !uuidPattern.MatchString(id) || !digestPattern.MatchString(digest) {
+		return out, ErrInvalid
+	}
+	err := a.call(ctx, "/internal/federation/v1/trusts/decide", struct {
+		ID, TargetDigest string
+		Approve          bool
+	}{id, digest, approve}, &out)
+	if err != nil {
+		return TrustProposal{}, err
+	}
+	return out, nil
+}
+func (a *HTTPAuthority) ContainTrust(ctx context.Context, id string, revision uint64, status string) error {
+	if !uuidPattern.MatchString(id) || revision == 0 || status != "SUSPENDED" && status != "REVOKED" {
+		return ErrInvalid
+	}
+	var out struct{ Status string }
+	if err := a.call(ctx, "/internal/federation/v1/trusts/contain", struct {
+		ID       string
+		Revision uint64
+		Status   string
+	}{id, revision, status}, &out); err != nil {
+		return err
+	}
+	if out.Status != status {
+		return ErrUnverified
+	}
+	return nil
+}

@@ -152,45 +152,8 @@ func uniqueJSON(d *json.Decoder) error {
 // Current approval/freshness is enforced independently by Consumer.Consume.
 func ValidateBundle(b Bundle) error {
 	t, p, a := b.Trust, b.ExternalPrincipal, b.Assurance
-	if !uuidPattern.MatchString(t.ID) || !validBinding(t.ProviderBinding) || t.Revision < 1 || !uniqueScope(t.OrganisationIDs, false) || !uniqueScope(t.EstateIDs, true) || !validRef(t.AssurancePolicyReference) || !validRef(t.AttributeMappingReference) || !validRef(t.ProvisioningPolicyReference) {
-		return ErrInvalid
-	}
-	u, err := url.Parse(t.UpstreamIssuer)
-	if err != nil || u.Scheme == "" || len(t.UpstreamIssuer) > 2048 || strings.ContainsAny(t.UpstreamIssuer, " \t\r\n") {
-		return ErrInvalid
-	}
-	switch t.Protocol {
-	case "OIDC":
-		if u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
-			return ErrInvalid
-		}
-	case "SAML2":
-	default:
-		return ErrInvalid
-	}
-	switch t.Status {
-	case "REQUESTED", "CONFIGURING", "VERIFYING", "ACTIVE", "SUSPENDED", "ROTATING", "REVOKED":
-	default:
-		return ErrInvalid
-	}
-	if t.CreatedAt.IsZero() || t.UpdatedAt.Before(t.CreatedAt) {
-		return ErrInvalid
-	}
-	if t.ActivatedAt != nil && (t.ActivatedAt.Before(t.CreatedAt) || t.ActivatedAt.After(t.UpdatedAt)) {
-		return ErrInvalid
-	}
-	if t.Status == "ACTIVE" && (t.ActivatedAt == nil || !validRef(t.ActivationEvidenceReference)) {
-		return ErrInvalid
-	}
-	if t.ActivationEvidenceReference != "" && !validRef(t.ActivationEvidenceReference) {
-		return ErrInvalid
-	}
-	if t.Status == "REVOKED" {
-		if t.RevokedAt == nil || t.RevokedAt.Before(t.CreatedAt) || t.RevokedAt.After(t.UpdatedAt) || (t.ActivatedAt != nil && t.RevokedAt.Before(*t.ActivatedAt)) {
-			return ErrInvalid
-		}
-	} else if t.RevokedAt != nil {
-		return ErrInvalid
+	if err := ValidateTrust(t); err != nil {
+		return err
 	}
 	if !uuidPattern.MatchString(p.AuthenticationEventID) || p.TrustID != t.ID || p.Protocol != t.Protocol || p.Issuer != t.UpstreamIssuer || !exact(p.Subject) || p.ActorType != "human" || p.ProviderID != t.ProviderBinding.ProviderID || p.EngineInstanceID != t.ProviderBinding.EngineInstanceID || p.ObservedAt.IsZero() || !p.ExpiresAt.After(p.ObservedAt) {
 		return ErrInvalid
@@ -246,4 +209,50 @@ func ValidateBundle(b Bundle) error {
 }
 func fresh(from, until, now time.Time) bool {
 	return !from.IsZero() && !until.IsZero() && !now.Before(from) && now.Before(until)
+}
+
+// ValidateTrust checks the pinned Shared structural and lifecycle record invariants.
+// Approval, scope authority and technical activation proof remain separate.
+func ValidateTrust(t Trust) error {
+	if !uuidPattern.MatchString(t.ID) || !validBinding(t.ProviderBinding) || t.Revision < 1 || !uniqueScope(t.OrganisationIDs, false) || !uniqueScope(t.EstateIDs, true) || !validRef(t.AssurancePolicyReference) || !validRef(t.AttributeMappingReference) || !validRef(t.ProvisioningPolicyReference) {
+		return ErrInvalid
+	}
+	u, err := url.Parse(t.UpstreamIssuer)
+	if err != nil || u.Scheme == "" || len(t.UpstreamIssuer) > 2048 || strings.ContainsAny(t.UpstreamIssuer, " \t\r\n") {
+		return ErrInvalid
+	}
+	switch t.Protocol {
+	case "OIDC":
+		if u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+			return ErrInvalid
+		}
+	case "SAML2":
+	default:
+		return ErrInvalid
+	}
+	switch t.Status {
+	case "REQUESTED", "CONFIGURING", "VERIFYING", "ACTIVE", "SUSPENDED", "ROTATING", "REVOKED":
+	default:
+		return ErrInvalid
+	}
+	if t.CreatedAt.IsZero() || t.UpdatedAt.Before(t.CreatedAt) {
+		return ErrInvalid
+	}
+	if t.ActivatedAt != nil && (t.ActivatedAt.Before(t.CreatedAt) || t.ActivatedAt.After(t.UpdatedAt)) {
+		return ErrInvalid
+	}
+	if t.Status == "ACTIVE" && (t.ActivatedAt == nil || !validRef(t.ActivationEvidenceReference)) {
+		return ErrInvalid
+	}
+	if t.ActivationEvidenceReference != "" && !validRef(t.ActivationEvidenceReference) {
+		return ErrInvalid
+	}
+	if t.Status == "REVOKED" {
+		if t.RevokedAt == nil || t.RevokedAt.Before(t.CreatedAt) || t.RevokedAt.After(t.UpdatedAt) || (t.ActivatedAt != nil && t.RevokedAt.Before(*t.ActivatedAt)) {
+			return ErrInvalid
+		}
+	} else if t.RevokedAt != nil {
+		return ErrInvalid
+	}
+	return nil
 }

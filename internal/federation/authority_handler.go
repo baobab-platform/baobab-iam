@@ -27,6 +27,7 @@ type AuthoritySources struct {
 	Configuration OIDCConfigurationAuthority
 	Assurance     AssuranceMapper
 	Ledger        *ApprovalLedger
+	TrustLedger   *TrustLedger
 }
 
 // NewAuthorityHandler exposes the fixed private transport with mandatory
@@ -314,6 +315,92 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 				return
 			}
 			out = struct{ Status string }{"REVOKED"}
+
+		case "/internal/federation/v1/trusts/propose":
+			var req struct {
+				ID       string
+				Snapshot TrustSnapshot
+				Target   ReferenceExpectation
+			}
+			if decodeAuthority(data, &req) != nil || !uuidPattern.MatchString(req.ID) || !validExpectation(req.Target) {
+				fail(ErrInvalid)
+				return
+			}
+			ctx, err := authorize("APPROVAL_PROPOSE", req.Target)
+			if err != nil {
+				fail(err)
+				return
+			}
+			if s.TrustLedger == nil {
+				fail(ErrUnsupported)
+				return
+			}
+			value, err := s.TrustLedger.Propose(ctx, req.ID, req.Snapshot, req.Target)
+			if err != nil {
+				fail(err)
+				return
+			}
+			out = value
+		case "/internal/federation/v1/trusts/decide":
+			var req struct {
+				ID, TargetDigest string
+				Approve          bool
+			}
+			if decodeAuthority(data, &req) != nil || !uuidPattern.MatchString(req.ID) || !digestPattern.MatchString(req.TargetDigest) {
+				fail(ErrInvalid)
+				return
+			}
+			if s.TrustLedger == nil {
+				fail(ErrUnsupported)
+				return
+			}
+			p, err := s.TrustLedger.proposal(r.Context(), req.ID)
+			if err != nil {
+				fail(err)
+				return
+			}
+			ctx, err := authorize("APPROVAL_DECIDE", p.Target)
+			if err != nil {
+				fail(err)
+				return
+			}
+			value, err := s.TrustLedger.Decide(ctx, req.ID, req.TargetDigest, req.Approve)
+			if err != nil {
+				fail(err)
+				return
+			}
+			out = value
+		case "/internal/federation/v1/trusts/contain":
+			var req struct {
+				ID       string
+				Revision uint64
+				Status   string
+			}
+			if decodeAuthority(data, &req) != nil || !uuidPattern.MatchString(req.ID) || req.Revision == 0 || req.Status != "SUSPENDED" && req.Status != "REVOKED" {
+				fail(ErrInvalid)
+				return
+			}
+			if s.TrustLedger == nil {
+				fail(ErrUnsupported)
+				return
+			}
+			value, err := s.TrustLedger.read(r.Context(), req.ID)
+			if err != nil {
+				fail(err)
+				return
+			}
+			current := value.Snapshot
+			want := ReferenceExpectation{ID: current.Trust.ProviderBinding.ConfigurationReference, Kind: "federation_configuration", TrustID: req.ID, SnapshotID: current.SnapshotID, TrustRevision: current.ApprovedRevision, ProviderID: current.Trust.ProviderBinding.ProviderID, EngineInstanceID: current.Trust.ProviderBinding.EngineInstanceID, Scope: value.Scope}
+			ctx, err := authorize("APPROVAL_REVOKE", want)
+			if err != nil {
+				fail(err)
+				return
+			}
+			if err = s.TrustLedger.Contain(ctx, req.ID, req.Revision, req.Status); err != nil {
+				fail(err)
+				return
+			}
+			out = struct{ Status string }{req.Status}
 		case "/internal/federation/v1/oidc-configuration":
 			var req TrustSnapshot
 			if decodeAuthority(data, &req) != nil {
