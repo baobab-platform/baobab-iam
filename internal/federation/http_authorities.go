@@ -149,15 +149,16 @@ func (a *HTTPAuthority) Reference(ctx context.Context, want ReferenceExpectation
 	}
 	return out, nil
 }
-func (a *HTTPAuthority) FederationBinding(ctx context.Context, binding Binding, scope Scope) (PlatformSnapshot, error) {
+func (a *HTTPAuthority) FederationBinding(ctx context.Context, binding Binding, scope Scope, runtimeCapability string) (PlatformSnapshot, error) {
 	var out PlatformSnapshot
-	if !validBinding(binding) || !validScope(scope) {
+	if !validBinding(binding) || !validScope(scope) || !validFederationRuntimeCapability(runtimeCapability) {
 		return out, ErrInvalid
 	}
 	err := a.call(ctx, "/internal/federation/v1/binding", struct {
-		Binding Binding
-		Scope   Scope
-	}{binding, scope}, &out)
+		Binding           Binding
+		Scope             Scope
+		RuntimeCapability string
+	}{binding, scope, runtimeCapability}, &out)
 	if err != nil {
 		return PlatformSnapshot{}, err
 	}
