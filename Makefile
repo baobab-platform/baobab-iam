@@ -1,5 +1,8 @@
 # Makefile for baobab-iam local development
-.PHONY: dev-up dev-down bootstrap test integration-test role-policy lint clean
+.PHONY: dev-up dev-down bootstrap test integration-test role-policy lint clean check-contract-lock
+
+SHARED_CONTRACTS_DIR ?= ../shared
+INFRASTRUCTURE_DIR ?= ../infrastructure
 
 dev-up:
 	docker-compose up -d
@@ -20,6 +23,14 @@ test:
 
 integration-test:
 	./tests/integration/run.sh
+
+# EA-01 consumer lock (needs Shared checkout with history).
+check-contract-lock:
+	@test -d "$(SHARED_CONTRACTS_DIR)" || { echo "error: set SHARED_CONTRACTS_DIR to a baobab-platform/shared checkout" >&2; exit 1; }
+	python3 $(SHARED_CONTRACTS_DIR)/scripts/contract_lock.py check \
+		--repository-root . \
+		--shared-repo $(SHARED_CONTRACTS_DIR) \
+		--mode enforce
 
 # Separation-of-duties rules Keycloak cannot enforce (config/governance/role-policy.json).
 role-policy:

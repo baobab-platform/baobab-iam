@@ -9,6 +9,28 @@ permissions:
   contents: read
 
 jobs:
+  contract-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Checkout baobab-platform/shared (full history for EA-01)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: baobab-platform/shared
+          token: ${{ secrets.SHARED_READ_TOKEN || github.token }}
+          persist-credentials: false
+          fetch-depth: 0
+          path: .shared-contracts
+      - name: Install Shared schema runtime
+        run: python3 -m pip install -r .shared-contracts/.github/foundation-tests/requirements.txt
+      - name: EA-01 contract consumer lock (enforce)
+        run: |
+          python3 .shared-contracts/scripts/contract_lock.py check \
+            --repository-root . \
+            --shared-repo .shared-contracts \
+            --mode enforce
+
   provider-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -106,8 +128,6 @@ jobs:
           retention-days: 90
 
   # Keycloak baseline verification suite (ADR-0002 §48).
-  # Restores full fixture lifecycle required by tests/integration/run.sh:
-  # secret env, Compose up, readiness, realm bootstrap, suite, logs, teardown.
   integration-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
