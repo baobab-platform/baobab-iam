@@ -43,7 +43,10 @@ func (f *fakeAuthority) Reference(ctx context.Context, w ReferenceExpectation) (
 	}
 	return r, f.err
 }
-func (f *fakeAuthority) FederationBinding(context.Context, Binding, Scope) (PlatformSnapshot, error) {
+func (f *fakeAuthority) FederationBinding(_ context.Context, _ Binding, _ Scope, runtimeCapability string) (PlatformSnapshot, error) {
+	if !validFederationRuntimeCapability(runtimeCapability) || f.platform.RuntimeCapability != runtimeCapability {
+		return PlatformSnapshot{}, ErrUnverified
+	}
 	return f.platform, f.err
 }
 func (f *fakeAuthority) Verify(context.Context, string, TrustSnapshot) (ExternalPrincipal, Assurance, error) {

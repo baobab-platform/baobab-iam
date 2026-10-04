@@ -139,13 +139,13 @@ func (c *Consumer) Consume(ctx context.Context, trustID, eventID string) (Decisi
 			return deny(e)
 		}
 	}
-	platform, e := c.authorities.Platform.FederationBinding(ctx, t.ProviderBinding, c.policy.Scope)
+	facet := RuntimeOIDCFederation
+	if t.Protocol == "SAML2" {
+		facet = RuntimeSAMLFederation
+	}
+	platform, e := c.authorities.Platform.FederationBinding(ctx, t.ProviderBinding, c.policy.Scope, facet)
 	if e != nil {
 		return deny(authorityError(e))
-	}
-	facet := "OIDC_FEDERATION"
-	if t.Protocol == "SAML2" {
-		facet = "SAML_FEDERATION"
 	}
 	if platform.ProviderID != t.ProviderBinding.ProviderID || platform.EngineInstanceID != t.ProviderBinding.EngineInstanceID || platform.Scope != c.policy.Scope || platform.ProviderStatus != "ACTIVE" || platform.InstanceStatus != "ACTIVE" || platform.BindingStatus != "ACTIVE" {
 		return deny(ErrDenied)

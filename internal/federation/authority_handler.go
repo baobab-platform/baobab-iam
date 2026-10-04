@@ -170,10 +170,11 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 			}
 		case "/internal/federation/v1/binding":
 			var req struct {
-				Binding Binding
-				Scope   Scope
+				Binding           Binding
+				Scope             Scope
+				RuntimeCapability string
 			}
-			if decodeAuthority(data, &req) != nil || !validBinding(req.Binding) || !validScope(req.Scope) {
+			if decodeAuthority(data, &req) != nil || !validBinding(req.Binding) || !validScope(req.Scope) || !validFederationRuntimeCapability(req.RuntimeCapability) {
 				fail(ErrInvalid)
 				return
 			}
@@ -186,7 +187,7 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 				fail(ErrUnsupported)
 				return
 			}
-			value, err := s.Platform.FederationBinding(ctx, req.Binding, req.Scope)
+			value, err := s.Platform.FederationBinding(ctx, req.Binding, req.Scope, req.RuntimeCapability)
 			if err != nil {
 				fail(err)
 				return
