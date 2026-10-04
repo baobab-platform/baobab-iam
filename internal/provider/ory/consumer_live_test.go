@@ -2,6 +2,7 @@ package ory_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -64,7 +65,12 @@ func TestLiveCPConsumerVerifier(t *testing.T) {
 		if len(parts) != 3 {
 			t.Fatal("invalid fixture token")
 		}
-		parts[1] = "e30"
+		signature, err := base64.RawURLEncoding.DecodeString(parts[2])
+		if err != nil || len(signature) == 0 {
+			t.Fatal("invalid fixture signature")
+		}
+		signature[0] ^= 1
+		parts[2] = base64.RawURLEncoding.EncodeToString(signature)
 		probe(t, strings.Join(parts, "."), p.Audiences[0], p.Scopes[0], false, false, false)
 	})
 	t.Run("reject-expired-provider-token", func(t *testing.T) {

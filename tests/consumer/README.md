@@ -24,7 +24,7 @@ requires PASS evidence for all six consumer scenarios:
 - same signed token rejected by a differently configured issuer using the same
   JWKS origin;
 - valid identity lacks an ungranted required scope (`HasScope` returns false);
-- tampered signed content rejected;
+- corrupted signature with unchanged valid claims rejected;
 - genuine five-second Hydra token rejected after expiry.
 
 The expiry fixture updates only the disposable client's native token lifetime.
