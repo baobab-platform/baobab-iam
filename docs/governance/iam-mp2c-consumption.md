@@ -33,6 +33,18 @@ Both fixtures are exact copies of pinned Shared synthetic VERIFYING/UNRESOLVED/U
 
 ## Outstanding live integration
 
-This is MP2-C's contract/consumer boundary, not production activation. No authentication route, automatic dispatch, approval ledger/endpoint or live Keycloak verifier is wired. CP's companion reader supplies both existing identity records from one PostgreSQL snapshot, without provisioning or fabricated mapping references. It does not approve IAM evidence/configuration.
+This is MP2-C's contract/consumer boundary, not production activation. The
+[live runtime increment](iam-mp2c-live-runtime.md) adds private authenticated
+transport, a durable reference-approval workflow and a persistent actual OIDC
+signature verifier/composition root. Source-side CP/IAM authority integration,
+full trust governance, Keycloak/BFF callback wiring and SAML verification remain
+production prerequisites. CP's companion reader supplies both existing identity
+records from one PostgreSQL snapshot, without provisioning or fabricated mapping
+references. It does not approve IAM evidence/configuration.
 
-A live composition root still requires authenticated Governance/Platform/Canonical readers, approved reference-target/evidence workflows and a real protocol verifier with replay/revocation enforcement. Missing support must remain unsupported/unverified. MP3 registry/projection and MP4 dispatch are separate increments. EA-04, federation/workload activation, dual-issuer enablement, Ory cutover and Keycloak retirement remain incomplete.
+The deployment still requires real Governance/Platform/Canonical sources and
+approved target/policy backends. The private transport is not a substitute for
+those sources, and no handler is mounted in production. Missing support remains
+unsupported/unverified. MP3 registry/projection and MP4 dispatch are separate
+increments. EA-04, federation/workload activation, dual-issuer enablement, Ory
+cutover and Keycloak retirement remain incomplete.
