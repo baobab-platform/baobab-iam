@@ -50,7 +50,6 @@ func (w platformBindingWire) platformScope() Scope {
 	return Scope{OrganisationID: w.Scope.OrganisationID, EstateID: w.Scope.EstateID}
 }
 
-
 // NewHTTPAuthority deliberately owns its transport: no redirect, proxy-env,
 // insecure TLS or caller-selected URL can carry an authority credential away.
 // Optional mTLS certificates and private roots come from deployment configuration.
