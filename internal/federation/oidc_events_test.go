@@ -163,7 +163,7 @@ func TestOIDCProtocolDenialsBurnCorrelatedRequest(t *testing.T) {
 			case "missing-acr":
 				delete(claims, "acr")
 			case "access-token-type":
-				claims["typ"]="Bearer"
+				claims["typ"] = "Bearer"
 			case "policy-down":
 				f.err = ErrUnavailable
 			case "policy-drift":
