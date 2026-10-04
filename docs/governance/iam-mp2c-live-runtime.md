@@ -73,7 +73,8 @@ digest, canonical maker and time. Approval requires a distinct canonical
 checker, fresh authorisation before/after resolving target bytes, matching
 digest, unexpired receipt and an undecided proposal. A concurrent decision has
 one winner. Rejection is terminal. Revocation requires current explicit
-authority, is terminal and retains the snapshot fence: it cannot be overwritten
+authority, preserves the independent approval checker/decision time with separate
+revoker/revocation time fields, is terminal and retains the snapshot fence: it cannot be overwritten
 by another approval for the same expectation.
 
 Use re-resolves the typed target and digest, then rechecks approval/revocation.
@@ -88,7 +89,7 @@ workflow, activate provider configuration or mint canonical mappings.
 
 `OpenOIDCEvents` and `NewLive` wire the protocol verifier into `Consumer`.
 `Begin` generates cryptographically random event ID, state and nonce, bound to a
-server-generated browser session, current trust snapshot and a five-minute
+server-generated browser session, current trust snapshot (with semantic timestamp equality across JSON) and a five-minute
 callback window. The BFF must supply its own secure browser-session binding;
 the API is not an unauthenticated browser endpoint. Callbacks must come from
 the BFF's server-side authorization-code/PKCE flow, not arbitrary caller token
@@ -103,6 +104,16 @@ event/authentication lifetime are required. Arbitrary upstream claims never
 become canonical identity or tenant authority. A failed correlated callback is
 burned. A successful callback stores only normalized evidence and token digest;
 raw ID tokens and browser/state/nonce secrets are never persisted.
+
+Each Begin performs bounded expiry maintenance (128 records per bucket), with
+persistent cursors so live records cannot starve expired records. Prune also
+accepts an explicit bounded batch size. Requests, events and replay fences are
+removed only after their acceptance windows close; freed pages are reused, not
+a promise that the file immediately shrinks. A durable wall-clock high-water
+fence is checked by every event transaction so expiry windows cannot reopen
+through clock rollback, including after restart. Clock skew must be monitored;
+rollback causes safe denials until time catches up. Restore fencing and
+multi-replica state remain separate operational requirements.
 
 The mapper can only provide a governed mapping result and shorten expiry; it
 cannot substitute subject, event, issuer or upstream evidence. UNKNOWN remains

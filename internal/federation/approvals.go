@@ -32,6 +32,8 @@ type ApprovalProposal struct {
 	Maker, Checker        string
 	Status                string
 	ProposedAt, DecidedAt time.Time
+	Revoker               string     `json:",omitempty"`
+	RevokedAt             *time.Time `json:",omitempty"`
 }
 type ApprovalTargets interface {
 	// ResolveApprovedTarget verifies the CP reference's current namespace,
@@ -262,8 +264,9 @@ func (l *ApprovalLedger) Revoke(ctx context.Context, id string) error {
 			return ErrDenied
 		}
 		current.Status = "REVOKED"
-		current.DecidedAt = l.now()
-		current.Checker = a.PrincipalID
+		revokedAt := l.now()
+		current.RevokedAt = &revokedAt
+		current.Revoker = a.PrincipalID
 		data, _ := json.Marshal(current)
 		return b.Put(approvalKey(id), data)
 	}))
