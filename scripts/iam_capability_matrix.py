@@ -58,6 +58,7 @@ def validate(matrix, catalogue, definitions):
             raise ValueError(f'{key} is not an IAM capability in the pinned Shared catalogue')
     rows = {row['capability_operation']: row for row in matrix['capabilities']}
     expected = {'identity.federation.enterprise': 'Keycloak',
+                'identity.authentication.perform': 'Ory Kratos (native authentication); Keycloak (enterprise federation only)',
                 'identity.workload-token.issue': 'Ory Hydra',
                 'identity.workload.provision': 'Ory Hydra',
                 'identity.token.issuance': 'Ory Hydra',
@@ -107,4 +108,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

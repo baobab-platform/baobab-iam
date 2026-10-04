@@ -45,6 +45,12 @@ class MatrixTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.validate(self.matrix, self.entries, self.entries)
 
+    def test_native_authentication_cannot_return_to_keycloak(self):
+        row = next(r for r in self.matrix['capabilities'] if r['capability_operation'] == 'identity.authentication.perform')
+        row['primary_provider'] = 'Keycloak'
+        with self.assertRaises(ValueError):
+            module.validate(self.matrix, self.entries, self.entries)
+
     def test_enterprise_federation_cannot_move_to_ory_by_assumption(self):
         row = next(r for r in self.matrix['capabilities'] if r['capability_operation'] == 'identity.federation.enterprise')
         row['primary_provider'] = 'Ory Hydra'
