@@ -7,7 +7,6 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"reflect"
 )
 
 // AuthorityAccess authenticates the inbound service credential and evaluates
@@ -103,7 +102,7 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 			if err != nil {
 				return authorityError(err)
 			}
-			if !reflect.DeepEqual(current, want) {
+			if !sameSnapshot(current, want) {
 				return ErrUnverified
 			}
 			return nil

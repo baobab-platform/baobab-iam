@@ -86,7 +86,7 @@ func OpenOIDCEvents(path string, config OIDCConfigurationAuthority, mapper Assur
 		return nil, ErrUnavailable
 	}
 	err = db.Update(func(tx *bolt.Tx) error {
-		for _, name := range [][]byte{requestsBucket, eventsBucket, replayBucket} {
+		for _, name := range [][]byte{requestsBucket, eventsBucket, replayBucket, maintenanceBucket} {
 			if _, e := tx.CreateBucketIfNotExists(name); e != nil {
 				return e
 			}
@@ -139,6 +139,9 @@ func (e *OIDCEvents) Begin(ctx context.Context, s TrustSnapshot, sessionDigest s
 	if e == nil || ctx == nil || ctx.Err() != nil || !digestPattern.MatchString(sessionDigest) || !activeSnapshot(s, e.now()) || s.Trust.Protocol != "OIDC" {
 		return AuthenticationRequest{}, ErrDenied
 	}
+	if _, err := e.Prune(ctx, 128); err != nil {
+		return AuthenticationRequest{}, err
+	}
 	id, err := randomUUID()
 	if err != nil {
 		return AuthenticationRequest{}, err
@@ -156,6 +159,9 @@ func (e *OIDCEvents) Begin(ctx context.Context, s TrustSnapshot, sessionDigest s
 	r := storedRequest{id, s.Trust.ID, s.SnapshotID, s.ApprovedRevision, sessionDigest, secretDigest(state), secretDigest(nonce), now, until, false}
 	data, _ := json.Marshal(r)
 	err = e.db.Update(func(tx *bolt.Tx) error {
+		if err := e.observeClock(tx); err != nil {
+			return err
+		}
 		if ctx.Err() != nil || !e.now().Before(until) {
 			return ErrDenied
 		}
@@ -233,6 +239,9 @@ func (e *OIDCEvents) Complete(ctx context.Context, id, state, sessionSecret, raw
 	}
 	var req storedRequest
 	err := e.db.Update(func(tx *bolt.Tx) error {
+		if err := e.observeClock(tx); err != nil {
+			return err
+		}
 		b := tx.Bucket(requestsBucket)
 		if decodeAuthority(b.Get([]byte(id)), &req) != nil || req.Consumed || req.TrustID != s.Trust.ID || req.SnapshotID != s.SnapshotID || req.Revision != s.ApprovedRevision || !fresh(req.CreatedAt, req.ExpiresAt, e.now()) || !equalSecret(state, req.StateDigest) || !equalSecret(sessionSecret, req.SessionDigest) {
 			return ErrDenied
@@ -320,6 +329,9 @@ func (e *OIDCEvents) Complete(ctx context.Context, id, state, sessionSecret, raw
 	event := storedEvent{s.SnapshotID, s.ApprovedRevision, Bundle{s.Trust, p, mapped}, false}
 	data, _ := json.Marshal(event)
 	return authorityErrorUnlessNil(e.db.Update(func(tx *bolt.Tx) error {
+		if err := e.observeClock(tx); err != nil {
+			return err
+		}
 		if ctx.Err() != nil || !e.now().Before(mapped.ExpiresAt) {
 			return ErrDenied
 		}
@@ -346,15 +358,16 @@ func (e *OIDCEvents) Verify(ctx context.Context, id string, s TrustSnapshot) (Ex
 	}
 	var event storedEvent
 	err := e.db.Update(func(tx *bolt.Tx) error {
+		if err := e.observeClock(tx); err != nil {
+			return err
+		}
 		b := tx.Bucket(eventsBucket)
 		if decodeAuthority(b.Get([]byte(id)), &event) != nil || event.Consumed || event.SnapshotID != s.SnapshotID || event.Revision != s.ApprovedRevision || event.Bundle.Trust.ID != s.Trust.ID || !activeSnapshot(s, e.now()) || !e.now().Before(event.Bundle.Assurance.ExpiresAt) {
 			return ErrDenied
 		}
 		// Same snapshot must carry identical trust contents; ID/revision alone
 		// must not allow configuration substitution after verification.
-		left, _ := json.Marshal(event.Bundle.Trust)
-		right, _ := json.Marshal(s.Trust)
-		if !bytes.Equal(left, right) {
+		if !sameTrust(event.Bundle.Trust, s.Trust) {
 			return ErrUnverified
 		}
 		event.Consumed = true
