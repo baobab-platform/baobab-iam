@@ -169,16 +169,18 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 				out = struct{ Digest string }{value}
 			}
 		case "/internal/federation/v1/binding":
-			var req struct {
-				Binding           Binding
-				Scope             Scope
-				RuntimeCapability string
-			}
-			if decodeAuthority(data, &req) != nil || !validBinding(req.Binding) || !validScope(req.Scope) || !validFederationRuntimeCapability(req.RuntimeCapability) {
+			var req platformBindingWire
+			scope := req.platformScope()
+			if decodeAuthority(data, &req) != nil {
 				fail(ErrInvalid)
 				return
 			}
-			ctx, err := authorize("PLATFORM_READ", ReferenceExpectation{ProviderID: req.Binding.ProviderID, EngineInstanceID: req.Binding.EngineInstanceID, Scope: req.Scope})
+			scope = req.platformScope()
+			if !validBinding(req.Binding) || !validScope(scope) || !validFederationRuntimeCapability(req.RuntimeCapability) {
+				fail(ErrInvalid)
+				return
+			}
+			ctx, err := authorize("PLATFORM_READ", ReferenceExpectation{ProviderID: req.Binding.ProviderID, EngineInstanceID: req.Binding.EngineInstanceID, Scope: scope})
 			if err != nil {
 				fail(err)
 				return
@@ -187,7 +189,7 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 				fail(ErrUnsupported)
 				return
 			}
-			value, err := s.Platform.FederationBinding(ctx, req.Binding, req.Scope, req.RuntimeCapability)
+			value, err := s.Platform.FederationBinding(ctx, req.Binding, scope, req.RuntimeCapability)
 			if err != nil {
 				fail(err)
 				return
