@@ -28,6 +28,29 @@ type HTTPAuthority struct {
 	tokens AuthorityTokens
 }
 
+type platformBindingWire struct {
+	Binding Binding `json:"binding"`
+	Scope struct {
+		OrganisationID string `json:"organisation_id"`
+		EstateID       string `json:"estate_id"`
+	} `json:"scope"`
+	RuntimeCapability string `json:"runtime_capability"`
+}
+
+func newPlatformBindingWire(binding Binding, scope Scope, runtimeCapability string) platformBindingWire {
+	var out platformBindingWire
+	out.Binding = binding
+	out.Scope.OrganisationID = scope.OrganisationID
+	out.Scope.EstateID = scope.EstateID
+	out.RuntimeCapability = runtimeCapability
+	return out
+}
+
+func (w platformBindingWire) platformScope() Scope {
+	return Scope{OrganisationID: w.Scope.OrganisationID, EstateID: w.Scope.EstateID}
+}
+
+
 // NewHTTPAuthority deliberately owns its transport: no redirect, proxy-env,
 // insecure TLS or caller-selected URL can carry an authority credential away.
 // Optional mTLS certificates and private roots come from deployment configuration.
@@ -154,11 +177,7 @@ func (a *HTTPAuthority) FederationBinding(ctx context.Context, binding Binding, 
 	if !validBinding(binding) || !validScope(scope) || !validFederationRuntimeCapability(runtimeCapability) {
 		return out, ErrInvalid
 	}
-	err := a.call(ctx, "/internal/federation/v1/binding", struct {
-		Binding           Binding
-		Scope             Scope
-		RuntimeCapability string
-	}{binding, scope, runtimeCapability}, &out)
+	err := a.call(ctx, "/internal/federation/v1/binding", newPlatformBindingWire(binding, scope, runtimeCapability), &out)
 	if err != nil {
 		return PlatformSnapshot{}, err
 	}
