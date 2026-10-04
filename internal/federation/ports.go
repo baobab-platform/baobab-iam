@@ -65,8 +65,17 @@ type PlatformSnapshot struct {
 	ProfileRevision                                                          uint64
 	EvidenceExpiresAt                                                        time.Time
 }
+const (
+	RuntimeOIDCFederation = "OIDC_FEDERATION"
+	RuntimeSAMLFederation = "SAML_FEDERATION"
+)
+
+func validFederationRuntimeCapability(value string) bool {
+	return value == RuntimeOIDCFederation || value == RuntimeSAMLFederation
+}
+
 type PlatformAuthority interface {
-	FederationBinding(context.Context, Binding, Scope) (PlatformSnapshot, error)
+	FederationBinding(context.Context, Binding, Scope, string) (PlatformSnapshot, error)
 }
 
 // EventVerifier performs actual protocol/signature/audience/time/replay checks,
