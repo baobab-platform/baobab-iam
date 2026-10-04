@@ -65,6 +65,7 @@ type PlatformSnapshot struct {
 	ProfileRevision                                                          uint64
 	EvidenceExpiresAt                                                        time.Time
 }
+
 const (
 	RuntimeOIDCFederation = "OIDC_FEDERATION"
 	RuntimeSAMLFederation = "SAML_FEDERATION"
