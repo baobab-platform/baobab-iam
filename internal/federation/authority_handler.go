@@ -231,11 +231,14 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 				return
 			}
 			target := req.Target.expectation()
-			if !validExpectation(target) || req.Action != "PROPOSE" && req.Action != "DECIDE" && req.Action != "REVOKE" {
+			if !validExpectation(target) || req.SubjectToken == "" || len(req.SubjectToken) > 16384 || req.Action != "PROPOSE" && req.Action != "DECIDE" && req.Action != "REVOKE" {
 				fail(ErrInvalid)
 				return
 			}
 			ctx, err := authorize("APPROVAL_"+req.Action, target)
+			if err == nil {
+				ctx, err = WithGovernanceSubjectToken(ctx, req.SubjectToken)
+			}
 			if err != nil {
 				fail(err)
 				return
