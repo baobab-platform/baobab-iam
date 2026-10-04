@@ -13,6 +13,10 @@
 #
 # erp:read and erp:provision (the ERP Boundary API, shared#206) are issued to baobab-erp-workload only and carry no tenant_id.
 #
+# EA-01 reconciliation (2026-10-04): 10810e2 -> 6899a2d. Existing scope
+# entries and workload records are unchanged; context:validate is catalogued
+# but granted to no workload. See docs/governance/ea-01-shared-pin-reconciliation.md.
+#
 # Every scope this repository issues must exist in the scope registry at this
 # exact commit: scripts/check-issued-scopes.sh, run in CI and in
 # tests/integration/run.sh section 9b.
@@ -20,7 +24,7 @@ schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: 10810e20473709d4626da310fc9a84680f8efddd
+  commit: 6899a2d8f143bf23d36c4f4ac904e0a1e10c3cea
 contracts:
   # Scope vocabulary the provider adapters grant (internal/provider/validate.go).
   - contracts/authorization/v1/scope-registry.yaml
