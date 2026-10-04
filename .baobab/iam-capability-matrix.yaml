@@ -47,8 +47,8 @@ capabilities:
   security_requirements: Federated-first (RFC 7523); no static secret for platform workloads; Shared scopes only
   retirement_dependency: Legacy Keycloak workload bindings after actual-consumer evidence; retain federation runtime
   migration_phase: Phase B / C
-  implementation_status: 'Partial (governed Hydra issuance and historical CP verifier proof; PR #63 current-route
-    fixture proof unmerged; activation and M4-F still unproven)'
+  implementation_status: 'Partial (governed Hydra issuance and historical CP verifier proof; PR #63 merged current-route
+    fixture proof; activation and M4-F still unproven)'
   tests: Ory Hydra workload tests
   conformance_evidence: Client secret and federated JWT trust validation
 - capability_family: Human Identity Lifecycle

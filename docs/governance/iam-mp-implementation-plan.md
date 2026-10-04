@@ -1,6 +1,6 @@
 # ADR-IAM-0033 implementation plan
 
-**Status:** Sequenced implementation plan; repository MP0/MP1 reconciliation proposed.
+**Status:** Sequenced implementation plan; repository MP0/MP1 reconciliation merged in IAM #64. MP2 contracts and consumption foundations merged; live-runtime plumbing remains draft #66.
 No runtime reduction, cutover or production acceptance is authorised by this plan.
 **Date:** 2026-10-04.
 **Authority:** Accepted ADR-IAM-0033, preserving the security and canonical-authority
@@ -15,12 +15,21 @@ invariants of ADR-IAM-0019–0032 where not amended.
 | CP | `c84063cb07dce76e1ffac4b12fa29c5e4e5ec855` | Existing capability-domain resolver and provider/binding persistence must be evaluated for reuse; current context authority is after #255 |
 | Infrastructure | `4996cc9e0410f0d4ffb08ce71bd19432fdc158c1` | Accepted infrastructure/workload identity ADR-Infra-0013 remains relevant; deployment/residency/DR integration needs a focused MP7/MP15/MP16 audit |
 
-The IAM branch inventory contains main, the M4 route-proof branch and an unrelated
-Dependabot branch. The only open migration PR is [IAM #63](https://github.com/baobab-platform/baobab-iam/pull/63),
-with all five workflows green at `a54af49d9a757faf9e0e12b9fbdffbaae3a84cc6`.
-It is not merged into the reviewed main. Preserve its current-CP fixture proof;
-do not promote it to deployed resource acceptance or canonical activation.
-Shared/CP open PRs are dependency updates; infrastructure has no open PR.
+The table above records the original MP0 discovery snapshot, not current branch
+heads. The following merged evidence supersedes its implementation-gap claims
+(as verified on 2026-10-04):
+
+| Increment | Current evidence | Claim boundary |
+|---|---|---|
+| MP0/MP1 | IAM #64 merged | Repository controls; fresh MP7 federation census remains open |
+| Current-CP Hydra route proof | IAM #63 merged at `3be4d69e` | Fixture proof; not deployed resource acceptance or canonical activation |
+| MP2-A/B contracts | Shared #213 and #214 merged; contract pin `b10388460c23ac6d7d99bb8a22e2ee4821ad22f6` | Published contracts; not live support or trust activation |
+| MP2-C canonical reader | CP #257 merged | Atomic existing human mapping reader; authenticated source integration remains open |
+| MP2-C consumption | IAM #65 merged; IAM main `ccb3852d76b26fef94b1f280f0ea021363808d23` | Consumer boundary, without production authority composition |
+| MP2-C executable plumbing | IAM #66 open draft at `69e1dc6f2534eec15d134c8d64e1117896782567` | Authenticated transport, durable approvals and actual OIDC verification; no mounted live sources, SAML conformance or multi-replica acceptance |
+
+MP3 registry, MP4 dispatch and MP8 enterprise federation execution remain open.
+Green CI on #66 is construction evidence, not production consumption evidence.
 
 Two audit qualifications matter:
 
@@ -37,11 +46,11 @@ proof remain explicit gates.
 
 ## 2. Immediate bounded increment
 
-| Item | Implemented in this proposal | Still open |
+| Item | Merged repository increment | Still open |
 |---|---|---|
 | MP0 repository reconciliation | Retain/reduce asset inventory, scoped retirement, current digest evidence, README and permanent adapter-boundary wording | Complete cross-repository operational inventory, owner acceptance and live federation census |
 | MP1 ownership matrix | Target provider column; Keycloak enterprise federation retained; Kratos native humans; Hydra OAuth/workloads; generated Markdown and regression guards | Production instance/support/binding declarations depend on MP2–MP4 |
-| MP2–MP4 | Dependency and acceptance plan below | Shared schema work, CP persistence/resolution integration, IAM registry and resolver execution |
+| MP2–MP4 | Dependency and acceptance plan below | Live CP/IAM authority sources, runtime-profile persistence/resolution integration and IAM dispatch |
 
 The matrix remains an IAM architectural control surface, not a runtime registry.
 Only Shared-catalogued keys are PLATFORM_RESOLVABLE_CAPABILITY. Provider labels
