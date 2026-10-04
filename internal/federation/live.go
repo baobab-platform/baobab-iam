@@ -47,12 +47,14 @@ func (c *LiveConsumer) Close() error {
 
 func (a *HTTPAuthority) AuthorizeApproval(ctx context.Context, action string, want ReferenceExpectation) (ApprovalActor, error) {
 	var out approvalActorWire
-	if !validExpectation(want) || action != "PROPOSE" && action != "DECIDE" && action != "REVOKE" {
+	subjectToken, ok := governanceSubjectToken(ctx)
+	if !ok || !validExpectation(want) || action != "PROPOSE" && action != "DECIDE" && action != "REVOKE" {
 		return ApprovalActor{}, ErrInvalid
 	}
 	err := a.call(ctx, "/internal/federation/v1/approval-authority", approvalAuthorityWire{
-		Action: action,
-		Target: newReferenceExpectationWire(want),
+		Action:       action,
+		Target:       newReferenceExpectationWire(want),
+		SubjectToken: subjectToken,
 	}, &out)
 	if err != nil {
 		return ApprovalActor{}, err
