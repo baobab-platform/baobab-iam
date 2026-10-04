@@ -199,8 +199,8 @@ func TestHTTPAuthorityCPApprovalSourceWireUsesSnakeCase(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&wire); err != nil {
 				t.Fatal(err)
 			}
-			if wire["action"] != "PROPOSE" {
-				t.Fatalf("action = %v", wire["action"])
+			if wire["action"] != "PROPOSE" || wire["subject_token"] != "human-governance-token.header.signature" {
+				t.Fatalf("approval wire = %v", wire)
 			}
 			target, ok := wire["target"].(map[string]any)
 			if !ok || target["trust_id"] != want.TrustID || target["snapshot_id"] != want.SnapshotID {
@@ -215,7 +215,11 @@ func TestHTTPAuthorityCPApprovalSourceWireUsesSnakeCase(t *testing.T) {
 				"valid_until":  validUntil,
 			})
 		})
-		got, err := a.AuthorizeApproval(context.Background(), "PROPOSE", want)
+		ctx, err := WithGovernanceSubjectToken(context.Background(), "human-governance-token.header.signature")
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := a.AuthorizeApproval(ctx, "PROPOSE", want)
 		if err != nil || got.PrincipalID != actorID || !got.ValidUntil.Equal(validUntil) {
 			t.Fatalf("actor = %#v err=%v", got, err)
 		}
