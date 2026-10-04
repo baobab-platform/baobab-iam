@@ -60,6 +60,14 @@ libraries and transitive modules are pinned in `go.mod`/`go.sum`.
 ## Durable reference approvals
 
 `ApprovalLedger` uses bbolt atomic transactions and exclusive writer locking.
+Both durable ledgers use a Linux inode-checked opener before bbolt reads or writes.
+Startup rejects final symlinks, non-regular files, hard links, files not owned by
+the service effective UID and modes other than `0600`; reopening does not silently
+repair insecure permissions. FIFO replacement cannot block startup. Non-Linux
+durable execution fails closed until equivalent atomic protections exist. The
+parent directory must remain access-controlled; inode checks do not establish
+multi-replica fencing or restore safety.
+
 Proposals are immutable: UUID, exact receipt expectation, current resolved target
 digest, canonical maker and time. Approval requires a distinct canonical
 checker, fresh authorisation before/after resolving target bytes, matching

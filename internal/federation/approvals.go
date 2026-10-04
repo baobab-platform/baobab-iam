@@ -57,7 +57,7 @@ func OpenApprovalLedger(path string, authority ApprovalAuthority, targets Approv
 	if path == "" || absent(authority) || absent(targets) || now == nil {
 		return nil, ErrInvalid
 	}
-	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: time.Second})
+	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: time.Second, OpenFile: privateLedgerFile})
 	if err != nil {
 		return nil, ErrUnavailable
 	}

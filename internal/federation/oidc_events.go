@@ -81,7 +81,7 @@ func OpenOIDCEvents(path string, config OIDCConfigurationAuthority, mapper Assur
 	if path == "" || absent(config) || absent(mapper) || now == nil || maxLifetime <= 0 || maxLifetime > 15*time.Minute {
 		return nil, ErrInvalid
 	}
-	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: time.Second})
+	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: time.Second, OpenFile: privateLedgerFile})
 	if err != nil {
 		return nil, ErrUnavailable
 	}
