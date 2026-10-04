@@ -205,6 +205,17 @@ func (c *Consumer) Consume(ctx context.Context, trustID, eventID string) (Decisi
 	if canonical.Issuer != principal.Issuer || canonical.Subject != principal.Subject || canonical.MappingBasis != "ISSUER_SUBJECT" || canonical.PrincipalStatus != "ACTIVE" || canonical.ExternalIdentityStatus != "ACTIVE" || canonical.ActorType != "human" || !uuidPattern.MatchString(canonical.PrincipalID) || !uuidPattern.MatchString(canonical.ExternalIdentityID) || !validRef(canonical.MappingReference) || !now.Before(canonical.ValidUntil) {
 		return deny(ErrUnverified)
 	}
+
+	mappingWant := base
+	mappingWant.ID = canonical.MappingReference
+	mappingWant.Kind = "canonical_identity_mapping"
+	mappingWant.Issuer = principal.Issuer
+	mappingWant.Subject = principal.Subject
+	mappingWant.PrincipalID = canonical.PrincipalID
+	mappingWant.ExternalIdentityID = canonical.ExternalIdentityID
+	if e := check(mappingWant); e != nil {
+		return deny(e)
+	}
 	// RESOLVED in adapter evidence is an assertion to cross-check, never authority.
 	r := principal.Resolution
 	if r.Status == "RESOLVED" && (r.PrincipalID != canonical.PrincipalID || r.ExternalIdentityID != canonical.ExternalIdentityID || r.MappingReference != canonical.MappingReference) {

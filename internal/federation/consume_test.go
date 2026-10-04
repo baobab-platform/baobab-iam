@@ -149,6 +149,16 @@ func TestUnavailableAndUnsupportedAuthorities(t *testing.T) {
 }
 func TestReferenceApprovalAndExactCoverage(t *testing.T) {
 	mutations := []func(*ApprovedReference){
+		func(r *ApprovedReference) {
+			if r.Expectation.Kind == "canonical_identity_mapping" {
+				r.Expectation.PrincipalID = "55555555-5555-4555-8555-555555555555"
+			}
+		},
+		func(r *ApprovedReference) {
+			if r.Expectation.Kind == "canonical_identity_mapping" {
+				r.Expectation.ExternalIdentityID = "55555555-5555-4555-8555-555555555555"
+			}
+		},
 		func(r *ApprovedReference) { r.Status = "UNVERIFIED" }, func(r *ApprovedReference) { r.NonSecret = false },
 		func(r *ApprovedReference) { r.Expectation.Kind = "wrong_type" }, func(r *ApprovedReference) { r.Expectation.ID = "ref_ciother" },
 		func(r *ApprovedReference) { r.Expectation.ProviderID = "provider_ciother" }, func(r *ApprovedReference) { r.Expectation.EngineInstanceID = "ei_ciother" },

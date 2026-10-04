@@ -35,6 +35,7 @@ type ReferenceExpectation struct {
 	ProviderID, EngineInstanceID                    string
 	Scope                                           Scope
 	EventID, Issuer, Subject, Level, EvidenceDigest string
+	PrincipalID, ExternalIdentityID                 string
 }
 type ApprovedReference struct {
 	Expectation          ReferenceExpectation
