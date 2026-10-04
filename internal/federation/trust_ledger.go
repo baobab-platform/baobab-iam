@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -109,7 +110,7 @@ func (l *TrustLedger) actor(ctx context.Context, action string, want ReferenceEx
 }
 
 func trustTransition(previous, current Trust) bool {
-	if current.ID != previous.ID || previous.Revision == ^uint64(0) || current.Revision != previous.Revision+1 || current.Protocol != previous.Protocol || current.UpstreamIssuer != previous.UpstreamIssuer || !current.CreatedAt.Equal(previous.CreatedAt) || current.UpdatedAt.Before(previous.UpdatedAt) || previous.Status == "REVOKED" {
+	if !slices.Equal(current.OrganisationIDs, previous.OrganisationIDs) || !slices.Equal(current.EstateIDs, previous.EstateIDs) || current.ProviderBinding.ProviderID != previous.ProviderBinding.ProviderID || current.ProviderBinding.EngineInstanceID != previous.ProviderBinding.EngineInstanceID || current.ID != previous.ID || previous.Revision == ^uint64(0) || current.Revision != previous.Revision+1 || current.Protocol != previous.Protocol || current.UpstreamIssuer != previous.UpstreamIssuer || !current.CreatedAt.Equal(previous.CreatedAt) || current.UpdatedAt.Before(previous.UpdatedAt) || previous.Status == "REVOKED" {
 		return false
 	}
 	if previous.Status == current.Status {

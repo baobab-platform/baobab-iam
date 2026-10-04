@@ -298,3 +298,26 @@ func TestTrustConcurrentReadCannotEscapeContainment(t *testing.T) {
 		t.Fatal("concurrent revocation escaped recheck")
 	}
 }
+
+func TestTrustCannotMoveAuthorityToDestinationScope(t *testing.T) {
+	_, f := setup(t, "oidc")
+	previous := f.snapshot.Trust
+	for _, mode := range []string{"organisation", "estate", "provider", "instance"} {
+		current := previous
+		current.Revision++
+		current.Status = "ROTATING"
+		switch mode {
+		case "organisation":
+			current.OrganisationIDs = []string{"org_other"}
+		case "estate":
+			current.EstateIDs = []string{"estate_other"}
+		case "provider":
+			current.ProviderBinding.ProviderID = "provider_other"
+		case "instance":
+			current.ProviderBinding.EngineInstanceID = "ei_other"
+		}
+		if trustTransition(previous, current) {
+			t.Fatal("ownership changed through destination-only authority", mode)
+		}
+	}
+}

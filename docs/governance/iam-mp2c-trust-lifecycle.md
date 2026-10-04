@@ -16,7 +16,9 @@ The authenticated authority handler exposes `/internal/federation/v1/trusts/`
 
 Every revision binds the complete snapshot, provider instance, scope, lifetime
 and policy references. This bounded increment supports exactly one organisation
-and Digital Estate per trust. Initial revisions must be REQUESTED. Independent
+and Digital Estate per trust. Provider/instance and organisation/estate ownership
+are immutable in this increment; moving a trust requires a separately governed
+migration instead of authorizing only its destination scope. Initial revisions must be REQUESTED. Independent
 maker/checker approval and compare-and-swap against the preceding revision
 prevent self-approval and competing decisions. ACTIVE changes require ROTATING
 or suspension followed by VERIFYING; they cannot remain ACTIVE while changing
