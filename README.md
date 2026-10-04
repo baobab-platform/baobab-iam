@@ -6,14 +6,20 @@
 
 ## Provider migration status
 
-Keycloak remains the legacy configured runtime. Ory Kratos (human identities and sessions)
-and Hydra (OAuth and workloads) are the migration target under Accepted ADR-IAM-0019–0032.
+Accepted ADR-IAM-0033 defines the multi-provider target: **Kratos for native
+human identities/credentials/sessions; Hydra for general OAuth/OIDC and workloads;
+Keycloak retained for enterprise SAML/OIDC federation and identity brokering**.
+Current Keycloak configuration still carries legacy native/client capabilities;
+retention does not prove that its scope has already been reduced.
 Provider-neutral interfaces preserve CP canonical identity and Shared capability/lifecycle authority.
-The Keycloak Go adapter remains a partial compatibility skeleton; its unsupported methods
-must not be mistaken for the capabilities of the separately configured Keycloak runtime.
-Production dual-run, cutover, canonical workload activation, and retirement remain blocked
-until their separate evidence gates are satisfied. Unit and mock conformance tests do not
-establish live provider interoperability or resource-server token acceptance.
+The Keycloak Go adapter remains incomplete: it is a retained boundary, but the
+permanent EnterpriseFederationProvider port/adapter is not implemented.
+Production dual-run, per-capability cutover and canonical workload activation
+remain blocked by their evidence gates. Global Keycloak deletion is not a target.
+Unit/mock tests do not establish production interoperability or activation.
+
+The [MP implementation plan](docs/governance/iam-mp-implementation-plan.md)
+sequences Shared contracts, provider registry/resolution and federation work.
 
 Human migration requires an authorized `HumanTraitsSource` keyed by the exact source
 binding and opaque snapshot reference. Missing traits fail closed; neither synthetic
@@ -28,12 +34,13 @@ read token in `GH_TOKEN`. CI may supply `SHARED_READ_TOKEN` for cross-repository
 
 ## Status
 
-- **Architecture:** [ADR-0001 through ADR-0018](./docs/adr/README.md)
+- **Architecture:** [ADR index](./docs/adr/README.md); Accepted ADR-IAM-0033 controls multi-provider allocation and amends the earlier retirement programme
 - **Implementation:** All sixteen gates (IAM-0 through IAM-16) have had at least a phase 1
   pass; Gate IAM-2 (Keycloak foundation) hardening itself remains open — see
   [Gate IAM-0 discovery](./docs/governance/gate-iam-0-discovery.md) for the verified
-  implementation state and open risks (notably R-1: the pinned Keycloak image digest in
-  `upstream.lock.yaml` is still a placeholder pending registry access). Gate IAM-3's
+  historical implementation state and open risks. R-1
+  (unresolved image pin) is now closed in repository configuration: `upstream.lock.yaml`
+  contains a resolved digest verified by CI; deployment/DR acceptance remains separate. Gate IAM-3's
   Control Plane identity spine (`CanonicalIdentity`/`ExternalIdentity`, in `baobab-cp`) and
   Gate IAM-4 (workload identity, ADR-0007) are **complete** — see
   [Gate IAM-3 scope](./docs/governance/gate-iam-3-canonical-identity-scope.md) and
@@ -93,8 +100,8 @@ read token in `GH_TOKEN`. CI may supply `SHARED_READ_TOKEN` for cross-repository
   [DR runbook](./docs/operations/disaster-recovery-runbook.md), verifies the running
   Keycloak instance's version actually matches `upstream.lock.yaml`'s pin (not just that the
   file claims one), and closes a real PKCE coverage gap (`baobab-control-plane-admin` was
-  never checked by the old hardcoded client list); R-1 (image digest) is re-confirmed still
-  blocked on `quay.io` egress, and a new, unrelated defect (`loginTheme`/`accountTheme:
+  never checked by the old hardcoded client list). The historical R-1 egress blocker
+  is superseded by the current resolved pin and CI baseline check. An unrelated defect (`loginTheme`/`accountTheme:
   "baobab"` references a theme that was never built) was found and deliberately left open —
   see [Gate IAM-14 scope](./docs/governance/gate-iam-14-availability-dr-scope.md) §5, §7. Gate
   IAM-15 (Multi-Region Readiness) required no `baobab-iam` code changes — discovery found
@@ -127,7 +134,7 @@ read token in `GH_TOKEN`. CI may supply `SHARED_READ_TOKEN` for cross-repository
   AD_User/Role/Client/Org provisioning), Gate IAM-11's remaining phases, Gate IAM-12's open
   architectural fork (custom Keycloak event-listener SPI vs. `baobab-cp` polling the native
   Admin Events API), Gate IAM-13's deferred retention-policy decision, Gate IAM-14's real
-  remaining gaps (the missing `baobab` theme, a post-backup security journal, and R-1), Gate
+  remaining operational gaps (the missing `baobab` theme and a post-backup security journal; image-pin R-1 is resolved), Gate
   IAM-15's deferred multi-region phases B-D and its unproven DR-restore test-matrix row, and
   Gate IAM-16's own open items (a penetration test, a real DR/load-testing exercise, a
   bulk-revocation tool, an actually-run incident-response drill).
@@ -156,17 +163,20 @@ The migration baseline and provider-neutral capability map are documented in:
 
 - [docs/governance/iam-capability-matrix.md](./docs/governance/iam-capability-matrix.md)
 - [.baobab/iam-capability-matrix.yaml](./.baobab/iam-capability-matrix.yaml)
+- [ADR-IAM-0033 migration rebaseline](./docs/governance/gate-iam-m0-migration-baseline.md)
+- [MP0–MP20 implementation plan](./docs/governance/iam-mp-implementation-plan.md)
 
 ## What this repository is
 
-`baobab-iam` runs **Keycloak** as the authentication runtime. It owns:
+`baobab-iam` owns the provider-neutral authentication boundary. Its assigned
+runtimes are Kratos, Hydra and retained Keycloak enterprise federation. It owns:
 
 - Authentication (OIDC, OAuth, MFA, passkeys)
 - Credential management
 - Authentication sessions
 - Account recovery
 - Identity federation
-- Workload client credentials
+- Workload authentication and governed token issuance
 
 It does **not** own:
 
@@ -192,9 +202,9 @@ It does **not** own:
 
 | Concern | Choice |
 |---------|--------|
-| Identity provider | Keycloak 26.7.5 |
+| Identity runtimes | Kratos (native humans), Hydra (OAuth/workloads), Keycloak 26.7.5 (retained enterprise federation target) |
 | Database | PostgreSQL 17 |
-| Container | Distroless image, version-pinned (digest pin pending registry access — see R-1) |
+| Container | Digest-pinned runtime images; Keycloak runtime retained for enterprise federation |
 | Configuration | JSON realm exports + idempotent bootstrap |
 | CI/CD | Reusable workflows from `baobab-platform/shared` |
 
@@ -219,3 +229,4 @@ Run the ADR-0002 Section 48 verification suite against a running, bootstrapped s
 BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret make bootstrap
 BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret ./tests/integration/run.sh
 ```
+

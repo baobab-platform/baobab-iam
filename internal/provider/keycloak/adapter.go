@@ -1,15 +1,13 @@
-// Package keycloak provides a temporary dual-run adapter that implements
-// the same provider-neutral interfaces against the existing Keycloak
-// deployment. It exists only for the migration window (ADR-IAM-0019 phases
-// dual-run / cutover) and MUST be removed after Keycloak retirement
-// (Gate IAM-M19).
+// Package keycloak is the adapter boundary for the retained enterprise
+// federation provider (ADR-IAM-0033), plus legacy migration compatibility.
+// Keycloak is not globally retired: native human bindings migrate to Kratos
+// and OAuth/workload bindings to Hydra, while enterprise SAML/OIDC brokering
+// remains a bounded, replaceable provider capability.
 //
-// Target path: baobab-iam/internal/provider/keycloak/adapter.go
-//
-// This skeleton is intentionally incomplete: it demonstrates the interface
-// surface and issuer isolation. Fill Admin API calls against the pinned
-// Keycloak version only if dual-run is required in production; otherwise
-// prefer a one-way migration via the Ory adapter and migration tooling.
+// The current adapter is incomplete. Its compatibility interfaces and
+// ErrUnsupported methods do not implement EnterpriseFederationProvider or
+// prove live federation support. That permanent port and its Shared binding
+// contracts are separate MP2/MP8 work; do not advertise support prematurely.
 package keycloak
 
 import (
@@ -22,7 +20,7 @@ import (
 	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
-// Config holds connection settings for the Keycloak dual-run adapter.
+// Config holds connection settings for the Keycloak adapter boundary.
 type Config struct {
 	// AdminURL is the Keycloak admin base (e.g. https://iam.example/admin).
 	AdminURL string
@@ -47,8 +45,8 @@ type Config struct {
 }
 
 // Adapter is a partial Keycloak implementation of the provider interfaces.
-// Methods that are not required for dual-run validation return
-// provider.ErrUnsupported.
+// Unimplemented operations return provider.ErrUnsupported. Runtime features
+// are distinct from verified adapter support.
 type Adapter struct {
 	cfg  Config
 	http *http.Client
