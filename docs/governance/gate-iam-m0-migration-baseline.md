@@ -299,8 +299,11 @@ Gate IAM-M0 is **closed** when:
 
 ## 16. Next gate
 
-**Next: IAM-MP2 — Shared contract extensions, then MP3 registry / MP4 resolver**  
-Stabilize Principal / ExternalSubject / capability interfaces in `baobab-iam` and published contracts in `shared`; ensure CP resolution does not require Keycloak-specific business fields.
+**Next: complete MP2-C live authority sources, then MP3 registry / MP4 resolver and MP8 federation adapter.**
+Shared #213/#214, CP #257 and IAM #65 are merged. IAM #66 executable plumbing is merged; review follow-ups are in #68; authenticated mounted authority sources and operational acceptance are
+still required. IAM #63 current-CP fixture proof is merged and does not establish
+deployed consumer acceptance. Preserve CP canonical/platform authority and gate
+MP7 reduction on replacement, rollback and actual-consumer evidence.
 
 Provider scaffold reference: `internal/provider` (interfaces + Ory/Keycloak adapter skeletons).
 
