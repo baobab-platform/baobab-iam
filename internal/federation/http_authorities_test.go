@@ -102,7 +102,6 @@ func TestHTTPAuthorityRejectsUnsafeConfigurationAndTLS(t *testing.T) {
 	}
 }
 
-
 func TestHTTPAuthorityFederationBindingUsesSnakeCaseWire(t *testing.T) {
 	_, facts := setup(t, "oidc")
 	a, _ := tlsAuthority(t, func(w http.ResponseWriter, r *http.Request) {
