@@ -1,0 +1,9 @@
+{
+  "repository": "baobab-platform/baobab-cp",
+  "commit": "c84063cb07dce76e1ffac4b12fa29c5e4e5ec855",
+  "route": "POST /v1/platform-context/validate",
+  "source": "unchanged full checkout; test-only cmd/iam-m4-route overlay",
+  "fixture_only": true,
+  "deployed_resource_route_tested": false,
+  "canonical_activation_proven": false
+}
