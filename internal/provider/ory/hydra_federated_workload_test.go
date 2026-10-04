@@ -148,3 +148,33 @@ func TestFederatedWorkloadTrustRejectsPrivateJWK(t *testing.T) {
 		t.Fatal("expected private JWK material to be rejected")
 	}
 }
+
+func TestRotateWorkloadCredentialsRejectsFederatedWorkload(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/admin/clients/baobab-cp-workload":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"client_id":"baobab-cp-workload","grant_types":["urn:ietf:params:oauth:grant-type:jwt-bearer"],"token_endpoint_auth_method":"none","metadata":{"baobab_credential_type":"federated_workload_token"}}`))
+		case r.Method == http.MethodPut && r.URL.Path == "/admin/clients/baobab-cp-workload":
+			t.Fatal("rotateClientCredentials must not write a static secret for a federated workload")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	a, err := ory.NewAdapter(ory.Config{
+		KratosAdminURL: "http://kratos-admin.example",
+		HydraAdminURL:  srv.URL,
+		PublicIssuer:   "https://identity.example",
+		HTTPClient:     srv.Client(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = a.RotateWorkloadCredentials(context.Background(), provider.ProviderWorkloadReference{LogicalClientID: "baobab-cp-workload"})
+	if err == nil {
+		t.Fatal("expected federated workload secret rotation to be rejected")
+	}
+}

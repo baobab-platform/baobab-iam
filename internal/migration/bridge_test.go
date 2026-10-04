@@ -3,6 +3,7 @@ package migration_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -115,6 +116,31 @@ func federatedTemplate(logicalID string, scopes, audiences []string) migration.F
 	}
 }
 
+// assertKratosSchemaTraits checks traits against config/ory/kratos/identity.schema.json:
+// required email; additionalProperties false (only email and name allowed).
+func assertKratosSchemaTraits(t *testing.T, traits map[string]any) string {
+	t.Helper()
+	if traits == nil {
+		t.Fatal("traits is nil")
+	}
+	email, ok := traits["email"].(string)
+	if !ok || strings.TrimSpace(email) == "" {
+		t.Fatalf("traits.email missing or empty: %#v", traits)
+	}
+	for k := range traits {
+		switch k {
+		case "email", "name":
+			// allowed by identity.schema.json
+		default:
+			t.Fatalf("traits contains forbidden key %q (schema additionalProperties: false); got %#v", k, traits)
+		}
+	}
+	if _, has := traits["legacy_subject"]; has {
+		t.Fatal("traits must not contain legacy_subject")
+	}
+	return email
+}
+
 func TestProvisionBridge_HumanToProvisioned(t *testing.T) {
 	ctx := context.Background()
 	store := migration.NewMemoryStore()
@@ -139,6 +165,7 @@ func TestProvisionBridge_HumanToProvisioned(t *testing.T) {
 	if err := svc.Register(ctx, r); err != nil {
 		t.Fatal(err)
 	}
+	bridge.HumanTraits = fixtureHumanTraits{email: "authorized@example.com"}
 	res, err := bridge.Provision(ctx, "mig-human-1")
 	if err != nil {
 		t.Fatalf("Provision: %v", err)
@@ -149,9 +176,69 @@ func TestProvisionBridge_HumanToProvisioned(t *testing.T) {
 	if human.lastSpec.MigrationID != "mig-human-1" {
 		t.Fatalf("MigrationID not passed")
 	}
+
+	// P1-2: traits must satisfy configured Kratos schema; no legacy_subject.
+	email := assertKratosSchemaTraits(t, human.lastSpec.Traits)
+	if email != "authorized@example.com" {
+		t.Fatalf("expected authorized source email, got %q", email)
+	}
+	if human.lastSpec.Metadata["email_role"] != "kratos_schema_identifier_only" {
+		t.Fatalf("email_role metadata missing: %#v", human.lastSpec.Metadata)
+	}
+	if human.lastSpec.Metadata["source_subject"] != "kc-user-1" {
+		t.Fatalf("source_subject metadata: %#v", human.lastSpec.Metadata)
+	}
+	if human.lastSpec.Metadata["migration_id"] != "mig-human-1" {
+		t.Fatalf("migration_id metadata: %#v", human.lastSpec.Metadata)
+	}
+
 	res2, err := bridge.Provision(ctx, "mig-human-1")
 	if err != nil || !res2.AlreadyProvisioned {
 		t.Fatalf("idempotent: err=%v already=%v", err, res2.AlreadyProvisioned)
+	}
+}
+
+// TestProvisionBridge_HumanAuthorizedTraits uses an authorized source port.
+// Snapshot references are opaque and never supply email identifiers.
+// Email still is not CanonicalIdentity authority.
+func TestProvisionBridge_HumanAuthorizedTraits(t *testing.T) {
+	ctx := context.Background()
+	store := migration.NewMemoryStore()
+	svc := &migration.Service{Store: store}
+	human := &fakeHuman{}
+	bridge, err := migration.NewProvisionBridge(svc, "http://127.0.0.1:4444", human, &fakeWorkload{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &migration.Record{
+		MigrationID:             "mig-human-mailto",
+		CanonicalIdentityID:     "ci_h2",
+		SourceSnapshotReference: "mailto:alice@example.com",
+		Source: migration.ProviderBinding{
+			Provider: "keycloak",
+			Issuer:   "https://kc.example/realms/baobab",
+			Subject:  "kc-alice",
+		},
+		IdentityClass:      migration.ClassHuman,
+		CredentialStrategy: migration.StrategyFirstLoginMigration,
+		MigrationState:     migration.StateDiscovered,
+	}
+	if err := svc.Register(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	bridge.HumanTraits = fixtureHumanTraits{email: "alice@example.com"}
+	if _, err := bridge.Provision(ctx, "mig-human-mailto"); err != nil {
+		t.Fatalf("Provision: %v", err)
+	}
+	email := assertKratosSchemaTraits(t, human.lastSpec.Traits)
+	if email != "alice@example.com" {
+		t.Fatalf("expected authorized source email, got %q", email)
+	}
+	if human.lastSpec.Metadata["canonical_identity_id"] != "ci_h2" {
+		t.Fatalf("canonical_identity_id should remain on metadata, not traits: %#v", human.lastSpec.Metadata)
+	}
+	if _, has := human.lastSpec.Traits["legacy_subject"]; has {
+		t.Fatal("legacy_subject must not appear in traits")
 	}
 }
 
@@ -270,9 +357,10 @@ func TestProvisionBridge_RefuseOrphan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Orphans must not fabricate CanonicalIdentityID (ADR-IAM-0022).
 	r := &migration.Record{
 		MigrationID:         "mig-orphan",
-		CanonicalIdentityID: "orphan:pending-review",
+		CanonicalIdentityID: "",
 		Source:              migration.ProviderBinding{Provider: "keycloak", Issuer: "https://kc.example/realms/baobab", Subject: "x"},
 		IdentityClass:       migration.ClassOrphanCandidate,
 		CredentialStrategy:  migration.StrategyNoCredentialRequired,
@@ -306,6 +394,7 @@ func TestProvisionBridge_HumanFailureMarksRetryable(t *testing.T) {
 	if err := svc.Register(ctx, r); err != nil {
 		t.Fatal(err)
 	}
+	bridge.HumanTraits = fixtureHumanTraits{email: "authorized@example.com"}
 	if _, err := bridge.Provision(ctx, "mig-fail-1"); err == nil {
 		t.Fatal("expected provision error")
 	}
@@ -318,5 +407,41 @@ func TestProvisionBridge_HumanFailureMarksRetryable(t *testing.T) {
 	}
 	if got.LastErrorCode != "provision_failed" {
 		t.Fatalf("LastErrorCode=%q", got.LastErrorCode)
+	}
+}
+
+
+type fixtureHumanTraits struct {
+	email string
+}
+
+func (f fixtureHumanTraits) LoadHumanTraits(_ context.Context, _ migration.ProviderBinding, _ string) (map[string]any, error) {
+	return map[string]any{"email": f.email}, nil
+}
+
+func TestProvisionBridgeMissingTraitsDoesNotInventEmail(t *testing.T) {
+	ctx := context.Background()
+	store := migration.NewMemoryStore()
+	svc := &migration.Service{Store: store}
+	human := &fakeHuman{}
+	bridge, err := migration.NewProvisionBridge(svc, "https://target", human, &fakeWorkload{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &migration.Record{
+		MigrationID: "missing-traits", CanonicalIdentityID: "ci-1",
+		Source: migration.ProviderBinding{Provider: "keycloak", Issuer: "https://source", Subject: "user"},
+		SourceSnapshotReference: "mailto:untrusted@example.com",
+		IdentityClass: migration.ClassHuman, CredentialStrategy: migration.StrategyFirstLoginMigration,
+		MigrationState: migration.StateDiscovered,
+	}
+	if err := svc.Register(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bridge.Provision(ctx, r.MigrationID); err == nil {
+		t.Fatal("missing source traits accepted")
+	}
+	if human.lastSpec.Traits != nil {
+		t.Fatal("provider called with invented traits")
 	}
 }

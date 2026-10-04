@@ -16,6 +16,8 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -76,6 +78,67 @@ const (
 	WorkloadAuthFederatedJWTBearer WorkloadAuthenticationMethod = "federated_jwt_bearer"
 )
 
+// WorkloadLifecycleStatus is a *provider-side* requested/observed state used
+// by adapters. It is NOT evidence of Shared workload registry lifecycle.
+//
+// Shared remains the authority for canonical ACTIVE (provider can issue +
+// resource server accepts token + audience/scopes proven end-to-end).
+// Provider configuration alone is not activation evidence (Shared workload registry).
+//
+// On provision/create specs only empty or PROVISIONED are accepted
+// (ValidateForProvision). ACTIVE/SUSPENDED/REVOKED/RETIRED are lifecycle
+// *commands* applied via WorkloadLifecycleManager, not create-time metadata.
+type WorkloadLifecycleStatus string
+
+const (
+	WorkloadStatusProvisioned WorkloadLifecycleStatus = "PROVISIONED"
+	WorkloadStatusActive      WorkloadLifecycleStatus = "ACTIVE"
+	WorkloadStatusSuspended   WorkloadLifecycleStatus = "SUSPENDED"
+	WorkloadStatusRevoked     WorkloadLifecycleStatus = "REVOKED"
+	WorkloadStatusRetired     WorkloadLifecycleStatus = "RETIRED"
+)
+
+// Validate checks that the value is a known status enum (any state).
+// Prefer ValidateForProvision when accepting create/update specs.
+func (s WorkloadLifecycleStatus) Validate() error {
+	value := string(s)
+	if value == "" {
+		return nil
+	}
+	if err := requireCanonicalEnum("WorkloadLifecycleStatus", value); err != nil {
+		return err
+	}
+	switch s {
+	case WorkloadStatusProvisioned, WorkloadStatusActive, WorkloadStatusSuspended, WorkloadStatusRevoked, WorkloadStatusRetired:
+		return nil
+	default:
+		return &ProviderError{
+			Kind:    ErrInvalidArgument,
+			Message: fmt.Sprintf("unknown WorkloadLifecycleStatus %q", value),
+		}
+	}
+}
+
+// ValidateForProvision restricts create/update specs to empty or PROVISIONED.
+// ACTIVE requires external Shared evidence and must not be set by the adapter alone.
+func (s WorkloadLifecycleStatus) ValidateForProvision() error {
+	if err := s.Validate(); err != nil {
+		return err
+	}
+	switch s {
+	case "", WorkloadStatusProvisioned:
+		return nil
+	default:
+		return &ProviderError{
+			Kind: ErrInvalidArgument,
+			Message: fmt.Sprintf(
+				"WorkloadLifecycleStatus %q is not allowed on provision; use PROVISIONED (or empty). Shared owns canonical ACTIVE evidence",
+				s,
+			),
+		}
+	}
+}
+
 // WorkloadProvisioningSpec is the input for creating or updating a workload client.
 type WorkloadProvisioningSpec struct {
 	// LogicalClientID is the Baobab-stable identifier (e.g. "baobab-trade-workload").
@@ -92,6 +155,11 @@ type WorkloadProvisioningSpec struct {
 
 	// AuthMethod for the client.
 	AuthMethod WorkloadAuthenticationMethod `json:"auth_method"`
+
+	// LifecycleStatus is provider-side requested state for this call only.
+	// On provision, only empty or PROVISIONED are valid. Do not treat this
+	// field as Shared registry lifecycle (especially not ACTIVE).
+	LifecycleStatus WorkloadLifecycleStatus `json:"lifecycle_status,omitempty"`
 
 	// Metadata that the adapter may persist with the provider client.
 	Metadata map[string]string `json:"metadata,omitempty"`
@@ -113,6 +181,9 @@ type FederatedWorkloadTrustSpec struct {
 	// client audience field because Hydra models that field as URL resource
 	// indicators while Shared currently uses logical service audience names.
 	IntendedAudiences []string `json:"intended_audiences"`
+
+	// LifecycleStatus is provider-side only; on provision only empty/PROVISIONED.
+	LifecycleStatus WorkloadLifecycleStatus `json:"lifecycle_status,omitempty"`
 
 	// AssertionIssuer/Subject identify the short-lived platform-projected JWT
 	// that Hydra is allowed to exchange under RFC 7523.
@@ -139,6 +210,7 @@ type FederatedWorkloadTrust struct {
 	TrustID           string                       `json:"trust_id"`
 	Issuer            string                       `json:"issuer"`
 	AuthMethod        WorkloadAuthenticationMethod `json:"auth_method"`
+	LifecycleStatus   WorkloadLifecycleStatus      `json:"lifecycle_status,omitempty"`
 	AssertionIssuer   string                       `json:"assertion_issuer"`
 	AssertionSubject  string                       `json:"assertion_subject"`
 	AllowedScopes     []string                     `json:"allowed_scopes"`
@@ -153,6 +225,7 @@ type ProviderWorkload struct {
 	ProviderClientID string                       `json:"provider_client_id"` // IdP-native ID
 	Issuer           string                       `json:"issuer"`
 	AuthMethod       WorkloadAuthenticationMethod `json:"auth_method"`
+	LifecycleStatus  WorkloadLifecycleStatus      `json:"lifecycle_status,omitempty"`
 	// ClientSecret is returned only on create/rotate when AuthMethod == client_secret.
 	// Callers MUST treat it as sensitive and never log it.
 	ClientSecret string            `json:"-"`
@@ -233,6 +306,8 @@ type ReconciliationResult struct {
 
 // ProviderCapabilities declares what the concrete adapter supports.
 // Missing required capabilities MUST fail deployment validation.
+// Boolean true means verified against the pinned provider version for this
+// build; do not advertise true for "probably supported" features.
 type ProviderCapabilities struct {
 	Provider string `json:"provider"`
 
@@ -293,6 +368,19 @@ type WorkloadProvisioner interface {
 	RotateWorkloadCredentials(ctx context.Context, ref ProviderWorkloadReference) (*ProviderWorkload, error)
 }
 
+// WorkloadLifecycleManager provides provider-neutral lifecycle commands for
+// workloads. These operations affect provider issuance only; they are not a
+// complete Baobab revocation path (see ADR-IAM-0029).
+type WorkloadLifecycleManager interface {
+	// SuspendWorkload disables provider-side token issuance for the workload.
+	SuspendWorkload(ctx context.Context, ref ProviderWorkloadReference) error
+	// RevokeWorkload disables provider-side token issuance. It does NOT by itself
+	// prove that already-issued tokens are unusable, nor does it perform CP
+	// CapabilityBinding suspension, network isolation, or deployment quarantine.
+	// Prefer naming mental model: DisableProviderWorkloadIssuance.
+	RevokeWorkload(ctx context.Context, ref ProviderWorkloadReference) error
+}
+
 // FederatedWorkloadProvisioner is an optional provider capability for
 // no-static-secret projected workload assertions. It is intentionally separate
 // from WorkloadProvisioner so callers cannot accidentally downgrade a
@@ -323,3 +411,6 @@ type IdentityProvider interface {
 	WorkloadProvisioner
 	IdentityReconciler
 }
+
+// Silence unused import when only types are referenced from other packages.
+var _ = strings.TrimSpace

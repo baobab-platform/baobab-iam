@@ -7,6 +7,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // FixtureDiscovery returns a fixed set of SourceBindings for any batch ID.
@@ -17,7 +18,7 @@ type FixtureDiscovery struct {
 
 // ListSourceBindings implements DiscoveryPort.
 func (d FixtureDiscovery) ListSourceBindings(_ context.Context, batchID string) ([]SourceBinding, error) {
-	if batchID == "" {
+	if strings.TrimSpace(batchID) == "" {
 		return nil, fmt.Errorf("migration: batchID is required")
 	}
 	// Return a copy so callers cannot mutate the fixture slice header
@@ -36,18 +37,20 @@ type MapCanonicalResolver struct {
 
 // key builds the lookup key for a source binding.
 func (m MapCanonicalResolver) key(source ProviderBinding) string {
-	return source.Issuer + "\x00" + source.Subject
+	return strings.TrimSpace(source.Issuer) + "\x00" + strings.TrimSpace(source.Subject)
 }
 
 // ResolveCanonical implements CanonicalResolver.
 func (m MapCanonicalResolver) ResolveCanonical(_ context.Context, source ProviderBinding) (string, error) {
-	if source.Issuer == "" || source.Subject == "" {
+	issuer := strings.TrimSpace(source.Issuer)
+	subject := strings.TrimSpace(source.Subject)
+	if issuer == "" || subject == "" {
 		return "", fmt.Errorf("migration: issuer and subject are required for canonical resolve")
 	}
 	if m.Mapping == nil {
 		return "", ErrNoCanonicalMapping
 	}
-	id, ok := m.Mapping[m.key(source)]
+	id, ok := m.Mapping[m.key(ProviderBinding{Issuer: issuer, Subject: subject})]
 	if !ok || id == "" {
 		return "", ErrNoCanonicalMapping
 	}

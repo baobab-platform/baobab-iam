@@ -1,7 +1,7 @@
 # Gate IAM-M2 / M3 — Ory Foundation (Kratos + Hydra)
 
-**Status:** In progress (M2-A/B, M3-B; **M2/M3-C CheckReady + offline tests**; **M2/M3-D digests resolved**; live Compose evidence residual)  
-**Date:** 2026-09-30  
+**Status:** Complete for isolated non-production foundation — live M2/M3-C evidence recorded  
+**Date:** 2026-10-04  
 **Gate:** IAM-M2 (Kratos) / IAM-M3 (Hydra) — ADR-IAM-0019 §58 / §92; ADR-IAM-0021  
 **Depends on:** Gate IAM-M1 provider contracts on branch (may merge in parallel); **M0 rollback baseline** before any shared non-prod dual-run  
 **Primary repos:** `baobab-platform/baobab-iam`, `baobab-platform/infrastructure`  
@@ -19,7 +19,7 @@ After M2/M3:
 - Public vs administrative planes are distinct; admin APIs are not internet-facing.
 - Versions and image digests are pinned in `provider.lock.yaml`.
 - Local Compose overlay coexists with the existing Keycloak `docker-compose.yml`.
-- CI can optionally boot the Ory stack for adapter integration tests (follow-up).
+- CI boots the isolated Ory stack for live adapter integration tests.
 
 **Keycloak remains the production path until M18/M19.**
 
@@ -69,7 +69,7 @@ See prior revisions. Paths:
 - `config/ory/kratos/{kratos.yml,identity.schema.json}`
 - `config/ory/hydra/hydra.yml`
 
-### 4.5 Adapter smoke (M2/M3-C) — **code landed; live residual**
+### 4.5 Adapter smoke (M2/M3-C) — **live CI verified**
 
 | Path | Role |
 |------|------|
@@ -78,7 +78,7 @@ See prior revisions. Paths:
 | `internal/provider/ory/smoke_test.go` | Opt-in (`ORY_SMOKE=1`) CheckReady + ProviderInfo |
 | `docs/operations/ory-foundation-smoke.md` | Operator steps |
 
-Live green evidence still requires image pull + `docker compose up` on a machine with registry access. `Adapter.CheckReady` is covered offline with httptest; opt-in `ORY_SMOKE=1` calls CheckReady + ProviderInfo against the Compose stack.
+Live CI pulled the pinned images, migrated the isolated databases and passed readiness, adapter smoke, authorized human provisioning/lifecycle and real session revocation. See §10 for the tested commit and artifact.
 
 ### 4.6 Image digests (M2/M3-D) — resolved 2026-09-30
 
@@ -107,7 +107,7 @@ Architecture-specific digests (informational):
 | **M2-A** | Scope, lock, Compose overlay | Done |
 | **M2-B** | Kratos config + identity schema | Done |
 | **M3-B** | Hydra config + Compose `-c` | Done |
-| **M2/M3-C** | Smoke + CheckReady | **Code + offline tests done; live Compose residual** |
+| **M2/M3-C** | Smoke + CheckReady | **Live CI verified — see §10** |
 | **M2/M3-D** | Resolve image digests | **Done 2026-09-30** — pin corrected to published `v26.2.0`; multi-arch digests in `provider.lock.yaml` |
 
 ---
@@ -118,10 +118,10 @@ Architecture-specific digests (informational):
 2. [x] Digests resolved for published `v26.2.0` (multi-arch index). Production promotion still requires operator re-verify against the intended registry mirror.
 3. [x] Compose overlay defines separate Postgres databases for Kratos and Hydra.
 4. [x] Admin ports bound to localhost in Compose.
-5. [ ] Kratos and Hydra health/ready succeed locally (requires image pull) — **offline httptest coverage landed; live residual**.
-6. [ ] At least one adapter call against the stack succeeds (`ORY_SMOKE=1`) — **residual: no Docker in agent environment 2026-09-30**.
+5. [x] Kratos and Hydra health/ready succeed against the isolated CI stack — §10.
+6. [x] Adapter smoke and human provisioning/lifecycle succeed against real Kratos/Hydra — §10.
 7. [x] No production IssuerTrust or client redirect changes.
-8. [ ] This document marked Complete with evidence.
+8. [x] Non-production foundation completion recorded with live CI evidence — §10.
 
 ---
 
@@ -143,7 +143,7 @@ Architecture-specific digests (informational):
 - **IAM-M4** — Workload clients on Hydra (first runtime migration slice)
 - **IAM-M5** — Migration ledger + human identity path
 
-In-repo work that can still proceed without live Ory images: M1-D evidence when PR opens; M4 design notes only (no production client moves).
+Next: M4 live token exchange and consumer evidence. This foundation completion does not authorize production client moves.
 
 ---
 
@@ -157,3 +157,18 @@ In-repo work that can still proceed without live Ory images: M1-D evidence when 
 | 0.4 | 2026-09-27 | M2/M3-C smoke scaffold |
 | 0.5 | 2026-09-30 | **M2/M3-D:** `v26.3.17` not published; pin corrected to `v26.2.0` with multi-arch digests |
 | 0.6 | 2026-09-30 | **M2/M3-C code:** `CheckReady` + httptest tests; live Compose residual documented |
+
+
+## 10. M2/M3-C automated evidence follow-up
+
+The `Ory Foundation Live` workflow now runs the pinned Compose overlay on PRs.
+`tests/ory-foundation/run.sh` requires explicit PASS events for readiness smoke,
+authorized human migration/lifecycle, and effective real-session revocation.
+Startup is bounded, diagnostic evidence sanitized, and CI teardown unconditional.
+
+Verified at commit `c63e0ed08f1e7aa9a0d9d9d7b4d5e727f1dd28a8`:
+[Ory Foundation Live run 37157590467](https://github.com/baobab-platform/baobab-iam/actions/runs/37157590467)
+completed successfully, including all four required test PASS events, artifact upload,
+and container/volume teardown. Artifact: `ory-foundation-evidence` on that run.
+The later documentation commit records this evidence; it does not change tested runtime code.
+Production mirror verification and M4 token/resource-server evidence remain separate.

@@ -6,7 +6,11 @@ package migration
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 )
 
 // BatchRegisterRequest configures a non-production cohort registration.
@@ -20,10 +24,6 @@ type BatchRegisterRequest struct {
 	// OrphanClass is used when CanonicalResolver returns ErrNoCanonicalMapping.
 	// Defaults to ClassOrphanCandidate.
 	OrphanClass IdentityClass
-	// OrphanCanonicalPlaceholder is stored as CanonicalIdentityID for orphans
-	// so structural validation still requires a non-empty id without inventing
-	// a real Principal. Default: "orphan:pending-review".
-	OrphanCanonicalPlaceholder string
 }
 
 // BatchRegisterResult summarizes a RegisterBatch run.
@@ -42,6 +42,9 @@ type BatchRegisterResult struct {
 //
 // Idempotent per migration_id: if a row already exists, it is counted in
 // SkippedExists and left unchanged.
+//
+// Migration identity (ADR-IAM-0022): deterministic key includes issuer so that
+// issuer A / subject 123 and issuer B / subject 123 never collapse.
 func (s *Service) RegisterBatch(
 	ctx context.Context,
 	discovery DiscoveryPort,
@@ -57,26 +60,30 @@ func (s *Service) RegisterBatch(
 	if resolver == nil {
 		return nil, fmt.Errorf("migration: CanonicalResolver is required")
 	}
+	req.BatchID = strings.TrimSpace(req.BatchID)
 	if req.BatchID == "" {
 		return nil, fmt.Errorf("migration: BatchID is required")
 	}
 	if req.DefaultStrategy == "" {
 		req.DefaultStrategy = StrategyNoCredentialRequired
+	} else {
+		req.DefaultStrategy = CredentialStrategy(strings.TrimSpace(string(req.DefaultStrategy)))
 	}
 	if !req.DefaultStrategy.Valid() {
 		return nil, fmt.Errorf("migration: invalid DefaultStrategy %q", req.DefaultStrategy)
 	}
 	if req.DefaultClass == "" {
 		req.DefaultClass = ClassTestOrNonProd
+	} else {
+		req.DefaultClass = IdentityClass(strings.TrimSpace(string(req.DefaultClass)))
 	}
 	if !req.DefaultClass.Valid() {
 		return nil, fmt.Errorf("migration: invalid DefaultClass %q", req.DefaultClass)
 	}
 	if req.OrphanClass == "" {
 		req.OrphanClass = ClassOrphanCandidate
-	}
-	if req.OrphanCanonicalPlaceholder == "" {
-		req.OrphanCanonicalPlaceholder = "orphan:pending-review"
+	} else {
+		req.OrphanClass = IdentityClass(strings.TrimSpace(string(req.OrphanClass)))
 	}
 
 	bindings, err := discovery.ListSourceBindings(ctx, req.BatchID)
@@ -86,6 +93,9 @@ func (s *Service) RegisterBatch(
 
 	result := &BatchRegisterResult{BatchID: req.BatchID}
 	for i, b := range bindings {
+		b.Provider = strings.TrimSpace(b.Provider)
+		b.Issuer = strings.TrimSpace(b.Issuer)
+		b.Subject = strings.TrimSpace(b.Subject)
 		if b.Provider == "" || b.Issuer == "" || b.Subject == "" {
 			return nil, fmt.Errorf("migration: binding[%d] missing provider/issuer/subject", i)
 		}
@@ -94,13 +104,19 @@ func (s *Service) RegisterBatch(
 			Issuer:   b.Issuer,
 			Subject:  b.Subject,
 		}
-		// Deterministic id for greenfield: batch + provider + subject.
-		// Production runners may prefer UUIDs; this keeps tests stable.
-		migrationID := fmt.Sprintf("%s:%s:%s", req.BatchID, b.Provider, b.Subject)
+		// Deterministic id: batch + provider + issuer + subject (issuer required).
+		migrationID := BatchMigrationID(req.BatchID, source)
 
-		if _, err := s.Store.Get(ctx, migrationID); err == nil {
+		_, getErr := s.Store.Get(ctx, migrationID)
+		switch {
+		case getErr == nil:
 			result.SkippedExists++
 			continue
+		case errors.Is(getErr, ErrNotFound):
+			// proceed to register
+		default:
+			// Fail closed: timeouts, permission errors, etc. are not "missing".
+			return nil, fmt.Errorf("migration: store get %s: %w", migrationID, getErr)
 		}
 
 		canonicalID, resErr := resolver.ResolveCanonical(ctx, source)
@@ -114,7 +130,9 @@ func (s *Service) RegisterBatch(
 			if !isNoCanonical(resErr) {
 				return nil, fmt.Errorf("migration: resolve %s: %w", migrationID, resErr)
 			}
-			canonicalID = req.OrphanCanonicalPlaceholder
+			// ORPHAN_CANDIDATE: no authoritative CanonicalIdentity yet.
+			// Do not fabricate a placeholder id (ADR-IAM-0022).
+			canonicalID = ""
 			class = req.OrphanClass
 			result.Orphans++
 		}
@@ -145,6 +163,13 @@ func isNoCanonical(err error) bool {
 	if err == ErrNoCanonicalMapping {
 		return true
 	}
-	// string fallback for wrapped errors without requiring errors.Is on sentinel
-	return err.Error() == ErrNoCanonicalMapping.Error()
+	return errors.Is(err, ErrNoCanonicalMapping)
+}
+
+
+// BatchMigrationID hashes an unambiguous tuple; separators in issuers or subjects
+// cannot collapse distinct external identities. The ledger retains the source tuple.
+func BatchMigrationID(batchID string, source ProviderBinding) string {
+	encoded, _ := json.Marshal([4]string{batchID, source.Provider, source.Issuer, source.Subject})
+	return fmt.Sprintf("migration-v1-%x", sha256.Sum256(encoded))
 }

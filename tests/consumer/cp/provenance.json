@@ -1,0 +1,10 @@
+{
+  "repository": "baobab-platform/baobab-cp",
+  "commit": "20235ac2c4e1c0285e747a5a4b41c1eefb3a4dd7",
+  "files": {
+    "internal/auth/oidc.go": "741c8c9d7e17c16b592034085cdebf26cef9865f3ce8a8b0f30eaa22baefd162",
+    "go.mod": "7b459debbb3d8bbcda56ed7fc75f500af6496b13878d2e50a67472b8debb5556",
+    "go.sum": "97f140bfffba71a7bd8248b0b731800012e0ecd89961bb892cc7291666b54e1b",
+    "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  }
+}

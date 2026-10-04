@@ -2,7 +2,10 @@ package migration
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
 // IdentityClass classifies a migration row (ADR-IAM-0022 §12).
@@ -115,7 +118,8 @@ type Record struct {
 	MigrationBatchID string `json:"migration_batch_id,omitempty"`
 	// CanonicalIdentityID is the CP Principal / canonical id. It MUST come from
 	// an authoritative mapping, never from email equality alone.
-	CanonicalIdentityID string `json:"canonical_identity_id"`
+	// Empty is allowed only when IdentityClass is ORPHAN_CANDIDATE (unresolved).
+	CanonicalIdentityID string `json:"canonical_identity_id,omitempty"`
 
 	Source ProviderBinding `json:"source"`
 	Target ProviderBinding `json:"target"`
@@ -157,20 +161,24 @@ func (r *Record) ValidateStructural() error {
 	if r == nil {
 		return fmt.Errorf("migration: record is nil")
 	}
-	if r.MigrationID == "" {
+	if strings.TrimSpace(r.MigrationID) == "" {
 		return fmt.Errorf("migration: migration_id is required")
 	}
-	if r.CanonicalIdentityID == "" {
-		return fmt.Errorf("migration: canonical_identity_id is required (do not invent from email)")
+	// CanonicalIdentityID MUST come from an authoritative mapping (ADR-IAM-0022).
+	// ORPHAN_CANDIDATE is the only class allowed to have an empty value.
+	if strings.TrimSpace(r.CanonicalIdentityID) == "" {
+		if r.IdentityClass != ClassOrphanCandidate {
+			return fmt.Errorf("migration: canonical_identity_id is required (do not invent from email)")
+		}
 	}
-	if r.Source.Issuer == "" || r.Source.Subject == "" {
+	if strings.TrimSpace(r.Source.Issuer) == "" || strings.TrimSpace(r.Source.Subject) == "" {
 		return fmt.Errorf("migration: source issuer and subject are required")
 	}
-	if r.Source.Provider == "" {
+	if strings.TrimSpace(r.Source.Provider) == "" {
 		return fmt.Errorf("migration: source provider is required")
 	}
 	if !targetOptional(r.MigrationState) {
-		if r.Target.Issuer == "" || r.Target.Subject == "" {
+		if strings.TrimSpace(r.Target.Issuer) == "" || strings.TrimSpace(r.Target.Subject) == "" {
 			return fmt.Errorf("migration: target issuer and subject required in state %s", r.MigrationState)
 		}
 	}
@@ -196,7 +204,7 @@ func (r *Record) ValidateStructural() error {
 // pilot/memory stores; durable schemas must also omit secret columns.
 func checkForbiddenLedgerStrings(values ...string) error {
 	for _, v := range values {
-		lower := toLowerASCII(v)
+		lower := toLowerASCII(strings.TrimSpace(v))
 		for _, bad := range forbiddenLedgerSubstrings {
 			if containsASCII(lower, bad) {
 				return fmt.Errorf("migration: field must not contain sensitive material marker %q (ADR-0022 §9)", bad)
@@ -204,6 +212,13 @@ func checkForbiddenLedgerStrings(values ...string) error {
 		}
 	}
 	return nil
+}
+
+// NormalizeAllowedScopes delegates to provider.NormalizeAllowedScopes so the
+// migration package cannot drift from Shared's canonical vocabulary
+// (context:resolve is canonical; context-resolve is accepted as an alias).
+func NormalizeAllowedScopes(scopes []string) []string {
+	return provider.NormalizeAllowedScopes(scopes)
 }
 
 // forbiddenLedgerSubstrings are case-insensitive markers. Prefer structured

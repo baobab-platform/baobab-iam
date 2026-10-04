@@ -83,7 +83,19 @@ func (r *Record) Transition(to MigrationState) error {
 	if !CanTransition(r.MigrationState, to) {
 		return fmt.Errorf("migration: illegal transition %s → %s", r.MigrationState, to)
 	}
+	if r.IdentityClass == ClassOrphanCandidate || r.CanonicalIdentityID == "" {
+		switch to {
+		case StateBlocked, StateFailedManualReview, StateQuarantined:
+		default:
+			return fmt.Errorf("migration: unresolved orphan cannot advance into execution")
+		}
+	}
+	previous := r.MigrationState
 	r.MigrationState = to
+	if err := r.ValidateStructural(); err != nil {
+		r.MigrationState = previous
+		return err
+	}
 	switch to {
 	case StateProvisioning, StateCredentialPending, StateVerificationPending, StateCutover:
 		r.AttemptCount++

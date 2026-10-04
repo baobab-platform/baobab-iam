@@ -4,6 +4,28 @@
 
 ---
 
+## Provider migration status
+
+Keycloak remains the legacy configured runtime. Ory Kratos (human identities and sessions)
+and Hydra (OAuth and workloads) are the migration target under Accepted ADR-IAM-0019–0032.
+Provider-neutral interfaces preserve CP canonical identity and Shared capability/lifecycle authority.
+The Keycloak Go adapter remains a partial compatibility skeleton; its unsupported methods
+must not be mistaken for the capabilities of the separately configured Keycloak runtime.
+Production dual-run, cutover, canonical workload activation, and retirement remain blocked
+until their separate evidence gates are satisfied. Unit and mock conformance tests do not
+establish live provider interoperability or resource-server token acceptance.
+
+Human migration requires an authorized `HumanTraitsSource` keyed by the exact source
+binding and opaque snapshot reference. Missing traits fail closed; neither synthetic
+mailboxes nor snapshot strings supply login identifiers. Email never resolves canonical identity.
+Credential import remains unverified until pinned-version login fixtures pass.
+
+The capability matrix is validated against the exact Shared catalogue pin in
+`contracts.lock.yaml`; regenerate its Markdown with
+`python3 scripts/iam_capability_matrix.py --write` (PyYAML 6.0.3).
+For a local Shared checkout, set `SHARED_REPO_DIR`; private remote reads require a
+read token in `GH_TOKEN`. CI may supply `SHARED_READ_TOKEN` for cross-repository access.
+
 ## Status
 
 - **Architecture:** [ADR-0001 through ADR-0018](./docs/adr/README.md)
@@ -18,8 +40,8 @@
   [Gate IAM-4 scope](./docs/governance/gate-iam-4-workload-identity-scope.md). Gate IAM-5
   (workforce SSO, ADR-0009) phase 1 (distinct workforce admin clients, a starter role
   namespace, a real `baobab-cp` admin-authorization defect fixed), phase 2a
-  (`baobab-trade` OIDC wiring, `nabhold/baobab-trade#70`), and phase 2b (`baobab-cms` OIDC
-  wiring, `nabhold/baobab-cms#9` — real PKCE/state/nonce/ID-token verification against
+  (`baobab-trade` OIDC wiring, `baobab-platform/baobab-trade#70`), and phase 2b (`baobab-cms` OIDC
+  wiring, `baobab-platform/baobab-cms#9` — real PKCE/state/nonce/ID-token verification against
   `openid-client`, since Payload ships no OIDC plugin; two review-caught bugs, a missing
   password on JIT provisioning and a missing database migration, were fixed and verified
   against a real local Postgres instance before merge) are all complete — see
@@ -39,7 +61,7 @@
   IAM-9 (Medusa Integration, ADR-0013) found most of its scope already satisfied by Gate
   IAM-5's admin OIDC wiring, plus one real gap fixed — `authMethodsPerActor` was unset,
   making the admin `oidc` provider also implicitly reachable by the customer actor
-  (`nabhold/baobab-trade#71`) — see
+  (`baobab-platform/baobab-trade#71`) — see
   [Gate IAM-9 scope](./docs/governance/gate-iam-9-medusa-integration-scope.md). Gate IAM-10
   (ERP Integration, ADR-0014) found iDempiere 13 ships a real, pluggable, built-in OIDC
   mechanism (`org.idempiere.ui.sso.oidc`) — a workforce SSO client (`baobab-erp-admin`) is
@@ -128,6 +150,13 @@
   (ADR-BCP-020). They only make the Control Plane routes callable and confer no authority;
   `administrator:write` and `administrator:approve` are privileged and are never attached to a workload or other client; `administrator:approve` lets a checker decide a grant change but is not approval authority (the Control Plane also requires `changeset:approve` and enforces separation of duties).
 
+## Capability baseline
+
+The migration baseline and provider-neutral capability map are documented in:
+
+- [docs/governance/iam-capability-matrix.md](./docs/governance/iam-capability-matrix.md)
+- [.baobab/iam-capability-matrix.yaml](./.baobab/iam-capability-matrix.yaml)
+
 ## What this repository is
 
 `baobab-iam` runs **Keycloak** as the authentication runtime. It owns:
@@ -152,10 +181,10 @@ It does **not** own:
 | Repository | Relationship |
 |------------|--------------|
 | `baobab-platform/shared` | Consumes canonical identity, scope, and event contracts. |
-| `nabhold/baobab-cp` | Validates tokens from this service and resolves canonical identity/context. |
-| `nabhold/baobab-trade` | Authenticates buyers, customers, and administrators via this service. |
-| `nabhold/baobab-erp` | Uses OIDC SSO for workforce and integration identities. |
-| `nabhold/infrastructure` | Provides production runtime, database, and network. |
+| `baobab-platform/baobab-cp` | Validates tokens from this service and resolves canonical identity/context. |
+| `baobab-platform/baobab-trade` | Authenticates buyers, customers, and administrators via this service. |
+| `baobab-platform/baobab-erp` | Uses OIDC SSO for workforce and integration identities. |
+| `baobab-platform/infrastructure` | Provides production runtime, database, and network. |
 
 ---
 
@@ -176,7 +205,7 @@ It does **not** own:
 Clone the repository and start the local development stack:
 
 ```bash
-git clone git@github.com:nabhold/baobab-iam.git
+git clone git@github.com:baobab-platform/baobab-iam.git
 cd baobab-iam
 cp .env.example .env
 make dev-up

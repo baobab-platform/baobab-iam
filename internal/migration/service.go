@@ -2,7 +2,9 @@ package migration
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -24,6 +26,7 @@ func (s *Service) now() time.Time {
 }
 
 // Register creates a new DISCOVERED row after structural validation.
+// Store errors other than ErrNotFound fail closed (not treated as "absent").
 func (s *Service) Register(ctx context.Context, r *Record) error {
 	if s == nil || s.Store == nil {
 		return fmt.Errorf("migration: service or store is nil")
@@ -37,8 +40,14 @@ func (s *Service) Register(ctx context.Context, r *Record) error {
 	if err := r.ValidateStructural(); err != nil {
 		return err
 	}
-	if _, err := s.Store.Get(ctx, r.MigrationID); err == nil {
+	_, err := s.Store.Get(ctx, r.MigrationID)
+	switch {
+	case err == nil:
 		return fmt.Errorf("migration: migration_id %q already exists", r.MigrationID)
+	case errors.Is(err, ErrNotFound):
+		// proceed
+	default:
+		return fmt.Errorf("migration: store get %s: %w", r.MigrationID, err)
 	}
 	return s.Store.Put(ctx, r)
 }
@@ -90,6 +99,9 @@ func (s *Service) SetTargetBinding(ctx context.Context, migrationID string, targ
 	if s == nil || s.Store == nil {
 		return nil, fmt.Errorf("migration: service or store is nil")
 	}
+	target.Provider = strings.TrimSpace(target.Provider)
+	target.Issuer = strings.TrimSpace(target.Issuer)
+	target.Subject = strings.TrimSpace(target.Subject)
 	if target.Issuer == "" || target.Subject == "" || target.Provider == "" {
 		return nil, fmt.Errorf("migration: target provider, issuer, and subject are required")
 	}

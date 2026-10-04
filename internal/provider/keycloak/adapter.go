@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
@@ -80,9 +81,9 @@ func (a *Adapter) ProviderInfo(ctx context.Context) (provider.ProviderInfo, erro
 		Version: "", // optionally probe server info
 		Capabilities: provider.ProviderCapabilities{
 			Provider:          "keycloak",
-			HumanIdentity:     true,
-			SessionRevocation: true,
-			WorkloadIdentity:  true,
+			HumanIdentity:     false, // adapter methods are ErrUnsupported stubs
+			SessionRevocation: false,
+			WorkloadIdentity:  false,
 			PasswordImport:    false, // dual-run does not re-import into Keycloak
 			TOTPImport:        false,
 			PasskeyImport:     false,
@@ -160,6 +161,18 @@ func (a *Adapter) RotateWorkloadCredentials(ctx context.Context, ref provider.Pr
 }
 
 // ---------------------------------------------------------------------------
+// WorkloadLifecycleManager (stubs during dual-run; Ory is the target path)
+// ---------------------------------------------------------------------------
+
+func (a *Adapter) SuspendWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
+	return provider.NewUnsupported("keycloak", "SuspendWorkload")
+}
+
+func (a *Adapter) RevokeWorkload(ctx context.Context, ref provider.ProviderWorkloadReference) error {
+	return provider.NewUnsupported("keycloak", "RevokeWorkload")
+}
+
+// ---------------------------------------------------------------------------
 // IdentityReconciler
 // ---------------------------------------------------------------------------
 
@@ -175,17 +188,19 @@ func (a *Adapter) ReconcileIdentity(ctx context.Context, subject provider.Extern
 // ---------------------------------------------------------------------------
 
 func (a *Adapter) requireIssuer(subject provider.ExternalSubject) error {
-	if subject.Issuer == "" || subject.Subject == "" {
+	issuer := strings.TrimSpace(subject.Issuer)
+	subjectID := strings.TrimSpace(subject.Subject)
+	if issuer == "" || subjectID == "" {
 		return &provider.ProviderError{
 			Kind:     provider.ErrInvalidArgument,
 			Message:  "issuer and subject are required",
 			Provider: "keycloak",
 		}
 	}
-	if subject.Issuer != a.cfg.PublicIssuer {
+	if issuer != a.cfg.PublicIssuer {
 		return &provider.ProviderError{
 			Kind:     provider.ErrInvalidArgument,
-			Message:  fmt.Sprintf("issuer mismatch: got %q, want %q", subject.Issuer, a.cfg.PublicIssuer),
+			Message:  fmt.Sprintf("issuer mismatch: got %q, want %q", issuer, a.cfg.PublicIssuer),
 			Provider: "keycloak",
 		}
 	}
@@ -195,3 +210,5 @@ func (a *Adapter) requireIssuer(subject provider.ExternalSubject) error {
 // Compile-time assertion that Adapter implements the full IdentityProvider.
 // Methods that return ErrUnsupported still satisfy the interface.
 var _ provider.IdentityProvider = (*Adapter)(nil)
+
+var _ provider.WorkloadLifecycleManager = (*Adapter)(nil)
