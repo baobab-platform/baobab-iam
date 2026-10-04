@@ -130,44 +130,53 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 				return
 			}
 			out = value
-		case "/internal/federation/v1/reference", "/internal/federation/v1/target":
+		case "/internal/federation/v1/reference":
 			var req ReferenceExpectation
 			if decodeAuthority(data, &req) != nil || !validExpectation(req) {
 				fail(ErrInvalid)
 				return
 			}
-			action := "REFERENCE_READ"
-			if r.URL.Path == "/internal/federation/v1/target" {
-				action = "TARGET_READ"
-			}
-			ctx, err := authorize(action, req)
+			ctx, err := authorize("REFERENCE_READ", req)
 			if err != nil {
 				fail(err)
 				return
 			}
-			if action == "REFERENCE_READ" {
-				if absent(s.Governance) {
-					fail(ErrUnsupported)
-					return
-				}
-				value, err := s.Governance.Reference(ctx, req)
-				if err != nil {
-					fail(err)
-					return
-				}
-				out = value
-			} else {
-				if absent(s.Targets) {
-					fail(ErrUnsupported)
-					return
-				}
-				value, err := s.Targets.ResolveApprovedTarget(ctx, req)
-				if err != nil {
-					fail(err)
-					return
-				}
-				out = struct{ Digest string }{value}
+			if absent(s.Governance) {
+				fail(ErrUnsupported)
+				return
 			}
+			value, err := s.Governance.Reference(ctx, req)
+			if err != nil {
+				fail(err)
+				return
+			}
+			out = value
+		case "/internal/federation/v1/target":
+			var wire referenceExpectationWire
+			if decodeAuthority(data, &wire) != nil {
+				fail(ErrInvalid)
+				return
+			}
+			req := wire.expectation()
+			if !validExpectation(req) {
+				fail(ErrInvalid)
+				return
+			}
+			ctx, err := authorize("TARGET_READ", req)
+			if err != nil {
+				fail(err)
+				return
+			}
+			if absent(s.Targets) {
+				fail(ErrUnsupported)
+				return
+			}
+			value, err := s.Targets.ResolveApprovedTarget(ctx, req)
+			if err != nil {
+				fail(err)
+				return
+			}
+			out = digestWire{Digest: value}
 		case "/internal/federation/v1/binding":
 			var req platformBindingWire
 			if decodeAuthority(data, &req) != nil {
@@ -216,15 +225,17 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 			}
 			out = value
 		case "/internal/federation/v1/approval-authority":
-			var req struct {
-				Action string
-				Target ReferenceExpectation
-			}
-			if decodeAuthority(data, &req) != nil || !validExpectation(req.Target) || req.Action != "PROPOSE" && req.Action != "DECIDE" && req.Action != "REVOKE" {
+			var req approvalAuthorityWire
+			if decodeAuthority(data, &req) != nil {
 				fail(ErrInvalid)
 				return
 			}
-			ctx, err := authorize("APPROVAL_"+req.Action, req.Target)
+			target := req.Target.expectation()
+			if !validExpectation(target) || req.Action != "PROPOSE" && req.Action != "DECIDE" && req.Action != "REVOKE" {
+				fail(ErrInvalid)
+				return
+			}
+			ctx, err := authorize("APPROVAL_"+req.Action, target)
 			if err != nil {
 				fail(err)
 				return
@@ -233,12 +244,12 @@ func NewAuthorityHandler(s AuthoritySources) (http.Handler, error) {
 				fail(ErrUnsupported)
 				return
 			}
-			value, err := s.Approvals.AuthorizeApproval(ctx, req.Action, req.Target)
+			value, err := s.Approvals.AuthorizeApproval(ctx, req.Action, target)
 			if err != nil {
 				fail(err)
 				return
 			}
-			out = value
+			out = approvalActorWire{PrincipalID: value.PrincipalID, ValidUntil: value.ValidUntil}
 		case "/internal/federation/v1/approvals/propose":
 			var req struct {
 				ID      string
