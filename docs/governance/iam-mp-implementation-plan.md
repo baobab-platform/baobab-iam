@@ -1,6 +1,6 @@
 # ADR-IAM-0033 implementation plan
 
-**Status:** Sequenced implementation plan; repository MP0/MP1 reconciliation merged in IAM #64. MP2 contracts and consumption foundations merged; live-runtime plumbing remains draft #66.
+**Status:** Sequenced implementation plan; repository MP0/MP1 reconciliation merged in IAM #64. MP2 contracts and consumption foundations merged; live-runtime plumbing merged in #66; review corrections tracked in #68.
 No runtime reduction, cutover or production acceptance is authorised by this plan.
 **Date:** 2026-10-04.
 **Authority:** Accepted ADR-IAM-0033, preserving the security and canonical-authority
@@ -25,8 +25,8 @@ heads. The following merged evidence supersedes its implementation-gap claims
 | Current-CP Hydra route proof | IAM #63 merged at `3be4d69e` | Fixture proof; not deployed resource acceptance or canonical activation |
 | MP2-A/B contracts | Shared #213 and #214 merged; contract pin `b10388460c23ac6d7d99bb8a22e2ee4821ad22f6` | Published contracts; not live support or trust activation |
 | MP2-C canonical reader | CP #257 merged | Atomic existing human mapping reader; authenticated source integration remains open |
-| MP2-C consumption | IAM #65 merged; IAM main `ccb3852d76b26fef94b1f280f0ea021363808d23` | Consumer boundary, without production authority composition |
-| MP2-C executable plumbing | IAM #66 open draft at `69e1dc6f2534eec15d134c8d64e1117896782567` | Authenticated transport, durable approvals and actual OIDC verification; no mounted live sources, SAML conformance or multi-replica acceptance |
+| MP2-C consumption | IAM #65 merged; IAM #65 baseline `ccb3852d76b26fef94b1f280f0ea021363808d23` | Consumer boundary, without production authority composition |
+| MP2-C executable plumbing | IAM #66 merged at `e4e3cbef7ff7f5ec5379cc456892ae57660417bf`; review follow-ups in #68 | Authenticated transport, durable approvals and actual OIDC verification; no mounted live sources, SAML conformance or multi-replica acceptance |
 
 MP3 registry, MP4 dispatch and MP8 enterprise federation execution remain open.
 Green CI on #66 is construction evidence, not production consumption evidence.
