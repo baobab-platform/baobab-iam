@@ -26,7 +26,21 @@ profiles['bindings'] = {name: {'issuer': 'https://projected.m4-ci.invalid/' + na
                         if profile['credential_type'] == 'federated_workload_token'}
 profiles = build(profiles['shared_commit'], {'workloads': profiles['workloads']},
                  list(profiles['workloads']), profiles['bindings'])
+# CI-only profiles are not Shared allocations. Keep the canonical projection
+# and its evidence unchanged; add these only to the disposable hook input.
+for name, scope, audiences in (
+    ('m4-ci-validator', 'context:validate', ['baobab-control-plane']),
+    ('m4-ci-no-scope', 'context:resolve', ['baobab-control-plane']),
+    ('m4-ci-unregistered', 'context:validate', ['baobab-control-plane']),
+    ('m4-ci-subject', 'context:resolve', ['baobab-erp', 'baobab-control-plane']),
+):
+    if name in profiles['workloads']:
+        raise SystemExit('CI fixture collides with canonical workload')
+    profiles['workloads'][name] = {
+        'credential_type': 'client_credentials', 'status': 'PROVISIONED',
+        'allowed_scopes': [scope], 'allowed_audiences': audiences}
 (root / 'profiles.json').write_text(json.dumps(profiles))
+(root / 'profiles.json').chmod(0o600)
 config = yaml.safe_load(Path('config/ory/hydra/hydra.yml').read_text())
 config['ttl'] = {'access_token': '15m'}
 config['strategies']['jwt'] = {'scope_claim': 'string'}
@@ -63,12 +77,19 @@ done
 # Compile the unchanged CP verifier snapshot with its exact dependency lock.
 python3 tests/consumer/verify_snapshot.py
 (cd tests/consumer/cp && go build -mod=readonly -o "$task_dir/cp-consumer-probe" .)
+python3 tests/consumer/verify_current.py .cp-consumer-source
+mkdir .cp-consumer-source/cmd/iam-m4-route
+cp tests/consumer/current/main.go .cp-consumer-source/cmd/iam-m4-route/main.go
+(cd .cp-consumer-source && go build -mod=readonly -o "$task_dir/cp-route-probe" ./cmd/iam-m4-route)
+# CP's own route tests also retain the provider-neutral opaque-token contract.
+(cd .cp-consumer-source && go test -mod=readonly ./internal/auth ./api)
+export ORY_CP_ROUTE_PROBE="$task_dir/cp-route-probe"
 export ORY_CP_CONSUMER_PROBE="$task_dir/cp-consumer-probe"
 export ORY_WORKLOAD=1 ORY_TOKEN_PROFILE=1
 export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434 ORY_HYDRA_ADMIN_URL=http://127.0.0.1:4445 ORY_PUBLIC_ISSUER=http://127.0.0.1:4444
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence/token-profile"
-go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials|TestLiveTokenProfileFederatedAudienceBlocked|TestLiveCPConsumerVerifier)$' -count=1 | tee ory-foundation-evidence/token-profile/tests.jsonl
+go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials|TestLiveTokenProfileFederatedAudienceBlocked|TestLiveCPConsumerVerifier|TestLiveCPContextRoute)$' -count=1 | tee ory-foundation-evidence/token-profile/tests.jsonl
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -95,8 +116,27 @@ if not proof['logical_audience_matches'] or not proof['actor_type_is_workload']:
     raise SystemExit('Governed signed workload profile not proven')
 if proof['canonical_activation_proven'] or proof['actual_consumer_tested']:
     raise SystemExit('Provider token profile cannot establish canonical activation')
+route = json.loads((root / 'cp-context-route.json').read_text())
+expected_cases = {
+    'accept-context-without-tenant-claim', 'accept-refreshed-subject',
+    'reject-wrong-subject-audience', 'reject-tampered-subject',
+    'reject-expired-subject', 'reject-missing-validator',
+    'reject-validator-without-scope', 'reject-unregistered-validator',
+    'reject-revoked-validator', 'reject-other-owner', 'reject-validator-owner',
+    'reject-unknown-context', 'reject-expired-context', 'reject-unbounded-context',
+    'reject-revoked-external-link', 'reject-suspended-tenant'}
+for name in expected_cases:
+    if not any(e.get('Test') == 'TestLiveCPContextRoute/' + name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit(f'{name}: missing current route PASS evidence')
+if (route['consumer_commit'] != 'c84063cb07dce76e1ffac4b12fa29c5e4e5ec855'
+        or set(route['scenarios']) != expected_cases
+        or not route['actual_protected_route_tested_in_fixture']
+        or not route['fixture_only'] or not route['credentials_absent']
+        or route['deployed_resource_route_tested'] or route['canonical_activation_proven']):
+    raise SystemExit('Current route proof is incomplete or exceeds fixture scope')
 consumer = json.loads((root / 'cp-consumer-verifier.json').read_text())
 if not consumer['actual_consumer_verifier_tested'] or consumer['deployed_resource_route_tested'] or consumer['canonical_activation_proven']:
     raise SystemExit('Consumer verifier proof must not claim route acceptance or activation')
 print('M4-C governed token profile verified; pinned M4-F audience mismatch fails closed')
 PY
+

@@ -21,8 +21,8 @@ jobs:
           cache: true
       - name: Check M4 Go formatting
         run: |
-          if [ -n "$(gofmt -l internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go)" ]; then
-            gofmt -d internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go
+          if [ -n "$(gofmt -l internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go tests/consumer/current/main.go internal/provider/ory/context_route_live_test.go)" ]; then
+            gofmt -d internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go tests/consumer/current/main.go internal/provider/ory/context_route_live_test.go
             exit 1
           fi
       - name: Install pin validator dependency
@@ -33,6 +33,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
         run: bash tests/ory-foundation/run.sh
+      - name: Check out immutable CP consumer source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: baobab-platform/baobab-cp
+          ref: c84063cb07dce76e1ffac4b12fa29c5e4e5ec855
+          path: .cp-consumer-source
+          token: ${{ secrets.SHARED_READ_TOKEN || github.token }}
+          persist-credentials: false
       - name: Verify governed workload claims and audience boundaries
         run: bash tests/ory-foundation/token_profile.sh
       - name: Collect sanitized runtime evidence
@@ -55,3 +63,4 @@ jobs:
           path: ory-foundation-evidence/
           retention-days: 30
           if-no-files-found: error
+

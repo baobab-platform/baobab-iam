@@ -238,3 +238,25 @@ Live CI now exercises readiness, human lifecycle/session revocation, client crea
 | 0.2 | 2026-09-30 | Image pin corrected to published v26.2.0; digests recorded |
 
 | 0.3 | 2026-10-03 | Added live M4 runner and profile blockers; corrected secret handoff and client_secret_post; removed disabled all-primary instructions |
+
+
+## Bounded current-CP route evidence
+
+The current M4 runner also checks out CP at immutable commit
+`c84063cb07dce76e1ffac4b12fa29c5e4e5ec855` (after #255), verifies clean source,
+and compiles a test-only command against its unchanged production router.
+It exercises `POST /v1/platform-context/validate` using genuine isolated Hydra
+validator and subject tokens, registered audience checks, canonical caller
+ownership, bounded contexts and active-tenant enforcement. Sixteen required
+positive/negative scenarios and response/audit credential checks must pass.
+See [consumer proof details](../../tests/consumer/README.md).
+
+This produces `token-profile/cp-context-route.json`. The existing #60 verifier
+artifact remains historical compatibility evidence at its own earlier pin.
+The new artifact explicitly records fixture-only HTTP route execution,
+`deployed_resource_route_tested=false` and `canonical_activation_proven=false`.
+CI-only `m4-ci-*` profiles and registrations do not allocate production scopes
+or validator audiences. Production databases, deployments and real registered
+consumer acceptance remain unproven; EA-04 remains ADVANCED. The M4-F RFC 7523
+resource-audience blocker, PROVISIONED workloads, dual-issuer rollout, cutover
+and retirement gates are unchanged.
