@@ -277,3 +277,24 @@ func TestTrustCommandsUsePrivateTransport(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestTrustConcurrentReadCannotEscapeContainment(t *testing.T) {
+	l, a, s, w, _ := trustSetup(t)
+	defer l.Close()
+	ctx := context.Background()
+	for i, status := range []string{"REQUESTED", "CONFIGURING", "VERIFYING", "ACTIVE"} {
+		if i > 0 {
+			advanceTrust(&s, &w, status, a.clock)
+		}
+		trustCommit(t, l, a, s, w, i+1)
+	}
+	a.references.mutateReceipt = func(_ *ApprovedReference) {
+		a.references.mutateReceipt = nil
+		if err := l.Contain(ctx, s.Trust.ID, s.ApprovedRevision, "REVOKED"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := l.Trust(ctx, s.Trust.ID); err == nil {
+		t.Fatal("concurrent revocation escaped recheck")
+	}
+}
