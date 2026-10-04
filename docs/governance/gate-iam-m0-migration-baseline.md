@@ -181,7 +181,7 @@ and MP20 operational acceptance.
 | IAM-11 Credentials/MFA | Phase 1; passkeys/step-up open | **IAM-M12** + ADR-0024 |
 | IAM-12 Lifecycle | Phase 1; event SPI fork open | **IAM-M13** |
 | IAM-13 Audit | Phase 1 | **IAM-M14** |
-| IAM-14 DR | Phase 1; theme/R-1/open | **IAM-M15** |
+| IAM-14 DR | Phase 1; theme/restore proof open, image pin resolved | **MP16** |
 | IAM-15 Multi-region | Phase A OK | **IAM-M16** + ADR-0027 |
 | IAM-16 Hardening | Phase 1 | **IAM-M17** |
 
