@@ -46,25 +46,25 @@ func (c *LiveConsumer) Close() error {
 }
 
 func (a *HTTPAuthority) AuthorizeApproval(ctx context.Context, action string, want ReferenceExpectation) (ApprovalActor, error) {
-	var out ApprovalActor
+	var out approvalActorWire
 	if !validExpectation(want) || action != "PROPOSE" && action != "DECIDE" && action != "REVOKE" {
-		return out, ErrInvalid
+		return ApprovalActor{}, ErrInvalid
 	}
-	err := a.call(ctx, "/internal/federation/v1/approval-authority", struct {
-		Action string
-		Target ReferenceExpectation
-	}{action, want}, &out)
+	err := a.call(ctx, "/internal/federation/v1/approval-authority", approvalAuthorityWire{
+		Action: action,
+		Target: newReferenceExpectationWire(want),
+	}, &out)
 	if err != nil {
 		return ApprovalActor{}, err
 	}
-	return out, nil
+	return ApprovalActor{PrincipalID: out.PrincipalID, ValidUntil: out.ValidUntil}, nil
 }
 func (a *HTTPAuthority) ResolveApprovedTarget(ctx context.Context, want ReferenceExpectation) (string, error) {
-	var out struct{ Digest string }
+	var out digestWire
 	if !validExpectation(want) {
 		return "", ErrInvalid
 	}
-	err := a.call(ctx, "/internal/federation/v1/target", want, &out)
+	err := a.call(ctx, "/internal/federation/v1/target", newReferenceExpectationWire(want), &out)
 	if err != nil {
 		return "", err
 	}
