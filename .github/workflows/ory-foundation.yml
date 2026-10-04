@@ -21,12 +21,10 @@ jobs:
           cache: true
       - name: Check M4 Go formatting
         run: |
-          if [ -n "$(gofmt -l internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go)" ]; then
-            gofmt -d internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go
+          if [ -n "$(gofmt -l internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go)" ]; then
+            gofmt -d internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go
             exit 1
           fi
-      - name: Report consumer harness formatting
-        run: gofmt -d internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go
       - name: Install pin validator dependency
         run: python3 -m pip install PyYAML==6.0.3
       - name: Verify governed Shared projection builder

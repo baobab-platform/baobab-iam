@@ -25,7 +25,7 @@ requires PASS evidence for all six consumer scenarios:
   JWKS origin;
 - valid identity lacks an ungranted required scope (`HasScope` returns false);
 - tampered signed content rejected;
-- genuine one-second Hydra token rejected after expiry.
+- genuine five-second Hydra token rejected after expiry.
 
 The expiry fixture updates only the disposable client's native token lifetime.
 It neither rewrites a signed token nor changes CP's clock or verifier rules.
