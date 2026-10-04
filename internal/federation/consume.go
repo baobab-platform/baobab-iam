@@ -78,8 +78,8 @@ func minimum(values ...time.Time) time.Time {
 // invokes a configured verifier instead of trusting caller-supplied evidence.
 // A successful result proves this bounded identity/assurance consumption only;
 // it is not estate admission, business authorization, workload activation or
-// automatic provider selection. Authority adapters must implement live approval
-// and revocation semantics before wiring this into an authentication route.
+// automatic provider selection. Private authority sources must implement live
+// approval/revocation semantics before wiring this into a public login route.
 func (c *Consumer) Consume(ctx context.Context, trustID, eventID string) (Decision, error) {
 	deny := func(err error) (Decision, error) { return Decision{}, err }
 	if c == nil || c.policy.Now == nil || absent(c.authorities.Governance) || absent(c.authorities.Platform) || absent(c.authorities.Events) || absent(c.authorities.Canonical) || ctx == nil || !uuidPattern.MatchString(trustID) || !uuidPattern.MatchString(eventID) {

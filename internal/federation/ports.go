@@ -88,8 +88,9 @@ type CanonicalAuthority interface {
 }
 
 // Authorities are supplied only by the trusted composition root. There is no
-// permissive/default implementation, fixture-backed production authority, HTTP
-// endpoint, or concrete provider auto-selection in this increment.
+// permissive/default implementation, fixture-backed production authority or
+// concrete provider auto-selection. NewLive wires authenticated private reads
+// and a persistent OIDC verifier; deployment must supply real authority sources.
 type Authorities struct {
 	Governance GovernanceAuthority
 	Platform   PlatformAuthority
