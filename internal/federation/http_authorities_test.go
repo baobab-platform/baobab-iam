@@ -146,7 +146,6 @@ func TestHTTPAuthorityFederationBindingUsesSnakeCaseWire(t *testing.T) {
 	}
 }
 
-
 func TestHTTPAuthorityCPApprovalSourceWireUsesSnakeCase(t *testing.T) {
 	_, facts := setup(t, "oidc")
 	want := ReferenceExpectation{
