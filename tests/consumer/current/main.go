@@ -1,3 +1,5 @@
+//go:build iam_m4_route
+
 // Test-only harness compiled inside an unchanged, immutable CP checkout.
 package main
 

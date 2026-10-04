@@ -80,7 +80,7 @@ python3 tests/consumer/verify_snapshot.py
 python3 tests/consumer/verify_current.py .cp-consumer-source
 mkdir .cp-consumer-source/cmd/iam-m4-route
 cp tests/consumer/current/main.go .cp-consumer-source/cmd/iam-m4-route/main.go
-(cd .cp-consumer-source && go build -mod=readonly -o "$task_dir/cp-route-probe" ./cmd/iam-m4-route)
+(cd .cp-consumer-source && go build -mod=readonly -tags iam_m4_route -o "$task_dir/cp-route-probe" ./cmd/iam-m4-route)
 # CP's own route tests also retain the provider-neutral opaque-token contract.
 (cd .cp-consumer-source && go test -mod=readonly ./internal/auth ./api)
 export ORY_CP_ROUTE_PROBE="$task_dir/cp-route-probe"
@@ -139,4 +139,3 @@ if not consumer['actual_consumer_verifier_tested'] or consumer['deployed_resourc
     raise SystemExit('Consumer verifier proof must not claim route acceptance or activation')
 print('M4-C governed token profile verified; pinned M4-F audience mismatch fails closed')
 PY
-
