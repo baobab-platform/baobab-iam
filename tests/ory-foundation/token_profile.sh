@@ -60,11 +60,15 @@ for attempt in $(seq 1 30); do
   sleep 2
 done
 [ "$ready" = 1 ]
+# Compile the unchanged CP verifier snapshot with its exact dependency lock.
+python3 tests/consumer/verify_snapshot.py
+(cd tests/consumer/cp && go build -mod=readonly -o "$task_dir/cp-consumer-probe" .)
+export ORY_CP_CONSUMER_PROBE="$task_dir/cp-consumer-probe"
 export ORY_WORKLOAD=1 ORY_TOKEN_PROFILE=1
 export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434 ORY_HYDRA_ADMIN_URL=http://127.0.0.1:4445 ORY_PUBLIC_ISSUER=http://127.0.0.1:4444
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence/token-profile"
-go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials|TestLiveTokenProfileFederatedAudienceBlocked)$' -count=1 | tee ory-foundation-evidence/token-profile/tests.jsonl
+go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials|TestLiveTokenProfileFederatedAudienceBlocked|TestLiveCPConsumerVerifier)$' -count=1 | tee ory-foundation-evidence/token-profile/tests.jsonl
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -75,7 +79,14 @@ required = ('TestLiveWorkloadClientCredentials',
             'TestLiveWorkloadClientCredentials/wrong-and-missing-resource-audience',
             'TestLiveWorkloadClientCredentials/rotation-invalidates-old-credential',
             'TestLiveWorkloadClientCredentials/suspend-denies-future-issuance',
-            'TestLiveTokenProfileFederatedAudienceBlocked')
+            'TestLiveTokenProfileFederatedAudienceBlocked',
+            'TestLiveCPConsumerVerifier',
+            'TestLiveCPConsumerVerifier/accept-governed-workload',
+            'TestLiveCPConsumerVerifier/reject-wrong-audience',
+            'TestLiveCPConsumerVerifier/reject-wrong-issuer',
+            'TestLiveCPConsumerVerifier/missing-required-scope',
+            'TestLiveCPConsumerVerifier/reject-tampered-token',
+            'TestLiveCPConsumerVerifier/reject-expired-provider-token')
 for name in required:
     if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
         raise SystemExit(f'{name}: missing live PASS evidence')
@@ -84,5 +95,8 @@ if not proof['logical_audience_matches'] or not proof['actor_type_is_workload']:
     raise SystemExit('Governed signed workload profile not proven')
 if proof['canonical_activation_proven'] or proof['actual_consumer_tested']:
     raise SystemExit('Provider token profile cannot establish canonical activation')
+consumer = json.loads((root / 'cp-consumer-verifier.json').read_text())
+if not consumer['actual_consumer_verifier_tested'] or consumer['deployed_resource_route_tested'] or consumer['canonical_activation_proven']:
+    raise SystemExit('Consumer verifier proof must not claim route acceptance or activation')
 print('M4-C governed token profile verified; pinned M4-F audience mismatch fails closed')
 PY

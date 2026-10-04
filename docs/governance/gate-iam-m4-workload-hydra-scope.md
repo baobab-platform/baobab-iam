@@ -193,3 +193,17 @@ secret.
 | 0.4 | 2026-09-30 | Split M4-C/M4-F; selected RFC7523; made Shared authoritative; defined activation evidence |
 
 | 0.5 | 2026-10-03 | Recorded isolated M4-C/M4-F live evidence and observed token-profile activation blockers |
+
+## CP consumer verifier evidence
+
+The [pinned CP consumer harness](../../tests/consumer/README.md) exercises CP's
+unchanged production verifier against genuine tokens from the governed isolated
+Hydra issuer. It covers identity/scope acceptance, audience and issuer rejection,
+missing required scope, tampering and genuine provider-token expiry. The safe
+artifact identifies the exact CP source revision and distinguishes verifier
+compatibility from deployed resource-route acceptance. CI must pass every named
+scenario before this compatibility evidence can be claimed.
+
+CP route authorization, canonical/context ownership, tenant isolation and
+production trust rollout remain outstanding. This harness neither activates a
+Shared workload nor closes M4-F's pinned-provider audience blocker.
