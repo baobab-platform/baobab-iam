@@ -86,7 +86,7 @@ func validExpectation(w ReferenceExpectation) bool {
 		return false
 	}
 	switch w.Kind {
-	case "federation_configuration", "federation_trust_material", "assurance_policy", "attribute_mapping", "provisioning_policy", "federation_activation":
+	case "federation_configuration", "federation_trust_material", "assurance_policy", "attribute_mapping", "provisioning_policy", "federation_activation", "identity_runtime_profile", "identity_runtime_support", "identity_security_domain":
 		return w.EventID == "" && w.Issuer == "" && w.Subject == "" && w.Level == "" && w.EvidenceDigest == "" && w.PrincipalID == "" && w.ExternalIdentityID == ""
 	case "assurance_mapping_decision":
 		return uuidPattern.MatchString(w.EventID) && w.Issuer != "" && exact(w.Subject) && (w.Level == "BAOBAB-A1" || w.Level == "BAOBAB-A2" || w.Level == "BAOBAB-A3") && digestPattern.MatchString(w.EvidenceDigest) && w.PrincipalID == "" && w.ExternalIdentityID == ""
