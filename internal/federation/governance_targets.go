@@ -269,6 +269,9 @@ func (c *CompositeApprovalTargets) ResolveApprovedTarget(ctx context.Context, w 
 	if c == nil || ctx == nil || ctx.Err() != nil || absent(c.registration) || absent(c.native) || !validExpectation(w) {
 		return "", ErrInvalid
 	}
+	if !iamOwnedNativeTargetKind(w.Kind) {
+		return "", ErrUnsupported
+	}
 	before, err := c.registration.TargetRegistration(ctx, w)
 	if err != nil {
 		return "", authorityError(err)
