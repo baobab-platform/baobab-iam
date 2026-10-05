@@ -140,7 +140,7 @@ hashes persist. Original upstream assertions, authorization codes, PKCE
 verifiers, state, nonce and browser secrets remain outside the ledger.
 Replay fences persist through restart and the maximum accepted token lifetime.
 Pruning is bounded and shares the durable monotonic-clock fence. This path has
-an explicit 4,096 pending-request staging ceiling; HA/shared storage remains
+an explicit 4,096 unexpired-request staging ceiling; HA/shared storage remains
 an operational acceptance requirement.
 
 ## Private operations and credentials

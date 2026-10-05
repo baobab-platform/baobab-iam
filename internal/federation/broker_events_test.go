@@ -238,3 +238,53 @@ func TestSAMLSignaturesNameIDAuthnContextAndProtocolConstraints(t *testing.T) {
 		t.Fatal("bridge digest mismatch")
 	}
 }
+
+func TestBrokerCallbackBindingsDenyBeforeCodeExchange(t *testing.T) {
+	for _, field := range []string{"state", "browser", "pkce", "issuer", "event", "configuration"} {
+		t.Run(field, func(t *testing.T) {
+			e, f, s, _ := brokerSetup(t, "oidc")
+			r, secret := runBrokerCapture(t, e, f, s)
+			callback := BrokerCallback{r.EventID, r.State, secret, r.PKCEVerifier, "code", f.config.Settings.Issuer}
+			switch field {
+			case "state":
+				callback.State += "wrong"
+			case "browser":
+				callback.BrowserSecret += "wrong"
+			case "pkce":
+				callback.PKCEVerifier += "wrong"
+			case "issuer":
+				callback.Issuer = "https://other.example"
+			case "event":
+				callback.EventID = "00000000-0000-4000-8000-000000000000"
+			case "configuration":
+				f.config.Settings.ProviderRoute = "other"
+			}
+			if e.Complete(context.Background(), s, callback) == nil || f.exchangeCalls != 0 {
+				t.Fatal("unbound callback reached code exchange")
+			}
+		})
+	}
+}
+
+func TestBrokerCaptureReplayAndClockFenceSurviveRestart(t *testing.T) {
+	e, f, s, _ := brokerSetup(t, "oidc")
+	r, _ := runBrokerCapture(t, e, f, s)
+	raw := upstreamOIDC(t, f, s, "upstream-request-nonce")
+	e.Close()
+	reopened, err := OpenBrokerEvents(e.cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	if reopened.Capture(context.Background(), s, BrokerEvidence{s.Trust.ID, r.Nonce, "enterprise", "upstream-request-nonce", raw}) == nil {
+		t.Fatal("capture replay accepted after restart")
+	}
+	f.clock = f.clock.Add(6 * time.Minute)
+	if _, err = reopened.Prune(context.Background(), 128); err != nil {
+		t.Fatal(err)
+	}
+	f.clock = f.clock.Add(-6 * time.Minute)
+	if _, err = reopened.Prune(context.Background(), 128); err == nil {
+		t.Fatal("clock rollback accepted after pruning")
+	}
+}

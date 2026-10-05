@@ -144,7 +144,7 @@ func TestLiveKeycloakEnterpriseBroker(t *testing.T) {
 			trust := federation.Trust{ID: uuid, Protocol: protocol, UpstreamIssuer: upstream, OrganisationIDs: []string{"org_cisynthetic"}, EstateIDs: []string{"estate_ci"}, ProviderBinding: binding, Status: "ACTIVE", AssurancePolicyReference: "ref_ciassurance", AttributeMappingReference: "ref_ciattributes", ProvisioningPolicyReference: "ref_ciprovision", Revision: 1, CreatedAt: now.Add(-time.Minute), UpdatedAt: now, ActivatedAt: &now, ActivationEvidenceReference: "ref_ciactivation"}
 			f := &liveEnterprise{s: federation.TrustSnapshot{Trust: trust, ApprovedRevision: 1, SnapshotID: "live-fixture-snapshot", ValidUntil: now.Add(10 * time.Minute)}}
 			f.c = federation.BrokerConfiguration{TrustID: uuid, SnapshotID: f.s.SnapshotID, Revision: 1, Binding: binding, Settings: federation.BrokerSettings{Issuer: broker, ClientID: "enterprise-bff", AuthorizationEndpoint: broker + "/protocol/openid-connect/auth", TokenEndpoint: broker + "/protocol/openid-connect/token", RedirectURI: callback, ProviderRoute: alias, SigningAlgorithm: "RS256"}, BrokerJWKS: brokerKeys, Upstream: federation.OIDCConfiguration{TrustID: uuid, SnapshotID: f.s.SnapshotID, Revision: 1, Binding: binding, ClientID: "broker-upstream", SigningAlgorithm: "RS256", JWKS: keys, ValidUntil: f.s.ValidUntil}, SAML: federation.SAMLSettings{EntityID: broker, ACSURL: broker + "/broker/" + alias + "/endpoint"}, SigningCertificates: []string{signingPEM}, ValidUntil: f.s.ValidUntil}
-			events, err := federation.OpenBrokerEvents(federation.BrokerEventsConfig{Path: filepath.Join(t.TempDir(), "broker.db"), Configuration: f, Mapper: f, Client: client, Now: time.Now, MaxLifetime: 15 * time.Minute})
+			events, err := federation.OpenBrokerEvents(federation.BrokerEventsConfig{Path: filepath.Join(t.TempDir(), "broker.db"), Configuration: f, Mapper: f, Client: &http.Client{Transport: liveTokenTransport{transport, t}}, Now: time.Now, MaxLifetime: 15 * time.Minute})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -169,6 +169,9 @@ func TestLiveKeycloakEnterpriseBroker(t *testing.T) {
 					return
 				}
 				if err := events.Capture(r.Context(), f.s, evidence); err != nil {
+					if protocol == "OIDC" {
+						liveTokenProfile(t, evidence.Assertion, evidence.UpstreamCorrelation)
+					}
 					t.Errorf("live %s capture failed: %v", protocol, err)
 					w.WriteHeader(403)
 					return
@@ -360,4 +363,51 @@ func liveBrowser(t *testing.T, transport http.RoundTripper, start, callback, use
 	}
 	t.Fatal("live browser exceeded form budget")
 	return nil
+}
+
+// Log only claim presence and binding booleans; never tokens, identities or claim values.
+func liveTokenProfile(t *testing.T, raw, expectedNonce string) {
+	parts := strings.Split(raw, ".")
+	if len(parts) != 3 {
+		return
+	}
+	data, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return
+	}
+	var claims map[string]any
+	if json.Unmarshal(data, &claims) != nil {
+		return
+	}
+	_, authTime := claims["auth_time"]
+	_, acr := claims["acr"]
+	_, nonce := claims["nonce"]
+	_, digest := claims["baobab_upstream_evidence_digest"]
+	nonceMatches := expectedNonce != "" && claims["nonce"] == expectedNonce
+	t.Logf("live token profile: auth_time=%v acr=%v nonce=%v upstream_nonce_match=%v evidence_digest=%v", authTime, acr, nonce, nonceMatches, digest)
+}
+
+type liveTokenTransport struct {
+	base http.RoundTripper
+	test *testing.T
+}
+
+func (r liveTokenTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	response, err := r.base.RoundTrip(request)
+	if err != nil || !strings.HasSuffix(request.URL.Path, "/token") {
+		return response, err
+	}
+	data, readErr := io.ReadAll(io.LimitReader(response.Body, 65537))
+	response.Body.Close()
+	if readErr != nil {
+		return nil, readErr
+	}
+	response.Body = io.NopCloser(bytes.NewReader(data))
+	var token struct {
+		IDToken string `json:"id_token"`
+	}
+	if json.Unmarshal(data, &token) == nil {
+		liveTokenProfile(r.test, token.IDToken, "")
+	}
+	return response, nil
 }
