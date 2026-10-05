@@ -186,7 +186,7 @@ func TestPostgresDestructiveRecoveryInvalidatesAuthorityAndFencesOldPools(t *tes
 	}
 	// A restricted temporary dump proves the real backup tool round trip before recovery.
 	dump := filepath.Join(t.TempDir(), "records.dump")
-	backup := postgresTool("pg_dump", "--format=custom", "--table=iam_federation_records")
+	backup := postgresTool("pg_dump", "--format=custom", "--table=iam_federation_records", "--dbname="+os.Getenv("TEST_FEDERATION_DATABASE_URL"))
 	backup.Env = append(os.Environ(), "PGDATABASE="+os.Getenv("TEST_FEDERATION_DATABASE_URL"))
 	backupBytes, e := backup.Output()
 	if e != nil {
@@ -211,7 +211,7 @@ func TestPostgresDestructiveRecoveryInvalidatesAuthorityAndFencesOldPools(t *tes
 		t.Fatal("backup round trip did not restore records", e, restored)
 	}
 	run := func(old, next string) error {
-		command := postgresTool("psql", "-X", "-v", "ON_ERROR_STOP=1", "-v", "namespace="+a.namespace, "-v", "old_epoch="+old, "-v", "new_epoch="+next, "-f", "-")
+		command := postgresTool("psql", "--dbname="+os.Getenv("TEST_FEDERATION_DATABASE_URL"), "-X", "-v", "ON_ERROR_STOP=1", "-v", "namespace="+a.namespace, "-v", "old_epoch="+old, "-v", "new_epoch="+next, "-f", "-")
 		sql, e := os.ReadFile("../../scripts/operations/federation-recovery.sql")
 		if e != nil {
 			return e
