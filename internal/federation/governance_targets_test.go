@@ -114,6 +114,51 @@ func TestNativeTargetLedgerIsImmutableAndRestartSafe(t *testing.T) {
 	}
 }
 
+func TestNativeTargetLedgerRejectsUnboundedExpectationMetadata(t *testing.T) {
+	ctx := context.Background()
+	base, _ := nativeTargetExpectation(t)
+	ledger, err := OpenNativeTargetLedger(filepath.Join(t.TempDir(), "native-targets.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ledger.Close()
+	content := []byte(`{"client_id":"ci-client"}`)
+
+	for name, mutate := range map[string]func(*ReferenceExpectation){
+		"snapshot too long": func(w *ReferenceExpectation) {
+			w.SnapshotID = strings.Repeat("s", 129)
+		},
+		"snapshot whitespace": func(w *ReferenceExpectation) {
+			w.SnapshotID = " snapshot "
+		},
+		"provider too long": func(w *ReferenceExpectation) {
+			w.ProviderID = "provider_" + strings.Repeat("a", 64)
+		},
+		"instance too long": func(w *ReferenceExpectation) {
+			w.EngineInstanceID = "ei_" + strings.Repeat("a", 64)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			want := base
+			mutate(&want)
+			if _, err := ledger.RegisterNonSecretTarget(ctx, want, content); !errors.Is(err, ErrInvalid) {
+				t.Fatalf("unbounded expectation accepted: %v", err)
+			}
+		})
+	}
+
+	assurance := base
+	assurance.Kind = "assurance_mapping_decision"
+	assurance.EventID = "11111111-1111-4111-8111-111111111111"
+	assurance.Issuer = strings.Repeat("i", 2049)
+	assurance.Subject = "alice"
+	assurance.Level = "BAOBAB-A2"
+	assurance.EvidenceDigest = "sha256:" + strings.Repeat("a", 64)
+	if validExpectation(assurance) {
+		t.Fatal("oversized assurance issuer accepted")
+	}
+}
+
 func TestCompositeApprovalTargetsRejectsCPOwnedNativeTarget(t *testing.T) {
 	ctx := context.Background()
 	want, _ := nativeTargetExpectation(t)
