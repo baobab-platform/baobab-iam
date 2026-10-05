@@ -29,6 +29,7 @@ permissions:
 
 jobs:
   release:
+    if: "!endsWith(github.ref_name, '-staging')"
     permissions:
       contents: write
     # SHA is baobab-platform/shared's v1.2.0 tag (annotated - peeled commit, not the
@@ -43,3 +44,4 @@ jobs:
       # leave unset (no files) for a repo whose release is notes-only.
       # files: |
       #   dist/*.whl
+
