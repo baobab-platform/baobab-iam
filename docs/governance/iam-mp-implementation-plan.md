@@ -138,3 +138,16 @@ or deployment are implied by this reconciliation.
 EA-04 remains ADVANCED. Completion requires operational and real registered
 consumer evidence, including the outstanding federated workload path; the new
 provider allocation does not waive those gates.
+
+## 6. Bounded enterprise MP3/MP4 convergence
+
+The authority composition now projects current CP federation profile/deployment
+evidence and redeems a caller-owned CP context for
+`identity.authentication.perform` major 1 before dispatching an exact bound
+EnterpriseFederationProvider. Begin, callback and readiness recheck selection;
+there is no fallback. The production enterprise service requires this dispatch.
+See [enterprise dispatch operations](../operations/enterprise-capability-dispatch.md)
+for context ownership, independent scope/activation requirements and evidence.
+Broader MP3 support publication, native/workload dispatch/conformance and
+provider-neutral discovery remain open; fixture tests cannot close operational
+acceptance. The candidate enterprise key remains outside Shared's catalogue.

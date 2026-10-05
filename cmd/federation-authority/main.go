@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/federation"
+	iamprovider "github.com/baobab-platform/baobab-iam/internal/provider"
 	"github.com/baobab-platform/baobab-iam/internal/provider/keycloak"
 	"github.com/coreos/go-oidc/v3/oidc"
 )
@@ -28,6 +30,7 @@ type config struct {
 	Storage                                                                        *federation.PostgresStorageConfig
 	EnterpriseBroker                                                               bool
 	BrokerProviderID, BrokerEngineInstanceID, BrokerIssuer, BrokerClientSecretFile string
+	CPResolutionContextFile, CPResolutionTokenFile, BrokerServiceReference         string
 	Address, Certificate, Key, ClientCA, AuthorityCA                               string
 	WorkloadIssuer, WorkloadAudience, RegistryPath                                 string
 	CPOrigin, CPTokenFile                                                          string
@@ -74,7 +77,21 @@ func load(path string) (config, error) {
 			return c, errors.New("broker HTTPS issuer required")
 		}
 	}
+	if err := validateDispatchConfig(c); err != nil {
+		return c, err
+	}
 	return c, nil
+}
+
+func validateDispatchConfig(c config) error {
+	configured := c.CPResolutionContextFile != "" || c.CPResolutionTokenFile != "" || c.BrokerServiceReference != ""
+	if configured && (!c.EnterpriseBroker || c.CPResolutionContextFile == "" || c.CPResolutionTokenFile == "" || c.BrokerServiceReference == "") {
+		return errors.New("enterprise CP dispatch requires complete protected configuration")
+	}
+	if c.EnterpriseBroker && c.Environment == "production" && !configured {
+		return errors.New("production enterprise federation requires CP resolution dispatch")
+	}
+	return nil
 }
 
 func roots(path string) (*x509.CertPool, error) {
@@ -90,6 +107,9 @@ func roots(path string) (*x509.CertPool, error) {
 }
 
 func run(ctx context.Context, c config) error {
+	if err := validateDispatchConfig(c); err != nil {
+		return err
+	}
 	if c.Environment == "production" && c.Storage == nil {
 		return errors.New("production requires shared federation storage")
 	}
@@ -161,6 +181,7 @@ func run(ctx context.Context, c config) error {
 	c.Policy.Now = time.Now
 	var eventVerifier federation.EventVerifier
 	var ready func(context.Context, federation.TrustSnapshot) error
+	var dispatch *federation.EnterpriseDispatch
 	var eventHandler http.Handler
 	eventPath := "/internal/federation-events/v1/"
 	if c.EnterpriseBroker {
@@ -179,7 +200,25 @@ func run(ctx context.Context, c config) error {
 		if e != nil {
 			return e
 		}
-		adapter := &keycloak.EnterpriseAdapter{Events: events, Governance: g.Trusts, Configuration: protocol, ProviderID: c.BrokerProviderID, EngineInstanceID: c.BrokerEngineInstanceID, Issuer: c.BrokerIssuer}
+		var adapter iamprovider.EnterpriseFederationProvider = &keycloak.EnterpriseAdapter{Events: events, Governance: g.Trusts, Configuration: protocol, ProviderID: c.BrokerProviderID, EngineInstanceID: c.BrokerEngineInstanceID, Issuer: c.BrokerIssuer}
+		if c.CPResolutionContextFile != "" {
+			resolver, e := federation.NewHTTPAuthority(c.CPOrigin, federation.FileAuthorityTokens{Path: c.CPResolutionTokenFile}, outbound)
+			if e != nil {
+				return e
+			}
+			dispatch, e = federation.NewEnterpriseDispatch(federation.EnterpriseDispatchConfig{
+				Resolver: resolver, Contexts: federation.FileResolutionContexts{Path: c.CPResolutionContextFile},
+				Governance: g.Trusts, Platform: cp, Scope: c.Policy.Scope, Now: time.Now,
+				Adapters: []federation.EnterpriseAdapterBinding{{ProviderID: c.BrokerProviderID, EngineInstanceID: c.BrokerEngineInstanceID, ServiceReference: c.BrokerServiceReference, Adapter: adapter}},
+				Observe: func(o federation.DispatchObservation) {
+					slog.Info("IAM enterprise capability dispatch", "resolution_id", o.ResolutionID, "correlation_id", o.CorrelationID, "provider_id", o.ProviderID, "engine_instance_id", o.EngineInstanceID, "outcome", o.Outcome)
+				},
+			})
+			if e != nil {
+				return e
+			}
+			adapter = dispatch
+		}
 		eventHandler, err = federation.NewServiceBrokerHandler(access, g.Trusts, adapter, events, consumer)
 		eventPath = "/internal/enterprise-federation/v1/"
 	} else {
@@ -246,6 +285,10 @@ func run(ctx context.Context, c config) error {
 			return
 		}
 		if err = ready(probe, trust); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		if dispatch != nil && dispatch.Check(probe, c.ReadinessTrustID) != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}

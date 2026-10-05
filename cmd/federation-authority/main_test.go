@@ -33,6 +33,21 @@ func TestConfigurationRefusesUnknownAndTrailingInput(t *testing.T) {
 	}
 }
 
+func TestProductionEnterpriseRequiresCPDispatchAndRejectsPartialConfiguration(t *testing.T) {
+	for _, c := range []config{
+		{Environment: "production", EnterpriseBroker: true},
+		{Environment: "staging", EnterpriseBroker: true, CPResolutionTokenFile: "/run/iam/token"},
+		{Environment: "staging", EnterpriseBroker: false, CPResolutionContextFile: "/run/iam/context", CPResolutionTokenFile: "/run/iam/token", BrokerServiceReference: "service://baobab-iam/enterprise-federation"},
+	} {
+		if validateDispatchConfig(c) == nil {
+			t.Fatal("unresolved/partial dispatch configuration accepted")
+		}
+	}
+	if validateDispatchConfig(config{Environment: "production", EnterpriseBroker: true, CPResolutionContextFile: "/run/iam/context", CPResolutionTokenFile: "/run/iam/token", BrokerServiceReference: "service://baobab-iam/enterprise-federation"}) != nil {
+		t.Fatal("complete dispatch configuration refused")
+	}
+}
+
 func TestPrivateServiceTLSReadinessAndGracefulShutdown(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {

@@ -34,4 +34,13 @@ with tempfile.TemporaryDirectory() as directory:
     for protocol in ('oidc', 'saml2'):
         record = json.loads((Path(directory) / f'{protocol}.json').read_text())
         assert not validator.validate_bundle(record), 'Go wire record differs from pinned Shared contract'
-print('Pinned Shared federation schemas, semantic checks, Go records and exact fixtures agree')
+    # The runtime dispatch consumes existing canonical CP resolution, never a
+    # locally invented provider-selection schema. Validate actual Go wire types.
+    resolution_id = 'https://contracts.baobab-platform.com/capability/v1/resolution.schema.json'
+    for name, definition in (('resolution-request', 'resolutionRequest'), ('resolution-response', 'resolution')):
+        record = json.loads((Path(directory) / f'{name}.json').read_text())
+        schema = {'$ref': resolution_id + '#/$defs/' + definition}
+        errors = list(validator.Draft202012Validator(schema, registry=validator.registry(),
+                      format_checker=validator.FormatChecker()).iter_errors(record))
+        assert not errors, 'Go CP resolution wire differs from pinned Shared contract: ' + str(errors)
+print('Pinned Shared federation/resolution schemas, Go records and exact fixtures agree')

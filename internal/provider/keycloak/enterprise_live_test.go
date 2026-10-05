@@ -29,10 +29,39 @@ import (
 )
 
 type liveEnterprise struct {
-	mu       sync.Mutex
-	s        federation.TrustSnapshot
-	c        federation.BrokerConfiguration
-	captured federation.ExternalPrincipal
+	mu          sync.Mutex
+	s           federation.TrustSnapshot
+	c           federation.BrokerConfiguration
+	captured    federation.ExternalPrincipal
+	resolutions int
+}
+
+func (f *liveEnterprise) Context(context.Context) (federation.ResolutionContext, error) {
+	return federation.ResolutionContext{ContextID: "ctx_cisynthetic", ExpiresAt: f.s.ValidUntil}, nil
+}
+
+func (f *liveEnterprise) ResolveCapability(_ context.Context, request federation.CapabilityRequest) (federation.CapabilityResolution, error) {
+	f.mu.Lock()
+	f.resolutions++
+	f.mu.Unlock()
+	if request.CapabilityKey != "identity.authentication.perform" || request.ContextID != "ctx_cisynthetic" || request.RequiredContractVersion != 1 {
+		return federation.CapabilityResolution{}, federation.ErrDenied
+	}
+	b := f.s.Trust.ProviderBinding
+	expires := time.Now().Add(time.Minute)
+	return federation.CapabilityResolution{ResolutionID: "res_cisynthetic", ContextID: request.ContextID, CapabilityKey: request.CapabilityKey, ContractVersion: 1,
+		Decision: "RESOLVED", GrantID: "grant_cisynthetic", BindingID: "bind_cisynthetic", CorrelationID: request.CorrelationID, ResolvedAt: time.Now(), ExpiresAt: &expires,
+		Invocation: &federation.CapabilityInvocation{ServiceReference: "service://baobab-iam/enterprise-federation", Protocol: "http", ContractVersion: 1, ProviderID: b.ProviderID, EngineInstanceID: b.EngineInstanceID}}, nil
+}
+
+func (f *liveEnterprise) FederationBinding(_ context.Context, b federation.Binding, scope federation.Scope, facet string) (federation.PlatformSnapshot, error) {
+	if b != f.s.Trust.ProviderBinding || scope != (federation.Scope{OrganisationID: "org_cisynthetic", EstateID: "estate_ci"}) ||
+		(f.s.Trust.Protocol == "OIDC" && facet != federation.RuntimeOIDCFederation) || (f.s.Trust.Protocol == "SAML2" && facet != federation.RuntimeSAMLFederation) {
+		return federation.PlatformSnapshot{}, federation.ErrDenied
+	}
+	digest := "sha256:" + strings.Repeat("a", 64)
+	return federation.PlatformSnapshot{ProviderID: b.ProviderID, EngineInstanceID: b.EngineInstanceID, Scope: scope, ProviderStatus: "ACTIVE", InstanceStatus: "ACTIVE",
+		BindingStatus: "ACTIVE", RuntimeCapability: facet, SupportStatus: "VERIFIED", ArtifactDigest: digest, DeployedArtifactDigest: digest, ProfileRevision: 1, EvidenceExpiresAt: f.s.ValidUntil}, nil
 }
 
 func (f *liveEnterprise) Trust(context.Context, string) (federation.TrustSnapshot, error) {
@@ -180,7 +209,13 @@ func TestLiveKeycloakEnterpriseBroker(t *testing.T) {
 			})}
 			go captureServer.ServeTLS(listener, "", "")
 			defer captureServer.Close()
-			adapter := &keycloak.EnterpriseAdapter{Events: events, Governance: f, Configuration: f, ProviderID: binding.ProviderID, EngineInstanceID: binding.EngineInstanceID, Issuer: broker}
+			mechanics := &keycloak.EnterpriseAdapter{Events: events, Governance: f, Configuration: f, ProviderID: binding.ProviderID, EngineInstanceID: binding.EngineInstanceID, Issuer: broker}
+			adapter, err := federation.NewEnterpriseDispatch(federation.EnterpriseDispatchConfig{Resolver: f, Contexts: f, Governance: f, Platform: f,
+				Scope: federation.Scope{OrganisationID: "org_cisynthetic", EstateID: "estate_ci"}, Now: time.Now,
+				Adapters: []federation.EnterpriseAdapterBinding{{ProviderID: binding.ProviderID, EngineInstanceID: binding.EngineInstanceID, ServiceReference: "service://baobab-iam/enterprise-federation", Adapter: mechanics}}})
+			if err != nil {
+				t.Fatal(err)
+			}
 			for attempt := 0; attempt < 2; attempt++ {
 				secret := strings.Repeat("live-browser-private-", 3)
 				challenge, err := adapter.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: uuid, SessionDigest: liveDigest(secret)})
