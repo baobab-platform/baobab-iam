@@ -52,7 +52,7 @@ func TestNativeTargetLedgerIsImmutableAndRestartSafe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	content := []byte(`{"client_id":"ci-client","issuer":"https://idp.example.test","signing_algorithm":"RS256"}`)
+	content := []byte("{\n  \"client_id\": \"ci-client\",\n  \"issuer\": \"https://idp.example.test/<&>\",\n  \"signing_algorithm\": \"RS256\"\n}")
 	digest, err := ledger.RegisterNonSecretTarget(ctx, want, content)
 	if err != nil {
 		t.Fatal(err)
@@ -62,6 +62,23 @@ func TestNativeTargetLedgerIsImmutableAndRestartSafe(t *testing.T) {
 	}
 	if _, err := ledger.RegisterNonSecretTarget(ctx, want, []byte(`{"client_id":"changed"}`)); !errors.Is(err, ErrDenied) {
 		t.Fatalf("mutable ref accepted: %v", err)
+	}
+	if again, err := ledger.RegisterNonSecretTarget(ctx, want, content); err != nil || again != digest {
+		t.Fatalf("idempotent registration digest=%q err=%v", again, err)
+	}
+
+	largeWant := want
+	largeWant.ID = "ref_largejson"
+	largeContent := []byte(`{"blob":"` + strings.Repeat("x", 65500) + `"}`)
+	if len(largeContent) > 65536 {
+		t.Fatalf("large fixture exceeds native content limit: %d", len(largeContent))
+	}
+	largeDigest, err := ledger.RegisterNonSecretTarget(ctx, largeWant, largeContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := ledger.NativeTargetDigest(ctx, largeWant); err != nil || got != largeDigest {
+		t.Fatalf("large digest=%q err=%v", got, err)
 	}
 
 	cpOwned := want
