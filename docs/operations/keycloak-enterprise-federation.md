@@ -202,3 +202,10 @@ performed by this increment. AWS Staging must still prove the registered CP/IAM/
 Keycloak services, current approvals, canonical mapping, runtime profile and
 operational evidence under real infrastructure, followed by production recovery
 and shared durable-state hardening.
+
+The evidence mapper must use `syncMode=FORCE` so that account-link and existing-user
+flows restore the verified digest after any first-broker-login reset. The bridge
+carries only the digest through server-side serialized broker context; it restores
+the user-session note in import/update callbacks. Configure the upstream OIDC
+client to include signed `auth_time` and `acr` claims (Keycloak's standard `basic`
+and `acr` scopes); absent claims deny authentication.

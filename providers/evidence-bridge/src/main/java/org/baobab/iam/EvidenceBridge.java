@@ -27,6 +27,7 @@ import org.keycloak.broker.oidc.OIDCIdentityProvider;
 import org.keycloak.models.IdentityProviderMapperModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessTokenResponse;
 import org.keycloak.protocol.saml.SamlProtocol;
@@ -44,6 +45,21 @@ public final class EvidenceBridge extends AbstractIdentityProviderMapper {
     @Override public List<ProviderConfigProperty> getConfigProperties() {
         return List.of(new ProviderConfigProperty("trust-id", "Approved trust", "Exact IAM FederationTrust ID", ProviderConfigProperty.STRING_TYPE, null),
                        new ProviderConfigProperty("client-id", "Bound client", "Exact enterprise BFF client", ProviderConfigProperty.STRING_TYPE, null));
+    }
+
+    private static void restoreDigest(BrokeredIdentityContext context) {
+        Object digest = context.getContextData().get(DIGEST_NOTE);
+        if (!(digest instanceof String value) || !value.matches("sha256:[a-f0-9]{64}") || context.getAuthenticationSession() == null)
+            throw new IdentityBrokerException("Private upstream federation evidence binding missing");
+        context.getAuthenticationSession().setUserSessionNote(DIGEST_NOTE, (String) digest);
+    }
+    // First broker login resets user-session notes. Restore the verified digest
+    // from server-side serialized broker context after that flow completes.
+    @Override public void importNewUser(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapper, BrokeredIdentityContext context) {
+        restoreDigest(context);
+    }
+    @Override public void updateBrokeredUser(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapper, BrokeredIdentityContext context) {
+        restoreDigest(context);
     }
 
     private static byte[] protectedFile(String name, int limit) throws Exception {
@@ -121,6 +137,7 @@ public final class EvidenceBridge extends AbstractIdentityProviderMapper {
             HttpResponse<Void> result = client.send(request, HttpResponse.BodyHandlers.discarding());
             if (result.statusCode() != 200 && result.statusCode() != 204) {phase = "verifier-denied";throw new IllegalArgumentException();}
             String digest = "sha256:" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(assertion.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            context.getContextData().put(DIGEST_NOTE, digest);
             auth.setUserSessionNote(DIGEST_NOTE, digest);
         } catch (Exception denied) {
             // Exceptions can contain response/token material; deliberately discard them.
