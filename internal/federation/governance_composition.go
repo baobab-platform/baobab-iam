@@ -93,18 +93,15 @@ func (g *GovernanceComposition) Close() error {
 // increment does not invent policy material.
 func (g *GovernanceComposition) AuthoritySources(
 	access AuthorityAccess,
-	approvalAuthority ApprovalAuthority,
 	configuration OIDCConfigurationAuthority,
 	assurance AssuranceMapper,
 ) (AuthoritySources, error) {
-	if g == nil || g.Approvals == nil || g.Trusts == nil || g.Targets == nil ||
-		absent(access) || absent(approvalAuthority) {
+	if g == nil || g.Approvals == nil || g.Trusts == nil || g.Targets == nil || absent(access) {
 		return AuthoritySources{}, ErrInvalid
 	}
 	return AuthoritySources{
 		Access:        access,
 		Governance:    g.Trusts,
-		Approvals:     approvalAuthority,
 		Targets:       g.Targets,
 		Configuration: configuration,
 		Assurance:     assurance,
