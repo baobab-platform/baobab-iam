@@ -61,6 +61,7 @@ func (a *HTTPAuthority) AuthorizeApproval(ctx context.Context, action string, wa
 	}
 	return ApprovalActor{PrincipalID: out.PrincipalID, ValidUntil: out.ValidUntil}, nil
 }
+
 // ResolveApprovedTarget calls the final IAM /target authority. It is a remote
 // ApprovalTargets client, not the CP registration-attestation client. CP is
 // consumed separately through TargetRegistrationAuthority and must never be
