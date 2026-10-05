@@ -61,11 +61,14 @@ The IAM HTTP client consumes that endpoint through
 ## IAM native targets
 
 `NativeTargetLedger` persists immutable non-secret JSON bytes in a protected
-single-writer bbolt file. It calculates the digest from the stored bytes and
-binds the bytes to the complete `ReferenceExpectation`.
+single-writer bbolt file. Metadata and native bytes are stored in separate
+buckets in one transaction: the native payload is never JSON-reserialized after
+hashing. It calculates the digest from the exact stored bytes and binds those
+bytes to the complete `ReferenceExpectation`.
 
 A reference cannot be overwritten with different bytes or a different native
-kind. No update or delete operation exists.
+kind. No update or delete operation exists. The 64 KiB limit applies to the
+native document itself rather than to a metadata envelope around it.
 
 The bounded IAM-owned native target set follows the Shared ownership policy:
 
