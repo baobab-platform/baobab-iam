@@ -67,8 +67,15 @@ func TestNativeProtocolConfigurationCurrentApprovals(t *testing.T) {
 	}
 }
 
-func TestNativeProtocolExactEventDecision(t *testing.T) {
-	p, a, s, _ := nativeProtocolSetup(t)
+func testNativeProtocolExactEventDecision(t *testing.T, protocol string) {
+	_, a := setup(t, protocol)
+	s := a.snapshot
+	ledger, err := OpenNativeTargetLedger(filepath.Join(t.TempDir(), "native.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ledger.Close()
+	p := &NativeProtocol{Native: ledger, Governance: a, Scope: Scope{"org_cisynthetic", "estate_ci"}, Now: func() time.Time { return a.clock }}
 	ctx := context.Background()
 	principal := a.bundle.ExternalPrincipal
 	assurance := a.bundle.Assurance
@@ -91,7 +98,14 @@ func TestNativeProtocolExactEventDecision(t *testing.T) {
 	policyWant, _ := p.base(ctx, s)
 	policyWant.Kind = "assurance_policy"
 	policyWant.ID = s.Trust.AssurancePolicyReference
-	b, _ = json.Marshal(NativeAssurancePolicy{Rules: []NativeAssuranceRule{{ACR: assurance.UpstreamEvidence.OIDC.ACR, Level: w.Level, AMR: assurance.UpstreamEvidence.OIDC.AMR}}})
+	rule := NativeAssuranceRule{Level: w.Level}
+	if protocol == "oidc" {
+		rule.ACR = assurance.UpstreamEvidence.OIDC.ACR
+		rule.AMR = assurance.UpstreamEvidence.OIDC.AMR
+	} else {
+		rule.AuthnContextClassRef = assurance.UpstreamEvidence.SAML.AuthnContextClassRef
+	}
+	b, _ = json.Marshal(NativeAssurancePolicy{Rules: []NativeAssuranceRule{rule}})
 	if _, err := p.Native.RegisterNonSecretTarget(ctx, policyWant, b); err != nil {
 		t.Fatal(err)
 	}
@@ -106,6 +120,12 @@ func TestNativeProtocolExactEventDecision(t *testing.T) {
 	assurance.Subject = principal.Subject
 	if _, err = p.MapAssurance(ctx, s, principal, assurance); err == nil {
 		t.Fatal("another human reused approved decision")
+	}
+}
+
+func TestNativeProtocolExactEventDecision(t *testing.T) {
+	for _, protocol := range []string{"oidc", "saml2"} {
+		t.Run(protocol, func(t *testing.T) { testNativeProtocolExactEventDecision(t, protocol) })
 	}
 }
 

@@ -181,37 +181,39 @@ func TestLiveKeycloakEnterpriseBroker(t *testing.T) {
 			go captureServer.ServeTLS(listener, "", "")
 			defer captureServer.Close()
 			adapter := &keycloak.EnterpriseAdapter{Events: events, Governance: f, Configuration: f, ProviderID: binding.ProviderID, EngineInstanceID: binding.EngineInstanceID, Issuer: broker}
-			secret := strings.Repeat("live-browser-private-", 3)
-			challenge, err := adapter.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: uuid, SessionDigest: liveDigest(secret)})
-			if err != nil {
-				t.Fatal(err)
+			for attempt := 0; attempt < 2; attempt++ {
+				secret := strings.Repeat("live-browser-private-", 3)
+				challenge, err := adapter.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: uuid, SessionDigest: liveDigest(secret)})
+				if err != nil {
+					t.Fatal(err)
+				}
+				username := "enterprise-user"
+				if protocol == "SAML2" {
+					username = "enterprise-saml-user"
+				}
+				result := liveBrowser(t, transport, challenge.AuthorizationURL, callback, username)
+				if result.Get("state") != challenge.State {
+					t.Fatal("live callback state changed")
+				}
+				_, err = adapter.CompleteFederation(context.Background(), provider.EnterpriseCallback{TrustID: uuid, EventID: challenge.EventID, State: challenge.State, BrowserSecret: secret, PKCEVerifier: challenge.PKCEVerifier, Code: result.Get("code"), Issuer: result.Get("iss")})
+				if err != nil {
+					t.Fatal("live broker completion", err)
+				}
+				principal, assurance, err := events.Verify(context.Background(), challenge.EventID, f.s)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if principal.Issuer != upstream || assurance.Protocol != protocol || assurance.Level != "BAOBAB-A1" {
+					t.Fatal("upstream evidence changed")
+				}
+				if protocol == "SAML2" && (assurance.UpstreamEvidence.SAML == nil || !strings.HasPrefix(principal.Subject, "saml2:persistent:")) {
+					t.Fatal("SAML provenance absent")
+				}
+				if _, _, err = events.Verify(context.Background(), challenge.EventID, f.s); err == nil {
+					t.Fatal("live event replay accepted")
+				}
+				t.Logf("actual Keycloak broker %s login, private mTLS evidence export, independent signatures, PKCE completion and replay denial passed", protocol)
 			}
-			username := "enterprise-user"
-			if protocol == "SAML2" {
-				username = "enterprise-saml-user"
-			}
-			result := liveBrowser(t, transport, challenge.AuthorizationURL, callback, username)
-			if result.Get("state") != challenge.State {
-				t.Fatal("live callback state changed")
-			}
-			_, err = adapter.CompleteFederation(context.Background(), provider.EnterpriseCallback{TrustID: uuid, EventID: challenge.EventID, State: challenge.State, BrowserSecret: secret, PKCEVerifier: challenge.PKCEVerifier, Code: result.Get("code"), Issuer: result.Get("iss")})
-			if err != nil {
-				t.Fatal("live broker completion", err)
-			}
-			principal, assurance, err := events.Verify(context.Background(), challenge.EventID, f.s)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if principal.Issuer != upstream || assurance.Protocol != protocol || assurance.Level != "BAOBAB-A1" {
-				t.Fatal("upstream evidence changed")
-			}
-			if protocol == "SAML2" && (assurance.UpstreamEvidence.SAML == nil || !strings.HasPrefix(principal.Subject, "saml2:persistent:")) {
-				t.Fatal("SAML provenance absent")
-			}
-			if _, _, err = events.Verify(context.Background(), challenge.EventID, f.s); err == nil {
-				t.Fatal("live event replay accepted")
-			}
-			t.Logf("actual Keycloak broker %s login, private mTLS evidence export, independent signatures, PKCE completion and replay denial passed", protocol)
 		})
 	}
 }

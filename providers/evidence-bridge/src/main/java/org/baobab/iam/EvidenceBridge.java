@@ -25,6 +25,7 @@ import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.broker.provider.IdentityBrokerException;
 import org.keycloak.broker.oidc.OIDCIdentityProvider;
 import org.keycloak.models.IdentityProviderMapperModel;
+import org.keycloak.models.IdentityProviderSyncMode;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
@@ -37,6 +38,7 @@ import org.keycloak.util.JsonSerialization;
 public final class EvidenceBridge extends AbstractIdentityProviderMapper {
     public static final String ID = "baobab-evidence-bridge";
     public static final String DIGEST_NOTE = "baobab_upstream_evidence_digest";
+    @Override public boolean supportsSyncMode(IdentityProviderSyncMode mode) { return mode == IdentityProviderSyncMode.FORCE; }
     @Override public String getId() { return ID; }
     @Override public String[] getCompatibleProviders() { return new String[] {"oidc", "saml"}; }
     @Override public String getDisplayCategory() { return "Baobab federation"; }
@@ -100,7 +102,7 @@ public final class EvidenceBridge extends AbstractIdentityProviderMapper {
             var auth = context.getAuthenticationSession();
             String expectedClient = mapper.getConfig().get("client-id");
             String trust = mapper.getConfig().get("trust-id");
-            if (auth == null || expectedClient == null || !expectedClient.equals(auth.getClient().getClientId()) ||
+            if (!"FORCE".equals(mapper.getConfig().get("syncMode")) || auth == null || expectedClient == null || !expectedClient.equals(auth.getClient().getClientId()) ||
                 trust == null || !trust.matches("[a-fA-F0-9-]{36}")) throw new IllegalArgumentException();
             phase = "upstream-correlation";
             String nonce = auth.getClientNote("nonce");
