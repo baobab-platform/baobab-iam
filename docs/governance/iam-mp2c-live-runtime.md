@@ -143,12 +143,16 @@ are not deployment evidence. Required next work is:
    authorities. Implement current relationship-reference approval, scope,
    security-domain/residency and deployed-artifact/profile proof. No copied
    booleans or new IAM-owned platform registry may substitute for those reads.
-3. **IAM governance source:** persist coherent approved trust revisions and the
-   Shared lifecycle transitions; resolve CP ExternalReferences to immutable
-   non-secret configuration, public trust material and approved policy targets.
-   Mount approval operations using current CP canonical administrative authority.
-   Emit event-bound assurance decisions under an approved policy; retain
-   audit/redaction and emergency suspension/revocation paths.
+3. **IAM governance source:** the bounded repository composition is now
+   implemented: durable trust revisions, immutable IAM-owned non-secret native
+   targets, four-eyes reference approvals and a composite target resolver that
+   brackets IAM native-byte resolution with current CP registration/topology
+   attestation. See [MP2-C governance target composition](iam-mp2c-governance-composition.md).
+   Production still requires mounting that composition in the deployable IAM
+   authority service, populating reviewed native targets through an approved
+   provisioning/reconciliation workflow, owner-native resolution for CP-owned
+   governed targets where required, and live approved assurance/configuration
+   sources.
 4. **Provider/BFF and SAML:** wire Keycloak's pinned broker APIs and the BFF's
    code/PKCE callback with verified upstream provenance. Add a reviewed SAML
    verifier with signed response/assertion, recipient, audience, InResponseTo,
