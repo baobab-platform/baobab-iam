@@ -32,7 +32,7 @@ func TestGovernanceCompositionWiresCompositeAuthority(t *testing.T) {
 	if g.NativeTargets == nil || g.Targets == nil || g.Approvals == nil || g.Trusts == nil {
 		t.Fatal("governance composition did not wire required authorities")
 	}
-	sources, err := g.AuthoritySources(&isolatedAccess{}, actors, nil, nil)
+	sources, err := g.AuthoritySources(&isolatedAccess{}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
