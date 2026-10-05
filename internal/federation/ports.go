@@ -99,7 +99,6 @@ type NativeTargetAuthority interface {
 	NativeTargetDigest(context.Context, ReferenceExpectation) (string, error)
 }
 
-
 // EventVerifier performs actual protocol/signature/audience/time/replay checks,
 // using approved configuration and trust material. It returns normalized
 // evidence bound to the requested immutable event reference. No product parser
