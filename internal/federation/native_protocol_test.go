@@ -127,3 +127,12 @@ func TestNativeTargetContentDetached(t *testing.T) {
 		t.Fatal("cross snapshot bytes accepted")
 	}
 }
+
+func TestNativeProtocolRefreshFailureDeniesPersistedTargets(t *testing.T) {
+	p, _, s, _ := nativeProtocolSetup(t)
+	calls := 0
+	p.Refresh = func(context.Context) error { calls++; return ErrUnavailable }
+	if _, err := p.OIDCConfiguration(context.Background(), s); err == nil || calls != 1 {
+		t.Fatalf("persisted targets bypassed failed publisher: calls=%d err=%v", calls, err)
+	}
+}

@@ -29,11 +29,17 @@ type NativeProtocol struct {
 	Governance GovernanceAuthority
 	Scope      Scope
 	Now        func() time.Time
+	Refresh    func(context.Context) error
 }
 
 func (p *NativeProtocol) base(ctx context.Context, s TrustSnapshot) (ReferenceExpectation, error) {
 	if p == nil || p.Native == nil || absent(p.Governance) || p.Now == nil || !validScope(p.Scope) || ctx == nil || ctx.Err() != nil {
 		return ReferenceExpectation{}, ErrInvalid
+	}
+	if p.Refresh != nil {
+		if err := p.Refresh(ctx); err != nil {
+			return ReferenceExpectation{}, authorityError(err)
+		}
 	}
 	current, err := p.Governance.Trust(ctx, s.Trust.ID)
 	if err != nil {

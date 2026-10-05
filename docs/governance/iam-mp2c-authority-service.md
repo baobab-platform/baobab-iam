@@ -166,8 +166,12 @@ with the exact event, issuer, subject, level and evidence digest. Its native
 content has `Evidence` and `Level`. Missing/revoked decisions fail closed.
 Publishing such event-specific targets and approval receipts is still required;
 this source does not invent an automatic approval workflow or register CP refs.
-The current reviewed-target loader runs at startup; a live event-evidence
-publication path remains necessary for unattended federation operation.
+The protected reviewed-target manifest is reloaded at each protocol source call,
+so approved event evidence can be published without restarting the service.
+Publication never substitutes for CP registration and current ledger approval.
+Unattended evidence registration/approval orchestration remains a deployment
+workflow dependency. Replace the protected manifest atomically; an invalid or
+missing configured manifest fails protocol reads closed.
 
 `CanonicalRegistryPath` is a protected JSON snapshot projected exclusively from
 Shared's reviewed workload registry. `Environment` is required. At each request,

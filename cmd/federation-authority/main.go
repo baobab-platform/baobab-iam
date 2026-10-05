@@ -103,6 +103,9 @@ func run(ctx context.Context, c config) error {
 		}
 	}
 	protocol := &federation.NativeProtocol{Native: g.NativeTargets, Governance: g.Trusts, Scope: c.Policy.Scope, Now: time.Now}
+	if c.ReviewedTargets != "" {
+		protocol.Refresh = func(ctx context.Context) error { return g.LoadReviewedTargets(ctx, c.ReviewedTargets) }
+	}
 	// Discover only the explicitly configured issuer, over verified private TLS.
 	issuerURL, _ := url.Parse(c.WorkloadIssuer)
 	client := &http.Client{Timeout: 5 * time.Second, Transport: issuerTransport{host: issuerURL.Host, base: &http.Transport{TLSClientConfig: outbound}}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
