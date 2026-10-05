@@ -10,9 +10,8 @@ The composition opens four distinct protected single-writer files: native
 targets, reference approvals, trust revisions and OIDC requests/events/replay.
 CP supplies target-registration, canonical identity, platform binding and human
 approval authority. IAM native targets and ledgers supply final target/trust
-decisions. An independently configured IAM protocol-policy source supplies
-approved OIDC configuration/public JWKS and assurance mapping; it must implement
-the existing private ports with real governed sources. This command does not
+decisions. The IAM native protocol source consumes approved immutable configuration, public
+JWKS and assurance policy from native targets and current governance receipts. This command does not
 manufacture policy or treat missing policy as approval.
 
 Inbound admission requires BOTH verified client TLS and a signed workload bearer
@@ -22,8 +21,9 @@ SHA-256, issuer and subject to current lifecycle, finite validity, private
 operation allowlist and exact organisation/estate scopes. It is reread on every
 authorization. This is service admission configuration, not a replacement for
 CP canonical identity, AdministrativeGrants or domain authorization. Deployments
-must reconcile it from approved workload provisioning; automated live snapshot
-publication remains an operational dependency. No default workload is admitted.
+must reconcile it from approved workload provisioning; canonical workload admission additionally intersects the short-lived Shared projection
+described below. Deployment scheduling and infrastructure certificate publication
+remain operational dependencies. No default workload is admitted.
 
 Governance mutations additionally require `X-Baobab-Governance-Subject` containing
 the human subject token. It is forwarded request-locally to CP's independently
@@ -54,8 +54,8 @@ Configuration contains paths and approved origins, never literal credentials.
   "RegistryPath": "/run/iam/admission.json",
   "CPOrigin": "https://cp.private.example",
   "CPTokenFile": "/run/iam/cp-token",
-  "ProtocolOrigin": "https://iam-policy.private.example",
-  "ProtocolTokenFile": "/run/iam/policy-token",
+  "CanonicalRegistryPath": "/run/iam/canonical-workloads.json",
+  "Environment": "staging",
   "StateDirectory": "/var/lib/iam",
   "ReadinessTrustID": "11111111-1111-4111-8111-111111111111",
   "ReviewedTargets": "/run/iam/reviewed-targets.json",
@@ -139,8 +139,7 @@ appropriate ownership. The scratch image relies on explicitly mounted roots.
 For bounded staging, enforce one writer and durable storage through replacement;
 ECS ephemeral task storage is insufficient. ECS rolling deployment must not
 start a competing writer. Preserve replay/revocation state across recovery.
-AWS provisioning, backup/restore fencing, multi-replica storage, live policy
-sources, workload admission reconciliation and real Keycloak broker evidence
+AWS provisioning, backup/restore fencing, multi-replica storage, governed target provisioning, workload admission publication and real Keycloak broker evidence
 remain acceptance dependencies. No AWS deployment or production activation is
 claimed by this service increment.
 
@@ -148,3 +147,41 @@ Validation includes actual signed workload bearer admission, exact audience and
 actor type denial, current snapshot revocation, TLS admission, protected-file
 rejection, strict configuration, the existing federation cryptographic/ledger
 suite and its race detector run. CI additionally builds the separate image.
+
+## Native protocol material and workload reconciliation
+
+Protocol configuration now runs within this service. `ProtocolOrigin` and
+`ProtocolTokenFile` are removed; stale configuration containing them is rejected.
+The `federation_configuration` target has `ClientID` and `SigningAlgorithm`.
+The separately approved `federation_trust_material` target has `JWKS`, containing
+only public signature keys. RS256 and ES256 retain the verifier's key checks.
+Every read requires current trust and exact provider/instance/scope/revision/
+snapshot approval, with receipt rechecks around immutable bytes.
+
+An `assurance_policy` target has `Rules`, each with exact `ACR`, required `AMR`
+methods and a `Level` from BAOBAB-A1/A2/A3. Exactly one rule must match; ambiguity
+fails closed. Policy matching does not approve an authentication event. The
+source resolves a separately registered, approved `assurance_mapping_decision`
+with the exact event, issuer, subject, level and evidence digest. Its native
+content has `Evidence` and `Level`. Missing/revoked decisions fail closed.
+Publishing such event-specific targets and approval receipts is still required;
+this source does not invent an automatic approval workflow or register CP refs.
+The current reviewed-target loader runs at startup; a live event-evidence
+publication path remains necessary for unattended federation operation.
+
+`CanonicalRegistryPath` is a protected JSON snapshot projected exclusively from
+Shared's reviewed workload registry. `Environment` is required. At each request,
+both infrastructure certificate admission and canonical ACTIVE lifecycle,
+environment, token audience and registered federation-authority scope must hold.
+Snapshots expire within 15 minutes. Missing, future, expired and non-ACTIVE
+records deny access; there is no certificate-only fallback.
+
+Run `python scripts/build_authority_admission.py --environment staging
+--ttl-seconds 300 --output /run/iam/canonical-workloads.json` as the service UID
+(or arrange protected ownership before mounting). The publisher uses the exact
+Shared pin in contracts.lock.yaml, copies lifecycle/audience/scope fields without
+promoting workloads, and atomically replaces/fsyncs a mode-0600 snapshot. Schedule
+it through approved deployment tooling and update the reviewed Shared pin when
+canonical lifecycle changes. Refreshing an old pin is not evidence of current
+revocation; live source freshness and publication supervision remain deployment
+acceptance obligations. No Shared workload is activated by this change.

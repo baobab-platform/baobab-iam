@@ -80,7 +80,7 @@ func TestPrivateServiceTLSReadinessAndGracefulShutdown(t *testing.T) {
 	if err = os.Mkdir(state, 0700); err != nil {
 		t.Fatal(err)
 	}
-	c := config{Address: address, Certificate: certPath, Key: keyPath, ClientCA: certPath, AuthorityCA: certPath, WorkloadIssuer: issuer.URL, WorkloadAudience: "test-authority", RegistryPath: registry, CPOrigin: issuer.URL, CPTokenFile: token, ProtocolOrigin: issuer.URL, ProtocolTokenFile: token, StateDirectory: state, Policy: federation.Policy{Scope: federation.Scope{OrganisationID: "org_example", EstateID: "estate_example"}, MaxEventLifetime: time.Minute, MaxAuthenticationAge: time.Minute, MaxDecisionLifetime: time.Minute}}
+	c := config{Address: address, Certificate: certPath, Key: keyPath, ClientCA: certPath, AuthorityCA: certPath, WorkloadIssuer: issuer.URL, WorkloadAudience: "test-authority", RegistryPath: registry, CPOrigin: issuer.URL, CPTokenFile: token, CanonicalRegistryPath: registry, Environment: "staging", StateDirectory: state, Policy: federation.Policy{Scope: federation.Scope{OrganisationID: "org_example", EstateID: "estate_example"}, MaxEventLifetime: time.Minute, MaxAuthenticationAge: time.Minute, MaxDecisionLifetime: time.Minute}}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)

@@ -26,10 +26,12 @@ type WorkloadAdmission struct {
 }
 
 type ServiceAccess struct {
-	RegistryPath string
-	Governance   *GovernanceComposition
-	Platform     PlatformAuthority
-	Verifier     *oidc.IDTokenVerifier
+	RegistryPath          string
+	CanonicalRegistryPath string
+	Environment           string
+	Governance            *GovernanceComposition
+	Platform              PlatformAuthority
+	Verifier              *oidc.IDTokenVerifier
 }
 
 func privateDocument(path string) ([]byte, error) {
@@ -92,6 +94,9 @@ func (a *ServiceAccess) AuthorizeAuthorityRequest(ctx context.Context, r *http.R
 	token, err := a.Verifier.Verify(ctx, parts[1])
 	if err != nil || token.Issuer != admission.Issuer || token.Subject != admission.Subject || len(token.Audience) != 1 {
 		return nil, ErrDenied
+	}
+	if err = a.canonicalAdmission(token.Subject, token.Audience[0], now); err != nil {
+		return nil, err
 	}
 	var claims struct {
 		ActorType string `json:"actor_type"`

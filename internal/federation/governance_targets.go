@@ -222,8 +222,17 @@ func (l *NativeTargetLedger) RegisterTrustSnapshotTarget(ctx context.Context, w 
 }
 
 func (l *NativeTargetLedger) NativeTargetDigest(ctx context.Context, w ReferenceExpectation) (string, error) {
+	content, err := l.NativeTargetContent(ctx, w)
+	if err != nil {
+		return "", err
+	}
+	return nativeTargetDigest(content), nil
+}
+
+// NativeTargetContent returns a detached copy after validating immutable bytes and exact binding.
+func (l *NativeTargetLedger) NativeTargetContent(ctx context.Context, w ReferenceExpectation) ([]byte, error) {
 	if l == nil || l.db == nil || ctx == nil || ctx.Err() != nil || !validExpectation(w) || !iamOwnedNativeTargetKind(w.Kind) {
-		return "", ErrInvalid
+		return nil, ErrInvalid
 	}
 	var binding nativeTargetBinding
 	var record nativeTargetRecord
@@ -248,7 +257,7 @@ func (l *NativeTargetLedger) NativeTargetDigest(ctx context.Context, w Reference
 		return nil
 	})
 	if err != nil {
-		return "", authorityError(err)
+		return nil, authorityError(err)
 	}
 	if binding.Expectation != w ||
 		binding.Digest != record.Digest ||
@@ -258,9 +267,9 @@ func (l *NativeTargetLedger) NativeTargetDigest(ctx context.Context, w Reference
 		!validateNativeTargetJSON(content) ||
 		nativeTargetDigest(content) != record.Digest ||
 		!digestPattern.MatchString(record.Digest) {
-		return "", ErrUnverified
+		return nil, ErrUnverified
 	}
-	return record.Digest, nil
+	return content, nil
 }
 
 var _ NativeTargetAuthority = (*NativeTargetLedger)(nil)
@@ -314,3 +323,45 @@ func (c *CompositeApprovalTargets) ResolveApprovedTarget(ctx context.Context, w 
 }
 
 var _ ApprovalTargets = (*CompositeApprovalTargets)(nil)
+
+// FindAssuranceDecision resolves a previously registered CP reference by its
+// exact event binding. It never allocates a reference or approves new evidence.
+func (l *NativeTargetLedger) FindAssuranceDecision(ctx context.Context, want ReferenceExpectation) (ReferenceExpectation, error) {
+	if l == nil || l.db == nil || ctx == nil || ctx.Err() != nil || want.ID != "" || want.Kind != "assurance_mapping_decision" {
+		return ReferenceExpectation{}, ErrInvalid
+	}
+	var found ReferenceExpectation
+	err := l.db.View(func(tx *bolt.Tx) error {
+		count := 0
+		return tx.Bucket(nativeTargetBindingBucket).ForEach(func(_, raw []byte) error {
+			count++
+			if count > 10000 || ctx.Err() != nil {
+				return ErrUnavailable
+			}
+			var binding nativeTargetBinding
+			if decodeAuthority(raw, &binding) != nil {
+				return ErrUnverified
+			}
+			candidate := binding.Expectation
+			id := candidate.ID
+			candidate.ID = ""
+			if candidate == want {
+				if found.ID != "" {
+					return ErrUnverified
+				}
+				found = binding.Expectation
+				if !validRef(id) {
+					return ErrUnverified
+				}
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return ReferenceExpectation{}, authorityError(err)
+	}
+	if found.ID == "" {
+		return ReferenceExpectation{}, ErrUnverified
+	}
+	return found, nil
+}

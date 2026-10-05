@@ -38,6 +38,13 @@ func TestServiceAdmissionSignatureAndCurrentRevocation(t *testing.T) {
 	}
 	write()
 	a := &ServiceAccess{RegistryPath: path, Verifier: oidc.NewVerifier(entry.Issuer, &oidc.StaticKeySet{PublicKeys: []crypto.PublicKey{&key.PublicKey}}, &oidc.Config{ClientID: "iam-authority", SupportedSigningAlgs: []string{"RS256"}})}
+	a.Environment = "staging"
+	a.CanonicalRegistryPath = filepath.Join(t.TempDir(), "canonical.json")
+	snapshot := CanonicalWorkloadSnapshot{SharedCommit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Environment: "staging", IssuedAt: now.Add(-time.Second), ValidUntil: now.Add(time.Minute), Workloads: map[string]CanonicalWorkload{entry.Subject: {Status: "ACTIVE", Environment: "staging", AllowedAudiences: []string{"iam-authority"}, AllowedScopes: []string{"federation-authority:read"}}}}
+	raw, _ := json.Marshal(snapshot)
+	if err = os.WriteFile(a.CanonicalRegistryPath, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
 	claims := map[string]any{"iss": entry.Issuer, "sub": entry.Subject, "aud": "iam-authority", "exp": now.Add(time.Minute).Unix(), "iat": now.Unix(), "actor_type": "workload", "scope": "federation-authority:read"}
 	r := httptest.NewRequest("POST", "https://authority.example/internal/federation/v1/trust", nil)
 	r.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}, VerifiedChains: [][]*x509.Certificate{{cert}}}
