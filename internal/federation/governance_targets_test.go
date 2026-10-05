@@ -97,6 +97,49 @@ func TestNativeTargetLedgerIsImmutableAndRestartSafe(t *testing.T) {
 	}
 }
 
+func TestCompositeApprovalTargetsRejectsCPOwnedNativeTarget(t *testing.T) {
+	ctx := context.Background()
+	want, _ := nativeTargetExpectation(t)
+	want.ID = "ref_runtimeprofile"
+	want.Kind = "identity_runtime_profile"
+	registration := &targetRegistrationFixture{digest: "sha256:" + strings.Repeat("a", 64)}
+	native, err := OpenNativeTargetLedger(filepath.Join(t.TempDir(), "native-targets.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer native.Close()
+	targets, err := NewCompositeApprovalTargets(registration, native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := targets.ResolveApprovedTarget(ctx, want); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("CP-owned native target result=%v", err)
+	}
+	if registration.calls != 0 {
+		t.Fatalf("CP registration consulted for unsupported owner-native target: calls=%d", registration.calls)
+	}
+}
+
+func TestIAMOwnedNativeTargetKindMatchesSharedOwnership(t *testing.T) {
+	for kind, want := range map[string]bool{
+		"federation_configuration":  true,
+		"federation_trust_material": true,
+		"assurance_policy":          true,
+		"attribute_mapping":         true,
+		"provisioning_policy":       true,
+		"federation_activation":     true,
+		"assurance_mapping_decision": true,
+		"identity_security_domain":  true,
+		"canonical_identity_mapping": false,
+		"identity_runtime_profile":   false,
+		"identity_runtime_support":   false,
+	} {
+		if got := iamOwnedNativeTargetKind(kind); got != want {
+			t.Fatalf("%s IAM-owned=%v want=%v", kind, got, want)
+		}
+	}
+}
+
 func TestCompositeApprovalTargetsRequiresBothAuthorities(t *testing.T) {
 	ctx := context.Background()
 	want, _ := nativeTargetExpectation(t)
