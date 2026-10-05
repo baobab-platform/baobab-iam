@@ -82,7 +82,7 @@ func (a *ServiceAccess) AuthorizeAuthorityRequest(ctx context.Context, r *http.R
 			admission = &registry[i]
 		}
 	}
-	if admission == nil || !admission.Active || !now.Before(admission.ValidUntil) {
+	if admission == nil || !admission.Active || !exact(admission.Subject) || !now.Before(admission.ValidUntil) {
 		return nil, ErrDenied
 	}
 	parts := strings.Split(r.Header.Get("Authorization"), " ")
