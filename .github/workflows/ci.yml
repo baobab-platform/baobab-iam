@@ -19,9 +19,9 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Build packages
-        run: go build ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/
+        run: go build ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/
       - name: Test packages
-        run: go test ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision -count=1
+        run: go test ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority -count=1
       - name: Test federation consumption with race detector
         run: go test -race ./internal/federation/... -count=1
       - name: Install matrix validator dependency
@@ -56,6 +56,33 @@ jobs:
         run: ./scripts/check-issued-scopes.sh
       - name: Every client and scope description fits Keycloak's 255-character limit
         run: ./scripts/check-config-limits.sh
+
+  federation-authority-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Build private federation authority image
+        run: docker build -f Dockerfile.federation-authority -t federation-authority:test .
+      - name: Scan federation authority image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: federation-authority:test
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          format: table
+      - name: Generate federation authority SBOM
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: federation-authority:test
+          format: cyclonedx
+          output: federation-authority.cyclonedx.json
+      - name: Upload federation authority SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: federation-authority-sbom
+          path: federation-authority.cyclonedx.json
+          retention-days: 90
 
   keycloak-baseline:
     runs-on: ubuntu-latest
