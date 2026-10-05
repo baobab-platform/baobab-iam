@@ -7,7 +7,7 @@ metadata:
     pinned Shared capability catalogue. All other rows are management, candidate, or provider-internal until a Shared
     catalogue decision. ADR-IAM-0033 retains Keycloak only for enterprise federation; Kratos owns native humans
     and Hydra owns OAuth/workloads. These target allocations do not select providers at runtime.
-  updated: '2026-10-04'
+  updated: '2026-10-05'
   shared_catalogue_rule: At the Shared pin used by this branch only identity.authentication.perform and identity.workload-token.issue
     are catalogued. Do not promote any other key to PLATFORM_RESOLVABLE_CAPABILITY without a Shared catalogue change.
 capabilities:
@@ -176,7 +176,7 @@ capabilities:
   tier: Tier 1
   owning_adr: ADR-IAM-0026, ADR-IAM-0033
   shared_contract: Federation contract; not yet a Shared catalogue key
-  iam_port: EnterpriseFederationProvider (planned; not implemented)
+  iam_port: EnterpriseFederationProvider (permanent bounded adapter implemented)
   primary_provider: Keycloak
   ory_mechanism: Not required for initial self-hosted enterprise federation; native identities remain Kratos-owned
   keycloak_source: Retained enterprise SAML/OIDC IdPs, identity brokering and provider-local Organization routing
@@ -186,12 +186,13 @@ capabilities:
   security_requirements: Approved FederationTrust; exact issuer+subject; no email linking or group-derived business
     authority; assurance provenance
   retirement_dependency: NONE (retained federation capability; replacement requires portability evidence)
-  migration_phase: IAM-MP2 / MP7–MP12
-  implementation_status: Planned (retained runtime exists; permanent federation adapter and Shared binding contract
-    missing)
-  tests: Federation contract tests
-  conformance_evidence: 'Required: SAML/OIDC federation, binding isolation, disabled trust, key rotation, logout
-    and canonical normalization evidence'
+  migration_phase: "IAM-MP2 / MP7\u2013MP12"
+  implementation_status: Implemented OIDC/SAML federation runtime and governed authority; MP3/MP4 dispatch and production
+    acceptance remain open
+  tests: Provider contract, signed OIDC/SAML adversarial and replay tests; enterprise-federation-live; PostgreSQL
+    concurrency/recovery tests
+  conformance_evidence: Repository/CI construction evidence from MP8 and shared-state implementation; staging rotation,
+    deployed consumer and HA/DR certification outstanding
 - capability_family: Recovery and Proofing
   capability_operation: identity.recovery.perform
   classification: IAM_MANAGEMENT_OPERATION
@@ -297,7 +298,8 @@ capabilities:
   iam_port: internal/provider and adapter boundary
   primary_provider: Baobab IAM adapters across assigned providers
   ory_mechanism: Ory adapter normalization only; no leakage of provider semantics
-  keycloak_source: Permanent bounded federation adapter planned; legacy compatibility methods remain unsupported
+  keycloak_source: Permanent bounded EnterpriseFederationProvider implemented; legacy compatibility methods remain
+    unsupported
   cp_dependency: CP resolves canonical identity externally to provider-native IDs
   digital_estate_dependency: Estate layers depend on normalized contracts, not provider SDKs
   observability: Adapter error taxonomy, unsupported-operation rate

@@ -68,11 +68,14 @@ rejects token-endpoint redirects. No token-derived discovery or route selection
 occurs. MP3/MP4 provider selection remains separate from this bound adapter.
 
 Enterprise mode mounts only `/internal/enterprise-federation/v1/` event routes;
-the direct OIDC completion path is not a fallback. `broker.db` is a protected,
-single-writer durable ledger. Shutdown drains HTTP before closing it. Preserve
-this ledger through deployment and recovery; ephemeral ECS storage is unsuitable.
-Readiness checks the configured OIDC or SAML trust and matching CP runtime facet.
-As with the other ledgers, multi-replica/failover fencing remains production work.
+the direct OIDC completion path is not a fallback. With `Storage` configured,
+PostgreSQL 17 holds shared broker state and coordinates replicas with transaction
+locks and externally pinned recovery epochs. Production startup requires shared
+storage. Without `Storage`, `broker.db` remains a protected single-writer bbolt
+staging ledger; ephemeral ECS storage is unsuitable. Shutdown drains requests
+before closing storage. Readiness checks the approved OIDC/SAML trust and CP
+runtime facet. See [shared-state recovery](federation-shared-storage.md); actual
+cloud failover/restore, throughput and approved RPO/RTO remain acceptance work.
 
 ## Approved non-secret native documents
 
@@ -200,8 +203,8 @@ CI fixture passwords, ephemeral certificates and loopback endpoints belong only
 to `tests/enterprise`. No live workload is activated and no AWS deployment is
 performed by this increment. AWS Staging must still prove the registered CP/IAM/
 Keycloak services, current approvals, canonical mapping, runtime profile and
-operational evidence under real infrastructure, followed by production recovery
-and shared durable-state hardening.
+operational evidence under real infrastructure, with the implemented shared durable state and recovery fencing. Real restore,
+failover, rotation and operational acceptance remain outstanding.
 
 The evidence mapper must use `syncMode=FORCE` so that account-link and existing-user
 flows restore the verified digest after any first-broker-login reset. The bridge

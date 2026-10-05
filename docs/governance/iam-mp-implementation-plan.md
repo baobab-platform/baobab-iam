@@ -1,8 +1,12 @@
 # ADR-IAM-0033 implementation plan
 
-**Status:** Sequenced implementation plan; repository MP0/MP1 reconciliation merged in IAM #64. MP2 contracts and consumption foundations merged; live-runtime plumbing merged in #66; review corrections tracked in #68.
+**Status:** Advanced implementation; production acceptance not reached. Permanent
+Keycloak OIDC/SAML federation and PostgreSQL shared authority/recovery fencing
+are implemented. MP3 projection and MP4 dispatch remain the next runtime increment.
+**Date:** 2026-10-05.
+**Current evidence:** [Programme status](iam-mp-programme-status.md), reconciled
+against IAM `a927259753a0d2dee16f8df6f5509c5dc9cb18e9`.
 No runtime reduction, cutover or production acceptance is authorised by this plan.
-**Date:** 2026-10-04.
 **Authority:** Accepted ADR-IAM-0033, preserving the security and canonical-authority
 invariants of ADR-IAM-0019–0032 where not amended.
 
@@ -17,7 +21,7 @@ invariants of ADR-IAM-0019–0032 where not amended.
 
 The table above records the original MP0 discovery snapshot, not current branch
 heads. The following merged evidence supersedes its implementation-gap claims
-(as verified on 2026-10-04):
+(original MP2 snapshot; superseded where noted by the 2026-10-05 programme status):
 
 | Increment | Current evidence | Claim boundary |
 |---|---|---|
@@ -28,8 +32,10 @@ heads. The following merged evidence supersedes its implementation-gap claims
 | MP2-C consumption | IAM #65 merged; IAM #65 baseline `ccb3852d76b26fef94b1f280f0ea021363808d23` | Consumer boundary, without production authority composition |
 | MP2-C executable plumbing | IAM #66 merged at `e4e3cbef7ff7f5ec5379cc456892ae57660417bf`; review follow-ups in #68 | Authenticated transport, durable approvals and actual OIDC verification; no mounted live sources, SAML conformance or multi-replica acceptance |
 
-MP3 registry, MP4 dispatch and MP8 enterprise federation execution remain open.
-Green CI on #66 is construction evidence, not production consumption evidence.
+MP8 enterprise federation execution is implemented in #75, with shared durable
+authority state/recovery fencing in #77. MP3 production support projection and
+MP4 CP-resolution-driven dispatch remain open. Green CI is construction evidence,
+not production consumption evidence.
 
 Two audit qualifications matter:
 
@@ -41,8 +47,7 @@ Two audit qualifications matter:
   evidence of a deployed version, HA or production acceptance.
 
 No progress percentage is used: the audit's approximate two-thirds estimate is
-not an exit criterion. Missing federation adapters, contracts and operational
-proof remain explicit gates.
+not an exit criterion. Remaining runtime projection/dispatch and operational proof remain explicit gates.
 
 ## 2. Immediate bounded increment
 
@@ -50,15 +55,16 @@ proof remain explicit gates.
 |---|---|---|
 | MP0 repository reconciliation | Retain/reduce asset inventory, scoped retirement, current digest evidence, README and permanent adapter-boundary wording | Complete cross-repository operational inventory, owner acceptance and live federation census |
 | MP1 ownership matrix | Target provider column; Keycloak enterprise federation retained; Kratos native humans; Hydra OAuth/workloads; generated Markdown and regression guards | Production instance/support/binding declarations depend on MP2–MP4 |
-| MP2–MP4 | Dependency and acceptance plan below | Live CP/IAM authority sources, runtime-profile persistence/resolution integration and IAM dispatch |
+| MP2–MP4 | Shared contracts, live CP/IAM federation authority composition and CP runtime-profile persistence implemented | Production support projection and CP resolution → IAM dispatch; staging evidence |
 
 The matrix remains an IAM architectural control surface, not a runtime registry.
 Only Shared-catalogued keys are PLATFORM_RESOLVABLE_CAPABILITY. Provider labels
 such as SAML_FEDERATION do not automatically become new platform capability keys.
-The Keycloak adapter is still incomplete; wording corrections do not implement
-EnterpriseFederationProvider or turn deployment-dependent support into verified
-support. Existing Ory runtime, M4 tests, ledger, policy gates and production
-configuration remain unchanged.
+The permanent Keycloak enterprise adapter now implements the provider-neutral
+port and independently verifies original upstream OIDC/SAML evidence. Runtime
+facet verification is separate from canonical capability support and activation.
+No wording change can promote support or waive deployed evidence. Existing
+Ory runtime, M4 tests, ledger and migration policy gates remain required.
 
 ## 3. MP2–MP4 dependency and PR sequence
 

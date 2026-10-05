@@ -2,7 +2,9 @@
 
 This package is the **Baobab Identity Provider Contract** introduced under
 **Gate IAM-M1**. It is independent of the top-level `providers/` directory,
-which holds Keycloak SPI JARs for the legacy runtime until Gate IAM-M19.
+which holds retained Keycloak SPI JARs, including the permanent federation evidence bridge.
+Accepted ADR-IAM-0033 supersedes global Keycloak retirement: Kratos owns native
+humans, Hydra owns OAuth/workloads, and Keycloak remains enterprise federation.
 
 ## Layout
 
@@ -14,7 +16,8 @@ internal/provider/
   validate.go          # offline validation helpers
   factory.go           # ParseProviderName
   ory/                 # Ory Kratos (human) + Hydra (OAuth/workloads) adapter
-  keycloak/            # Dual-run stub; most methods return ErrUnsupported
+  enterprise.go        # EnterpriseFederationProvider capability port
+  keycloak/            # Permanent enterprise adapter; separate legacy compatibility stub
 ```
 
 Related (not this package):
@@ -43,12 +46,23 @@ Related (not this package):
 | `SessionRevoker` | Provider-side session revocation (kill-switch half) |
 | `WorkloadProvisioner` | OAuth client provision / disable / rotate |
 | `IdentityReconciler` | Provider-boundary reconciliation |
+| `EnterpriseFederationProvider` | Approved OIDC/SAML enterprise begin/complete; opaque event evidence |
 
 ## Gates
 
 - **M1** — Land this package (no Ory runtime required).
 - **M2/M3** — Pin and deploy Kratos/Hydra; flesh admin HTTP calls if needed.
 - **M4+** — Workloads, migration ledger, dual-issuer (ADR-0022).
-- **M19** — Remove `keycloak/` adapter and legacy Keycloak runtime.
+- **Historical M19** — Superseded by MP7 capability-specific reduction and
+  MP18 migration reconciliation. Retain `keycloak.EnterpriseAdapter`, federation
+  bridge/runtime, image pins and independent security maintenance.
+- **MP3/MP4** — CP owns provider/support/bindings and resolution; IAM projects
+  current approved runtime evidence and dispatches adapter mechanics.
+  `ParseProviderName` is compatibility parsing, not capability resolution.
+
+OIDC/SAML federation, maker/checker trust governance and PostgreSQL shared-state
+recovery fencing are implemented. They are repository construction evidence,
+not estate adoption or production acceptance. See the
+[current programme status](../../docs/governance/iam-mp-programme-status.md).
 
 See `docs/governance/gate-iam-m1-provider-neutral-contracts-scope.md`.
