@@ -25,6 +25,7 @@ import (
 )
 
 type config struct {
+	Storage                                                                        *federation.PostgresStorageConfig
 	EnterpriseBroker                                                               bool
 	BrokerProviderID, BrokerEngineInstanceID, BrokerIssuer, BrokerClientSecretFile string
 	Address, Certificate, Key, ClientCA, AuthorityCA                               string
@@ -89,6 +90,9 @@ func roots(path string) (*x509.CertPool, error) {
 }
 
 func run(ctx context.Context, c config) error {
+	if c.Environment == "production" && c.Storage == nil {
+		return errors.New("production requires shared federation storage")
+	}
 	i, err := os.Lstat(c.StateDirectory)
 	if err != nil || !i.IsDir() || i.Mode().Perm()&0077 != 0 {
 		return errors.New("state directory must be private and persistent")
@@ -102,9 +106,27 @@ func run(ctx context.Context, c config) error {
 	if err != nil {
 		return err
 	}
-	g, err := federation.OpenGovernanceComposition(federation.GovernanceCompositionConfig{
-		NativeTargetLedgerPath: filepath.Join(c.StateDirectory, "native.db"), ApprovalLedgerPath: filepath.Join(c.StateDirectory, "approvals.db"), TrustLedgerPath: filepath.Join(c.StateDirectory, "trusts.db"), Registration: cp, ApprovalAuthority: cp, Now: time.Now,
-	})
+	var storage *federation.PostgresStorage
+	if c.Storage != nil {
+		storage, err = federation.OpenPostgresStorage(ctx, *c.Storage)
+		if err != nil {
+			return errors.New("shared storage unavailable")
+		}
+		defer storage.Close()
+	}
+	gc := federation.GovernanceCompositionConfig{Storage: storage, Registration: cp, ApprovalAuthority: cp, Now: time.Now}
+	nativePath, approvalPath, trustPath, brokerPath, eventDBPath := "", "", "", "", ""
+	if storage == nil {
+		nativePath = filepath.Join(c.StateDirectory, "native.db")
+		approvalPath = filepath.Join(c.StateDirectory, "approvals.db")
+		trustPath = filepath.Join(c.StateDirectory, "trusts.db")
+		brokerPath = filepath.Join(c.StateDirectory, "broker.db")
+		eventDBPath = filepath.Join(c.StateDirectory, "events.db")
+	}
+	gc.NativeTargetLedgerPath = nativePath
+	gc.ApprovalLedgerPath = approvalPath
+	gc.TrustLedgerPath = trustPath
+	g, err := federation.OpenGovernanceComposition(gc)
 	if err != nil {
 		return err
 	}
@@ -146,7 +168,7 @@ func run(ctx context.Context, c config) error {
 		if c.BrokerClientSecretFile != "" {
 			secrets = federation.FileAuthorityTokens{Path: c.BrokerClientSecretFile}
 		}
-		events, e := federation.OpenBrokerEvents(federation.BrokerEventsConfig{Path: filepath.Join(c.StateDirectory, "broker.db"), Configuration: protocol, Mapper: protocol, Client: &http.Client{Transport: &http.Transport{TLSClientConfig: outbound}}, ClientSecrets: secrets, Now: time.Now, MaxLifetime: c.Policy.MaxEventLifetime})
+		events, e := federation.OpenBrokerEvents(federation.BrokerEventsConfig{Path: brokerPath, Storage: storage, Configuration: protocol, Mapper: protocol, Client: &http.Client{Transport: &http.Transport{TLSClientConfig: outbound}}, ClientSecrets: secrets, Now: time.Now, MaxLifetime: c.Policy.MaxEventLifetime})
 		if e != nil {
 			return e
 		}
@@ -161,7 +183,7 @@ func run(ctx context.Context, c config) error {
 		eventHandler, err = federation.NewServiceBrokerHandler(access, g.Trusts, adapter, events, consumer)
 		eventPath = "/internal/enterprise-federation/v1/"
 	} else {
-		events, e := federation.OpenOIDCEvents(filepath.Join(c.StateDirectory, "events.db"), protocol, protocol, time.Now, c.Policy.MaxEventLifetime)
+		events, e := openEvents(storage, eventDBPath, protocol, c.Policy.MaxEventLifetime)
 		if e != nil {
 			return e
 		}
@@ -194,6 +216,10 @@ func run(ctx context.Context, c config) error {
 		w.Header().Set("Cache-Control", "no-store")
 		probe, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
+		if storage != nil && storage.Check(probe) != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
 		trust, err := g.Trusts.Trust(probe, c.ReadinessTrustID)
 		if err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -259,4 +285,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "federation-authority stopped: dependency or service failure")
 		os.Exit(1)
 	}
+}
+
+func openEvents(storage *federation.PostgresStorage, path string, p *federation.NativeProtocol, lifetime time.Duration) (*federation.OIDCEvents, error) {
+	if storage != nil {
+		return federation.OpenOIDCEventsWithStorage(storage, p, p, time.Now, lifetime)
+	}
+	return federation.OpenOIDCEvents(path, p, p, time.Now, lifetime)
 }

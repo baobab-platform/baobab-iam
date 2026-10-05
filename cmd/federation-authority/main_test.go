@@ -143,3 +143,9 @@ func TestPrivateServiceTLSReadinessAndGracefulShutdown(t *testing.T) {
 	}
 	events.Close()
 }
+
+func TestProductionRefusesLocalLedgerBeforeStartup(t *testing.T) {
+	if err := run(context.Background(), config{Environment: "production"}); err == nil {
+		t.Fatal("production local storage admitted")
+	}
+}

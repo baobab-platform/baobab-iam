@@ -204,3 +204,27 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down -v
+
+  federation-postgres:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: federation_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: go.mod
+      - name: Shared-state concurrency, replay and recovery fences
+        env:
+          TEST_FEDERATION_DATABASE_URL: postgres://postgres@localhost:5432/federation_ci?sslmode=disable
+          POSTGRES_TOOLS_CONTAINER: ${{ job.services.postgres.id }}
+        run: go test -race ./internal/federation -run TestPostgres -count=1 -v

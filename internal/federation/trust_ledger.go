@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"slices"
 	"time"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 // TrustLedger persists IAM-owned desired trust revisions and native approval
@@ -18,7 +16,7 @@ import (
 // and scope. All authority/target/receipt ports are mandatory, without defaults.
 // It shares the local single-writer limitation of the existing approval ledger.
 type TrustLedger struct {
-	db         *bolt.DB
+	db         ledgerDB
 	actors     ApprovalAuthority
 	targets    ApprovalTargets
 	references interface {
@@ -53,17 +51,25 @@ var trustProposalsBucket = []byte("federation-trust-proposals-v1")
 var trustHistoryBucket = []byte("federation-trust-history-v1")
 var trustClockBucket = []byte("federation-trust-clock-v1")
 
-func OpenTrustLedger(path string, actors ApprovalAuthority, targets ApprovalTargets, references interface {
+type ledgerReferences interface {
 	Reference(context.Context, ReferenceExpectation) (ApprovedReference, error)
-}, now func() time.Time) (*TrustLedger, error) {
-	if path == "" || absent(actors) || absent(targets) || absent(references) || now == nil {
+}
+
+func OpenTrustLedger(path string, actors ApprovalAuthority, targets ApprovalTargets, references ledgerReferences, now func() time.Time) (*TrustLedger, error) {
+	return openTrustLedger(nil, path, actors, targets, references, now)
+}
+func OpenTrustLedgerWithStorage(storage *PostgresStorage, actors ApprovalAuthority, targets ApprovalTargets, references ledgerReferences, now func() time.Time) (*TrustLedger, error) {
+	return openTrustLedger(storage, "", actors, targets, references, now)
+}
+func openTrustLedger(storage *PostgresStorage, path string, actors ApprovalAuthority, targets ApprovalTargets, references ledgerReferences, now func() time.Time) (*TrustLedger, error) {
+	if (path == "" && storage == nil) || absent(actors) || absent(targets) || absent(references) || now == nil {
 		return nil, ErrInvalid
 	}
-	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: time.Second, OpenFile: privateLedgerFile})
+	db, err := openLedger(path, storage, "trusts")
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	if err := db.Update(func(tx *bolt.Tx) error {
+	if err := db.Update(func(tx ledgerTx) error {
 		for _, bucket := range [][]byte{trustsBucket, trustProposalsBucket, trustClockBucket, trustHistoryBucket} {
 			if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 				return err
@@ -127,7 +133,7 @@ func (l *TrustLedger) read(ctx context.Context, id string) (committedTrust, erro
 		return committedTrust{}, ErrInvalid
 	}
 	var value committedTrust
-	err := l.db.View(func(tx *bolt.Tx) error {
+	err := l.db.View(func(tx ledgerTx) error {
 		raw := tx.Bucket(trustsBucket).Get([]byte(id))
 		if raw == nil {
 			return ErrUnverified
@@ -179,7 +185,7 @@ func (l *TrustLedger) Propose(ctx context.Context, id string, candidate TrustSna
 	}
 	p := TrustProposal{ID: id, Snapshot: candidate, Target: want, TargetDigest: digest, PreviousRevision: previous.Snapshot.ApprovedRevision, PreviousSnapshotID: previous.Snapshot.SnapshotID, Maker: actor.PrincipalID, Status: "PENDING", ProposedAt: now}
 	data, _ := json.Marshal(p)
-	err = l.db.Update(func(tx *bolt.Tx) error {
+	err = l.db.Update(func(tx ledgerTx) error {
 		if err := l.observeClock(tx); err != nil {
 			return err
 		}
@@ -210,7 +216,7 @@ func (l *TrustLedger) proposal(ctx context.Context, id string) (TrustProposal, e
 		return TrustProposal{}, ErrInvalid
 	}
 	var p TrustProposal
-	err := l.db.View(func(tx *bolt.Tx) error { return decodeAuthority(tx.Bucket(trustProposalsBucket).Get([]byte(id)), &p) })
+	err := l.db.View(func(tx ledgerTx) error { return decodeAuthority(tx.Bucket(trustProposalsBucket).Get([]byte(id)), &p) })
 	if err != nil {
 		return TrustProposal{}, authorityError(err)
 	}
@@ -272,7 +278,7 @@ func (l *TrustLedger) Decide(ctx context.Context, id, digest string, approve boo
 		p.Status = "APPROVED"
 	}
 	data, _ := json.Marshal(p)
-	err = l.db.Update(func(tx *bolt.Tx) error {
+	err = l.db.Update(func(tx ledgerTx) error {
 		if err := l.observeClock(tx); err != nil {
 			return err
 		}
@@ -383,7 +389,7 @@ func (l *TrustLedger) Contain(ctx context.Context, id string, revision uint64, s
 	current.ContainmentActor = actor.PrincipalID
 	current.ContainedAt = &now
 	encoded, _ := json.Marshal(current)
-	return authorityErrorUnlessNil(l.db.Update(func(tx *bolt.Tx) error {
+	return authorityErrorUnlessNil(l.db.Update(func(tx ledgerTx) error {
 		if err := l.observeClock(tx); err != nil {
 			return err
 		}
@@ -401,7 +407,7 @@ func (l *TrustLedger) Contain(ctx context.Context, id string, revision uint64, s
 var _ GovernanceAuthority = (*TrustLedger)(nil)
 
 // Reads also advance the durable watermark: expiry cannot reopen after restart.
-func (l *TrustLedger) observeClock(tx *bolt.Tx) error {
+func (l *TrustLedger) observeClock(tx ledgerTx) error {
 	b := tx.Bucket(trustClockBucket)
 	now := l.now().UTC()
 	if raw := b.Get(clockKey); raw != nil {
@@ -421,7 +427,7 @@ func (l *TrustLedger) fence() error {
 
 // Every committed revision is retained independently of the mutable current
 // pointer. No update/delete history command exists; both writes are atomic.
-func putTrustRevision(tx *bolt.Tx, id string, revision uint64, data []byte) error {
+func putTrustRevision(tx ledgerTx, id string, revision uint64, data []byte) error {
 	key := []byte(fmt.Sprintf("%s:%020d", id, revision))
 	history := tx.Bucket(trustHistoryBucket)
 	if history.Get(key) != nil {
@@ -437,7 +443,7 @@ func (l *TrustLedger) historicalRevision(ctx context.Context, id string, revisio
 		return committedTrust{}, ErrInvalid
 	}
 	var value committedTrust
-	err := l.db.View(func(tx *bolt.Tx) error {
+	err := l.db.View(func(tx ledgerTx) error {
 		return decodeAuthority(tx.Bucket(trustHistoryBucket).Get([]byte(fmt.Sprintf("%s:%020d", id, revision))), &value)
 	})
 	if err != nil {

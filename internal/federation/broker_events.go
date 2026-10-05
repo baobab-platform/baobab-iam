@@ -11,8 +11,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 var brokerRequests = []byte("broker-requests-v1")
@@ -22,6 +20,7 @@ var brokerReplay = []byte("broker-replay-v1")
 var brokerVerified = []byte("broker-events-v1")
 
 type BrokerEventsConfig struct {
+	Storage       *PostgresStorage
 	Path          string
 	Configuration BrokerConfigurationAuthority
 	Mapper        AssuranceMapper
@@ -33,7 +32,7 @@ type BrokerEventsConfig struct {
 	AllowLoopbackHTTP bool
 }
 type BrokerEvents struct {
-	db  *bolt.DB
+	db  ledgerDB
 	cfg BrokerEventsConfig
 }
 type BrokerChallenge struct {
@@ -53,14 +52,14 @@ type brokerCapture struct {
 }
 
 func OpenBrokerEvents(cfg BrokerEventsConfig) (*BrokerEvents, error) {
-	if cfg.Path == "" || absent(cfg.Configuration) || absent(cfg.Mapper) || cfg.Now == nil || cfg.MaxLifetime <= 0 || cfg.MaxLifetime > 15*time.Minute {
+	if (cfg.Path == "" && cfg.Storage == nil) || absent(cfg.Configuration) || absent(cfg.Mapper) || cfg.Now == nil || cfg.MaxLifetime <= 0 || cfg.MaxLifetime > 15*time.Minute {
 		return nil, ErrInvalid
 	}
-	db, err := bolt.Open(cfg.Path, 0600, &bolt.Options{Timeout: time.Second, OpenFile: privateLedgerFile})
+	db, err := openLedger(cfg.Path, cfg.Storage, "broker")
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	err = db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx ledgerTx) error {
 		for _, name := range [][]byte{brokerRequests, brokerNonces, brokerCaptures, brokerReplay, brokerVerified, maintenanceBucket} {
 			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
 				return err
@@ -80,7 +79,7 @@ func (e *BrokerEvents) Close() error {
 	}
 	return e.db.Close()
 }
-func (e *BrokerEvents) clock(tx *bolt.Tx) error {
+func (e *BrokerEvents) clock(tx ledgerTx) error {
 	return (&OIDCEvents{now: e.cfg.Now}).observeClock(tx)
 }
 func brokerDigest(c BrokerConfiguration) string {
@@ -173,7 +172,7 @@ func (e *BrokerEvents) Begin(ctx context.Context, s TrustSnapshot, sessionDigest
 	until := minimum(s.ValidUntil, c.ValidUntil, now.Add(5*time.Minute))
 	req := brokerRequest{Request: storedRequest{id, s.Trust.ID, s.SnapshotID, s.ApprovedRevision, sessionDigest, secretDigest(state), secretDigest(nonce), now, until, false}, PKCEDigest: secretDigest(verifier), ConfigurationDigest: brokerDigest(c)}
 	encoded, _ := json.Marshal(req)
-	err = e.db.Update(func(tx *bolt.Tx) error {
+	err = e.db.Update(func(tx ledgerTx) error {
 		if err := e.clock(tx); err != nil {
 			return err
 		}
@@ -210,7 +209,7 @@ func (e *BrokerEvents) Begin(ctx context.Context, s TrustSnapshot, sessionDigest
 	return BrokerChallenge{id, state, nonce, verifier, auth.String(), until}, nil
 }
 
-func (e *BrokerEvents) request(tx *bolt.Tx, id string, s TrustSnapshot, c BrokerConfiguration) (brokerRequest, error) {
+func (e *BrokerEvents) request(tx ledgerTx, id string, s TrustSnapshot, c BrokerConfiguration) (brokerRequest, error) {
 	var req brokerRequest
 	if decodeAuthority(tx.Bucket(brokerRequests).Get([]byte(id)), &req) != nil || req.Request.Consumed || req.Request.TrustID != s.Trust.ID || req.Request.SnapshotID != s.SnapshotID || req.Request.Revision != s.ApprovedRevision || !fresh(req.Request.CreatedAt, req.Request.ExpiresAt, e.cfg.Now()) || req.ConfigurationDigest != brokerDigest(c) {
 		return req, ErrDenied
@@ -231,7 +230,7 @@ func (e *BrokerEvents) Capture(ctx context.Context, s TrustSnapshot, input Broke
 	}
 	var req brokerRequest
 	var id string
-	err = e.db.View(func(tx *bolt.Tx) error {
+	err = e.db.View(func(tx ledgerTx) error {
 		id = string(tx.Bucket(brokerNonces).Get([]byte(secretDigest(input.Nonce))))
 		var err error
 		req, err = e.request(tx, id, s, c)
@@ -271,7 +270,7 @@ func (e *BrokerEvents) Capture(ctx context.Context, s TrustSnapshot, input Broke
 		return ErrUnverified
 	}
 	encoded, _ := json.Marshal(capture)
-	return authorityErrorUnlessNil(e.db.Update(func(tx *bolt.Tx) error {
+	return authorityErrorUnlessNil(e.db.Update(func(tx ledgerTx) error {
 		if err := e.clock(tx); err != nil {
 			return err
 		}
@@ -348,7 +347,7 @@ func (e *BrokerEvents) Complete(ctx context.Context, s TrustSnapshot, input Brok
 	}
 	var req brokerRequest
 	var capture brokerCapture
-	err = e.db.Update(func(tx *bolt.Tx) error {
+	err = e.db.Update(func(tx ledgerTx) error {
 		if err := e.clock(tx); err != nil {
 			return err
 		}
@@ -403,7 +402,7 @@ func (e *BrokerEvents) Complete(ctx context.Context, s TrustSnapshot, input Brok
 	}
 	event := storedEvent{s.SnapshotID, s.ApprovedRevision, Bundle{s.Trust, capture.Principal, mapped}, false}
 	encoded, _ := json.Marshal(event)
-	return authorityErrorUnlessNil(e.db.Update(func(tx *bolt.Tx) error {
+	return authorityErrorUnlessNil(e.db.Update(func(tx ledgerTx) error {
 		if err := e.clock(tx); err != nil {
 			return err
 		}
@@ -422,7 +421,7 @@ func (e *BrokerEvents) Verify(ctx context.Context, id string, s TrustSnapshot) (
 		return ExternalPrincipal{}, Assurance{}, ErrInvalid
 	}
 	var event storedEvent
-	err := e.db.Update(func(tx *bolt.Tx) error {
+	err := e.db.Update(func(tx ledgerTx) error {
 		if err := e.clock(tx); err != nil {
 			return err
 		}
@@ -445,7 +444,7 @@ func (e *BrokerEvents) Preview(ctx context.Context, id string, s TrustSnapshot) 
 		return ExternalPrincipal{}, Assurance{}, err
 	}
 	var capture brokerCapture
-	err = e.db.View(func(tx *bolt.Tx) error {
+	err = e.db.View(func(tx ledgerTx) error {
 		if _, err := e.request(tx, id, s, c); err != nil {
 			return err
 		}
