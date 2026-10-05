@@ -229,6 +229,71 @@ func TestCompositeTargetsGateApprovalProposalDecisionAndUse(t *testing.T) {
 	}
 }
 
+func TestCompositeTargetsGateTrustProposalAndDecision(t *testing.T) {
+	ctx := context.Background()
+	_, source := setup(t, "oidc")
+	snapshot := source.snapshot
+	snapshot.Trust.Status = "REQUESTED"
+	snapshot.Trust.ActivatedAt = nil
+	snapshot.Trust.ActivationEvidenceReference = ""
+
+	want := ReferenceExpectation{
+		ID:               "ref_ciactivation",
+		Kind:             "federation_activation",
+		TrustID:          snapshot.Trust.ID,
+		SnapshotID:       snapshot.SnapshotID,
+		TrustRevision:    snapshot.ApprovedRevision,
+		ProviderID:       snapshot.Trust.ProviderBinding.ProviderID,
+		EngineInstanceID: snapshot.Trust.ProviderBinding.EngineInstanceID,
+		Scope:            source.platform.Scope,
+	}
+	native, err := OpenNativeTargetLedger(filepath.Join(t.TempDir(), "native-targets.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer native.Close()
+	digest, err := native.RegisterTrustSnapshotTarget(ctx, want, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp := &targetRegistrationFixture{digest: digest}
+	targets, err := NewCompositeApprovalTargets(cp, native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actors := &approvalFixture{
+		actor: "33333333-3333-4333-8333-333333333333",
+		clock: source.clock,
+	}
+	ledger, err := OpenTrustLedger(
+		filepath.Join(t.TempDir(), "trusts.db"),
+		actors,
+		targets,
+		source,
+		func() time.Time { return actors.clock },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ledger.Close()
+	proposal, err := ledger.Propose(ctx, proposalID, snapshot, want)
+	if err != nil || proposal.TargetDigest != TrustSnapshotDigest(snapshot) {
+		t.Fatalf("proposal=%#v err=%v", proposal, err)
+	}
+	actors.actor = "44444444-4444-4444-8444-444444444444"
+	if _, err := ledger.Decide(ctx, proposal.ID, proposal.TargetDigest, true); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ledger.Trust(ctx, snapshot.Trust.ID)
+	if err != nil || !sameSnapshot(got, snapshot) {
+		t.Fatalf("trust=%#v err=%v", got, err)
+	}
+	cp.digest = "sha256:" + strings.Repeat("e", 64)
+	if _, err := ledger.Propose(ctx, "66666666-6666-4666-8666-666666666666", snapshot, want); err == nil {
+		t.Fatal("trust proposal ignored CP/native drift")
+	}
+}
+
 func TestHTTPAuthorityReadsTargetRegistration(t *testing.T) {
 	want, _ := nativeTargetExpectation(t)
 	digest := "sha256:" + strings.Repeat("a", 64)
