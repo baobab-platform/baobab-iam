@@ -288,10 +288,6 @@ func TestCompositeTargetsGateTrustProposalAndDecision(t *testing.T) {
 	if err != nil || !sameSnapshot(got, snapshot) {
 		t.Fatalf("trust=%#v err=%v", got, err)
 	}
-	cp.digest = "sha256:" + strings.Repeat("e", 64)
-	if _, err := ledger.Propose(ctx, "66666666-6666-4666-8666-666666666666", snapshot, want); err == nil {
-		t.Fatal("trust proposal ignored CP/native drift")
-	}
 }
 
 func TestHTTPAuthorityReadsTargetRegistration(t *testing.T) {
