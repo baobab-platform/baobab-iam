@@ -130,6 +130,9 @@ func (e *BrokerEvents) configuration(ctx context.Context, s TrustSnapshot) (Brok
 		if !exact(c.SAML.EntityID) || len(c.SigningCertificates) == 0 {
 			return BrokerConfiguration{}, ErrUnverified
 		}
+		if _, err := samlSigningCertificates(c.SigningCertificates, e.cfg.Now()); err != nil {
+			return BrokerConfiguration{}, err
+		}
 		if _, err := brokerURL(c.SAML.ACSURL, false); err != nil {
 			return BrokerConfiguration{}, err
 		}

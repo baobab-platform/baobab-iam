@@ -190,34 +190,12 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 	if err != nil {
 		return ExternalPrincipal{}, Assurance{}, "", err
 	}
+	certificates, err := samlSigningCertificates(c.SigningCertificates, now)
+	if err != nil {
+		return ExternalPrincipal{}, Assurance{}, "", err
+	}
 	var assertion *saml.Assertion
-	for _, encoded := range c.SigningCertificates {
-		block, rest := pem.Decode([]byte(encoded))
-		if block == nil || block.Type != "CERTIFICATE" || len(bytes.TrimSpace(rest)) != 0 {
-			return ExternalPrincipal{}, Assurance{}, "", ErrInvalid
-		}
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return ExternalPrincipal{}, Assurance{}, "", ErrInvalid
-		}
-		if now.Before(cert.NotBefore) || !now.Before(cert.NotAfter) {
-			continue
-		}
-		if cert.KeyUsage != 0 && cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
-			return ExternalPrincipal{}, Assurance{}, "", ErrInvalid
-		}
-		switch key := cert.PublicKey.(type) {
-		case *rsa.PublicKey:
-			if key.N.BitLen() < 2048 || key.E < 65537 {
-				return ExternalPrincipal{}, Assurance{}, "", ErrInvalid
-			}
-		case *ecdsa.PublicKey:
-			if key.Curve != elliptic.P256() {
-				return ExternalPrincipal{}, Assurance{}, "", ErrInvalid
-			}
-		default:
-			return ExternalPrincipal{}, Assurance{}, "", ErrUnsupported
-		}
+	for _, cert := range certificates {
 		der := base64.StdEncoding.EncodeToString(cert.Raw)
 		sp := saml.ServiceProvider{EntityID: c.SAML.EntityID, AcsURL: *acs, IDPMetadata: &saml.EntityDescriptor{EntityID: s.Trust.UpstreamIssuer}, IDPCertificate: &der}
 		candidate, e := sp.ParseXMLResponse([]byte(raw), []string{requestID}, *acs)
@@ -241,4 +219,46 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 	p := ExternalPrincipal{TrustID: s.Trust.ID, ProviderID: c.Binding.ProviderID, EngineInstanceID: c.Binding.EngineInstanceID, Protocol: "SAML2", Issuer: s.Trust.UpstreamIssuer, Subject: QualifiedSAMLSubject(s.Trust.UpstreamIssuer, c.SAML.EntityID, name.Value), ActorType: "human", ObservedAt: now, ExpiresAt: until, Resolution: Resolution{Status: "UNRESOLVED"}}
 	a := Assurance{TrustID: p.TrustID, ProviderID: p.ProviderID, EngineInstanceID: p.EngineInstanceID, Protocol: p.Protocol, Issuer: p.Issuer, Subject: p.Subject, UpstreamEvidence: UpstreamEvidence{SAML: &SAMLAssurance{AuthnContextClassRef: statement.AuthnContext.AuthnContextClassRef.Value, AuthenticatedAt: statement.AuthnInstant, SessionExpiresAt: *statement.SessionNotOnOrAfter}}, MappingStatus: "UNKNOWN", AssurancePolicyReference: s.Trust.AssurancePolicyReference, EvaluatedAt: now, ExpiresAt: until}
 	return p, a, s.Trust.UpstreamIssuer + "\x00" + assertion.ID, nil
+}
+
+// Readiness and capture use the same bounded, current signing-certificate profile.
+func samlSigningCertificates(encodedCertificates []string, now time.Time) ([]*x509.Certificate, error) {
+	if len(encodedCertificates) < 1 || len(encodedCertificates) > 8 {
+		return nil, ErrInvalid
+	}
+	var certificates []*x509.Certificate
+
+	for _, encoded := range encodedCertificates {
+		block, rest := pem.Decode([]byte(encoded))
+		if block == nil || block.Type != "CERTIFICATE" || len(bytes.TrimSpace(rest)) != 0 {
+			return nil, ErrInvalid
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, ErrInvalid
+		}
+		if now.Before(cert.NotBefore) || !now.Before(cert.NotAfter) {
+			continue
+		}
+		if cert.KeyUsage != 0 && cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
+			return nil, ErrInvalid
+		}
+		switch key := cert.PublicKey.(type) {
+		case *rsa.PublicKey:
+			if key.N.BitLen() < 2048 || key.E < 65537 {
+				return nil, ErrInvalid
+			}
+		case *ecdsa.PublicKey:
+			if key.Curve != elliptic.P256() {
+				return nil, ErrInvalid
+			}
+		default:
+			return nil, ErrUnsupported
+		}
+		certificates = append(certificates, cert)
+	}
+	if len(certificates) == 0 {
+		return nil, ErrUnverified
+	}
+	return certificates, nil
 }

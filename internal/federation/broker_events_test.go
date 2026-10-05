@@ -288,3 +288,22 @@ func TestBrokerCaptureReplayAndClockFenceSurviveRestart(t *testing.T) {
 		t.Fatal("clock rollback accepted after pruning")
 	}
 }
+
+func TestBrokerSAMLReadinessRequiresCurrentUsableSigningMaterial(t *testing.T) {
+	e, f, s, _ := brokerSetup(t, "saml2")
+	if err := e.Ready(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	original := f.config.SigningCertificates
+	f.config.SigningCertificates = []string{"invalid-certificate"}
+	if e.Ready(context.Background(), s) == nil {
+		t.Fatal("malformed signing material reported ready")
+	}
+	f.config.SigningCertificates = original
+	f.clock = f.clock.Add(2 * time.Hour)
+	s.ValidUntil = f.clock.Add(10 * time.Minute)
+	f.config.ValidUntil = s.ValidUntil
+	if e.Ready(context.Background(), s) == nil {
+		t.Fatal("expired signing material reported ready")
+	}
+}
