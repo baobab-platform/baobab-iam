@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -189,37 +190,73 @@ func (b *postgresBucket) Stats() ledgerStats {
 }
 func (b *postgresBucket) Cursor() ledgerCursor { return &postgresCursor{b: b} }
 
+const postgresCursorPageSize = 256
+
+type postgresCursorEntry struct{ key, value []byte }
 type postgresCursor struct {
 	b     *postgresBucket
 	key   []byte
 	ended bool
+	page  []postgresCursorEntry
 }
 
 func (c *postgresCursor) read(op string, k []byte) ([]byte, []byte) {
 	b := c.b
-	var key, value []byte
 	query := `SELECT key,value FROM iam_federation_records WHERE namespace=$1 AND ledger=$2 AND bucket=$3`
 	args := []any{b.t.namespace, b.t.ledger, b.name}
 	if op != "" {
 		query += " AND key " + op + " $4"
 		args = append(args, k)
 	}
-	query += " ORDER BY key LIMIT 1"
-	e := b.t.tx.QueryRowContext(b.t.ctx, query, args...).Scan(&key, &value)
-	if errors.Is(e, sql.ErrNoRows) {
+	query += fmt.Sprintf(" ORDER BY key LIMIT %d", postgresCursorPageSize)
+	rows, err := b.t.tx.QueryContext(b.t.ctx, query, args...)
+	if err != nil {
+		b.t.fail(err)
 		c.ended = true
 		return nil, nil
 	}
-	b.t.fail(e)
-	c.key = key
-	c.ended = e != nil
-	return key, value
+	c.page = nil
+	for rows.Next() {
+		var e postgresCursorEntry
+		if err = rows.Scan(&e.key, &e.value); err != nil {
+			break
+		}
+		c.page = append(c.page, e)
+	}
+	if err == nil {
+		err = rows.Err()
+	}
+	closeErr := rows.Close()
+	if err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		b.t.fail(err)
+		c.page = nil
+		c.ended = true
+		return nil, nil
+	}
+	return c.take()
+}
+func (c *postgresCursor) take() ([]byte, []byte) {
+	if len(c.page) == 0 {
+		c.ended = true
+		return nil, nil
+	}
+	e := c.page[0]
+	c.page[0] = postgresCursorEntry{}
+	c.page = c.page[1:]
+	c.key = e.key
+	return e.key, e.value
 }
 func (c *postgresCursor) First() ([]byte, []byte)        { c.ended = false; return c.read("", nil) }
 func (c *postgresCursor) Seek(k []byte) ([]byte, []byte) { c.ended = false; return c.read(">=", k) }
 func (c *postgresCursor) Next() ([]byte, []byte) {
 	if c.ended {
 		return nil, nil
+	}
+	if len(c.page) > 0 {
+		return c.take()
 	}
 	if c.key == nil {
 		return c.First()

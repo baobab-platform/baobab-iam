@@ -276,3 +276,86 @@ func TestPostgresRuntimeRefusesUnverifiedTLSAndInvalidPins(t *testing.T) {
 		t.Fatal("invalid namespace accepted")
 	}
 }
+
+func TestPostgresCursorPagesSeekDeleteAndIsolation(t *testing.T) {
+	a, b := postgresFixture(t)
+	one, err := openLedger("", a, "cursor-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	two, err := openLedger("", b, "cursor-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bucket := []byte("rows")
+	count := postgresCursorPageSize*2 + 3
+	if err = one.Update(func(tx ledgerTx) error {
+		for i := 0; i < count; i++ {
+			if e := tx.Bucket(bucket).Put([]byte(fmt.Sprintf("%04d", i)), []byte("value")); e != nil {
+				return e
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = two.Update(func(tx ledgerTx) error {
+		c := tx.Bucket(bucket).Cursor()
+		n := 0
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			if string(k) != fmt.Sprintf("%04d", n) || string(v) != "value" {
+				t.Fatalf("row %d: %q %q", n, k, v)
+			}
+			if n%2 == 0 {
+				if e := c.Delete(); e != nil {
+					return e
+				}
+			}
+			n++
+		}
+		if n != count {
+			t.Fatalf("rows=%d want=%d", n, count)
+		}
+		k, _ := c.Seek([]byte("0256"))
+		if string(k) != "0257" {
+			t.Fatalf("seek=%q", k)
+		}
+		k, _ = c.Next()
+		if string(k) != "0259" {
+			t.Fatalf("next=%q", k)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = one.View(func(tx ledgerTx) error {
+		n := 0
+		if e := tx.Bucket(bucket).ForEach(func(k, v []byte) error {
+			if string(k) != fmt.Sprintf("%04d", n*2+1) {
+				t.Fatalf("remaining row=%q", k)
+			}
+			n++
+			return nil
+		}); e != nil {
+			return e
+		}
+		if n != count/2 {
+			t.Fatalf("remaining=%d", n)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	other, err := openLedger("", b, "other-ledger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = other.View(func(tx ledgerTx) error {
+		if k, _ := tx.Bucket(bucket).Cursor().First(); k != nil {
+			t.Fatal("cross-ledger leak")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
