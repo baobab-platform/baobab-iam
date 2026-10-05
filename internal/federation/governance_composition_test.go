@@ -38,7 +38,7 @@ func TestGovernanceCompositionWiresCompositeAuthority(t *testing.T) {
 	}
 	if sources.Governance != g.Trusts || sources.Targets != g.Targets ||
 		sources.Ledger != g.Approvals || sources.TrustLedger != g.Trusts ||
-		sources.Approvals != actors {
+		sources.Approvals != nil {
 		t.Fatalf("unexpected authority sources: %#v", sources)
 	}
 }
