@@ -7,10 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
-	"time"
 	"unicode/utf8"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 const nativeTargetClassification = "NON_SECRET"
@@ -39,18 +36,24 @@ type nativeTargetBinding struct {
 // unchanged. Secrets must never be supplied to this ledger; production
 // composition must source secret material from the secret boundary instead.
 type NativeTargetLedger struct {
-	db *bolt.DB
+	db ledgerDB
 }
 
 func OpenNativeTargetLedger(path string) (*NativeTargetLedger, error) {
-	if path == "" {
+	return openNativeTargetLedger(nil, path)
+}
+func OpenNativeTargetLedgerWithStorage(storage *PostgresStorage) (*NativeTargetLedger, error) {
+	return openNativeTargetLedger(storage, "")
+}
+func openNativeTargetLedger(storage *PostgresStorage, path string) (*NativeTargetLedger, error) {
+	if path == "" && storage == nil {
 		return nil, ErrInvalid
 	}
-	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: time.Second, OpenFile: privateLedgerFile})
+	db, err := openLedger(path, storage, "native")
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	if err := db.Update(func(tx *bolt.Tx) error {
+	if err := db.Update(func(tx ledgerTx) error {
 		for _, bucket := range [][]byte{nativeTargetRecordBucket, nativeTargetBytesBucket, nativeTargetBindingBucket} {
 			if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 				return err
@@ -138,7 +141,7 @@ func (l *NativeTargetLedger) RegisterNonSecretTarget(ctx context.Context, w Refe
 	binding := nativeTargetBinding{Expectation: w, Digest: digest}
 	bindingBytes, _ := json.Marshal(binding)
 
-	err := l.db.Update(func(tx *bolt.Tx) error {
+	err := l.db.Update(func(tx ledgerTx) error {
 		if ctx.Err() != nil {
 			return ErrUnavailable
 		}
@@ -237,7 +240,7 @@ func (l *NativeTargetLedger) NativeTargetContent(ctx context.Context, w Referenc
 	var binding nativeTargetBinding
 	var record nativeTargetRecord
 	var content []byte
-	err := l.db.View(func(tx *bolt.Tx) error {
+	err := l.db.View(func(tx ledgerTx) error {
 		if ctx.Err() != nil {
 			return ErrUnavailable
 		}
@@ -331,7 +334,7 @@ func (l *NativeTargetLedger) FindAssuranceDecision(ctx context.Context, want Ref
 		return ReferenceExpectation{}, ErrInvalid
 	}
 	var found ReferenceExpectation
-	err := l.db.View(func(tx *bolt.Tx) error {
+	err := l.db.View(func(tx ledgerTx) error {
 		count := 0
 		return tx.Bucket(nativeTargetBindingBucket).ForEach(func(_, raw []byte) error {
 			count++

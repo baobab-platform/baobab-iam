@@ -8,8 +8,6 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 func TestAuthoritySnapshotSurvivesWireTimeNormalization(t *testing.T) {
@@ -109,7 +107,7 @@ func TestOIDCPruningPreservesLiveEvidenceAndRejectsClockRollback(t *testing.T) {
 	if removed != 3 {
 		t.Fatal("expired records retained", removed)
 	}
-	if err := e.db.View(func(tx *bolt.Tx) error {
+	if err := e.db.View(func(tx ledgerTx) error {
 		for _, bucket := range [][]byte{requestsBucket, eventsBucket, replayBucket} {
 			if key, _ := tx.Bucket(bucket).Cursor().First(); key != nil {
 				t.Error("expired bucket not empty", string(bucket))
@@ -162,7 +160,7 @@ func TestOIDCPruningCursorMakesProgressPastLiveRequests(t *testing.T) {
 	if removed != 4 {
 		t.Fatal("expired requests starved", removed)
 	}
-	if err := e.db.View(func(tx *bolt.Tx) error {
+	if err := e.db.View(func(tx ledgerTx) error {
 		b := tx.Bucket(requestsBucket)
 		if b.Get([]byte(live.ID)) == nil || b.Stats().KeyN != 1 {
 			t.Fatal("live request removed or expired request retained")

@@ -17,6 +17,7 @@ type GovernanceComposition struct {
 }
 
 type GovernanceCompositionConfig struct {
+	Storage                *PostgresStorage
 	NativeTargetLedgerPath string
 	ApprovalLedgerPath     string
 	TrustLedgerPath        string
@@ -26,14 +27,13 @@ type GovernanceCompositionConfig struct {
 }
 
 func OpenGovernanceComposition(cfg GovernanceCompositionConfig) (*GovernanceComposition, error) {
-	if cfg.NativeTargetLedgerPath == "" || cfg.ApprovalLedgerPath == "" || cfg.TrustLedgerPath == "" ||
+	if (cfg.Storage == nil && (cfg.NativeTargetLedgerPath == "" || cfg.ApprovalLedgerPath == "" || cfg.TrustLedgerPath == "" ||
 		filepath.Clean(cfg.NativeTargetLedgerPath) == filepath.Clean(cfg.ApprovalLedgerPath) ||
 		filepath.Clean(cfg.NativeTargetLedgerPath) == filepath.Clean(cfg.TrustLedgerPath) ||
-		filepath.Clean(cfg.ApprovalLedgerPath) == filepath.Clean(cfg.TrustLedgerPath) ||
-		absent(cfg.Registration) || absent(cfg.ApprovalAuthority) || cfg.Now == nil {
+		filepath.Clean(cfg.ApprovalLedgerPath) == filepath.Clean(cfg.TrustLedgerPath))) || (cfg.Storage != nil && (cfg.NativeTargetLedgerPath != "" || cfg.ApprovalLedgerPath != "" || cfg.TrustLedgerPath != "")) || absent(cfg.Registration) || absent(cfg.ApprovalAuthority) || cfg.Now == nil {
 		return nil, ErrInvalid
 	}
-	native, err := OpenNativeTargetLedger(cfg.NativeTargetLedgerPath)
+	native, err := openNativeTargetLedger(cfg.Storage, cfg.NativeTargetLedgerPath)
 	if err != nil {
 		return nil, err
 	}
@@ -42,12 +42,12 @@ func OpenGovernanceComposition(cfg GovernanceCompositionConfig) (*GovernanceComp
 		native.Close()
 		return nil, err
 	}
-	approvals, err := OpenApprovalLedger(cfg.ApprovalLedgerPath, cfg.ApprovalAuthority, targets, cfg.Now)
+	approvals, err := openApprovalLedger(cfg.Storage, cfg.ApprovalLedgerPath, cfg.ApprovalAuthority, targets, cfg.Now)
 	if err != nil {
 		native.Close()
 		return nil, err
 	}
-	trusts, err := OpenTrustLedger(cfg.TrustLedgerPath, cfg.ApprovalAuthority, targets, approvals, cfg.Now)
+	trusts, err := openTrustLedger(cfg.Storage, cfg.TrustLedgerPath, cfg.ApprovalAuthority, targets, approvals, cfg.Now)
 	if err != nil {
 		approvals.Close()
 		native.Close()

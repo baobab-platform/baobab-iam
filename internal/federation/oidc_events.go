@@ -19,7 +19,6 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	jose "github.com/go-jose/go-jose/v4"
-	bolt "go.etcd.io/bbolt"
 )
 
 // OIDCConfiguration is a resolved APPROVED native configuration target and
@@ -66,7 +65,7 @@ type storedEvent struct {
 // It persists replay fences across restart; callers must use one shared writer
 // and preserve revocation/replay state during restore (see operational gate).
 type OIDCEvents struct {
-	db          *bolt.DB
+	db          ledgerDB
 	config      OIDCConfigurationAuthority
 	mapper      AssuranceMapper
 	now         func() time.Time
@@ -78,14 +77,22 @@ var eventsBucket = []byte("oidc-events-v1")
 var replayBucket = []byte("oidc-token-replay-v1")
 
 func OpenOIDCEvents(path string, config OIDCConfigurationAuthority, mapper AssuranceMapper, now func() time.Time, maxLifetime time.Duration) (*OIDCEvents, error) {
-	if path == "" || absent(config) || absent(mapper) || now == nil || maxLifetime <= 0 || maxLifetime > 15*time.Minute {
+	return openOIDCEvents(nil, path, config, mapper, now, maxLifetime)
+}
+
+func OpenOIDCEventsWithStorage(storage *PostgresStorage, config OIDCConfigurationAuthority, mapper AssuranceMapper, now func() time.Time, maxLifetime time.Duration) (*OIDCEvents, error) {
+	return openOIDCEvents(storage, "", config, mapper, now, maxLifetime)
+}
+
+func openOIDCEvents(storage *PostgresStorage, path string, config OIDCConfigurationAuthority, mapper AssuranceMapper, now func() time.Time, maxLifetime time.Duration) (*OIDCEvents, error) {
+	if (path == "" && storage == nil) || absent(config) || absent(mapper) || now == nil || maxLifetime <= 0 || maxLifetime > 15*time.Minute {
 		return nil, ErrInvalid
 	}
-	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: time.Second, OpenFile: privateLedgerFile})
+	db, err := openLedger(path, storage, "oidc")
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	err = db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx ledgerTx) error {
 		for _, name := range [][]byte{requestsBucket, eventsBucket, replayBucket, maintenanceBucket} {
 			if _, e := tx.CreateBucketIfNotExists(name); e != nil {
 				return e
@@ -158,7 +165,7 @@ func (e *OIDCEvents) Begin(ctx context.Context, s TrustSnapshot, sessionDigest s
 	until := minimum(s.ValidUntil, now.Add(5*time.Minute))
 	r := storedRequest{id, s.Trust.ID, s.SnapshotID, s.ApprovedRevision, sessionDigest, secretDigest(state), secretDigest(nonce), now, until, false}
 	data, _ := json.Marshal(r)
-	err = e.db.Update(func(tx *bolt.Tx) error {
+	err = e.db.Update(func(tx ledgerTx) error {
 		if err := e.observeClock(tx); err != nil {
 			return err
 		}
@@ -238,7 +245,7 @@ func (e *OIDCEvents) Complete(ctx context.Context, id, state, sessionSecret, raw
 		return ErrUnsupported
 	}
 	var req storedRequest
-	err := e.db.Update(func(tx *bolt.Tx) error {
+	err := e.db.Update(func(tx ledgerTx) error {
 		if err := e.observeClock(tx); err != nil {
 			return err
 		}
@@ -328,7 +335,7 @@ func (e *OIDCEvents) Complete(ctx context.Context, id, state, sessionSecret, raw
 	}
 	event := storedEvent{s.SnapshotID, s.ApprovedRevision, Bundle{s.Trust, p, mapped}, false}
 	data, _ := json.Marshal(event)
-	return authorityErrorUnlessNil(e.db.Update(func(tx *bolt.Tx) error {
+	return authorityErrorUnlessNil(e.db.Update(func(tx ledgerTx) error {
 		if err := e.observeClock(tx); err != nil {
 			return err
 		}
@@ -357,7 +364,7 @@ func (e *OIDCEvents) Verify(ctx context.Context, id string, s TrustSnapshot) (Ex
 		return ExternalPrincipal{}, Assurance{}, ErrUnsupported
 	}
 	var event storedEvent
-	err := e.db.Update(func(tx *bolt.Tx) error {
+	err := e.db.Update(func(tx ledgerTx) error {
 		if err := e.observeClock(tx); err != nil {
 			return err
 		}

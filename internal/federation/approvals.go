@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 // ApprovalAuthority evaluates CURRENT administrative authority at the target
@@ -48,7 +46,7 @@ type ApprovalTargets interface {
 // Open requires an explicit authority, target resolver and clock. Single writer
 // file locking and atomic transactions prevent simultaneous checker decisions.
 type ApprovalLedger struct {
-	db        *bolt.DB
+	db        ledgerDB
 	authority ApprovalAuthority
 	targets   ApprovalTargets
 	now       func() time.Time
@@ -57,14 +55,22 @@ type ApprovalLedger struct {
 var approvalBucket = []byte("federation-approvals-v1")
 
 func OpenApprovalLedger(path string, authority ApprovalAuthority, targets ApprovalTargets, now func() time.Time) (*ApprovalLedger, error) {
-	if path == "" || absent(authority) || absent(targets) || now == nil {
+	return openApprovalLedger(nil, path, authority, targets, now)
+}
+
+func OpenApprovalLedgerWithStorage(storage *PostgresStorage, authority ApprovalAuthority, targets ApprovalTargets, now func() time.Time) (*ApprovalLedger, error) {
+	return openApprovalLedger(storage, "", authority, targets, now)
+}
+
+func openApprovalLedger(storage *PostgresStorage, path string, authority ApprovalAuthority, targets ApprovalTargets, now func() time.Time) (*ApprovalLedger, error) {
+	if (path == "" && storage == nil) || absent(authority) || absent(targets) || now == nil {
 		return nil, ErrInvalid
 	}
-	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: time.Second, OpenFile: privateLedgerFile})
+	db, err := openLedger(path, storage, "approvals")
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	if err = db.Update(func(tx *bolt.Tx) error { _, e := tx.CreateBucketIfNotExists(approvalBucket); return e }); err != nil {
+	if err = db.Update(func(tx ledgerTx) error { _, e := tx.CreateBucketIfNotExists(approvalBucket); return e }); err != nil {
 		db.Close()
 		return nil, ErrUnavailable
 	}
@@ -157,7 +163,7 @@ func (l *ApprovalLedger) Propose(ctx context.Context, id string, receipt Approve
 	}
 	p := ApprovalProposal{ID: id, Receipt: receipt, TargetDigest: d, Maker: a.PrincipalID, Status: "PENDING", ProposedAt: now}
 	data, _ := json.Marshal(p)
-	err = l.db.Update(func(tx *bolt.Tx) error {
+	err = l.db.Update(func(tx ledgerTx) error {
 		if ctx.Err() != nil || !l.now().Before(a.ValidUntil) || !l.now().Before(receipt.ExpiresAt) {
 			return ErrDenied
 		}
@@ -177,7 +183,7 @@ func (l *ApprovalLedger) proposal(ctx context.Context, id string) (ApprovalPropo
 		return ApprovalProposal{}, ErrInvalid
 	}
 	var p ApprovalProposal
-	err := l.db.View(func(tx *bolt.Tx) error {
+	err := l.db.View(func(tx ledgerTx) error {
 		b := tx.Bucket(approvalBucket).Get(approvalKey(id))
 		if b == nil {
 			return ErrDenied
@@ -229,7 +235,7 @@ func (l *ApprovalLedger) Decide(ctx context.Context, id, digest string, approve 
 		p.Status = "APPROVED"
 	}
 	data, _ := json.Marshal(p)
-	err = l.db.Update(func(tx *bolt.Tx) error {
+	err = l.db.Update(func(tx ledgerTx) error {
 		if ctx.Err() != nil || !l.now().Before(a.ValidUntil) || !fresh(p.Receipt.ValidFrom, p.Receipt.ExpiresAt, l.now()) {
 			return ErrDenied
 		}
@@ -267,7 +273,7 @@ func (l *ApprovalLedger) Revoke(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	return authorityErrorUnlessNil(l.db.Update(func(tx *bolt.Tx) error {
+	return authorityErrorUnlessNil(l.db.Update(func(tx ledgerTx) error {
 		if ctx.Err() != nil || !l.now().Before(a.ValidUntil) {
 			return ErrDenied
 		}
@@ -296,7 +302,7 @@ func (l *ApprovalLedger) Reference(ctx context.Context, want ReferenceExpectatio
 		return ApprovedReference{}, ErrInvalid
 	}
 	var id string
-	err := l.db.View(func(tx *bolt.Tx) error {
+	err := l.db.View(func(tx ledgerTx) error {
 		v := tx.Bucket(approvalBucket).Get(receiptKey(want))
 		if v == nil {
 			return ErrUnverified

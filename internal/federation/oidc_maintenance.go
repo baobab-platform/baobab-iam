@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"time"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 var maintenanceBucket = []byte("oidc-maintenance-v1")
@@ -14,11 +12,11 @@ var clockKey = []byte("clock-high-water")
 // Pruning a replay fence is safe only after its acceptance window closes and
 // that window cannot reopen through clock rollback. The durable watermark is
 // checked in every event transaction, including after a process restart.
-func (e *OIDCEvents) observeClock(tx *bolt.Tx) error {
+func (e *OIDCEvents) observeClock(tx ledgerTx) error {
 	return e.observeClockAt(tx, e.now().UTC())
 }
 
-func (e *OIDCEvents) observeClockAt(tx *bolt.Tx, now time.Time) error {
+func (e *OIDCEvents) observeClockAt(tx ledgerTx, now time.Time) error {
 	b := tx.Bucket(maintenanceBucket)
 	if raw := b.Get(clockKey); raw != nil {
 		previous, err := time.Parse(time.RFC3339Nano, string(raw))
@@ -39,7 +37,7 @@ func (e *OIDCEvents) Prune(ctx context.Context, limit int) (int, error) {
 		return 0, ErrInvalid
 	}
 	deleted := 0
-	err := e.db.Update(func(tx *bolt.Tx) error {
+	err := e.db.Update(func(tx ledgerTx) error {
 		now := e.now().UTC()
 		if err := e.observeClockAt(tx, now); err != nil {
 			return err

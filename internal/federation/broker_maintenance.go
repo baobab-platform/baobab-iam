@@ -3,8 +3,6 @@ package federation
 import (
 	"context"
 	"time"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 // Prune bounds staging state while retaining replay fences through the maximum
@@ -14,7 +12,7 @@ func (e *BrokerEvents) Prune(ctx context.Context, limit int) (int, error) {
 		return 0, ErrInvalid
 	}
 	removed := 0
-	err := e.db.Update(func(tx *bolt.Tx) error {
+	err := e.db.Update(func(tx ledgerTx) error {
 		if err := e.clock(tx); err != nil {
 			return err
 		}
