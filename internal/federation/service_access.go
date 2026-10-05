@@ -153,8 +153,34 @@ func (a *ServiceAccess) AuthorizeAuthorityRequest(ctx context.Context, r *http.R
 	if v.Trust.Protocol == "SAML2" {
 		facet = RuntimeSAMLFederation
 	}
-	if _, err = a.Platform.FederationBinding(ctx, v.Trust.ProviderBinding, want.Scope, facet); err != nil {
+	platform, err := a.Platform.FederationBinding(ctx, v.Trust.ProviderBinding, want.Scope, facet)
+	if err != nil {
 		return nil, authorityError(err)
 	}
+	if err = ValidateServicePlatformSnapshot(platform, v.Trust.ProviderBinding, want.Scope, facet, time.Now()); err != nil {
+		return nil, err
+	}
 	return ctx, nil
+}
+
+// ValidateServicePlatformSnapshot independently fences transport success with
+// the same identity, lifecycle and current artifact evidence as consumption.
+func ValidateServicePlatformSnapshot(p PlatformSnapshot, b Binding, s Scope, facet string, now time.Time) error {
+	if p.ProviderID != b.ProviderID || p.EngineInstanceID != b.EngineInstanceID || p.Scope != s || p.ProviderStatus != "ACTIVE" || p.InstanceStatus != "ACTIVE" || p.BindingStatus != "ACTIVE" {
+		return ErrDenied
+	}
+	if !validFederationRuntimeCapability(facet) || p.RuntimeCapability != facet || p.SupportStatus != "VERIFIED" || p.ProfileRevision < 1 || !digestPattern.MatchString(p.ArtifactDigest) || p.ArtifactDigest != p.DeployedArtifactDigest || !now.Before(p.EvidenceExpiresAt) {
+		return ErrUnverified
+	}
+	return nil
+}
+
+// BoundServiceRequests gives all composed authorities a shared finite budget.
+// The server write and shutdown deadlines must exceed this request budget.
+func BoundServiceRequests(next http.Handler, budget time.Duration) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), budget)
+		defer cancel()
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

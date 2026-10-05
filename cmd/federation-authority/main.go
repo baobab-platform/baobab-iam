@@ -168,7 +168,12 @@ func run(ctx context.Context, c config) error {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		if _, err = cp.FederationBinding(probe, trust.Trust.ProviderBinding, c.Policy.Scope, facet); err != nil {
+		platform, err := cp.FederationBinding(probe, trust.Trust.ProviderBinding, c.Policy.Scope, facet)
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		if federation.ValidateServicePlatformSnapshot(platform, trust.Trust.ProviderBinding, c.Policy.Scope, facet, time.Now()) != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -178,7 +183,7 @@ func run(ctx context.Context, c config) error {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	server := &http.Server{Addr: c.Address, Handler: mux, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: clientCA}, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
+	server := &http.Server{Addr: c.Address, Handler: federation.BoundServiceRequests(mux, 60*time.Second), TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: clientCA}, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 90 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 	errch := make(chan error, 1)
 	go func() { errch <- server.ListenAndServeTLS(c.Certificate, c.Key) }()
 	select {
@@ -188,7 +193,7 @@ func run(ctx context.Context, c config) error {
 		}
 		return err
 	case <-ctx.Done():
-		shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		shutdown, cancel := context.WithTimeout(context.Background(), 75*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdown); err != nil {
 			server.Close()

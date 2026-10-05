@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -108,5 +109,52 @@ func TestPrivateDocumentRejectsSymlinkAndPublicFile(t *testing.T) {
 	}
 	if _, err := privateDocument(link); err == nil {
 		t.Fatal("symlink admitted")
+	}
+}
+
+func TestServicePlatformSnapshotRejectsRevocationAndDrift(t *testing.T) {
+	_, f := setup(t, "oidc")
+	binding := f.snapshot.Trust.ProviderBinding
+	if err := ValidateServicePlatformSnapshot(f.platform, binding, f.platform.Scope, RuntimeOIDCFederation, f.clock); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*PlatformSnapshot){
+		"provider":         func(p *PlatformSnapshot) { p.ProviderID = "different" },
+		"instance":         func(p *PlatformSnapshot) { p.EngineInstanceID = "different" },
+		"scope":            func(p *PlatformSnapshot) { p.Scope.EstateID = "different" },
+		"revoked":          func(p *PlatformSnapshot) { p.ProviderStatus = "REVOKED" },
+		"suspended":        func(p *PlatformSnapshot) { p.InstanceStatus = "SUSPENDED" },
+		"inactive_binding": func(p *PlatformSnapshot) { p.BindingStatus = "INACTIVE" },
+		"facet":            func(p *PlatformSnapshot) { p.RuntimeCapability = RuntimeSAMLFederation },
+		"support":          func(p *PlatformSnapshot) { p.SupportStatus = "UNVERIFIED" },
+		"revision":         func(p *PlatformSnapshot) { p.ProfileRevision = 0 },
+		"artifact":         func(p *PlatformSnapshot) { p.DeployedArtifactDigest = "sha256:" + string(make([]byte, 64)) },
+		"expired":          func(p *PlatformSnapshot) { p.EvidenceExpiresAt = f.clock },
+	} {
+		t.Run(name, func(t *testing.T) {
+			p := f.platform
+			mutate(&p)
+			if ValidateServicePlatformSnapshot(p, binding, f.platform.Scope, RuntimeOIDCFederation, f.clock) == nil {
+				t.Fatal("invalid successful snapshot admitted")
+			}
+		})
+	}
+}
+
+func TestServiceRequestBudgetCancelsAuthorityContext(t *testing.T) {
+	h := BoundServiceRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := r.Context().Deadline(); !ok {
+			t.Fatal("missing request deadline")
+		}
+		<-r.Context().Done()
+		if r.Context().Err() != context.DeadlineExceeded {
+			t.Fatal(r.Context().Err())
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}), 10*time.Millisecond)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("POST", "https://service.example", nil))
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatal(w.Code)
 	}
 }

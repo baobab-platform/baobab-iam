@@ -118,7 +118,15 @@ require a trusted TLS client certificate. Staging health infrastructure must
 support that boundary. No plaintext health listener is added.
 
 Finite read/header/write/idle timeouts and body/header limits bound requests.
-SIGTERM/SIGINT drain HTTP requests before closing all stores. Certificate changes
+All handlers share an aggregate 60-second context deadline, including composed
+authority reads; each outbound call still has its own five-second ceiling.
+The 90-second write timeout leaves room for bounded request reading and failure
+responses; it is not the mechanism used to cancel authority work. CP snapshots
+are independently checked for exact identity/scope/facet, ACTIVE lifecycle,
+VERIFIED support, matching deployed artifact and unexpired evidence before
+admission or readiness succeeds. SIGTERM/SIGINT allow 75 seconds to drain HTTP
+requests before closing all stores. ECS task stop grace must exceed that drain
+budget (configure 90 seconds or more). Certificate changes
 require controlled restart; outbound bearer files are reread for every request.
 
 ## Deployment and acceptance
