@@ -51,14 +51,14 @@ func (w platformBindingWire) platformScope() Scope {
 }
 
 type referenceExpectationWire struct {
-	ID                 string `json:"id"`
-	Kind               string `json:"kind"`
-	TrustID            string `json:"trust_id"`
-	SnapshotID         string `json:"snapshot_id"`
-	TrustRevision      uint64 `json:"trust_revision"`
-	ProviderID         string `json:"provider_id"`
-	EngineInstanceID   string `json:"engine_instance_id"`
-	Scope              struct {
+	ID               string `json:"id"`
+	Kind             string `json:"kind"`
+	TrustID          string `json:"trust_id"`
+	SnapshotID       string `json:"snapshot_id"`
+	TrustRevision    uint64 `json:"trust_revision"`
+	ProviderID       string `json:"provider_id"`
+	EngineInstanceID string `json:"engine_instance_id"`
+	Scope            struct {
 		OrganisationID string `json:"organisation_id"`
 		EstateID       string `json:"estate_id"`
 	} `json:"scope"`
@@ -96,7 +96,7 @@ func (w referenceExpectationWire) expectation() ReferenceExpectation {
 	return ReferenceExpectation{
 		ID: w.ID, Kind: w.Kind, TrustID: w.TrustID, SnapshotID: w.SnapshotID,
 		TrustRevision: w.TrustRevision, ProviderID: w.ProviderID, EngineInstanceID: w.EngineInstanceID,
-		Scope: Scope{OrganisationID: w.Scope.OrganisationID, EstateID: w.Scope.EstateID},
+		Scope:   Scope{OrganisationID: w.Scope.OrganisationID, EstateID: w.Scope.EstateID},
 		EventID: w.EventID, Issuer: w.Issuer, Subject: w.Subject, Level: w.Level,
 		EvidenceDigest: w.EvidenceDigest, PrincipalID: w.PrincipalID, ExternalIdentityID: w.ExternalIdentityID,
 	}
