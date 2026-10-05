@@ -86,11 +86,11 @@ func (g *GovernanceComposition) Close() error {
 
 // AuthoritySources returns the IAM-owned source set for NewAuthorityHandler.
 // CP remains separately authoritative for ApprovalAuthority and target
-// registration. The supplied approvalAuthority is used by the already-open
-// ledgers but is deliberately not re-exported through IAM's authority handler;
-// IAM must not proxy a CP-owned human authority source. Protocol
-// configuration/assurance sources are supplied by the caller because this
-// increment does not invent policy material.
+// registration. The ApprovalAuthority configured when this composition is
+// opened is consumed only by the durable ledgers and is deliberately not
+// re-exported through IAM's authority handler; IAM must not proxy a CP-owned
+// human authority source. Protocol configuration/assurance sources are
+// supplied by the caller because this increment does not invent policy material.
 func (g *GovernanceComposition) AuthoritySources(
 	access AuthorityAccess,
 	configuration OIDCConfigurationAuthority,
