@@ -1,6 +1,9 @@
 package federation
 
-import "time"
+import (
+	"path/filepath"
+	"time"
+)
 
 // GovernanceComposition is the bounded IAM-native MP2-C governance source.
 // It composes CP's live non-approval registration authority with IAM's
@@ -24,6 +27,9 @@ type GovernanceCompositionConfig struct {
 
 func OpenGovernanceComposition(cfg GovernanceCompositionConfig) (*GovernanceComposition, error) {
 	if cfg.NativeTargetLedgerPath == "" || cfg.ApprovalLedgerPath == "" || cfg.TrustLedgerPath == "" ||
+		filepath.Clean(cfg.NativeTargetLedgerPath) == filepath.Clean(cfg.ApprovalLedgerPath) ||
+		filepath.Clean(cfg.NativeTargetLedgerPath) == filepath.Clean(cfg.TrustLedgerPath) ||
+		filepath.Clean(cfg.ApprovalLedgerPath) == filepath.Clean(cfg.TrustLedgerPath) ||
 		absent(cfg.Registration) || absent(cfg.ApprovalAuthority) || cfg.Now == nil {
 		return nil, ErrInvalid
 	}
