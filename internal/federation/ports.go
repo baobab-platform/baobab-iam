@@ -79,6 +79,27 @@ type PlatformAuthority interface {
 	FederationBinding(context.Context, Binding, Scope, string) (PlatformSnapshot, error)
 }
 
+type TargetRegistration struct {
+	Digest string
+}
+
+// TargetRegistrationAuthority is CP's non-approval registration/topology
+// attestation. It proves the exact ref/provider/instance/scope is current and
+// registered, but does not prove IAM native bytes, trust revision state or
+// human approval.
+type TargetRegistrationAuthority interface {
+	TargetRegistration(context.Context, ReferenceExpectation) (TargetRegistration, error)
+}
+
+// NativeTargetAuthority is IAM's immutable native-byte authority. The exact
+// ReferenceExpectation, including trust revision and snapshot, is part of the
+// binding. Implementations must recompute the digest from stored bytes rather
+// than accepting a caller-supplied digest.
+type NativeTargetAuthority interface {
+	NativeTargetDigest(context.Context, ReferenceExpectation) (string, error)
+}
+
+
 // EventVerifier performs actual protocol/signature/audience/time/replay checks,
 // using approved configuration and trust material. It returns normalized
 // evidence bound to the requested immutable event reference. No product parser
