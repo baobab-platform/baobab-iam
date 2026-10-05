@@ -80,7 +80,7 @@ type PlatformAuthority interface {
 }
 
 type TargetRegistration struct {
-	Digest string
+	Digest string `json:"digest"`
 }
 
 // TargetRegistrationAuthority is CP's non-approval registration/topology
