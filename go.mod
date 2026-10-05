@@ -7,12 +7,19 @@ go 1.27.0
 // Go 1.25 is the dependency minimum; use the tested CP-aligned Go 1.27 toolchain.
 
 require (
+	github.com/beevik/etree v1.8.1
+	github.com/crewjam/saml v0.5.1
+	github.com/russellhaering/goxmldsig v1.6.1
+	golang.org/x/net v0.59.0
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/go-jose/go-jose/v4 v4.1.5
 	go.etcd.io/bbolt v1.4.3
 )
 
 require (
+	github.com/jonboulle/clockwork v0.5.0 // indirect
+	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 )

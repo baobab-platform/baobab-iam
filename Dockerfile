@@ -28,6 +28,16 @@ RUN mkdir -p /mnt/rootfs && \
       jq \
     && dnf clean all --installroot /mnt/rootfs
 
+FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS bridge-libraries
+
+FROM tools-build AS bridge-build
+RUN dnf install -y java-21-openjdk-devel && dnf clean all
+COPY --from=bridge-libraries /opt/keycloak/lib/lib/main/ /tmp/keycloak-libs/
+COPY providers/evidence-bridge/src/ /bridge/src/
+RUN mkdir -p /bridge/classes && \
+    javac --release 21 -cp '/tmp/keycloak-libs/*' -d /bridge/classes /bridge/src/main/java/org/baobab/iam/EvidenceBridge.java && \
+    jar --create --file /bridge/evidence-bridge.jar -C /bridge/classes . -C /bridge/src/main/resources .
+
 FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS builder
 
 # The upstream image already switches to its non-root runtime user (see
@@ -41,7 +51,7 @@ USER root
 
 # Copy custom theme and providers (if any)
 COPY themes/ /opt/keycloak/themes/
-COPY providers/ /opt/keycloak/providers/
+COPY --from=bridge-build /bridge/evidence-bridge.jar /opt/keycloak/providers/evidence-bridge.jar
 
 # Copy realm configuration and bootstrap script
 COPY config/ /opt/keycloak/config/

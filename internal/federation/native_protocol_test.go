@@ -27,8 +27,8 @@ func nativeProtocolSetup(t *testing.T) (*NativeProtocol, *fakeAuthority, TrustSn
 		id, kind string
 		content  any
 	}{
-		{s.Trust.ProviderBinding.ConfigurationReference, "federation_configuration", NativeOIDCSettings{of.config.ClientID, of.config.SigningAlgorithm}},
-		{s.Trust.ProviderBinding.TrustMaterialReference, "federation_trust_material", NativeOIDCTrustMaterial{of.config.JWKS}},
+		{s.Trust.ProviderBinding.ConfigurationReference, "federation_configuration", NativeOIDCSettings{ClientID: of.config.ClientID, SigningAlgorithm: of.config.SigningAlgorithm}},
+		{s.Trust.ProviderBinding.TrustMaterialReference, "federation_trust_material", NativeOIDCTrustMaterial{JWKS: of.config.JWKS}},
 	} {
 		w.ID = doc.id
 		w.Kind = doc.kind

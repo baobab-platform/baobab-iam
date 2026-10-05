@@ -58,6 +58,38 @@ jobs:
       - name: Every client and scope description fits Keycloak's 255-character limit
         run: ./scripts/check-config-limits.sh
 
+  enterprise-federation-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Prepare isolated enterprise TLS fixtures
+        run: tests/enterprise/prepare.sh
+      - name: Start pinned Keycloak enterprise stack
+        run: docker compose -f tests/enterprise/docker-compose.yml up -d --build
+      - name: Wait for enterprise Keycloak
+        run: |
+          for i in $(seq 1 60); do
+            if curl --cacert tests/enterprise/tls/ca.crt -sf -o /dev/null https://localhost:9000/health/ready; then exit 0; fi
+            sleep 5
+          done
+          exit 1
+      - name: Prove actual OIDC and SAML brokering with private evidence
+        env:
+          KEYCLOAK_ENTERPRISE_LIVE_URL: https://localhost:8443
+          KEYCLOAK_ENTERPRISE_TLS_DIR: ${{ github.workspace }}/tests/enterprise/tls
+        run: go test -v ./internal/provider/keycloak -run TestLiveKeycloakEnterpriseBroker -count=1
+      - name: Dump enterprise stack diagnostics on failure
+        if: failure()
+        run: docker compose -f tests/enterprise/docker-compose.yml logs --tail=150
+      - name: Tear down enterprise stack
+        if: always()
+        run: docker compose -f tests/enterprise/docker-compose.yml down -v
+
   federation-authority-image:
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: enterprise
+      POSTGRES_PASSWORD: fixture-only-password
+      POSTGRES_DB: enterprise
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enterprise"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  keycloak:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    environment:
+      KC_DB_URL: jdbc:postgresql://postgres:5432/enterprise
+      KC_DB_USERNAME: enterprise
+      KC_DB_PASSWORD: fixture-only-password
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: fixture-only-admin-password
+      KC_TRUSTSTORE_PATHS: /run/bridge/ca.crt
+      BAOBAB_EVIDENCE_ENDPOINT: https://host.docker.internal:9444/capture
+      BAOBAB_EVIDENCE_BEARER_FILE: /run/bridge/bearer
+      BAOBAB_EVIDENCE_KEYSTORE_FILE: /run/bridge/bridge.p12
+      BAOBAB_EVIDENCE_KEYSTORE_PASSWORD_FILE: /run/bridge/password
+      BAOBAB_EVIDENCE_TRUSTSTORE_FILE: /run/bridge/trusted.p12
+      BAOBAB_EVIDENCE_TRUSTSTORE_PASSWORD_FILE: /run/bridge/password
+    entrypoint: ["/bin/bash", "-ec"]
+    command:
+      - |
+        /usr/bin/keytool -importcert -noprompt -alias fixture-ca -file /run/bridge/ca.crt -keystore /tmp/trusted.p12 -storetype PKCS12 -storepass fixture-only-password
+        cp /tmp/trusted.p12 /tmp/bridge-trusted.p12
+        chmod 600 /tmp/bridge-trusted.p12
+        export BAOBAB_EVIDENCE_TRUSTSTORE_FILE=/tmp/bridge-trusted.p12
+        exec /opt/keycloak/bin/kc.sh start --optimized --hostname=https://localhost:8443 --https-certificate-file=/run/bridge/keycloak.crt --https-certificate-key-file=/run/bridge/keycloak.key --http-enabled=false --log-level=WARN
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./tls:/run/bridge:ro
+    ports:
+      - "8443:8443"
+      - "9000:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
