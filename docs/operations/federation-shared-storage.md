@@ -3,7 +3,8 @@
 The federation-authority service can use PostgreSQL 17 for approvals, immutable
 native target material, trust revision history, OIDC requests/evidence/replay and
 broker requests/captures/evidence/replay. Omitting `Storage` retains the bounded
-local bbolt staging mode. Local files are not a multi-replica production backend.
+local bbolt staging mode. Production service startup requires shared storage.
+Local files are not a multi-replica production backend.
 
 Configure `Storage` with `DSNFile`, `Namespace` and `RecoveryEpoch`. The DSN is read
 from an owner-only protected file. Runtime connections require verified TLS,

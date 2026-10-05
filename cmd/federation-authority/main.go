@@ -90,6 +90,9 @@ func roots(path string) (*x509.CertPool, error) {
 }
 
 func run(ctx context.Context, c config) error {
+	if c.Environment == "production" && c.Storage == nil {
+		return errors.New("production requires shared federation storage")
+	}
 	i, err := os.Lstat(c.StateDirectory)
 	if err != nil || !i.IsDir() || i.Mode().Perm()&0077 != 0 {
 		return errors.New("state directory must be private and persistent")

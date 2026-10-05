@@ -261,3 +261,18 @@ func postgresTool(tool string, args ...string) *exec.Cmd {
 	}
 	return exec.Command(tool, args...)
 }
+
+func TestPostgresRuntimeRefusesUnverifiedTLSAndInvalidPins(t *testing.T) {
+	for _, mode := range []string{"disable", "prefer", "require", "verify-ca"} {
+		file := filepath.Join(t.TempDir(), "dsn")
+		if e := os.WriteFile(file, []byte("postgres://test@localhost/test?sslmode="+mode), 0600); e != nil {
+			t.Fatal(e)
+		}
+		if _, e := OpenPostgresStorage(context.Background(), PostgresStorageConfig{DSNFile: file, Namespace: "service", RecoveryEpoch: "epoch1"}); e != ErrInvalid {
+			t.Fatalf("unsafe TLS %s accepted: %v", mode, e)
+		}
+	}
+	if _, e := openPostgresStorage(context.Background(), "postgres://test@localhost/test?sslmode=disable", "bad/name", "epoch1", false); e != ErrInvalid {
+		t.Fatal("invalid namespace accepted")
+	}
+}
