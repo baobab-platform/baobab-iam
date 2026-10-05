@@ -78,12 +78,14 @@ public final class EvidenceBridge extends AbstractIdentityProviderMapper {
     }
 
     @Override public void preprocessFederatedIdentity(KeycloakSession session, RealmModel realm, IdentityProviderMapperModel mapper, BrokeredIdentityContext context) {
+        String phase = "binding";
         try {
             var auth = context.getAuthenticationSession();
             String expectedClient = mapper.getConfig().get("client-id");
             String trust = mapper.getConfig().get("trust-id");
             if (auth == null || expectedClient == null || !expectedClient.equals(auth.getClient().getClientId()) ||
                 trust == null || !trust.matches("[a-fA-F0-9-]{36}")) throw new IllegalArgumentException();
+            phase = "upstream-correlation";
             String nonce = auth.getClientNote("nonce");
             String route = context.getIdpConfig().getAlias();
             String protocol = context.getIdpConfig().getProviderId();
@@ -103,19 +105,25 @@ public final class EvidenceBridge extends AbstractIdentityProviderMapper {
                 correlation = auth.getClientNote(SamlProtocol.SAML_REQUEST_ID_BROKER);
             } else throw new IllegalArgumentException();
             if (nonce == null || correlation == null || assertion == null || assertion.isBlank() || assertion.length() > 65536) throw new IllegalArgumentException();
+            phase = "endpoint";
             URI endpoint = URI.create(System.getenv("BAOBAB_EVIDENCE_ENDPOINT"));
             if (!"https".equals(endpoint.getScheme()) || endpoint.getHost() == null || endpoint.getUserInfo() != null || endpoint.getQuery() != null || endpoint.getFragment() != null) throw new IllegalArgumentException();
             byte[] body = JsonSerialization.writeValueAsBytes(Map.of("TrustID", trust, "Nonce", nonce, "ProviderRoute", route, "UpstreamCorrelation", correlation, "Assertion", assertion));
+            phase = "bearer-file";
+            String bearer = secret("BAOBAB_EVIDENCE_BEARER_FILE");
             HttpRequest request = HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(5)).header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + secret("BAOBAB_EVIDENCE_BEARER_FILE")).POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
-            HttpClient client = HttpClient.newBuilder().sslContext(tls()).connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build();
+                .header("Authorization", "Bearer " + bearer).POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
+            phase = "tls-files";
+            SSLContext contextTLS = tls();
+            HttpClient client = HttpClient.newBuilder().sslContext(contextTLS).connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build();
+            phase = "delivery";
             HttpResponse<Void> result = client.send(request, HttpResponse.BodyHandlers.discarding());
-            if (result.statusCode() != 200 && result.statusCode() != 204) throw new IllegalArgumentException();
+            if (result.statusCode() != 200 && result.statusCode() != 204) {phase = "verifier-denied";throw new IllegalArgumentException();}
             String digest = "sha256:" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(assertion.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             auth.setUserSessionNote(DIGEST_NOTE, digest);
         } catch (Exception denied) {
             // Exceptions can contain response/token material; deliberately discard them.
-            throw new IdentityBrokerException("Private upstream federation evidence denied");
+            throw new IdentityBrokerException("Private upstream federation evidence denied (" + phase + ":" + denied.getClass().getSimpleName() + ")");
         }
     }
 }
