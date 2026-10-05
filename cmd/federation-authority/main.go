@@ -15,22 +15,26 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/federation"
+	"github.com/baobab-platform/baobab-iam/internal/provider/keycloak"
 	"github.com/coreos/go-oidc/v3/oidc"
 )
 
 type config struct {
-	Address, Certificate, Key, ClientCA, AuthorityCA string
-	WorkloadIssuer, WorkloadAudience, RegistryPath   string
-	CPOrigin, CPTokenFile                            string
-	CanonicalRegistryPath, Environment               string
-	StateDirectory                                   string
-	ReadinessTrustID                                 string
-	ReviewedTargets                                  string
-	Policy                                           federation.Policy
+	EnterpriseBroker                                                               bool
+	BrokerProviderID, BrokerEngineInstanceID, BrokerIssuer, BrokerClientSecretFile string
+	Address, Certificate, Key, ClientCA, AuthorityCA                               string
+	WorkloadIssuer, WorkloadAudience, RegistryPath                                 string
+	CPOrigin, CPTokenFile                                                          string
+	CanonicalRegistryPath, Environment                                             string
+	StateDirectory                                                                 string
+	ReadinessTrustID                                                               string
+	ReviewedTargets                                                                string
+	Policy                                                                         federation.Policy
 }
 
 type issuerTransport struct {
@@ -59,6 +63,14 @@ func load(path string) (config, error) {
 		u, e := url.Parse(v)
 		if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 			return c, errors.New("authority must use HTTPS")
+		}
+	}
+	if c.EnterpriseBroker {
+		if c.BrokerProviderID == "" || c.BrokerEngineInstanceID == "" {
+			return c, errors.New("broker binding required")
+		}
+		if _, err := url.ParseRequestURI(c.BrokerIssuer); err != nil || !strings.HasPrefix(c.BrokerIssuer, "https://") {
+			return c, errors.New("broker HTTPS issuer required")
 		}
 	}
 	return c, nil
@@ -125,16 +137,43 @@ func run(ctx context.Context, c config) error {
 		return err
 	}
 	c.Policy.Now = time.Now
-	events, err := federation.OpenOIDCEvents(filepath.Join(c.StateDirectory, "events.db"), protocol, protocol, time.Now, c.Policy.MaxEventLifetime)
-	if err != nil {
-		return err
+	var eventVerifier federation.EventVerifier
+	var ready func(context.Context, federation.TrustSnapshot) error
+	var eventHandler http.Handler
+	eventPath := "/internal/federation-events/v1/"
+	if c.EnterpriseBroker {
+		var secrets federation.AuthorityTokens
+		if c.BrokerClientSecretFile != "" {
+			secrets = federation.FileAuthorityTokens{Path: c.BrokerClientSecretFile}
+		}
+		events, e := federation.OpenBrokerEvents(federation.BrokerEventsConfig{Path: filepath.Join(c.StateDirectory, "broker.db"), Configuration: protocol, Mapper: protocol, Client: &http.Client{Transport: &http.Transport{TLSClientConfig: outbound}}, ClientSecrets: secrets, Now: time.Now, MaxLifetime: c.Policy.MaxEventLifetime})
+		if e != nil {
+			return e
+		}
+		defer events.Close()
+		eventVerifier = events
+		ready = events.Ready
+		consumer, e := federation.New(federation.Authorities{Governance: g.Trusts, Platform: cp, Events: eventVerifier, Canonical: cp}, c.Policy)
+		if e != nil {
+			return e
+		}
+		adapter := &keycloak.EnterpriseAdapter{Events: events, Governance: g.Trusts, Configuration: protocol, ProviderID: c.BrokerProviderID, EngineInstanceID: c.BrokerEngineInstanceID, Issuer: c.BrokerIssuer}
+		eventHandler, err = federation.NewServiceBrokerHandler(access, g.Trusts, adapter, events, consumer)
+		eventPath = "/internal/enterprise-federation/v1/"
+	} else {
+		events, e := federation.OpenOIDCEvents(filepath.Join(c.StateDirectory, "events.db"), protocol, protocol, time.Now, c.Policy.MaxEventLifetime)
+		if e != nil {
+			return e
+		}
+		defer events.Close()
+		eventVerifier = events
+		ready = events.Ready
+		consumer, e := federation.New(federation.Authorities{Governance: g.Trusts, Platform: cp, Events: eventVerifier, Canonical: cp}, c.Policy)
+		if e != nil {
+			return e
+		}
+		eventHandler, err = federation.NewServiceEventHandler(access, g.Trusts, events, consumer)
 	}
-	defer events.Close()
-	consumer, err := federation.New(federation.Authorities{Governance: g.Trusts, Platform: cp, Events: events, Canonical: cp}, c.Policy)
-	if err != nil {
-		return err
-	}
-	eventHandler, err := federation.NewServiceEventHandler(access, g.Trusts, events, consumer)
 	if err != nil {
 		return err
 	}
@@ -144,7 +183,7 @@ func run(ctx context.Context, c config) error {
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/internal/federation/v1/", handler)
-	mux.Handle("/internal/federation-events/v1/", eventHandler)
+	mux.Handle(eventPath, eventHandler)
 	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusNoContent)
@@ -161,7 +200,9 @@ func run(ctx context.Context, c config) error {
 			return
 		}
 		facet := federation.RuntimeOIDCFederation
-		if trust.Trust.Protocol != "OIDC" {
+		if trust.Trust.Protocol == "SAML2" && c.EnterpriseBroker {
+			facet = federation.RuntimeSAMLFederation
+		} else if trust.Trust.Protocol != "OIDC" {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -178,7 +219,7 @@ func run(ctx context.Context, c config) error {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		if err = events.Ready(probe, trust); err != nil {
+		if err = ready(probe, trust); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}

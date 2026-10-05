@@ -107,8 +107,11 @@ authorization-code/PKCE flow. Begin returns correlation material only to that
 BFF. Completion verifies actual OIDC signatures and consumes correlation;
 consumption performs existing governance/platform/canonical checks and durable
 single-use replay fencing. These endpoints are not an implementation of the
-Keycloak broker adapter. SAML remains unsupported; a downstream OIDC token does
-not certify an upstream SAML assertion.
+Keycloak broker adapter in direct mode. Explicit enterprise mode uses the permanent
+Keycloak adapter and independently verifies original upstream OIDC or signed SAML
+evidence. A downstream OIDC token does not certify an upstream SAML assertion. See
+[the enterprise federation runbook](../operations/keycloak-enterprise-federation.md)
+for configuration, private bridge admission and the bounded SAML profile.
 
 `/health/live` indicates the process is running. `/health/ready` requires the
 configured approved OIDC trust, CP binding and protocol configuration source to

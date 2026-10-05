@@ -4,10 +4,9 @@
 // and OAuth/workload bindings to Hydra, while enterprise SAML/OIDC brokering
 // remains a bounded, replaceable provider capability.
 //
-// The current adapter is incomplete. Its compatibility interfaces and
-// ErrUnsupported methods do not implement EnterpriseFederationProvider or
-// prove live federation support. That permanent port and its Shared binding
-// contracts are separate MP2/MP8 work; do not advertise support prematurely.
+// This legacy compatibility adapter retains unsupported migration methods.
+// The separate EnterpriseAdapter implements the permanent bounded federation
+// port; legacy capabilities remain unadvertised.
 package keycloak
 
 import (

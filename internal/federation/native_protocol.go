@@ -9,15 +9,24 @@ import (
 
 // NativeOIDCSettings contains no keys or credentials. Public keys are resolved
 // separately through the approved trust-material reference.
-type NativeOIDCSettings struct{ ClientID, SigningAlgorithm string }
-type NativeOIDCTrustMaterial struct{ JWKS json.RawMessage }
+type NativeOIDCSettings struct {
+	ClientID, SigningAlgorithm string
+	Broker                     *BrokerSettings `json:"Broker,omitempty"`
+	SAML                       *SAMLSettings   `json:"SAML,omitempty"`
+}
+type NativeOIDCTrustMaterial struct {
+	JWKS                json.RawMessage `json:"JWKS,omitempty"`
+	BrokerJWKS          json.RawMessage `json:"BrokerJWKS,omitempty"`
+	SigningCertificates []string        `json:"SigningCertificates,omitempty"`
+}
 
 // NativeAssurancePolicy selects exact, separately approved event decisions.
 // A rule or a signed token cannot manufacture an approval receipt.
 type NativeAssurancePolicy struct{ Rules []NativeAssuranceRule }
 type NativeAssuranceRule struct {
-	ACR, Level string
-	AMR        []string `json:"AMR,omitempty"`
+	ACR, Level           string
+	AuthnContextClassRef string   `json:"AuthnContextClassRef,omitempty"`
+	AMR                  []string `json:"AMR,omitempty"`
 }
 type NativeAssuranceDecision struct {
 	Evidence UpstreamEvidence
@@ -139,7 +148,7 @@ func (p *NativeProtocol) MapAssurance(ctx context.Context, s TrustSnapshot, prin
 		return Assurance{}, err
 	}
 	encoded, _ := json.Marshal(a.UpstreamEvidence)
-	if a.Protocol != "OIDC" || a.UpstreamEvidence.OIDC == nil {
+	if a.Protocol != "OIDC" && a.Protocol != "SAML2" {
 		return Assurance{}, ErrUnsupported
 	}
 	var level string
@@ -147,7 +156,7 @@ func (p *NativeProtocol) MapAssurance(ctx context.Context, s TrustSnapshot, prin
 		return Assurance{}, ErrInvalid
 	}
 	for _, rule := range policy.Rules {
-		if !exact(rule.ACR) || (rule.Level != "BAOBAB-A1" && rule.Level != "BAOBAB-A2" && rule.Level != "BAOBAB-A3") || len(rule.AMR) > 16 {
+		if (a.Protocol == "OIDC" && (!exact(rule.ACR) || rule.AuthnContextClassRef != "")) || (a.Protocol == "SAML2" && (!exact(rule.AuthnContextClassRef) || rule.ACR != "" || len(rule.AMR) != 0)) || (rule.Level != "BAOBAB-A1" && rule.Level != "BAOBAB-A2" && rule.Level != "BAOBAB-A3") || len(rule.AMR) > 16 {
 			return Assurance{}, ErrInvalid
 		}
 		for _, method := range rule.AMR {
@@ -156,12 +165,12 @@ func (p *NativeProtocol) MapAssurance(ctx context.Context, s TrustSnapshot, prin
 			}
 		}
 
-		if rule.ACR != a.UpstreamEvidence.OIDC.ACR {
+		if a.Protocol == "OIDC" && rule.ACR != a.UpstreamEvidence.OIDC.ACR || a.Protocol == "SAML2" && rule.AuthnContextClassRef != a.UpstreamEvidence.SAML.AuthnContextClassRef {
 			continue
 		}
 		match := true
 		for _, method := range rule.AMR {
-			if !slices.Contains(a.UpstreamEvidence.OIDC.AMR, method) {
+			if a.UpstreamEvidence.OIDC == nil || !slices.Contains(a.UpstreamEvidence.OIDC.AMR, method) {
 				match = false
 			}
 		}
