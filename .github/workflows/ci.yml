@@ -226,4 +226,5 @@ jobs:
       - name: Shared-state concurrency, replay and recovery fences
         env:
           TEST_FEDERATION_DATABASE_URL: postgres://postgres@localhost:5432/federation_ci?sslmode=disable
+          POSTGRES_TOOLS_CONTAINER: ${{ job.services.postgres.id }}
         run: go test -race ./internal/federation -run TestPostgres -count=1 -v

@@ -1,6 +1,7 @@
 package federation
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -185,10 +186,14 @@ func TestPostgresDestructiveRecoveryInvalidatesAuthorityAndFencesOldPools(t *tes
 	}
 	// A restricted temporary dump proves the real backup tool round trip before recovery.
 	dump := filepath.Join(t.TempDir(), "records.dump")
-	backup := exec.Command("pg_dump", "--format=custom", "--table=iam_federation_records", "--file="+dump)
+	backup := postgresTool("pg_dump", "--format=custom", "--table=iam_federation_records")
 	backup.Env = append(os.Environ(), "PGDATABASE="+os.Getenv("TEST_FEDERATION_DATABASE_URL"))
-	if output, e := backup.CombinedOutput(); e != nil {
-		t.Fatalf("backup failed (%d bytes of diagnostic): %v", len(output), e)
+	backupBytes, e := backup.Output()
+	if e != nil {
+		t.Fatal("backup failed", e)
+	}
+	if e = os.WriteFile(dump, backupBytes, 0600); e != nil {
+		t.Fatal(e)
 	}
 	if e := os.Chmod(dump, 0600); e != nil {
 		t.Fatal(e)
@@ -196,7 +201,8 @@ func TestPostgresDestructiveRecoveryInvalidatesAuthorityAndFencesOldPools(t *tes
 	if _, e := a.db.Exec(`DELETE FROM iam_federation_records WHERE namespace=$1`, a.namespace); e != nil {
 		t.Fatal(e)
 	}
-	restore := exec.Command("pg_restore", "--data-only", "--no-owner", "--no-privileges", "--dbname="+os.Getenv("TEST_FEDERATION_DATABASE_URL"), dump)
+	restore := postgresTool("pg_restore", "--data-only", "--no-owner", "--no-privileges", "--dbname="+os.Getenv("TEST_FEDERATION_DATABASE_URL"))
+	restore.Stdin = bytes.NewReader(backupBytes)
 	if output, e := restore.CombinedOutput(); e != nil {
 		t.Fatalf("restore failed (%d bytes of diagnostic): %v", len(output), e)
 	}
@@ -205,9 +211,14 @@ func TestPostgresDestructiveRecoveryInvalidatesAuthorityAndFencesOldPools(t *tes
 		t.Fatal("backup round trip did not restore records", e, restored)
 	}
 	run := func(old, next string) error {
-		command := exec.Command("psql", "-X", "-v", "ON_ERROR_STOP=1", "-v", "namespace="+a.namespace, "-v", "old_epoch="+old, "-v", "new_epoch="+next, "-f", "../../scripts/operations/federation-recovery.sql")
+		command := postgresTool("psql", "-X", "-v", "ON_ERROR_STOP=1", "-v", "namespace="+a.namespace, "-v", "old_epoch="+old, "-v", "new_epoch="+next, "-f", "-")
+		sql, e := os.ReadFile("../../scripts/operations/federation-recovery.sql")
+		if e != nil {
+			return e
+		}
+		command.Stdin = bytes.NewReader(sql)
 		command.Env = append(os.Environ(), "PGDATABASE="+os.Getenv("TEST_FEDERATION_DATABASE_URL"))
-		_, e := command.CombinedOutput()
+		_, e = command.CombinedOutput()
 		return e
 	}
 	if e := run("wrong", "epoch2"); e == nil {
@@ -241,4 +252,12 @@ func TestPostgresDestructiveRecoveryInvalidatesAuthorityAndFencesOldPools(t *tes
 		t.Fatal("recovery archive incomplete", e, count)
 	}
 	a.db.Exec(`DELETE FROM iam_federation_recovery_archive WHERE namespace=$1`, a.namespace)
+}
+
+func postgresTool(tool string, args ...string) *exec.Cmd {
+	if container := os.Getenv("POSTGRES_TOOLS_CONTAINER"); container != "" {
+		prefix := []string{"exec", "-i", "-e", "PGDATABASE=" + os.Getenv("TEST_FEDERATION_DATABASE_URL"), container, tool}
+		return exec.Command("docker", append(prefix, args...)...)
+	}
+	return exec.Command(tool, args...)
 }
