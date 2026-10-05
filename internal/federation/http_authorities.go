@@ -238,6 +238,21 @@ func (a *HTTPAuthority) Reference(ctx context.Context, want ReferenceExpectation
 	}
 	return out, nil
 }
+func (a *HTTPAuthority) TargetRegistration(ctx context.Context, want ReferenceExpectation) (TargetRegistration, error) {
+	var out TargetRegistration
+	if !validExpectation(want) {
+		return out, ErrInvalid
+	}
+	err := a.call(ctx, "/internal/federation/v1/target-registration", newReferenceExpectationWire(want), &out)
+	if err != nil {
+		return TargetRegistration{}, err
+	}
+	if !digestPattern.MatchString(out.Digest) {
+		return TargetRegistration{}, ErrUnverified
+	}
+	return out, nil
+}
+
 func (a *HTTPAuthority) FederationBinding(ctx context.Context, binding Binding, scope Scope, runtimeCapability string) (PlatformSnapshot, error) {
 	var out PlatformSnapshot
 	if !validBinding(binding) || !validScope(scope) || !validFederationRuntimeCapability(runtimeCapability) {
@@ -262,5 +277,6 @@ func (a *HTTPAuthority) Resolve(ctx context.Context, issuer, subject string) (Ca
 }
 
 var _ GovernanceAuthority = (*HTTPAuthority)(nil)
+var _ TargetRegistrationAuthority = (*HTTPAuthority)(nil)
 var _ PlatformAuthority = (*HTTPAuthority)(nil)
 var _ CanonicalAuthority = (*HTTPAuthority)(nil)
