@@ -23,13 +23,14 @@ import (
 )
 
 type config struct {
-	Address, Certificate, Key, ClientCA, AuthorityCA         string
-	WorkloadIssuer, WorkloadAudience, RegistryPath           string
-	CPOrigin, CPTokenFile, ProtocolOrigin, ProtocolTokenFile string
-	StateDirectory                                           string
-	ReadinessTrustID                                         string
-	ReviewedTargets                                          string
-	Policy                                                   federation.Policy
+	Address, Certificate, Key, ClientCA, AuthorityCA string
+	WorkloadIssuer, WorkloadAudience, RegistryPath   string
+	CPOrigin, CPTokenFile                            string
+	CanonicalRegistryPath, Environment               string
+	StateDirectory                                   string
+	ReadinessTrustID                                 string
+	ReviewedTargets                                  string
+	Policy                                           federation.Policy
 }
 
 type issuerTransport struct {
@@ -49,12 +50,12 @@ func load(path string) (config, error) {
 	if err := federation.LoadServiceDocument(path, &c); err != nil {
 		return c, err
 	}
-	for _, v := range []string{c.Address, c.Certificate, c.Key, c.ClientCA, c.AuthorityCA, c.WorkloadAudience, c.RegistryPath, c.StateDirectory, c.CPTokenFile, c.ProtocolTokenFile} {
+	for _, v := range []string{c.Address, c.Certificate, c.Key, c.ClientCA, c.AuthorityCA, c.WorkloadAudience, c.RegistryPath, c.CanonicalRegistryPath, c.Environment, c.StateDirectory, c.CPTokenFile} {
 		if v == "" {
 			return c, errors.New("missing configuration")
 		}
 	}
-	for _, v := range []string{c.CPOrigin, c.ProtocolOrigin, c.WorkloadIssuer} {
+	for _, v := range []string{c.CPOrigin, c.WorkloadIssuer} {
 		u, e := url.Parse(v)
 		if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 			return c, errors.New("authority must use HTTPS")
@@ -89,10 +90,6 @@ func run(ctx context.Context, c config) error {
 	if err != nil {
 		return err
 	}
-	protocol, err := federation.NewHTTPAuthority(c.ProtocolOrigin, federation.FileAuthorityTokens{Path: c.ProtocolTokenFile}, outbound)
-	if err != nil {
-		return err
-	}
 	g, err := federation.OpenGovernanceComposition(federation.GovernanceCompositionConfig{
 		NativeTargetLedgerPath: filepath.Join(c.StateDirectory, "native.db"), ApprovalLedgerPath: filepath.Join(c.StateDirectory, "approvals.db"), TrustLedgerPath: filepath.Join(c.StateDirectory, "trusts.db"), Registration: cp, ApprovalAuthority: cp, Now: time.Now,
 	})
@@ -105,6 +102,10 @@ func run(ctx context.Context, c config) error {
 			return errors.New("reviewed targets refused")
 		}
 	}
+	protocol := &federation.NativeProtocol{Native: g.NativeTargets, Governance: g.Trusts, Scope: c.Policy.Scope, Now: time.Now}
+	if c.ReviewedTargets != "" {
+		protocol.Refresh = func(ctx context.Context) error { return g.LoadReviewedTargets(ctx, c.ReviewedTargets) }
+	}
 	// Discover only the explicitly configured issuer, over verified private TLS.
 	issuerURL, _ := url.Parse(c.WorkloadIssuer)
 	client := &http.Client{Timeout: 5 * time.Second, Transport: issuerTransport{host: issuerURL.Host, base: &http.Transport{TLSClientConfig: outbound}}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -114,7 +115,7 @@ func run(ctx context.Context, c config) error {
 	if err != nil {
 		return errors.New("workload verifier unavailable")
 	}
-	access := &federation.ServiceAccess{RegistryPath: c.RegistryPath, Governance: g, Platform: cp, Verifier: provider.Verifier(&oidc.Config{ClientID: c.WorkloadAudience, SupportedSigningAlgs: []string{"RS256", "ES256"}})}
+	access := &federation.ServiceAccess{RegistryPath: c.RegistryPath, CanonicalRegistryPath: c.CanonicalRegistryPath, Environment: c.Environment, Governance: g, Platform: cp, Verifier: provider.Verifier(&oidc.Config{ClientID: c.WorkloadAudience, SupportedSigningAlgs: []string{"RS256", "ES256"}})}
 	sources, err := g.AuthoritySources(access, protocol, protocol)
 	if err != nil {
 		return err
