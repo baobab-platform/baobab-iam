@@ -52,9 +52,10 @@ public final class EvidenceBridge extends AbstractIdentityProviderMapper {
         Path path = Path.of(configured);
         if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) ||
             !Files.getPosixFilePermissions(path, LinkOption.NOFOLLOW_LINKS).equals(Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)) ||
-            !Files.getOwner(path, LinkOption.NOFOLLOW_LINKS).getName().equals(System.getProperty("user.name"))) throw new IllegalArgumentException();
+            !Files.getAttribute(path, "unix:uid", LinkOption.NOFOLLOW_LINKS).equals(Files.getAttribute(Path.of("/proc/self"), "unix:uid")) ||
+            !Integer.valueOf(1).equals(Files.getAttribute(path, "unix:nlink", LinkOption.NOFOLLOW_LINKS))) throw new IllegalArgumentException();
         byte[] result;
-        try (var stream = Files.newInputStream(path)) { result = stream.readNBytes(limit + 1); }
+        try (var stream = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) { result = stream.readNBytes(limit + 1); }
         if (result.length == 0 || result.length > limit) throw new IllegalArgumentException();
         return result;
     }
