@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -82,16 +83,28 @@ func receiptKey(want ReferenceExpectation) []byte {
 	return []byte("current:" + hex.EncodeToString(d[:]))
 }
 func validExpectation(w ReferenceExpectation) bool {
-	if !validRef(w.ID) || !uuidPattern.MatchString(w.TrustID) || w.SnapshotID == "" || w.TrustRevision < 1 || !validScope(w.Scope) || !providerPattern.MatchString(w.ProviderID) || !instancePattern.MatchString(w.EngineInstanceID) {
+	if !validRef(w.ID) ||
+		!uuidPattern.MatchString(w.TrustID) ||
+		w.SnapshotID == "" || len(w.SnapshotID) > 128 || strings.TrimSpace(w.SnapshotID) != w.SnapshotID ||
+		w.TrustRevision < 1 ||
+		!validScope(w.Scope) ||
+		len(w.ProviderID) < 10 || len(w.ProviderID) > 63 || !providerPattern.MatchString(w.ProviderID) ||
+		len(w.EngineInstanceID) < 6 || len(w.EngineInstanceID) > 63 || !instancePattern.MatchString(w.EngineInstanceID) {
 		return false
 	}
 	switch w.Kind {
 	case "federation_configuration", "federation_trust_material", "assurance_policy", "attribute_mapping", "provisioning_policy", "federation_activation", "identity_runtime_profile", "identity_runtime_support", "identity_security_domain":
 		return w.EventID == "" && w.Issuer == "" && w.Subject == "" && w.Level == "" && w.EvidenceDigest == "" && w.PrincipalID == "" && w.ExternalIdentityID == ""
 	case "assurance_mapping_decision":
-		return uuidPattern.MatchString(w.EventID) && w.Issuer != "" && exact(w.Subject) && (w.Level == "BAOBAB-A1" || w.Level == "BAOBAB-A2" || w.Level == "BAOBAB-A3") && digestPattern.MatchString(w.EvidenceDigest) && w.PrincipalID == "" && w.ExternalIdentityID == ""
+		return w.Issuer != "" && len(w.Issuer) <= 2048 &&
+			uuidPattern.MatchString(w.EventID) && exact(w.Subject) &&
+			(w.Level == "BAOBAB-A1" || w.Level == "BAOBAB-A2" || w.Level == "BAOBAB-A3") &&
+			digestPattern.MatchString(w.EvidenceDigest) &&
+			w.PrincipalID == "" && w.ExternalIdentityID == ""
 	case "canonical_identity_mapping":
-		return w.Issuer != "" && exact(w.Subject) && uuidPattern.MatchString(w.PrincipalID) && uuidPattern.MatchString(w.ExternalIdentityID) && w.EventID == "" && w.Level == "" && w.EvidenceDigest == ""
+		return w.Issuer != "" && len(w.Issuer) <= 2048 && exact(w.Subject) &&
+			uuidPattern.MatchString(w.PrincipalID) && uuidPattern.MatchString(w.ExternalIdentityID) &&
+			w.EventID == "" && w.Level == "" && w.EvidenceDigest == ""
 	}
 	return false
 }
