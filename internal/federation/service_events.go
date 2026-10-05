@@ -1,11 +1,29 @@
 package federation
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"mime"
 	"net/http"
 )
+
+// Ready validates the same pinned public configuration used by completion.
+// A successful transport response alone must not make the service ready.
+func (e *OIDCEvents) Ready(ctx context.Context, s TrustSnapshot) error {
+	if e == nil || e.now == nil || !activeSnapshot(s, e.now()) || s.Trust.Protocol != "OIDC" {
+		return ErrUnverified
+	}
+	c, err := e.config.OIDCConfiguration(ctx, s)
+	if err != nil {
+		return authorityError(err)
+	}
+	if c.TrustID != s.Trust.ID || c.SnapshotID != s.SnapshotID || c.Revision != s.ApprovedRevision || c.Binding != s.Trust.ProviderBinding || !exact(c.ClientID) || !e.now().Before(c.ValidUntil) {
+		return ErrUnverified
+	}
+	_, err = publicOIDCKeys(c)
+	return err
+}
 
 // NewServiceEventHandler is private BFF-to-IAM transport. The registered BFF
 // must perform authorization-code/PKCE and supply its own server-created

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"syscall"
 	"time"
 
@@ -113,7 +114,7 @@ func run(ctx context.Context, c config) error {
 	if err != nil {
 		return errors.New("workload verifier unavailable")
 	}
-	access := &federation.ServiceAccess{RegistryPath: c.RegistryPath, Governance: g, Platform: cp, Verifier: provider.Verifier(&oidc.Config{ClientID: c.WorkloadAudience})}
+	access := &federation.ServiceAccess{RegistryPath: c.RegistryPath, Governance: g, Platform: cp, Verifier: provider.Verifier(&oidc.Config{ClientID: c.WorkloadAudience, SupportedSigningAlgs: []string{"RS256", "ES256"}})}
 	sources, err := g.AuthoritySources(access, protocol, protocol)
 	if err != nil {
 		return err
@@ -163,11 +164,15 @@ func run(ctx context.Context, c config) error {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
+		if !slices.Contains(trust.Trust.OrganisationIDs, c.Policy.Scope.OrganisationID) || !slices.Contains(trust.Trust.EstateIDs, c.Policy.Scope.EstateID) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
 		if _, err = cp.FederationBinding(probe, trust.Trust.ProviderBinding, c.Policy.Scope, facet); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		if _, err = protocol.OIDCConfiguration(probe, trust); err != nil {
+		if err = events.Ready(probe, trust); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
