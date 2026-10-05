@@ -122,14 +122,14 @@ func TestCompositeApprovalTargetsRejectsCPOwnedNativeTarget(t *testing.T) {
 
 func TestIAMOwnedNativeTargetKindMatchesSharedOwnership(t *testing.T) {
 	for kind, want := range map[string]bool{
-		"federation_configuration":  true,
-		"federation_trust_material": true,
-		"assurance_policy":          true,
-		"attribute_mapping":         true,
-		"provisioning_policy":       true,
-		"federation_activation":     true,
+		"federation_configuration":   true,
+		"federation_trust_material":  true,
+		"assurance_policy":           true,
+		"attribute_mapping":          true,
+		"provisioning_policy":        true,
+		"federation_activation":      true,
 		"assurance_mapping_decision": true,
-		"identity_security_domain":  true,
+		"identity_security_domain":   true,
 		"canonical_identity_mapping": false,
 		"identity_runtime_profile":   false,
 		"identity_runtime_support":   false,
