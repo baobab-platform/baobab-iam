@@ -16,16 +16,16 @@ import (
 const nativeTargetClassification = "NON_SECRET"
 
 var (
-	nativeTargetContentBucket = []byte("federation-native-target-content-v1")
+	nativeTargetRecordBucket  = []byte("federation-native-target-records-v1")
+	nativeTargetBytesBucket   = []byte("federation-native-target-bytes-v1")
 	nativeTargetBindingBucket = []byte("federation-native-target-bindings-v1")
 )
 
 type nativeTargetRecord struct {
-	ReferenceID    string          `json:"reference_id"`
-	Kind           string          `json:"kind"`
-	Classification string          `json:"classification"`
-	Digest         string          `json:"digest"`
-	Content        json.RawMessage `json:"content"`
+	ReferenceID    string `json:"reference_id"`
+	Kind           string `json:"kind"`
+	Classification string `json:"classification"`
+	Digest         string `json:"digest"`
 }
 
 type nativeTargetBinding struct {
@@ -51,7 +51,7 @@ func OpenNativeTargetLedger(path string) (*NativeTargetLedger, error) {
 		return nil, ErrUnavailable
 	}
 	if err := db.Update(func(tx *bolt.Tx) error {
-		for _, bucket := range [][]byte{nativeTargetContentBucket, nativeTargetBindingBucket} {
+		for _, bucket := range [][]byte{nativeTargetRecordBucket, nativeTargetBytesBucket, nativeTargetBindingBucket} {
 			if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 				return err
 			}
@@ -133,7 +133,6 @@ func (l *NativeTargetLedger) RegisterNonSecretTarget(ctx context.Context, w Refe
 		Kind:           w.Kind,
 		Classification: nativeTargetClassification,
 		Digest:         digest,
-		Content:        append(json.RawMessage(nil), content...),
 	}
 	recordBytes, _ := json.Marshal(record)
 	binding := nativeTargetBinding{Expectation: w, Digest: digest}
@@ -143,19 +142,31 @@ func (l *NativeTargetLedger) RegisterNonSecretTarget(ctx context.Context, w Refe
 		if ctx.Err() != nil {
 			return ErrUnavailable
 		}
-		contents := tx.Bucket(nativeTargetContentBucket)
-		if raw := contents.Get([]byte(w.ID)); raw != nil {
+		records := tx.Bucket(nativeTargetRecordBucket)
+		nativeBytes := tx.Bucket(nativeTargetBytesBucket)
+		rawRecord := records.Get([]byte(w.ID))
+		rawContent := nativeBytes.Get([]byte(w.ID))
+		if rawRecord != nil {
 			var existing nativeTargetRecord
-			if decodeAuthority(raw, &existing) != nil ||
+			if rawContent == nil ||
+				decodeAuthority(rawRecord, &existing) != nil ||
 				existing.ReferenceID != record.ReferenceID ||
 				existing.Kind != record.Kind ||
 				existing.Classification != nativeTargetClassification ||
 				existing.Digest != digest ||
-				!bytes.Equal(existing.Content, content) {
+				!bytes.Equal(rawContent, content) {
 				return ErrDenied
 			}
-		} else if err := contents.Put([]byte(w.ID), recordBytes); err != nil {
-			return err
+		} else {
+			if rawContent != nil {
+				return ErrDenied
+			}
+			if err := records.Put([]byte(w.ID), recordBytes); err != nil {
+				return err
+			}
+			if err := nativeBytes.Put([]byte(w.ID), content); err != nil {
+				return err
+			}
 		}
 
 		bindings := tx.Bucket(nativeTargetBindingBucket)
@@ -216,6 +227,7 @@ func (l *NativeTargetLedger) NativeTargetDigest(ctx context.Context, w Reference
 	}
 	var binding nativeTargetBinding
 	var record nativeTargetRecord
+	var content []byte
 	err := l.db.View(func(tx *bolt.Tx) error {
 		if ctx.Err() != nil {
 			return ErrUnavailable
@@ -224,10 +236,15 @@ func (l *NativeTargetLedger) NativeTargetDigest(ctx context.Context, w Reference
 		if rawBinding == nil || decodeAuthority(rawBinding, &binding) != nil {
 			return ErrUnverified
 		}
-		rawRecord := tx.Bucket(nativeTargetContentBucket).Get([]byte(w.ID))
+		rawRecord := tx.Bucket(nativeTargetRecordBucket).Get([]byte(w.ID))
 		if rawRecord == nil || decodeAuthority(rawRecord, &record) != nil {
 			return ErrUnverified
 		}
+		rawContent := tx.Bucket(nativeTargetBytesBucket).Get([]byte(w.ID))
+		if rawContent == nil {
+			return ErrUnverified
+		}
+		content = append([]byte(nil), rawContent...)
 		return nil
 	})
 	if err != nil {
@@ -238,8 +255,8 @@ func (l *NativeTargetLedger) NativeTargetDigest(ctx context.Context, w Reference
 		record.ReferenceID != w.ID ||
 		record.Kind != w.Kind ||
 		record.Classification != nativeTargetClassification ||
-		!validateNativeTargetJSON(record.Content) ||
-		nativeTargetDigest(record.Content) != record.Digest ||
+		!validateNativeTargetJSON(content) ||
+		nativeTargetDigest(content) != record.Digest ||
 		!digestPattern.MatchString(record.Digest) {
 		return "", ErrUnverified
 	}
