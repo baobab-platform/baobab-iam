@@ -19,9 +19,9 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Build packages
-        run: go build ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/
+        run: go build ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/
       - name: Test packages
-        run: go test ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision -count=1
+        run: go test ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority -count=1
       - name: Test federation consumption with race detector
         run: go test -race ./internal/federation/... -count=1
       - name: Install matrix validator dependency
@@ -56,6 +56,14 @@ jobs:
         run: ./scripts/check-issued-scopes.sh
       - name: Every client and scope description fits Keycloak's 255-character limit
         run: ./scripts/check-config-limits.sh
+
+  federation-authority-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Build private federation authority image
+        run: docker build -f Dockerfile.federation-authority -t federation-authority:test .
 
   keycloak-baseline:
     runs-on: ubuntu-latest
