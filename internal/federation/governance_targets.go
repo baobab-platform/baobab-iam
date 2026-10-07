@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"time"
 	"unicode/utf8"
 )
 
@@ -280,11 +281,14 @@ var _ NativeTargetAuthority = (*NativeTargetLedger)(nil)
 // CompositeApprovalTargets is the final IAM ApprovalTargets resolver. CP proves
 // current registration/topology/scope; IAM proves the immutable native bytes
 // bound to the exact trust revision/snapshot. Neither authority can succeed
-// alone. CP is read both before and after the native read so target drift fails
+// alone for IAM-owned targets. CP-owned canonical mappings use CP current
+// identity evidence instead of IAM native bytes. CP is read twice so target drift fails
 // closed rather than composing evidence from different moments.
 type CompositeApprovalTargets struct {
 	registration TargetRegistrationAuthority
 	native       NativeTargetAuthority
+	canonical    CanonicalAuthority
+	now          func() time.Time
 }
 
 func NewCompositeApprovalTargets(registration TargetRegistrationAuthority, native NativeTargetAuthority) (*CompositeApprovalTargets, error) {
@@ -294,11 +298,25 @@ func NewCompositeApprovalTargets(registration TargetRegistrationAuthority, nativ
 	return &CompositeApprovalTargets{registration: registration, native: native}, nil
 }
 
+// NewOwnerAwareApprovalTargets explicitly enables CP-owned mapping consumption.
+// The canonical reader must be the protected CP authority, never IAM state.
+func NewOwnerAwareApprovalTargets(registration TargetRegistrationAuthority, native NativeTargetAuthority, canonical CanonicalAuthority, now func() time.Time) (*CompositeApprovalTargets, error) {
+	if absent(canonical) || now == nil {
+		return nil, ErrInvalid
+	}
+	c, err := NewCompositeApprovalTargets(registration, native)
+	if err != nil {
+		return nil, err
+	}
+	c.canonical, c.now = canonical, now
+	return c, nil
+}
+
 func (c *CompositeApprovalTargets) ResolveApprovedTarget(ctx context.Context, w ReferenceExpectation) (string, error) {
 	if c == nil || ctx == nil || ctx.Err() != nil || absent(c.registration) || absent(c.native) || !validExpectation(w) {
 		return "", ErrInvalid
 	}
-	if !iamOwnedNativeTargetKind(w.Kind) {
+	if !iamOwnedNativeTargetKind(w.Kind) && (w.Kind != "canonical_identity_mapping" || absent(c.canonical) || c.now == nil) {
 		return "", ErrUnsupported
 	}
 	before, err := c.registration.TargetRegistration(ctx, w)
@@ -308,9 +326,26 @@ func (c *CompositeApprovalTargets) ResolveApprovedTarget(ctx context.Context, w 
 	if !digestPattern.MatchString(before.Digest) {
 		return "", ErrUnverified
 	}
-	digest, err := c.native.NativeTargetDigest(ctx, w)
-	if err != nil {
-		return "", authorityError(err)
+	// CP validates its exact live issuer/subject mapping and fingerprint. IAM
+	// approves permission to consume that target, never stores mapping authority.
+	digest := before.Digest
+	var mappingUntil time.Time
+	if w.Kind == "canonical_identity_mapping" {
+		identity, e := c.canonical.Resolve(ctx, w.Issuer, w.Subject)
+		if e != nil {
+			return "", authorityError(e)
+		}
+		if identity.Issuer != w.Issuer || identity.Subject != w.Subject || identity.PrincipalID != w.PrincipalID || identity.ExternalIdentityID != w.ExternalIdentityID || identity.MappingReference != w.ID || identity.MappingBasis != "ISSUER_SUBJECT" || identity.PrincipalStatus != "ACTIVE" || identity.ExternalIdentityStatus != "ACTIVE" || identity.ActorType != "human" || !c.now().Before(identity.ValidUntil) {
+			return "", ErrUnverified
+		}
+		mappingUntil = identity.ValidUntil
+		content, _ := json.Marshal(struct{ Issuer, Subject, PrincipalID, ExternalIdentityID string }{identity.Issuer, identity.Subject, identity.PrincipalID, identity.ExternalIdentityID})
+		digest = nativeTargetDigest(content)
+	} else {
+		digest, err = c.native.NativeTargetDigest(ctx, w)
+		if err != nil {
+			return "", authorityError(err)
+		}
 	}
 	if digest != before.Digest {
 		return "", ErrUnverified
@@ -319,7 +354,7 @@ func (c *CompositeApprovalTargets) ResolveApprovedTarget(ctx context.Context, w 
 	if err != nil {
 		return "", authorityError(err)
 	}
-	if after != before || after.Digest != digest || ctx.Err() != nil {
+	if after != before || after.Digest != digest || ctx.Err() != nil || (!mappingUntil.IsZero() && !c.now().Before(mappingUntil)) {
 		return "", ErrUnverified
 	}
 	return digest, nil

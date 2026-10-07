@@ -114,7 +114,7 @@ func run(ctx context.Context, c config) error {
 		}
 		defer storage.Close()
 	}
-	gc := federation.GovernanceCompositionConfig{Storage: storage, Registration: cp, ApprovalAuthority: cp, Now: time.Now}
+	gc := federation.GovernanceCompositionConfig{Storage: storage, Registration: cp, Canonical: cp, ApprovalAuthority: cp, Now: time.Now}
 	nativePath, approvalPath, trustPath, brokerPath, eventDBPath := "", "", "", "", ""
 	if storage == nil {
 		nativePath = filepath.Join(c.StateDirectory, "native.db")
