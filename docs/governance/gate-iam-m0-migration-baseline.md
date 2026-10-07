@@ -299,13 +299,18 @@ Gate IAM-M0 is **closed** when:
 
 ## 16. Next gate
 
-**Next: complete MP2-C live authority sources, then MP3 registry / MP4 resolver and MP8 federation adapter.**
-Shared #213/#214, CP #257 and IAM #65 are merged. IAM #66 executable plumbing is merged; review follow-ups are in #68; authenticated mounted authority sources and operational acceptance are
-still required. IAM #63 current-CP fixture proof is merged and does not establish
-deployed consumer acceptance. Preserve CP canonical/platform authority and gate
-MP7 reduction on replacement, rollback and actual-consumer evidence.
+**Next: MP3 provider/runtime-support projection and MP4 CP resolution → IAM adapter dispatch.**
+IAM #69–#75 added governed trust revisions, live CP authority integration,
+private authority composition and the permanent OIDC/SAML Keycloak federation
+adapter. IAM #77 added PostgreSQL shared authority state and recovery fencing.
+These increments supersede the earlier MP8-scaffold claim; deployed acceptance
+remains outstanding. See [current programme status](iam-mp-programme-status.md)
+and the [MP plan](iam-mp-implementation-plan.md).
 
-Provider scaffold reference: `internal/provider` (interfaces + Ory/Keycloak adapter skeletons).
+Preserve CP canonical/platform authority. MP7 reduction still requires
+replacement, rollback and actual-consumer evidence; it never deletes retained
+enterprise federation. `internal/provider/keycloak/enterprise.go` is the
+permanent adapter; compatibility parsing is not provider selection.
 
 ---
 

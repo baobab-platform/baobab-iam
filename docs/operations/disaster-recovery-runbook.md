@@ -1,14 +1,21 @@
 # IAM Disaster Recovery Runbook
 
 **Governing ADR:** `ADR-0018 — IAM Availability, Backup, Recovery and Disaster Resilience` §90-93, §215
-**Owner of this document:** `nabhold/baobab-iam` (per §215's ownership table, jointly with `nabhold/infrastructure`)
+**Current multi-provider recovery:** Restore the retained Keycloak broker, Kratos,
+Hydra and IAM federation authority as separate failure domains. For PostgreSQL
+shared federation state, follow [shared-state recovery](federation-shared-storage.md)
+before serving traffic: externally advance the recovery epoch, invalidate
+restored live authority and obtain fresh approvals. Local bbolt is bounded
+staging storage. Cloud failover and measured RPO/RTO remain unaccepted.
 
-This runbook exists because ADR-0018 §90 requires one ("`nabhold/baobab-iam` and/or
-`nabhold/infrastructure` SHALL maintain a version-controlled DR runbook") and none
+**Owner of this document:** `baobab-platform/baobab-iam` (per §215's ownership table, jointly with `baobab-platform/infrastructure`)
+
+This runbook exists because ADR-0018 §90 requires one ("`baobab-platform/baobab-iam` and/or
+`baobab-platform/infrastructure` SHALL maintain a version-controlled DR runbook") and none
 existed before Gate IAM-14. It documents the 17-step recovery sequence from §91
 against what this repository actually owns today, not an aspirational full
 recovery procedure — steps this repository does not own are marked as such and
-point to `nabhold/infrastructure` rather than describing infrastructure this
+point to `baobab-platform/infrastructure` rather than describing infrastructure this
 repository has no visibility into.
 
 Per §89, only authorized operations/security roles SHALL initiate production IAM
@@ -25,15 +32,15 @@ Per §92-93, **a successful Keycloak startup after restore is not the same as
 | # | Step (ADR-0018 §91) | Owner | What `baobab-iam` actually provides |
 |---|---|---|---|
 | 1 | Contain incident | Operations/Security | Not this repo. |
-| 2 | Determine trusted recovery point | Infrastructure + Security | Not this repo — backup/PITR tooling is `nabhold/infrastructure`-owned (§215). |
+| 2 | Determine trusted recovery point | Infrastructure + Security | Not this repo — backup/PITR tooling is `baobab-platform/infrastructure`-owned (§215). |
 | 3 | Restore infrastructure dependencies | Infrastructure | Not this repo. |
-| 4 | Restore PostgreSQL | Infrastructure | Not this repo — database HA/backup/PITR is `nabhold/infrastructure`-owned (§215). |
-| 5 | Restore cryptographic/secrets dependencies | Infrastructure | Not this repo — secret management is `nabhold/infrastructure`-owned (§215). |
-| 6 | Deploy pinned Keycloak | `baobab-iam` + Infrastructure | This repo's `Dockerfile` (`FROM quay.io/keycloak/keycloak:26.7.3`) and `upstream.lock.yaml` are the pin's source of truth. **Known gap:** `upstream.lock.yaml`'s image digest is still an unresolved placeholder (R-1, `docs/governance/gate-iam-0-discovery.md`) — see [Gate IAM-14 scope](../governance/gate-iam-14-availability-dr-scope.md). |
+| 4 | Restore PostgreSQL | Infrastructure | Not this repo — database HA/backup/PITR is `baobab-platform/infrastructure`-owned (§215). |
+| 5 | Restore cryptographic/secrets dependencies | Infrastructure | Not this repo — secret management is `baobab-platform/infrastructure`-owned (§215). |
+| 6 | Deploy pinned runtimes | `baobab-iam` + Infrastructure | Retained Keycloak `26.7.5`, digest `sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85`, is pinned by `upstream.lock.yaml` and checked against the Dockerfile/registry by `scripts/keycloak-baseline.sh`. Kratos/Hydra pins remain in `provider.lock.yaml`. Verify the accepted release artifact before restore; a repository pin does not prove the deployed version. |
 | 7 | Validate database/schema | Infrastructure | Not this repo. |
-| 8 | Validate realm/client configuration | **`baobab-iam`** | `make bootstrap` re-applies `config/realm/baobab-realm.json` and `config/clients/*.json`/`config/scopes/*.json` idempotently (ADR-0002's declarative-config model) — re-running it after restore is how realm/client drift gets corrected. |
+| 8 | Validate realm/client configuration | **`baobab-iam`** | `make bootstrap` re-applies `config/realm/baobab-realm.json` and `config/clients/*.json`/`config/scopes/*.json` to fill missing objects; existing objects require explicit drift comparison and correction (see procedure below). |
 | 9 | Validate signing/JWKS | **`baobab-iam`** + Infrastructure | `tests/integration/run.sh` §2-3 (OIDC discovery + JWKS retrieval) prove the restored realm is issuing discoverable, verifiable tokens. Key material itself is Infrastructure-owned secrets/PKI. |
-| 10 | Apply post-backup security changes | `baobab-cp` + `baobab-iam` | ADR-0018 §96-100's "security journal" (identities/credentials/sessions revoked *after* the restored backup's point-in-time) is not implemented anywhere in this session's scope yet — see [Gate IAM-14 scope](../governance/gate-iam-14-availability-dr-scope.md) §4. Until it exists, this step is manual: whoever declares the incident must independently know what was revoked between the backup and the disaster, and re-apply those revocations via the Admin API before reopening traffic. |
+| 10 | Apply post-backup security changes | `baobab-cp` + `baobab-iam` | For federation authority, the [shared-state recovery procedure](federation-shared-storage.md) fences restored approvals/events and old processes; it does not reconcile all provider-native revocations. ADR-0018 §96-100's "security journal" (identities/credentials/sessions revoked *after* the restored backup's point-in-time) is not implemented anywhere in this session's scope yet — see [Gate IAM-14 scope](../governance/gate-iam-14-availability-dr-scope.md) §4. Until it exists, this step is manual: whoever declares the incident must independently know what was revoked between the backup and the disaster, and re-apply those revocations via the Admin API before reopening traffic. |
 | 11 | Reconcile revocations | `baobab-cp` + `baobab-iam` | Same gap as step 10 — no automated reconciliation exists. `tests/integration/run.sh` §16 proves *how* to revoke (disable identity, revoke sessions) once the list of what to revoke is known. |
 | 12 | Validate CP integration | `baobab-cp` | Not this repo's test suite — `baobab-cp` validates its own token acceptance and canonical-identity resolution against the restored realm. |
 | 13 | Validate engine authentication | `baobab-trade`, `baobab-erp`, `baobab-cms`, `baobab-pulse` | Not this repo's test suite. |
@@ -83,7 +90,9 @@ Per §92-93, **a successful Keycloak startup after restore is not the same as
    identity, credential, session, or role revoked between the backup's point in
    time and the disaster has been re-applied. ADR-0018 §94-95's binding invariant
    is that **a restore SHALL NOT return previously revoked identity authority to
-   service** — this is a manual verification today, not an automated one; see
+   service**. Federation PostgreSQL recovery provides automated epoch fencing and
+   invalidation of restored live authority; provider-native revocation reconciliation
+   remains a manual verification pending end-to-end DR certification. See
    [Gate IAM-14 scope](../governance/gate-iam-14-availability-dr-scope.md) §4 for
    why automating it (a "post-backup security journal") was deferred rather than
    built in this gate.

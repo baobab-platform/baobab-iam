@@ -1,6 +1,9 @@
 # provider.lock.yaml
 # Pins the Ory Kratos and Hydra versions for Gate IAM-M2/M3 (ADR-IAM-0021).
-# Keycloak remains pinned in upstream.lock.yaml until Gate IAM-M19.
+# Keycloak is permanently retained for bounded enterprise federation under
+# ADR-IAM-0033 and stays pinned independently in upstream.lock.yaml.
+# Native/workload retirement is capability-specific; historical M19 does not
+# authorize deleting the federation runtime or its pin.
 #
 # Digests resolved 2026-09-30 from Docker Hub registry-1.docker.io
 # (multi-arch manifest list / image index). Architecture-specific digests
