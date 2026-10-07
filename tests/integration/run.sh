@@ -126,6 +126,48 @@ else
   fail "workload client 'baobab-trade-workload' did not receive an access token: $TOKEN_RESPONSE"
 fi
 
+echo "== 4b. Pulse validator workload authority (P-CAP-07) =="
+PULSE_TOKEN_RESPONSE=$(curl -s --max-time 30 -X POST "$TOKEN_ENDPOINT" \
+  -d "client_id=baobab-pulse-workload" \
+  -d "client_secret=$WORKLOAD_SECRET" \
+  -d "grant_type=client_credentials")
+PULSE_ACCESS_TOKEN=$(echo "$PULSE_TOKEN_RESPONSE" | jq -r '.access_token // empty')
+if [ -n "$PULSE_ACCESS_TOKEN" ]; then
+  PULSE_PAYLOAD=$(jwt_payload "$PULSE_ACCESS_TOKEN")
+  PULSE_SCOPE=$(echo "$PULSE_PAYLOAD" | jq -r '.scope // empty')
+  PULSE_AUDIENCE=$(echo "$PULSE_PAYLOAD" | jq -r 'if (.aud | type) == "array" then .aud | join(",") else (.aud // empty) end')
+  PULSE_ACTOR_TYPE=$(echo "$PULSE_PAYLOAD" | jq -r '.actor_type // empty')
+
+  if [ "$PULSE_ACTOR_TYPE" = "workload" ]; then
+    pass "Pulse validator token carries actor_type=workload"
+  else
+    fail "Pulse validator token actor_type is '$PULSE_ACTOR_TYPE', expected workload"
+  fi
+  if [[ "$PULSE_SCOPE" == *"context:validate"* ]]; then
+    pass "Pulse validator token includes context:validate"
+  else
+    fail "Pulse validator token scope '$PULSE_SCOPE' lacks context:validate"
+  fi
+  if [[ ",$PULSE_AUDIENCE," == *",baobab-control-plane,"* ]]; then
+    pass "Pulse validator token carries aud=baobab-control-plane"
+  else
+    fail "Pulse validator token aud '$PULSE_AUDIENCE' lacks baobab-control-plane"
+  fi
+
+  PULSE_BUSINESS_SCOPE_GAP=0
+  for FORBIDDEN_SCOPE in intelligence:evidence:search intelligence:research-mission:manage intelligence:restricted; do
+    if [[ " $PULSE_SCOPE " == *" $FORBIDDEN_SCOPE "* ]]; then
+      fail "Pulse validator credential unexpectedly carries business scope '$FORBIDDEN_SCOPE'"
+      PULSE_BUSINESS_SCOPE_GAP=1
+    fi
+  done
+  if [ "$PULSE_BUSINESS_SCOPE_GAP" -eq 0 ]; then
+    pass "Pulse validator credential receives no Intelligence business scope implicitly"
+  fi
+else
+  fail "baobab-pulse-workload did not receive a validator access token: $PULSE_TOKEN_RESPONSE"
+fi
+
 echo "== 5. Wrong-client-secret rejection =="
 # Deliberately uses baobab-cms-workload, not baobab-trade-workload: the
 # realm has bruteForceProtected=true with a 60s minimumQuickLoginWaitSeconds,
