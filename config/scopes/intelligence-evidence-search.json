@@ -1,6 +1,6 @@
 {
   "name": "intelligence:evidence:search",
-  "description": "Allows an authenticated workload to invoke baobab-pulse intelligence.evidence.search for caller-bound Control Plane context. Grants no tenant authority. With validated context it permits Intelligence classifications through CONFIDENTIAL; RESTRICTED additionally requires intelligence:restricted.",
+  "description": "Invokes baobab-pulse evidence search. Grants no tenant authority. After caller-bound Control Plane context validation, this scope permits data through CONFIDENTIAL; RESTRICTED also requires intelligence:restricted.",
   "protocol": "openid-connect",
   "attributes": {
     "include.in.token.scope": "true",
