@@ -1,6 +1,6 @@
 {
   "name": "intelligence:research-mission:manage",
-  "description": "Allows an authenticated workload to invoke baobab-pulse intelligence.research-mission.manage for caller-bound Control Plane context. Grants no tenant authority. With validated context it permits ResearchMission classifications through CONFIDENTIAL; RESTRICTED additionally requires intelligence:restricted.",
+  "description": "Invokes baobab-pulse ResearchMission management. Grants no tenant authority. After caller-bound Control Plane context validation, this scope permits data through CONFIDENTIAL; RESTRICTED also requires intelligence:restricted.",
   "protocol": "openid-connect",
   "attributes": {
     "include.in.token.scope": "true",
