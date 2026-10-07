@@ -71,12 +71,12 @@ func TestProvisionFederatedWorkloadCreatesNoSecretClientAndExactTrust(t *testing
 
 	expires := time.Now().UTC().Add(24 * time.Hour)
 	got, err := a.ProvisionFederatedWorkload(context.Background(), provider.FederatedWorkloadTrustSpec{
-		LogicalClientID:  "baobab-cp-workload",
-		DisplayName:      "Baobab Control Plane Workload",
-		AllowedScopes:    []string{"billing:manage", "billing:read"},
+		LogicalClientID:   "baobab-cp-workload",
+		DisplayName:       "Baobab Control Plane Workload",
+		AllowedScopes:     []string{"billing:manage", "billing:read"},
 		IntendedAudiences: []string{"baobab-subscriptions"},
-		AssertionIssuer:  "https://workload-issuer.example",
-		AssertionSubject: "system:serviceaccount:baobab:baobab-cp-workload",
+		AssertionIssuer:   "https://workload-issuer.example",
+		AssertionSubject:  "system:serviceaccount:baobab:baobab-cp-workload",
 		AssertionJWK: map[string]any{
 			"kty": "OKP",
 			"crv": "Ed25519",
@@ -142,7 +142,7 @@ func TestFederatedWorkloadTrustRejectsPrivateJWK(t *testing.T) {
 		AssertionIssuer:   "https://workload-issuer.example",
 		AssertionSubject:  "cp",
 		AssertionJWK:      map[string]any{"kty": "RSA", "kid": "x", "n": "abc", "e": "AQAB", "d": "private"},
-		TrustExpiresAt:     time.Now().UTC().Add(time.Hour),
+		TrustExpiresAt:    time.Now().UTC().Add(time.Hour),
 	}
 	if err := spec.Validate(); err == nil {
 		t.Fatal("expected private JWK material to be rejected")
