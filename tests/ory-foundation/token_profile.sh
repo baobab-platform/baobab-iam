@@ -24,8 +24,9 @@ profiles['bindings'] = {name: {'issuer': 'https://projected.m4-ci.invalid/' + na
                               'subject': 'system:serviceaccount:m4-ci:' + name}
                         for name, profile in profiles['workloads'].items()
                         if profile['credential_type'] == 'federated_workload_token'}
+# The disposable stack serves the environment the selected registry entries belong to (all production-labelled in Shared).
 profiles = build(profiles['shared_commit'], {'workloads': profiles['workloads']},
-                 list(profiles['workloads']), profiles['bindings'])
+                 list(profiles['workloads']), profiles['bindings'], 'production')
 # CI-only profiles are not Shared allocations. Keep the canonical projection
 # and its evidence unchanged; add these only to the disposable hook input.
 for name, scope, audiences in (
@@ -37,7 +38,7 @@ for name, scope, audiences in (
     if name in profiles['workloads']:
         raise SystemExit('CI fixture collides with canonical workload')
     profiles['workloads'][name] = {
-        'credential_type': 'client_credentials', 'status': 'PROVISIONED',
+        'environment': 'production', 'credential_type': 'client_credentials', 'status': 'PROVISIONED',
         'allowed_scopes': [scope], 'allowed_audiences': audiences}
 (root / 'profiles.json').write_text(json.dumps(profiles))
 (root / 'profiles.json').chmod(0o600)

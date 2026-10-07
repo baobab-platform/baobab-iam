@@ -19,6 +19,10 @@
 # baobab-pulse resource-server context validator and IAM gains the three
 # canonical Intelligence scopes. This allocates context:validate only to
 # baobab-pulse-workload; it grants no Intelligence operation scope to a caller.
+# FB-05 (2026-10-07): 363e0ea -> 70f92ee (shared#251). The registry gains baobab-cp-provisioning-evidence-workload: the Control Plane's
+# provisioning worker in the STAGING evidence environment, ACTIVE by owner ruling, federated_workload_token, erp:provision only. It is a
+# Hydra-issued federated workload with no Keycloak client and no static secret; baobab-cp-provisioning-workload stays PROVISIONED. See
+# docs/governance/ea-01-shared-pin-reconciliation.md.
 # EA-01 reconciliation (2026-10-07): 6e9c686 -> e5faaaf (shared#235, the audited ERP caller matrix; see
 # docs/governance/ea-01-shared-pin-reconciliation.md).
 # EA-01 reconciliation (2026-10-04): 10810e2 -> 6899a2d. Existing scope
@@ -32,7 +36,7 @@ schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: 363e0ead9ebb5aa87f5f813b63b785b7f63cc39e
+  commit: 70f92ee179888e9fd38e31ae9225060d76833944
 contracts:
   - contracts/capability/v1/resolution.schema.json
   - contracts/identity/v1/federation-authority-policy.yaml

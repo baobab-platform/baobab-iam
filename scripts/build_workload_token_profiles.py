@@ -9,7 +9,11 @@ import yaml
 from iam_capability_matrix import ROOT, shared_file
 
 
-def build(commit, registry, selected, bindings):
+def build(commit, registry, selected, bindings, environment):
+    # One projection serves one environment: a credential issued for one environment never authenticates as a workload of another
+    # (ADR-0007 section 102), so a selected workload of any other environment is refused, never copied.
+    if environment not in ('development', 'staging', 'production'):
+        raise ValueError('An exact environment (development, staging or production) is required')
     if not isinstance(bindings, dict) or not selected or len(set(selected)) != len(selected):
         raise ValueError('Select distinct workloads and supply a binding object')
     if set(bindings) - set(selected):
@@ -19,7 +23,9 @@ def build(commit, registry, selected, bindings):
     for name in selected:
         entry = registry['workloads'][name]
         profile = {key: entry[key] for key in
-                   ('credential_type', 'status', 'allowed_scopes', 'allowed_audiences')}
+                   ('environment', 'credential_type', 'status', 'allowed_scopes', 'allowed_audiences')}
+        if profile['environment'] != environment:
+            raise ValueError(f'{name} belongs to environment {profile["environment"]}, not {environment}')
         if profile['credential_type'] == 'federated_workload_token':
             binding = bindings.get(name)
             if not isinstance(binding, dict) or set(binding) != {'issuer', 'subject'}:
@@ -44,19 +50,20 @@ def build(commit, registry, selected, bindings):
         profiles[name] = profile
     # Scope/audience/profile/lifecycle values are copied exclusively from Shared.
     # The deployment input can supply only exact federation bindings.
-    return {'shared_commit': commit, 'workloads': profiles, 'bindings': bindings}
+    return {'shared_commit': commit, 'environment': environment, 'workloads': profiles, 'bindings': bindings}
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--workload', action='append', required=True)
     parser.add_argument('--bindings', type=Path)
+    parser.add_argument('--environment', required=True, choices=('development', 'staging', 'production'))
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     lock = yaml.safe_load((ROOT / 'contracts.lock.yaml').read_text())
     registry = shared_file(lock, 'contracts/identity/v1/workload-registry.yaml')
     bindings = json.loads(args.bindings.read_text()) if args.bindings else {}
-    config = build(lock['source']['commit'], registry, args.workload, bindings)
+    config = build(lock['source']['commit'], registry, args.workload, bindings, args.environment)
     args.output.write_text(json.dumps(config, indent=2) + '\n')
     print('Built selected token profiles from the exact Shared pin and governed bindings')
 

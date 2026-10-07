@@ -16,7 +16,8 @@ The test runner generates its JSON profile projection using the same exact-Share
 
 Generate the command's configuration using
 `scripts/build_workload_token_profiles.py --workload <registered-client-id>`
-(repeat for each selected workload), `--bindings <governed-bindings.json>` when
+(repeat for each selected workload), `--environment <development|staging|production>` (required; a projection serves one environment and a workload of another is refused),
+`--bindings <governed-bindings.json>` when
 federation is selected, and `--output <protected-config.json>`. The script reads
 Shared at `contracts.lock.yaml` and copies credential/lifecycle/scope/audience
 fields directly. The bindings input may supply only exact HTTPS issuer and

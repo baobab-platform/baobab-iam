@@ -7,7 +7,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED_PIN = "363e0ead9ebb5aa87f5f813b63b785b7f63cc39e"
+SHARED_PIN = "70f92ee179888e9fd38e31ae9225060d76833944"  # FB-05 (shared#251): adds the staging evidence provisioner
 PULSE_SCOPES = {
     "intelligence:evidence:search",
     "intelligence:research-mission:manage",

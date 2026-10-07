@@ -11,6 +11,10 @@ import (
 const FederatedGrant = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 
 type Workload struct {
+	// Environment is the Shared registry environment of the workload. A credential issued for one environment never authenticates as
+	// a workload of another (ADR-0007 section 102), so a projection serves exactly one environment and every workload in it must
+	// belong to that environment.
+	Environment    string   `json:"environment"`
 	CredentialType string   `json:"credential_type"`
 	Status         string   `json:"status"`
 	Scopes         []string `json:"allowed_scopes"`
@@ -24,10 +28,15 @@ type Binding struct {
 	Subject string `json:"subject"`
 }
 
+// Environments are the Shared registry environment values.
+var environments = map[string]bool{"development": true, "staging": true, "production": true}
+
 type Config struct {
-	SharedCommit string              `json:"shared_commit"`
-	Workloads    map[string]Workload `json:"workloads"`
-	Bindings     map[string]Binding  `json:"bindings"`
+	SharedCommit string `json:"shared_commit"`
+	// Environment is the one environment this issuer serves; it is deployment configuration, never workload input.
+	Environment string              `json:"environment"`
+	Workloads   map[string]Workload `json:"workloads"`
+	Bindings    map[string]Binding  `json:"bindings"`
 }
 
 type Evidence struct {
@@ -45,7 +54,13 @@ func (c Config) Validate() error {
 	if !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(c.SharedCommit) || len(c.Workloads) == 0 {
 		return fmt.Errorf("exact Shared commit and workload profiles required")
 	}
+	if !environments[c.Environment] {
+		return fmt.Errorf("the issuer environment must be development, staging or production")
+	}
 	for id, p := range c.Workloads {
+		if p.Environment != c.Environment {
+			return fmt.Errorf("workload %q belongs to environment %q, not this issuer's %q", id, p.Environment, c.Environment)
+		}
 		if id == "" || strings.TrimSpace(id) != id || len(p.Scopes) == 0 || len(p.Audiences) == 0 {
 			return fmt.Errorf("invalid workload profile")
 		}
@@ -83,6 +98,10 @@ func (c Config) Validate() error {
 func (c Config) Claims(e Evidence) (map[string]any, error) {
 	p, ok := c.Workloads[e.ClientID]
 	if !ok || (p.Status != "ACTIVE" && p.Status != "PROVISIONED") {
+		return nil, fmt.Errorf("workload issuance denied")
+	}
+	// Validate already refuses a mixed projection; this keeps a hand-built Config from crossing environments.
+	if p.Environment == "" || p.Environment != c.Environment {
 		return nil, fmt.Errorf("workload issuance denied")
 	}
 	switch p.CredentialType {

@@ -12,7 +12,7 @@ import (
 )
 
 func TestTokenProfileHookAuthenticatedAndGoverned(t *testing.T) {
-	config := tokenprofile.Config{SharedCommit: "10810e20473709d4626da310fc9a84680f8efddd", Workloads: map[string]tokenprofile.Workload{"trade": {CredentialType: "client_credentials", Status: "ACTIVE", Scopes: []string{"context:resolve"}, Audiences: []string{"baobab-control-plane"}}}}
+	config := tokenprofile.Config{Environment: "production", SharedCommit: "10810e20473709d4626da310fc9a84680f8efddd", Workloads: map[string]tokenprofile.Workload{"trade": {Environment: "production", CredentialType: "client_credentials", Status: "ACTIVE", Scopes: []string{"context:resolve"}, Audiences: []string{"baobab-control-plane"}}}}
 	key := strings.Repeat("k", 32)
 	hook, err := NewTokenProfileHook(config, key)
 	if err != nil {
@@ -81,9 +81,10 @@ func TestTokenProfileHookAuthenticatedAndGoverned(t *testing.T) {
 // responsibility and is independently exercised by the live foundation suite.
 func TestTokenProfileHookFederatedBinding(t *testing.T) {
 	config := tokenprofile.Config{
+		Environment:  "production",
 		SharedCommit: "10810e20473709d4626da310fc9a84680f8efddd",
 		Workloads: map[string]tokenprofile.Workload{
-			"cp": {CredentialType: "federated_workload_token", Status: "PROVISIONED", Scopes: []string{"billing:read"}, Audiences: []string{"baobab-subscriptions"}},
+			"cp": {Environment: "production", CredentialType: "federated_workload_token", Status: "PROVISIONED", Scopes: []string{"billing:read"}, Audiences: []string{"baobab-subscriptions"}},
 		},
 		Bindings: map[string]tokenprofile.Binding{
 			"cp": {Issuer: "https://projected.invalid", Subject: "service-account-cp"},
