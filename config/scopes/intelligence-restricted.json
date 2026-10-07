@@ -1,6 +1,6 @@
 {
   "name": "intelligence:restricted",
-  "description": "Supplemental baobab-pulse classification clearance. Grants no operation or tenant authority by itself; with an exact Intelligence capability scope and validated caller-bound context it raises the maximum classification from CONFIDENTIAL to RESTRICTED.",
+  "description": "Supplemental baobab-pulse clearance. Grants no operation or tenant authority alone; with an exact Intelligence operation scope and validated caller-bound context it permits RESTRICTED data.",
   "protocol": "openid-connect",
   "attributes": {
     "include.in.token.scope": "true",
