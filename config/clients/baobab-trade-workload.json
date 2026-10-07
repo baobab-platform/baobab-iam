@@ -27,6 +27,7 @@
     "context:resolve"
   ],
   "optionalClientScopes": [
+    "erp:read",
     "address",
     "phone",
     "offline_access",

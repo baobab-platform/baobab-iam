@@ -11,10 +11,14 @@
 # iam#51), the provider-neutral identity/v1 capability contracts (shared#151)
 # and evidence-backed workload activation (shared#148).
 #
-# erp:read and erp:provision (the ERP Boundary API, shared#206) are issued to baobab-erp-workload only and carry no tenant_id.
+# ERP caller matrix (shared#235): erp:read is issued to baobab-trade-workload only (as an optional scope, so default Trade tokens stay
+# Control-Plane-only); erp:provision is issued to no client (its holder, baobab-cp-provisioning-workload, is PROVISIONED and has no
+# client yet); baobab-erp-workload holds erp:integrate and context:validate and no Boundary scope. No token carries a tenant_id.
 #
 # MP2-C extends the pin to merged Shared MP2-A/B. No workload/scope allocation
 # or lifecycle promotion is implied.
+# EA-01 reconciliation (2026-10-07): 6e9c686 -> e5faaaf (shared#235, the audited ERP caller matrix; see
+# docs/governance/ea-01-shared-pin-reconciliation.md).
 # EA-01 reconciliation (2026-10-04): 10810e2 -> 6899a2d. Existing scope
 # entries and workload records are unchanged; context:validate is catalogued
 # but granted to no workload. See docs/governance/ea-01-shared-pin-reconciliation.md.
@@ -26,7 +30,7 @@ schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: 6e9c6865de69b136db3de1b9f7cff72b4561243c
+  commit: e5faaaf8f596ccb6a81cf7fa3bff5e7343da1917
 contracts:
   - contracts/identity/v1/federation-authority-policy.yaml
   # Accepted MP2-A/B provider-neutral federation consumption contracts.

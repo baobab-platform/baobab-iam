@@ -514,45 +514,101 @@ else
   fail "could not obtain a baobab-erp-workload token with the erp:integrate scope"
 fi
 
-# erp:read / erp:provision (the ERP Boundary API, shared#206): issued to the ERP workload only, audience baobab-erp, and the
-# client stays tenant-neutral. Tenant entitlement is a Control Plane decision (ADR-0007 sections 88-91), so no tenant_id is stamped.
+# The audited ERP caller matrix (shared#235). ERP is the resource server of the Boundary API and the validator of the baobab-erp audience,
+# not a caller of it: baobab-erp-workload holds erp:integrate and context:validate and neither erp:read nor erp:provision. erp:read belongs
+# to baobab-trade-workload alone, as an optional scope, so a default Trade token stays Control-Plane-only. erp:provision has no client yet:
+# its registry holder, baobab-cp-provisioning-workload, is PROVISIONED. Every client stays tenant-neutral (ADR-0007 sections 88-91).
+client_scope_holders() {
+  curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/clients?max=200" \
+    | jq -r --arg s "$1" '[.[] | select((.defaultClientScopes // []) + (.optionalClientScopes // []) | index($s)) | .clientId] | sort | join(",")'
+}
+workload_token_claims() {
+  local response token
+  response=$(curl -s --max-time 30 -X POST "$KC_URL/realms/$REALM/protocol/openid-connect/token" \
+    -d "client_id=$1" -d "client_secret=$WORKLOAD_SECRET" -d "grant_type=client_credentials" -d "scope=$2")
+  token=$(echo "$response" | jq -r '.access_token // empty')
+  [ -n "$token" ] && jwt_payload "$token"
+}
+claim_audiences() { echo "$1" | jq -r 'if (.aud | type) == "array" then .aud[] else .aud end' | tr '\n' ','; }
+
 for ERP_API_SCOPE in "erp:read" "erp:provision"; do
   if [[ ",$ERP_WORKLOAD_SCOPES," == *",$ERP_API_SCOPE,"* ]]; then
-    pass "baobab-erp-workload carries the $ERP_API_SCOPE scope"
+    fail "baobab-erp-workload must not carry $ERP_API_SCOPE: ERP is the resource server of the Boundary API, not its caller (scopes: $ERP_WORKLOAD_SCOPES)"
   else
-    fail "baobab-erp-workload is missing the $ERP_API_SCOPE scope (scopes: $ERP_WORKLOAD_SCOPES)"
-  fi
-  HOLDERS=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/clients?max=200" \
-    | jq -r --arg s "$ERP_API_SCOPE" '[.[] | select((.defaultClientScopes // []) + (.optionalClientScopes // []) | index($s)) | .clientId] | sort | join(",")')
-  if [ "$HOLDERS" = "baobab-erp-workload" ]; then
-    pass "$ERP_API_SCOPE is held by baobab-erp-workload and by no other client"
-  else
-    fail "$ERP_API_SCOPE must be held by baobab-erp-workload only (holders: $HOLDERS)"
+    pass "baobab-erp-workload does not carry $ERP_API_SCOPE"
   fi
 done
-ERP_API_TOKEN_RESPONSE=$(curl -s --max-time 30 -X POST \
-  "$KC_URL/realms/$REALM/protocol/openid-connect/token" \
-  -d "client_id=baobab-erp-workload" \
-  -d "client_secret=$WORKLOAD_SECRET" \
-  -d "grant_type=client_credentials" \
-  -d "scope=erp:read erp:provision")
-ERP_API_ACCESS_TOKEN=$(echo "$ERP_API_TOKEN_RESPONSE" | jq -r '.access_token // empty')
-if [ -n "$ERP_API_ACCESS_TOKEN" ]; then
-  ERP_API_CLAIMS=$(jwt_payload "$ERP_API_ACCESS_TOKEN")
-  ERP_API_AUD=$(echo "$ERP_API_CLAIMS" | jq -r 'if (.aud | type) == "array" then .aud[] else .aud end' | tr '\n' ',')
-  ERP_API_GRANTED=$(echo "$ERP_API_CLAIMS" | jq -r '.scope // ""')
-  if [[ "$ERP_API_AUD" == *"baobab-erp"* ]] && [[ " $ERP_API_GRANTED " == *" erp:read "* ]] && [[ " $ERP_API_GRANTED " == *" erp:provision "* ]]; then
-    pass "a baobab-erp-workload token carries aud=baobab-erp and the erp:read and erp:provision scopes"
+ERP_READ_HOLDERS=$(client_scope_holders "erp:read")
+if [ "$ERP_READ_HOLDERS" = "baobab-trade-workload" ]; then
+  pass "erp:read is held by baobab-trade-workload and by no other client"
+else
+  fail "erp:read must be held by baobab-trade-workload only (holders: $ERP_READ_HOLDERS)"
+fi
+ERP_PROVISION_HOLDERS=$(client_scope_holders "erp:provision")
+if [ -z "$ERP_PROVISION_HOLDERS" ]; then
+  pass "erp:provision is held by no client (its registry holder is PROVISIONED and has no client yet)"
+else
+  fail "erp:provision must be held by no client until baobab-cp-provisioning-workload is activated (holders: $ERP_PROVISION_HOLDERS)"
+fi
+VALIDATE_HOLDERS=$(client_scope_holders "context:validate")
+if [ "$VALIDATE_HOLDERS" = "baobab-erp-workload" ]; then
+  pass "context:validate is held by baobab-erp-workload and by no other client"
+else
+  fail "context:validate must be held by baobab-erp-workload only (holders: $VALIDATE_HOLDERS)"
+fi
+
+# ERP's validator token: aud=baobab-control-plane, scope context:validate, tenant-neutral. Asking for the Boundary scopes yields neither.
+if ERP_VALIDATE_CLAIMS=$(workload_token_claims baobab-erp-workload "context:validate"); then
+  ERP_VALIDATE_AUD=$(claim_audiences "$ERP_VALIDATE_CLAIMS")
+  ERP_VALIDATE_GRANTED=$(echo "$ERP_VALIDATE_CLAIMS" | jq -r '.scope // ""')
+  if [[ "$ERP_VALIDATE_AUD" == *"baobab-control-plane"* ]] && [[ " $ERP_VALIDATE_GRANTED " == *" context:validate "* ]]; then
+    pass "a baobab-erp-workload token carries aud=baobab-control-plane and the context:validate scope"
   else
-    fail "a baobab-erp-workload ERP API token has aud='$ERP_API_AUD' scope='$ERP_API_GRANTED'"
+    fail "a baobab-erp-workload validator token has aud='$ERP_VALIDATE_AUD' scope='$ERP_VALIDATE_GRANTED'"
   fi
-  if [ "$(echo "$ERP_API_CLAIMS" | jq 'has("tenant_id")')" = "false" ]; then
+  if [ "$(echo "$ERP_VALIDATE_CLAIMS" | jq 'has("tenant_id")')" = "false" ]; then
     pass "the baobab-erp-workload token carries no tenant_id (tenant entitlement is a Control Plane decision, ADR-0007 sections 88-91)"
   else
     fail "the baobab-erp-workload token carries a tenant_id; a shared workload client must stay tenant-neutral"
   fi
 else
-  fail "could not obtain a baobab-erp-workload token with the erp:read and erp:provision scopes"
+  fail "could not obtain a baobab-erp-workload token with the context:validate scope"
+fi
+if ERP_BOUNDARY_CLAIMS=$(workload_token_claims baobab-erp-workload "erp:read erp:provision"); then
+  ERP_BOUNDARY_GRANTED=$(echo "$ERP_BOUNDARY_CLAIMS" | jq -r '.scope // ""')
+  if [[ " $ERP_BOUNDARY_GRANTED " == *" erp:read "* ]] || [[ " $ERP_BOUNDARY_GRANTED " == *" erp:provision "* ]]; then
+    fail "a baobab-erp-workload token requesting the Boundary scopes was granted '$ERP_BOUNDARY_GRANTED'"
+  else
+    pass "a baobab-erp-workload token requesting erp:read and erp:provision is granted neither"
+  fi
+fi
+
+# Trade: a default token is Control-Plane-only; erp:read must be requested and then carries aud=baobab-erp. Never a tenant_id.
+if TRADE_DEFAULT_CLAIMS=$(workload_token_claims baobab-trade-workload "context:resolve"); then
+  TRADE_DEFAULT_AUD=$(claim_audiences "$TRADE_DEFAULT_CLAIMS")
+  if [[ "$TRADE_DEFAULT_AUD" == *"baobab-erp"* ]] || [[ " $(echo "$TRADE_DEFAULT_CLAIMS" | jq -r '.scope // ""') " == *" erp:read "* ]]; then
+    fail "a default baobab-trade-workload token already works against ERP (aud='$TRADE_DEFAULT_AUD'); erp:read must be requested explicitly"
+  else
+    pass "a default baobab-trade-workload token is not addressed to ERP"
+  fi
+else
+  fail "could not obtain a baobab-trade-workload token with the context:resolve scope"
+fi
+if TRADE_READ_CLAIMS=$(workload_token_claims baobab-trade-workload "erp:read"); then
+  TRADE_READ_AUD=$(claim_audiences "$TRADE_READ_CLAIMS")
+  TRADE_READ_GRANTED=$(echo "$TRADE_READ_CLAIMS" | jq -r '.scope // ""')
+  if [[ "$TRADE_READ_AUD" == *"baobab-erp"* ]] && [[ " $TRADE_READ_GRANTED " == *" erp:read "* ]]; then
+    pass "a baobab-trade-workload token requesting erp:read carries aud=baobab-erp and the erp:read scope"
+  else
+    fail "a baobab-trade-workload erp:read token has aud='$TRADE_READ_AUD' scope='$TRADE_READ_GRANTED'"
+  fi
+  if [ "$(echo "$TRADE_READ_CLAIMS" | jq 'has("tenant_id")')" = "false" ]; then
+    pass "the baobab-trade-workload erp:read token carries no tenant_id"
+  else
+    fail "the baobab-trade-workload erp:read token carries a tenant_id; a shared workload client must stay tenant-neutral"
+  fi
+else
+  fail "could not obtain a baobab-trade-workload token with the erp:read scope"
 fi
 
 echo "== 15. Credential security and privileged MFA (Gate IAM-11, ADR-0015 §11-14, §21-25, §45) =="

@@ -55,3 +55,19 @@ PR. A post-merge source rollback restores the previous immutable pin through a
 reviewed PR; it does not revoke credentials, roll back deployment state or
 alter canonical lifecycle. No permanent infrastructure deployment or Digital
 Estate unfreeze is authorised by this reconciliation.
+
+## 2026-10-07 — pin `6e9c686` → `e5faaaf` (shared#235, the audited ERP caller matrix)
+
+Shared now allocates, as registry ceilings: `baobab-trade-workload` → `erp:read` and audience `baobab-erp`;
+`baobab-erp-workload` → `context:validate` with `validates_audiences: ["baobab-erp"]`, and no longer `erp:read`/`erp:provision`; and a new
+`PROVISIONED` `baobab-cp-provisioning-workload` (`erp:provision`, audience `baobab-erp`, federated). Allocation is not activation.
+
+| Change | IAM consequence |
+|---|---|
+| `context:validate` allowed to `baobab-erp-workload` | New client scope `config/scopes/context-validate.json` (aud `baobab-control-plane`), default scope of the ERP client |
+| `erp:read`/`erp:provision` removed from `baobab-erp-workload` | Removed from the client config; `bootstrap.sh` `revoke_client_scopes` removes them from existing deployments (the reconcile step only adds) |
+| `erp:read` allowed to `baobab-trade-workload` with audience `baobab-erp` | Optional client scope on the Trade client, so default Trade tokens are not addressed to ERP (ADR-0007 sections 24-25) |
+| `baobab-cp-provisioning-workload` is `PROVISIONED` | No client is created; `erp:provision` is issued to no one. Section 9 requires a client only for ACTIVE entries |
+
+Not yet shown, so nothing here promotes any path to `ACTIVE`: ERP's acceptance of a Trade token, ERP's validation of that Trade
+Context through the Control Plane, the cross-tenant negative tests, and the provisioner's federated credential exchange.
