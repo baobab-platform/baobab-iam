@@ -593,10 +593,10 @@ else
   fail "erp:provision must be held by no client until baobab-cp-provisioning-workload is activated (holders: $ERP_PROVISION_HOLDERS)"
 fi
 VALIDATE_HOLDERS=$(client_scope_holders "context:validate")
-if [ "$VALIDATE_HOLDERS" = "baobab-erp-workload" ]; then
-  pass "context:validate is held by baobab-erp-workload and by no other client"
+if [ "$VALIDATE_HOLDERS" = "baobab-erp-workload,baobab-pulse-workload" ]; then
+  pass "context:validate is held by exactly the registered ERP and Pulse resource-server validators"
 else
-  fail "context:validate must be held by baobab-erp-workload only (holders: $VALIDATE_HOLDERS)"
+  fail "context:validate holders must be exactly baobab-erp-workload,baobab-pulse-workload (holders: $VALIDATE_HOLDERS)"
 fi
 
 # ERP's validator token: aud=baobab-control-plane, scope context:validate, tenant-neutral. Asking for the Boundary scopes yields neither.
