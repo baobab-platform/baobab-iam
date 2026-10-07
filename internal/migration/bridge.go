@@ -296,7 +296,7 @@ func (b *ProvisionBridge) provisionHuman(ctx context.Context, r *Record) (Provid
 		return ProviderBinding{}, err
 	}
 	spec := provider.IdentityProvisioningSpec{
-		Traits: traits,
+		Traits:      traits,
 		MigrationID: r.MigrationID,
 		Metadata: map[string]string{
 			"gate":                  "IAM-M5",

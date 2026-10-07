@@ -166,7 +166,6 @@ func isNoCanonical(err error) bool {
 	return errors.Is(err, ErrNoCanonicalMapping)
 }
 
-
 // BatchMigrationID hashes an unambiguous tuple; separators in issuers or subjects
 // cannot collapse distinct external identities. The ledger retains the source tuple.
 func BatchMigrationID(batchID string, source ProviderBinding) string {

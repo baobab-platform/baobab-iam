@@ -18,6 +18,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Enforce Go formatting across release source
+        run: |
+          gofmt -d cmd internal
+          test -z "$(gofmt -l cmd internal)"
       - name: Build packages
         run: go build ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/
       - name: Test packages
