@@ -24,7 +24,7 @@ for name, credential_type in selected.items():
     if not entry['allowed_scopes'] or not entry['allowed_audiences']:
         raise ValueError(f'{name}: empty Shared scope/audience profile')
     profiles[name] = {key: entry[key] for key in
-                      ('credential_type', 'status', 'allowed_scopes', 'allowed_audiences')}
+                      ('environment', 'credential_type', 'status', 'allowed_scopes', 'allowed_audiences')}
 destination = ROOT / 'ory-foundation-evidence/workload-profiles.json'
 destination.write_text(json.dumps({'shared_commit': lock['source']['commit'],
                                    'workloads': profiles}, indent=2) + '\n')

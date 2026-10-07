@@ -3,7 +3,7 @@ package tokenprofile
 import "testing"
 
 func TestWorkloadClaimsFailClosed(t *testing.T) {
-	config := Config{SharedCommit: "10810e20473709d4626da310fc9a84680f8efddd", Workloads: map[string]Workload{"trade": {CredentialType: "client_credentials", Status: "ACTIVE", Scopes: []string{"context:resolve"}, Audiences: []string{"baobab-control-plane"}}, "cp": {CredentialType: "federated_workload_token", Status: "PROVISIONED", Scopes: []string{"billing:read"}, Audiences: []string{"baobab-subscriptions"}}}, Bindings: map[string]Binding{"cp": {Issuer: "https://projected.invalid", Subject: "service-account-cp"}}}
+	config := Config{Environment: "production", SharedCommit: "10810e20473709d4626da310fc9a84680f8efddd", Workloads: map[string]Workload{"trade": {Environment: "production", CredentialType: "client_credentials", Status: "ACTIVE", Scopes: []string{"context:resolve"}, Audiences: []string{"baobab-control-plane"}}, "cp": {Environment: "production", CredentialType: "federated_workload_token", Status: "PROVISIONED", Scopes: []string{"billing:read"}, Audiences: []string{"baobab-subscriptions"}}}, Bindings: map[string]Binding{"cp": {Issuer: "https://projected.invalid", Subject: "service-account-cp"}}}
 	if err := config.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -77,14 +77,77 @@ func TestWorkloadClaimsFailClosed(t *testing.T) {
 }
 
 func TestDistinctWorkloadsCannotShareProjectedIdentity(t *testing.T) {
-	profile := Workload{CredentialType: "federated_workload_token", Status: "PROVISIONED", Scopes: []string{"billing:read"}, Audiences: []string{"baobab-subscriptions"}}
+	profile := Workload{Environment: "production", CredentialType: "federated_workload_token", Status: "PROVISIONED", Scopes: []string{"billing:read"}, Audiences: []string{"baobab-subscriptions"}}
 	binding := Binding{Issuer: "https://projected.invalid", Subject: "shared-service-account"}
 	config := Config{
+		Environment:  "production",
 		SharedCommit: "10810e20473709d4626da310fc9a84680f8efddd",
 		Workloads:    map[string]Workload{"cp": profile, "other": profile},
 		Bindings:     map[string]Binding{"cp": binding, "other": binding},
 	}
 	if config.Validate() == nil {
 		t.Fatal("distinct workloads may not share a projected issuer/subject identity")
+	}
+}
+
+// The FB-05 staging evidence provisioner: a federated workload of the staging environment, holding exactly erp:provision for baobab-erp.
+func evidenceConfig(environment string) Config {
+	return Config{
+		Environment:  environment,
+		SharedCommit: "70f92ee179888e9fd38e31ae9225060d76833944",
+		Workloads: map[string]Workload{"baobab-cp-provisioning-evidence-workload": {Environment: "staging", CredentialType: "federated_workload_token",
+			Status: "ACTIVE", Scopes: []string{"erp:provision"}, Audiences: []string{"baobab-erp"}}},
+		Bindings: map[string]Binding{"baobab-cp-provisioning-evidence-workload": {Issuer: "https://issuer.staging.invalid", Subject: "provisioner-evidence"}},
+	}
+}
+
+func evidenceEvidence() Evidence {
+	return Evidence{ClientID: "baobab-cp-provisioning-evidence-workload", Subject: "provisioner-evidence", Grant: FederatedGrant,
+		AssertionIssuer: "https://issuer.staging.invalid", AssertionSubject: "provisioner-evidence",
+		RequestedScopes: []string{"erp:provision"}, GrantedScopes: []string{"erp:provision"}, GrantedAudiences: []string{"baobab-erp"}}
+}
+
+func TestEvidenceProvisionerIsIssuedOnlyInItsOwnEnvironment(t *testing.T) {
+	staging := evidenceConfig("staging")
+	if err := staging.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	claims, err := staging.Claims(evidenceEvidence())
+	if err != nil || claims["scope"] != "erp:provision" || claims["actor_type"] != "workload" || len(claims) != 3 {
+		t.Fatalf("exact governed evidence issuance denied or inflated: %v %v", claims, err)
+	}
+	// An issuer of another environment refuses the projection outright, and a hand-built mismatch still issues nothing.
+	for _, other := range []string{"production", "development"} {
+		if evidenceConfig(other).Validate() == nil {
+			t.Fatalf("a %s issuer accepted a staging workload", other)
+		}
+		cfg := evidenceConfig(other)
+		if _, err := cfg.Claims(evidenceEvidence()); err == nil {
+			t.Fatalf("a %s issuer issued for a staging workload", other)
+		}
+	}
+	for _, bad := range []string{"", "Staging", "prod", "evidence"} {
+		if evidenceConfig(bad).Validate() == nil {
+			t.Fatalf("issuer environment %q accepted", bad)
+		}
+	}
+	// Wrong audience, an extra scope, the assertion's token-endpoint audience, and a downgrade to a static secret are all denied.
+	for name, mutate := range map[string]func(*Evidence){
+		"wrong-audience": func(e *Evidence) { e.GrantedAudiences = []string{"baobab-control-plane"} },
+		"extra-audience": func(e *Evidence) {
+			e.GrantedAudiences = []string{"baobab-erp", "https://issuer.staging.invalid/oauth2/token"}
+		},
+		"token-endpoint": func(e *Evidence) { e.GrantedAudiences = []string{"https://issuer.staging.invalid/oauth2/token"} },
+		"extra-scope": func(e *Evidence) {
+			e.RequestedScopes, e.GrantedScopes = []string{"erp:provision", "erp:read"}, []string{"erp:provision", "erp:read"}
+		},
+		"static-secret":   func(e *Evidence) { e.Grant = "client_credentials"; e.Subject = e.ClientID },
+		"other-assertion": func(e *Evidence) { e.AssertionIssuer = "https://issuer.production.invalid" },
+	} {
+		e := evidenceEvidence()
+		mutate(&e)
+		if _, err := staging.Claims(e); err == nil {
+			t.Errorf("%s accepted", name)
+		}
 	}
 }

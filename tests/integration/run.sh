@@ -339,13 +339,26 @@ else
   if [ "$DRIFT" -eq 0 ]; then
     pass "every config/clients/*-workload.json client is registered, with scopes within its registry allowlist, and its enabled flag agrees with the registry's lifecycle status"
   fi
+  # Keycloak clients exist for client_credentials workloads only. A federated_workload_token workload (ADR-IAM-0033: Hydra owns workload
+  # issuance) holds no static secret, so it has no Keycloak client and must not acquire one: it is governed through the Hydra trust
+  # binding and the token-profile projection (scripts/build_workload_token_profiles.py), not through config/clients.
   ACTIVE_WITHOUT_CLIENT=0
-  for ID in $(echo "$REGISTRY_JSON" | jq -r '.workloads | to_entries[] | select(.value.status == "ACTIVE") | .key'); do
+  for ID in $(echo "$REGISTRY_JSON" | jq -r '.workloads | to_entries[] | select(.value.status == "ACTIVE" and .value.credential_type == "client_credentials") | .key'); do
     if ! echo "$LOCAL_CLIENT_IDS" | grep -qx "$ID"; then
       fail "workload registry lists ACTIVE workload '$ID' but no config/clients/*.json declares that clientId"
       ACTIVE_WITHOUT_CLIENT=1
     fi
   done
+  FEDERATED_WITH_CLIENT=0
+  for ID in $(echo "$REGISTRY_JSON" | jq -r '.workloads | to_entries[] | select(.value.credential_type == "federated_workload_token") | .key'); do
+    if echo "$LOCAL_CLIENT_IDS" | grep -qx "$ID"; then
+      fail "federated workload '$ID' must not have a Keycloak client: it holds no static secret and is issued by Hydra"
+      FEDERATED_WITH_CLIENT=1
+    fi
+  done
+  if [ "$FEDERATED_WITH_CLIENT" -eq 0 ]; then
+    pass "no federated_workload_token workload has a Keycloak client (Hydra issues them; no static secret)"
+  fi
   if [ "$ACTIVE_WITHOUT_CLIENT" -eq 0 ]; then
     pass "every ACTIVE workload in the registry has a matching config/clients/*.json clientId"
   fi

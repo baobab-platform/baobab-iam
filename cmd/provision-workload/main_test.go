@@ -48,7 +48,9 @@ func TestFederatedWorkloadCannotFallBackToClientSecret(t *testing.T) {
 	for id, scopes := range map[string][]string{
 		"baobab-cp-workload":              {"billing:manage"},
 		"baobab-cp-provisioning-workload": {"erp:provision"},
-		"baobab-subscriptions-workload":   {"payment:execute"},
+		// FB-05 staging evidence provisioner: ACTIVE in Shared, but federated, so it still never gets a client secret.
+		"baobab-cp-provisioning-evidence-workload": {"erp:provision"},
+		"baobab-subscriptions-workload":            {"payment:execute"},
 	} {
 		err := provisionOne(context.Background(), nil, id, scopes, "")
 		if err == nil || !strings.Contains(err.Error(), "federated_workload_token") {

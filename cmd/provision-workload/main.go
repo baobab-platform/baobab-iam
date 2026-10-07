@@ -51,7 +51,9 @@ var m4ClientCredentials = []string{
 var federatedNoSecretWorkloads = map[string]struct{}{
 	"baobab-cp-workload":              {},
 	"baobab-cp-provisioning-workload": {},
-	"baobab-subscriptions-workload":   {},
+	// FB-05: the staging evidence provisioner is federated too; it holds no static secret and is never given one.
+	"baobab-cp-provisioning-evidence-workload": {},
+	"baobab-subscriptions-workload":            {},
 }
 
 var displayNames = map[string]string{

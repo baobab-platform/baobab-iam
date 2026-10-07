@@ -71,3 +71,21 @@ Shared now allocates, as registry ceilings: `baobab-trade-workload` → `erp:rea
 
 Not yet shown, so nothing here promotes any path to `ACTIVE`: ERP's acceptance of a Trade token, ERP's validation of that Trade
 Context through the Control Plane, the cross-tenant negative tests, and the provisioner's federated credential exchange.
+
+## 2026-10-07 — pin `363e0ea` → `70f92ee` (shared#251, the staging evidence provisioner; FB-05)
+
+Shared registers `baobab-cp-provisioning-evidence-workload`: the Control Plane's provisioning execution worker as it runs in the **staging**
+evidence environment only. Audience `baobab-erp`, the one scope `erp:provision`, the one context purpose `TENANT_PROVISIONING`,
+`federated_workload_token`, status `ACTIVE` by owner ruling (2026-10-07) so the end-to-end proof can be produced. `baobab-cp-provisioning-workload`
+is unchanged: production, `PROVISIONED`. Per ADR-IAM-0033 Hydra owns workload issuance; Keycloak is not involved and gains no client.
+
+| Change | IAM consequence |
+|---|---|
+| New ACTIVE federated entry in `staging` | No Keycloak client is created and none is allowed: `tests/integration/run.sh` section 9 now requires a Keycloak client only for ACTIVE `client_credentials` workloads, and fails if any federated workload has one. `provision-workload` refuses a client secret for it, like the production provisioner. |
+| Environment is part of the registry entry | The token-profile policy and projection builder now enforce it. `build_workload_token_profiles.py --environment <env>` refuses a workload of another environment, and the hook's configuration names the one environment its issuer serves; a staging workload is never issued by a production issuer or the reverse (ADR-0007 section 102). |
+
+**Not shown, so this is not acceptance:** the projected assertion issuer and its key lifecycle (infrastructure), the Hydra trust binding in a
+deployed staging issuer, and a Hydra that can issue `aud=baobab-erp` on the RFC 7523 path. Pinned Hydra v26.2.0 copies the assertion's
+token-endpoint audience into the access token and the governed policy denies that; `oauth2.grant.jwt.omit_assertion_audience` exists in Hydra
+OSS master but in no published OSS release. No provider pin changes here (owner decision 2026-10-07: wait for an OSS release). The Shared
+entry being ACTIVE is not evidence that any of this works; FB-05 is accepted only by an end-to-end staging run.
