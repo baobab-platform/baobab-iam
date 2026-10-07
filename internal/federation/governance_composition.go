@@ -22,6 +22,7 @@ type GovernanceCompositionConfig struct {
 	ApprovalLedgerPath     string
 	TrustLedgerPath        string
 	Registration           TargetRegistrationAuthority
+	Canonical              CanonicalAuthority
 	ApprovalAuthority      ApprovalAuthority
 	Now                    func() time.Time
 }
@@ -38,6 +39,9 @@ func OpenGovernanceComposition(cfg GovernanceCompositionConfig) (*GovernanceComp
 		return nil, err
 	}
 	targets, err := NewCompositeApprovalTargets(cfg.Registration, native)
+	if !absent(cfg.Canonical) {
+		targets, err = NewOwnerAwareApprovalTargets(cfg.Registration, native, cfg.Canonical, cfg.Now)
+	}
 	if err != nil {
 		native.Close()
 		return nil, err

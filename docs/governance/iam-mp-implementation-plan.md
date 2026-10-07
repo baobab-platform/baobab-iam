@@ -10,6 +10,37 @@ No runtime reduction, cutover or production acceptance is authorised by this pla
 **Authority:** Accepted ADR-IAM-0033, preserving the security and canonical-authority
 invariants of ADR-IAM-0019–0032 where not amended.
 
+## IAM-33-C1 — owner-aware mapping consumption (2026-10-07)
+
+The current construction increment uses the existing Shared ownership policy at
+`363e0ead9ebb5aa87f5f813b63b785b7f63cc39e`; it introduces no canonical entity,
+public API, grant, provider activation or mapping authority in IAM.
+
+`OpenGovernanceComposition` supports an explicit protected CP canonical reader.
+The federation-authority executable supplies it. CP-owned mapping targets are
+validated through exact current issuer/subject evidence, reference, principal,
+external identity, lifecycle and digest, bracketed by CP registration reads.
+IAM's durable maker/checker ledger owns permission to consume that exact target
+at the approved trust revision/snapshot/scope. Missing canonical authority keeps
+mapping consumption unsupported. IAM-native targets still require native bytes.
+
+The coordinated CP increment fixes the assumption that a CP mapping's owner
+instance equals its IAM provider instance. Its PostgreSQL query proves owner
+placement independently and checks the live human relationship, fingerprint and
+five-minute verification window in the same read snapshot. Deploy CP first.
+
+| Evidence | Classification | Limit |
+|---|---|---|
+| `internal/federation/canonical_composition_test.go` | Executable construction integration | Actual governance composition and TLS authority handler, signed OIDC verification and durable replay; remote CP boundary simulated |
+| Successful mapping approval and `Consumer.Consume` | Integration test | Not an estate BFF/session acceptance or staging result |
+| Missing approval, substitution, wrong trust revision/scope/principal, revoked mapping, changed digest, expired approval, CP outage | Negative construction tests | Live target revocation and owner-instance SQL additionally require CP PostgreSQL CI |
+| Concurrent approval and consumption | Race tests | One checker decision and one event consumption; not deployed HA/DR |
+| CP repository mapping target tests | PostgreSQL integration harness | Requires `TEST_DATABASE_URL` against PostgreSQL 17; no database substitute |
+
+C1 is not production accepted. Promotion requires both PRs merged with required
+CI green and a protected registered CP/IAM staging composition. MP3/MP4,
+estate acceptance and MP19/MP20 remain independent gates.
+
 ## 1. Verified baseline and audit corrections
 
 | Repository | Reviewed immutable main | Finding |
