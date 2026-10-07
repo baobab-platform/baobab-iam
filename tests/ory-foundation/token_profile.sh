@@ -20,11 +20,14 @@ key = secrets.token_hex(32)
 (root / 'key').write_text(key)
 (root / 'key').chmod(0o600)
 profiles = json.loads(Path('ory-foundation-evidence/workload-profiles.json').read_text())
+# This hook serves one environment. The staging evidence provisioner is proven by the hookless stack (run.sh); it is never
+# projected into a production hook, which is itself part of the environment boundary.
+profiles['workloads'] = {name: profile for name, profile in profiles['workloads'].items()
+                         if profile['environment'] == 'production'}
 profiles['bindings'] = {name: {'issuer': 'https://projected.m4-ci.invalid/' + name,
                               'subject': 'system:serviceaccount:m4-ci:' + name}
                         for name, profile in profiles['workloads'].items()
                         if profile['credential_type'] == 'federated_workload_token'}
-# The disposable stack serves the environment the selected registry entries belong to (all production-labelled in Shared).
 profiles = build(profiles['shared_commit'], {'workloads': profiles['workloads']},
                  list(profiles['workloads']), profiles['bindings'], 'production')
 # CI-only profiles are not Shared allocations. Keep the canonical projection

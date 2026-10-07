@@ -66,3 +66,9 @@ lifetime checks; both federated profiles were denied by the policy with
 `access_denied`. This closes the isolated M4-C token-profile gap, not actual
 consumer acceptance or full M4-F issuance.
 
+
+## FB-06: live proof for the staging evidence provisioner
+
+`tests/ory-foundation/run.sh` now runs `TestLiveWorkloadFederated` for `baobab-cp-provisioning-evidence-workload` as well as the two PROVISIONED federated workloads. Against the pinned, hookless Hydra it proves: the client has no secret and only the `jwt-bearer` grant; an exact issuer/subject/key exchanges once and a replay is refused; a wrong issuer, subject, assertion audience, expiry, signature or scope is refused; a static-secret downgrade is refused; issuance is denied after revoke; and **key rotation** is revoke-then-install (the adapter refuses to swap the key of an existing trust, a removed key stops working at once, the new key works). The test fails if the entry stops being `ACTIVE`, or stops being `staging` / `erp:provision` / `baobab-erp`, at the Shared pin.
+
+What this does **not** prove: the `aud=baobab-erp` claim. The governed hook denies the assertion audience on pinned Hydra v26.2.0 (`TestLiveTokenProfileFederatedAudienceBlocked`), so audience binding is proven only once an OSS release carrying `omit_assertion_audience` is adopted. The hook stack is production-only (`token_profile.sh` filters to production entries), so the staging evidence workload is never projected into a production hook. Rotation has a gap between removing the old trust and installing the new one; the runbook for the issuer must schedule it.

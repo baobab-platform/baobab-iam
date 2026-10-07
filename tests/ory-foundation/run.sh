@@ -69,13 +69,13 @@ events = [json.loads(line) for line in (root / 'tests.jsonl').read_text().splitl
 checks = ('signed-exchange-and-replay-rejected', 'reject-issuer', 'reject-subject',
           'reject-audience', 'reject-expired', 'reject-not-yet-valid',
           'reject-signature', 'reject-scope', 'no-static-secret-downgrade',
-          'revoke-denies-future-exchange')
-for workload in ('baobab-cp-workload', 'baobab-subscriptions-workload'):
+          'revoke-denies-future-exchange', 'rotation-replaces-trusted-key')
+for workload in ('baobab-cp-workload', 'baobab-subscriptions-workload', 'baobab-cp-provisioning-evidence-workload'):
     for check in checks:
         name = f'TestLiveWorkloadFederated/{workload}/{check}'
         if not any(event.get('Test') == name and event.get('Action') == 'pass' for event in events):
             raise SystemExit(f'{name}: missing live PASS evidence')
-for workload in ('baobab-trade-workload', 'baobab-cp-workload', 'baobab-subscriptions-workload'):
+for workload in ('baobab-trade-workload', 'baobab-cp-workload', 'baobab-subscriptions-workload', 'baobab-cp-provisioning-evidence-workload'):
     evidence = json.loads((root / (workload + '.json')).read_text())
     if not evidence['signature_verified'] or not evidence['requested_shared_scopes_verified']:
         raise SystemExit(f'{workload}: missing signed token profile proof')
