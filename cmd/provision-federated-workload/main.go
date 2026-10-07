@@ -66,7 +66,7 @@ func main() {
 		AssertionIssuer:   assertionIssuer,
 		AssertionSubject:  assertionSubject,
 		AssertionJWK:      jwk,
-		TrustExpiresAt:     expiresAt,
+		TrustExpiresAt:    expiresAt,
 		Metadata: map[string]string{
 			"gate":            "IAM-M4-F",
 			"canonical_state": "PROVISIONED",

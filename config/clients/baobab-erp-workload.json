@@ -1,7 +1,7 @@
 {
   "clientId": "baobab-erp-workload",
   "name": "Baobab ERP Workload",
-  "description": "Workload identity for the ERP engine (Gate IAM-10: erp:integrate; shared#206: erp:read, erp:provision). Tenant-neutral, no tenant_id: tenant entitlement is a Control Plane decision (ADR-0007 sections 88-91).",
+  "description": "Workload identity for the ERP engine (resource server of the ERP Boundary API): erp:integrate, plus context:validate as validator of the baobab-erp audience. Holds no erp:read/erp:provision. Tenant-neutral, no tenant_id (ADR-0007 sections 88-91).",
   "enabled": true,
   "publicClient": false,
   "bearerOnly": false,
@@ -26,8 +26,7 @@
     "actor-type-workload",
     "context:resolve",
     "erp:integrate",
-    "erp:read",
-    "erp:provision"
+    "context:validate"
   ],
   "optionalClientScopes": [
     "address",

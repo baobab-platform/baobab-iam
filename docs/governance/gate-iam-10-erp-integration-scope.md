@@ -52,21 +52,23 @@ Two separate, real gaps existed in `baobab-erp`, found by reading its code direc
 5. **Break-glass emergency access** (§41-43) — not started; needs an explicit ADR-level decision on the emergency credential mechanism, out of this gate's bounded scope.
 6. **Live integration tests against a real Keycloak+iDempiere stack** (§123-129) — this environment has neither a running iDempiere instance nor Docker Compose orchestration available in this session; today's verification is source-level (§1-2) plus `baobab-iam`'s own Keycloak-only integration suite (§14). Revisit once such an environment exists.
 
-## 6. Boundary API scopes (`erp:read`, `erp:provision`)
+## 6. Boundary API scopes (`erp:read`, `erp:provision`) and the ERP validator (`context:validate`)
 
-`baobab-erp-workload` also carries `erp:read` and `erp:provision` (`config/scopes/erp-read.json`, `erp-provision.json`; audience
-`baobab-erp`), the scopes the ERP Boundary API (`contracts/erp/v1/openapi.yaml`) requires. They were defined in Shared first
-(shared#206, which also allows them to `baobab-erp-workload` and to no other workload), and `contracts.lock.yaml` now pins that
-commit; `scripts/check-issued-scopes.sh` proves every issued scope is registered.
+`baobab-erp-workload` is the **resource server** of the ERP Boundary API (`contracts/erp/v1/openapi.yaml`), not a caller of it. As
+allocated in Shared (shared#235, the audited ERP caller matrix) it carries `erp:integrate` and `context:validate` and neither
+`erp:read` nor `erp:provision`. The earlier allocation of those two scopes to it (shared#206, iam#55) is withdrawn: `bootstrap.sh`'s
+`revoke_client_scopes` removes them from deployments bootstrapped before this change.
 
-**The client stays tenant-neutral.** No `tenant_id` is stamped on `baobab-erp-workload` and no tenant list is placed in its tokens.
-One shared workload identity serves many tenants, and tenant entitlement is a Control Plane decision (ADR-0007 sections 88-91:
-IAM scope plus Control Plane context; "Scope is not tenant access"; IAM does not own the workload-to-tenant relationship).
-Per the programme owner's ruling of 2026-10-02, the ERP Boundary API takes its tenant from a trusted Control Plane context
-(`context_id`), and a token `tenant_id`, when present, is only an additional binding that must equal the context's tenant. The
-Shared and ERP changes for that are separate; until they land the ERP routes still require a tenant and answer 403, so these
-scopes reach no tenant's data. `tests/integration/run.sh` section 14 asserts the scopes are held by this client only, that a token
-carries `aud=baobab-erp`, and that it carries no `tenant_id`.
+| Scope | Audience | Issued to |
+|---|---|---|
+| `erp:read` | `baobab-erp` | `baobab-trade-workload`, as an **optional** scope: a default Trade token stays Control-Plane-only and carries `aud=baobab-erp` only when it requests `erp:read` |
+| `erp:provision` | `baobab-erp` | no client yet: its registry holder, `baobab-cp-provisioning-workload` (federated, `baobab-cp`'s provisioning execution worker), is `PROVISIONED` |
+| `context:validate` | `baobab-control-plane` | `baobab-erp-workload` only, as validator of the `baobab-erp` audience (`config/scopes/context-validate.json`) |
 
-`scripts/bootstrap.sh` also reconciles *default* client scopes now, additively and for Baobab-vocabulary scopes only (those defined
-under `config/scopes/`), so a scope newly declared for an existing client reaches a deployment bootstrapped before it existed.
+**Allocation is not activation.** These are ceilings the registry allows; nothing is usable until IAM issues it, and a new path is
+promoted to `ACTIVE` only after the end-to-end evidence listed in Shared's registry header (issuance, exact audience and scope, ERP
+verification, Context validation through the Control Plane, and the cross-tenant and not-the-owner negative tests).
+`scripts/check-issued-scopes.sh` proves every issued scope is registered; `tests/integration/run.sh` section 14 proves who holds each.
+
+**Every client stays tenant-neutral.** No `tenant_id` is stamped on `baobab-erp-workload` or `baobab-trade-workload` and no tenant list
+is placed in their tokens; a call operates in the tenant of a trusted Control Plane context.

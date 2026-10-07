@@ -1,0 +1,22 @@
+{
+  "name": "intelligence:restricted",
+  "description": "Supplemental baobab-pulse clearance. Grants no operation or tenant authority alone; with an exact Intelligence operation scope and validated caller-bound context it permits RESTRICTED data.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-pulse",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-pulse",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}

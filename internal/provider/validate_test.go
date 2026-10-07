@@ -66,10 +66,10 @@ func TestWorkloadAuthMethodRejectsPaddedEnum(t *testing.T) {
 
 func TestWorkloadLifecycleStatusRejectsActiveOnProvision(t *testing.T) {
 	spec := provider.WorkloadProvisioningSpec{
-		LogicalClientID:  "baobab-trade-workload",
-		AllowedScopes:    []string{"context:resolve"},
-		AuthMethod:       provider.WorkloadAuthClientSecret,
-		LifecycleStatus:  provider.WorkloadStatusActive,
+		LogicalClientID: "baobab-trade-workload",
+		AllowedScopes:   []string{"context:resolve"},
+		AuthMethod:      provider.WorkloadAuthClientSecret,
+		LifecycleStatus: provider.WorkloadStatusActive,
 	}
 	if err := spec.Validate(); !provider.IsInvalidArgument(err) {
 		t.Fatalf("ACTIVE on provision must be rejected (Shared owns activation): %v", err)

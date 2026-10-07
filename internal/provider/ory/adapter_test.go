@@ -56,7 +56,6 @@ func TestRequireIssuerMismatch(t *testing.T) {
 	}
 }
 
-
 func TestGetIdentityPopulatesConfiguredIssuer(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/admin/identities/id-1" {
@@ -103,7 +102,6 @@ func TestGetIdentityPopulatesConfiguredIssuer(t *testing.T) {
 
 // Compile-time / runtime assertion that Adapter satisfies IdentityProvider.
 var _ provider.IdentityProvider = (*ory.Adapter)(nil)
-
 
 func TestUnverifiedCredentialImportsFailBeforeHTTP(t *testing.T) {
 	requests := 0
