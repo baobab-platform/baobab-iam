@@ -58,6 +58,8 @@ jobs:
           gofmt -d internal/federation
           test -z "$(gofmt -l internal/federation)"
           python3 scripts/check-federation-contracts.py
+      - name: Validate provider declarations against approved Shared contracts
+        run: python3 .shared-contracts/scripts/capability_catalogue.py validate-declaration .baobab/capability-provider.yaml --engine-id baobab-iam --repository-root .
       - name: Every issued scope exists in the pinned Shared scope registry
         run: ./scripts/check-issued-scopes.sh
       - name: Every client and scope description fits Keycloak's 255-character limit

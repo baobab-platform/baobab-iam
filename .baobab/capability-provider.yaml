@@ -1,142 +1,139 @@
-# .baobab/capability-provider.yaml
-#
-# Baobab Capability Provider Declaration for baobab-iam
-#
-# Conforms to:
-#   baobab-platform/shared/contracts/capability/v1/provider-declaration.schema.json
-# Governing decisions:
-#   ADR-SHARED-017 (EA-02), ADR-IAM-0019–0022 (Ory migration)
-#
-# Answers ONE question: which canonical Baobab domain capabilities do this
-# engine's CapabilityProviders implement, or formally plan to implement?
-#
-# Authority:
-#   - Shared catalogue.yaml defines which capabilities exist.
-#   - This file only references or proposes keys; it never defines semantics.
-#   - Control Plane owns activation, bindings, grants, health, resolution.
-#   - EA-09 owns certification (no certified field here).
-#
-# Current catalogue status (Shared 59b577d):
-#   identity.authentication.perform and identity.workload-token.issue are
-#   catalogued (shared#150, provider-neutral since shared#151). Both are
-#   listed below as CONTRACTED for baobab-iam.ory, the provider ADR-IAM-0019
-#   targets. No support[] is declared: implementation status and evidence
-#   for baobab-iam.ory and baobab-iam.keycloak are recorded only once the
-#   canonical contracts are proven against a provider (IAM M2-M4 evidence),
-#   never ahead of it. Other identity families stay proposed keys.
-#
-# Validate (with a Shared checkout):
-#   python3 <shared>/scripts/capability_catalogue.py validate-declaration \
-#     .baobab/capability-provider.yaml --engine-id baobab-iam --repository-root .
-
+# ADR-IAM-0033 construction evidence, not CP activation or certification.
+# PARTIAL accurately records executable work without claiming the complete
+# canonical capability contract. Shared excludes PARTIAL from registration.
+# Provider keys describe implementations; actual provider IDs and runtime
+# instances are allocated by CP. No synthetic runtime IDs are published here.
+# production_permitted is eventual eligibility, never production acceptance.
 schema:
   name: baobab-capability-provider-declaration
-  version: "1.0"
-
+  version: '1.0'
 engine:
-  # Repository name as engine identity (ADR-SHARED-012). Never "keycloak" or "ory".
   engine_id: baobab-iam
-
-# Providers omitted until a catalogued identity.* capability is proven
-# against the canonical contract. ADR-SHARED-017 / domain.schema anticipates
-# dual providers: baobab-iam.ory and baobab-iam.keycloak during migration.
-
-planned_capabilities:
-  # Catalogued in Shared (identity/v1); contracted, not yet declared as support.
+providers:
+- provider_key: baobab-iam.kratos
+  name: Kratos native identity
+  description: Native credential and session mechanics exist; canonical browser authorization
+    and estate acceptance remain incomplete.
+  provider_type: ADAPTER
+  simulated: false
+  production_permitted: true
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0033
+  support:
   - capability_key: identity.authentication.perform
-    proposal_status: CONTRACTED
-    description: >
-      Interactive human authentication (Authorization Code + PKCE, OIDC acr
-      values) through the identity/v1 contract, provider-neutral.
-    target_provider_key: baobab-iam.ory
-    provenance:
-      authority:
-        repository: baobab-platform/baobab-iam
-        decision: ADR-IAM-0019
-
+    contract_versions:
+    - 1
+    implementation_status: PARTIAL
+    implementation_evidence:
+    - type: source
+      path: internal/provider/ory/kratos.go
+    - type: integration-test
+      path: internal/provider/ory/foundation_live_test.go
+  implementation_key: kratos
+- provider_key: baobab-iam.hydra
+  name: Hydra OAuth and workloads
+  description: Client and projected-assertion issuance mechanics exist; M4-F audience and actual
+    registered resource consumption remain open.
+  provider_type: ADAPTER
+  simulated: false
+  production_permitted: true
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0033
+  support:
   - capability_key: identity.workload-token.issue
-    proposal_status: CONTRACTED
-    description: >
-      Issue short-lived Baobab workload access tokens for registered workloads;
-      federated_workload_token workloads use the RFC 7523 JWT bearer path and
-      hold no static secret (ADR-0007, M4-F).
-    target_provider_key: baobab-iam.ory
-    provenance:
-      authority:
-        repository: baobab-platform/baobab-iam
-        decision: ADR-IAM-0019
-
-  # Human identity lifecycle (Kratos admin plane via internal/provider/ory).
-  - proposed_key: identity.human.provision
-    proposal_status: PROPOSED
-    description: >
-      Create or import a human identity in the configured IdP without embedding
-      Tenant, LegalEntity, or Capability business state (ADR-IAM-0020/0021).
-    target_provider_key: baobab-iam.ory
-    provenance:
-      authority:
-        repository: baobab-platform/baobab-iam
-        decision: ADR-IAM-0020
-
-  - proposed_key: identity.human.disable
-    proposal_status: PROPOSED
-    description: >
-      Mark a human identity inactive so it cannot authenticate (provider half of
-      kill-switch; CP membership revocation remains separate).
-    target_provider_key: baobab-iam.ory
-    provenance:
-      authority:
-        repository: baobab-platform/baobab-iam
-        decision: ADR-IAM-0020
-
-  - proposed_key: identity.session.revoke
-    proposal_status: PROPOSED
-    description: >
-      Invalidate provider-side sessions for a human subject (technical kill-switch).
-    target_provider_key: baobab-iam.ory
-    provenance:
-      authority:
-        repository: baobab-platform/baobab-iam
-        decision: ADR-IAM-0020
-
-  # Workload / machine identity (Hydra OAuth clients; Gate IAM-M4 first).
-  - proposed_key: identity.workload.provision
-    proposal_status: PROPOSED
-    description: >
-      Create or update a workload OAuth client with stable logical client_id and
-      freeze-list scopes (ADR-IAM-0019 workloads-first; ADR-0007).
-    target_provider_key: baobab-iam.ory
-    provenance:
-      authority:
-        repository: baobab-platform/baobab-iam
-        decision: ADR-IAM-0019
-
-  - proposed_key: identity.workload.disable
-    proposal_status: PROPOSED
-    description: Soft-disable a workload client so it cannot obtain tokens.
-    target_provider_key: baobab-iam.ory
-    provenance:
-      authority:
-        repository: baobab-platform/baobab-iam
-        decision: ADR-IAM-0020
-
-  - proposed_key: identity.workload.rotate
-    proposal_status: PROPOSED
-    description: Rotate workload client credentials without changing logical client_id.
-    target_provider_key: baobab-iam.ory
-    provenance:
-      authority:
-        repository: baobab-platform/baobab-iam
-        decision: ADR-IAM-0020
-
-  # Migration continuity (ledger domain in internal/migration; not IdP semantics).
-  - proposed_key: identity.migration.map
-    proposal_status: CANDIDATE
-    description: >
-      Map source issuer+subject to canonical identity and target issuer+subject
-      without email-only resolution (ADR-IAM-0022). CP remains SoR for Principal.
-    target_provider_key: baobab-iam.ory
-    provenance:
-      authority:
-        repository: baobab-platform/baobab-iam
-        decision: ADR-IAM-0022
+    contract_versions:
+    - 1
+    implementation_status: PARTIAL
+    implementation_evidence:
+    - type: source
+      path: internal/provider/ory/hydra.go
+    - type: integration-test
+      path: internal/provider/ory/hydra_federated_workload_test.go
+  implementation_key: hydra
+- provider_key: baobab-iam.keycloak
+  name: Permanent enterprise federation and SSO
+  description: OIDC/SAML brokering exists; complete canonical authentication handoff, login
+    discovery and estate acceptance remain open.
+  provider_type: ADAPTER
+  simulated: false
+  production_permitted: true
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0033
+  support:
+  - capability_key: identity.authentication.perform
+    contract_versions:
+    - 1
+    implementation_status: PARTIAL
+    implementation_evidence:
+    - type: source
+      path: internal/provider/keycloak/enterprise.go
+    - type: integration-test
+      path: internal/provider/keycloak/enterprise_live_test.go
+  implementation_key: keycloak
+planned_capabilities:
+- proposed_key: identity.human.provision
+  proposal_status: PROPOSED
+  description: Create or import a human identity in the configured IdP without embedding Tenant,
+    LegalEntity, or Capability business state (ADR-IAM-0020/0021).
+  target_provider_key: baobab-iam.kratos
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0020
+- proposed_key: identity.human.disable
+  proposal_status: PROPOSED
+  description: Mark a human identity inactive so it cannot authenticate (provider half of kill-switch;
+    CP membership revocation remains separate).
+  target_provider_key: baobab-iam.kratos
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0020
+- proposed_key: identity.session.revoke
+  proposal_status: PROPOSED
+  description: Invalidate provider-side sessions for a human subject (technical kill-switch).
+  target_provider_key: baobab-iam.kratos
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0020
+- proposed_key: identity.workload.provision
+  proposal_status: PROPOSED
+  description: Create or update a workload OAuth client with stable logical client_id and freeze-list
+    scopes (ADR-IAM-0019 workloads-first; ADR-0007).
+  target_provider_key: baobab-iam.hydra
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0019
+- proposed_key: identity.workload.disable
+  proposal_status: PROPOSED
+  description: Soft-disable a workload client so it cannot obtain tokens.
+  target_provider_key: baobab-iam.hydra
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0020
+- proposed_key: identity.workload.rotate
+  proposal_status: PROPOSED
+  description: Rotate workload client credentials without changing logical client_id.
+  target_provider_key: baobab-iam.hydra
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0020
+- proposed_key: identity.migration.map
+  proposal_status: CANDIDATE
+  description: Map source issuer+subject to canonical identity and target issuer+subject without
+    email-only resolution (ADR-IAM-0022). CP remains SoR for Principal.
+  target_provider_key: baobab-iam.ory
+  provenance:
+    authority:
+      repository: baobab-platform/baobab-iam
+      decision: ADR-IAM-0022

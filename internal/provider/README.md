@@ -65,4 +65,12 @@ recovery fencing are implemented. They are repository construction evidence,
 not estate adoption or production acceptance. See the
 [current programme status](../../docs/governance/iam-mp-programme-status.md).
 
-See `docs/governance/gate-iam-m1-provider-neutral-contracts-scope.md`.
+The canonical `.baobab/capability-provider.yaml` separates Kratos, Hydra and
+Keycloak implementation declarations. Current canonical support is `PARTIAL`:
+admin/protocol mechanics alone do not prove the complete Shared capability
+entry path. Shared excludes partial support from CP registration. Adapter
+`ProviderInfo` flags describe mechanical operations and cannot replace
+`ProviderCapabilitySupport`, a governed runtime profile, binding or resolution.
+
+See `docs/governance/iam-33-execution-evidence.md` for current evidence and open
+acceptance gates. The historical M1 scope document remains historical.
