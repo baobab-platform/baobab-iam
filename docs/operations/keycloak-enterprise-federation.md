@@ -65,7 +65,10 @@ for an explicitly reviewed public PKCE client; confidential clients require it.
 The deployment token source rereads protected credentials for each exchange.
 The production composition permits HTTPS only, verifies configured CA roots and
 rejects token-endpoint redirects. No token-derived discovery or route selection
-occurs. MP3/MP4 provider selection remains separate from this bound adapter.
+occurs. For CP resolution before adapter dispatch, configure the
+[bounded MP3/MP4 dispatch composition](enterprise-capability-dispatch.md);
+production enterprise mode requires it. The concrete adapter remains bound to
+its exact provider and instance and cannot override the CP decision.
 
 Enterprise mode mounts only `/internal/enterprise-federation/v1/` event routes;
 the direct OIDC completion path is not a fallback. With `Storage` configured,

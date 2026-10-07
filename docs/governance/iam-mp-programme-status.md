@@ -74,3 +74,16 @@ The [implementation plan](iam-mp-implementation-plan.md) retains the full
 programme dependencies. [Shared-state recovery](../operations/federation-shared-storage.md)
 controls restored federation authority; it does not substitute for independent
 Kratos, Hydra and retained Keycloak recovery and revocation certification.
+
+## Bounded MP3/MP4 enterprise convergence increment
+
+The enterprise authority-service composition now consumes CP capability
+resolution and its current federation runtime projection before begin/callback
+adapter dispatch. Production enterprise startup requires this mode; readiness
+uses the same selection path. Adapter inventory confers no activation authority.
+See [configuration and claim boundary](../operations/enterprise-capability-dispatch.md).
+
+The baseline MP3/MP4 table above describes the audited main. This increment
+closes the bounded enterprise dispatch gap, not production support publication,
+native/workload dispatch, neutral discovery, supervised deployed context renewal
+or MP17/MP19/MP20 acceptance. No registry or Shared capability is duplicated.
