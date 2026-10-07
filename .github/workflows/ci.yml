@@ -33,6 +33,7 @@ jobs:
           python3 scripts/iam_capability_matrix.py
           python3 -m unittest discover -s tests/unit -p 'test_iam_capability_matrix.py'
           python3 -m unittest discover -s tests/unit -p 'test_authority_admission.py'
+          python3 -m unittest discover -s tests/unit -p 'test_p_cap_07_pulse_resource_authority.py'
       - name: Read approved Shared federation pin
         id: federation-pin
         run: python3 -c 'import os,yaml; p=yaml.safe_load(open("contracts.lock.yaml"))["source"]["commit"]; f=open(os.environ["GITHUB_OUTPUT"],"a"); print("commit="+p,file=f)'
