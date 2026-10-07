@@ -44,9 +44,16 @@ func TestPersistGeneratedSecretRequiresPrivateOutput(t *testing.T) {
 }
 
 func TestFederatedWorkloadCannotFallBackToClientSecret(t *testing.T) {
-	err := provisionOne(context.Background(), nil, "baobab-cp-workload", []string{"billing:manage"}, "")
-	if err == nil || !strings.Contains(err.Error(), "federated_workload_token") {
-		t.Fatalf("expected fail-closed federated workload guard, got %v", err)
+	// Every federated_workload_token identity that has a client-secret path to refuse, including the ERP provisioner (shared#235).
+	for id, scopes := range map[string][]string{
+		"baobab-cp-workload":              {"billing:manage"},
+		"baobab-cp-provisioning-workload": {"erp:provision"},
+		"baobab-subscriptions-workload":   {"payment:execute"},
+	} {
+		err := provisionOne(context.Background(), nil, id, scopes, "")
+		if err == nil || !strings.Contains(err.Error(), "federated_workload_token") {
+			t.Fatalf("%s: expected fail-closed federated workload guard, got %v", id, err)
+		}
 	}
 }
 
