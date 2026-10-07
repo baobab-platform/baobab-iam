@@ -349,15 +349,26 @@ else
       ACTIVE_WITHOUT_CLIENT=1
     fi
   done
+  # bootstrap.sh applies every config/clients/*.json, not only *-workload.json, and a client can also exist only in the live realm, so the
+  # check reads every client file and then asks the realm itself.
+  ALL_CLIENT_IDS=""
+  for CLIENT_FILE in config/clients/*.json; do
+    ALL_CLIENT_IDS=$(printf '%s\n%s' "$ALL_CLIENT_IDS" "$(jq -r '.clientId // empty' "$CLIENT_FILE")")
+  done
   FEDERATED_WITH_CLIENT=0
   for ID in $(echo "$REGISTRY_JSON" | jq -r '.workloads | to_entries[] | select(.value.credential_type == "federated_workload_token") | .key'); do
-    if echo "$LOCAL_CLIENT_IDS" | grep -qx "$ID"; then
+    if echo "$ALL_CLIENT_IDS" | grep -qx "$ID"; then
       fail "federated workload '$ID' must not have a Keycloak client: it holds no static secret and is issued by Hydra"
+      FEDERATED_WITH_CLIENT=1
+    fi
+    LIVE_MATCHES=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/clients?clientId=$ID" | jq 'length' || echo "unreadable")
+    if [ "$LIVE_MATCHES" != "0" ]; then
+      fail "federated workload '$ID' must not exist as a Keycloak client in the live realm (matches: $LIVE_MATCHES)"
       FEDERATED_WITH_CLIENT=1
     fi
   done
   if [ "$FEDERATED_WITH_CLIENT" -eq 0 ]; then
-    pass "no federated_workload_token workload has a Keycloak client (Hydra issues them; no static secret)"
+    pass "no federated_workload_token workload has a Keycloak client, in any config/clients file or the live realm (Hydra issues them; no static secret)"
   fi
   if [ "$ACTIVE_WITHOUT_CLIENT" -eq 0 ]; then
     pass "every ACTIVE workload in the registry has a matching config/clients/*.json clientId"
