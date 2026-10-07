@@ -187,8 +187,8 @@ capabilities:
     authority; assurance provenance
   retirement_dependency: NONE (retained federation capability; replacement requires portability evidence)
   migration_phase: "IAM-MP2 / MP7\u2013MP12"
-  implementation_status: Implemented OIDC/SAML federation runtime and governed authority; MP3/MP4 dispatch and production
-    acceptance remain open
+  implementation_status: Implemented OIDC/SAML federation, governed authority and bounded CP enterprise dispatch;
+    broader provider support/dispatch and production acceptance remain open
   tests: Provider contract, signed OIDC/SAML adversarial and replay tests; enterprise-federation-live; PostgreSQL
     concurrency/recovery tests
   conformance_evidence: Repository/CI construction evidence from MP8 and shared-state implementation; staging rotation,

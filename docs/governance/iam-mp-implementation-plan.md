@@ -2,8 +2,8 @@
 
 **Status:** Advanced implementation; production acceptance not reached. Permanent
 Keycloak OIDC/SAML federation and PostgreSQL shared authority/recovery fencing
-are implemented. MP3 projection and MP4 dispatch remain the next runtime increment.
-**Date:** 2026-10-05.
+are implemented. Enterprise CP-governed dispatch is merged in #80; broader MP3 support publication and native/workload MP4 dispatch remain open.
+**Date:** 2026-10-07.
 **Current evidence:** [Programme status](iam-mp-programme-status.md), reconciled
 against IAM `a927259753a0d2dee16f8df6f5509c5dc9cb18e9`.
 No runtime reduction, cutover or production acceptance is authorised by this plan.
@@ -37,8 +37,8 @@ five-minute verification window in the same read snapshot. Deploy CP first.
 | Concurrent approval and consumption | Race tests | One checker decision and one event consumption; not deployed HA/DR |
 | CP repository mapping target tests | PostgreSQL integration harness | Requires `TEST_DATABASE_URL` against PostgreSQL 17; no database substitute |
 
-C1 is not production accepted. Promotion requires both PRs merged with required
-CI green and a protected registered CP/IAM staging composition. MP3/MP4,
+C1 IAM #85 and CP #282 are merged with required CI green. C1 is not production
+accepted; promotion still requires a protected registered CP/IAM staging composition. MP3/MP4,
 estate acceptance and MP19/MP20 remain independent gates.
 
 ## 1. Verified baseline and audit corrections
@@ -65,7 +65,8 @@ heads. The following merged evidence supersedes its implementation-gap claims
 
 MP8 enterprise federation execution is implemented in #75, with shared durable
 authority state/recovery fencing in #77. MP3 production support projection and
-MP4 CP-resolution-driven dispatch remain open. Green CI is construction evidence,
+native/workload MP4 dispatch remain open; enterprise CP-resolution-driven dispatch
+is merged in #80. Green CI is construction evidence,
 not production consumption evidence.
 
 Two audit qualifications matter:
@@ -86,7 +87,7 @@ not an exit criterion. Remaining runtime projection/dispatch and operational pro
 |---|---|---|
 | MP0 repository reconciliation | Retain/reduce asset inventory, scoped retirement, current digest evidence, README and permanent adapter-boundary wording | Complete cross-repository operational inventory, owner acceptance and live federation census |
 | MP1 ownership matrix | Target provider column; Keycloak enterprise federation retained; Kratos native humans; Hydra OAuth/workloads; generated Markdown and regression guards | Production instance/support/binding declarations depend on MP2–MP4 |
-| MP2–MP4 | Shared contracts, live CP/IAM federation authority composition and CP runtime-profile persistence implemented | Production support projection and CP resolution → IAM dispatch; staging evidence |
+| MP2–MP4 | Shared contracts, live CP/IAM federation authority composition and CP runtime-profile persistence implemented | Full canonical support publication, native/workload dispatch and staging evidence |
 
 The matrix remains an IAM architectural control surface, not a runtime registry.
 Only Shared-catalogued keys are PLATFORM_RESOLVABLE_CAPABILITY. Provider labels
@@ -177,3 +178,16 @@ for the C1/C2 commits, MP0–MP20 open-gate matrix, current verification outcome
 and exact operational dependencies. Provider declaration status is independent
 of adapter mechanics: PARTIAL support is excluded from CP registration by Shared.
 No staging or production acceptance is inferred from construction CI.
+
+## 6. Bounded enterprise MP3/MP4 convergence
+
+The authority composition now projects current CP federation profile/deployment
+evidence and redeems a caller-owned CP context for
+`identity.authentication.perform` major 1 before dispatching an exact bound
+EnterpriseFederationProvider. Begin, callback and readiness recheck selection;
+there is no fallback. The production enterprise service requires this dispatch.
+See [enterprise dispatch operations](../operations/enterprise-capability-dispatch.md)
+for context ownership, independent scope/activation requirements and evidence.
+Broader MP3 support publication, native/workload dispatch/conformance and
+provider-neutral discovery remain open; fixture tests cannot close operational
+acceptance. The candidate enterprise key remains outside Shared's catalogue.

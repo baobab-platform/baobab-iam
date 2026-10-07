@@ -34,6 +34,7 @@ source:
   repository: baobab-platform/shared
   commit: 363e0ead9ebb5aa87f5f813b63b785b7f63cc39e
 contracts:
+  - contracts/capability/v1/resolution.schema.json
   - contracts/identity/v1/federation-authority-policy.yaml
   # Accepted MP2-A/B provider-neutral federation consumption contracts.
   - contracts/identity/v1/provider-runtime-profile.schema.json

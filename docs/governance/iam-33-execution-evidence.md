@@ -15,10 +15,10 @@ not deployed multi-replica/failover/DR acceptance.
 
 | Increment | Repository / branch / PR | Commit and result |
 |---|---|---|
-| C1 CP owner-aware evidence | baobab-cp / fix/iam-33-c1-canonical-target-authority / #282 | Head 9b11cc10069247ee2fc84db04209f8434e26be83; merged 72e54afbe48ca3a121308e599f76c778657d8d63; PostgreSQL 17/race, readiness, foundation and security CI passed |
-| C1 IAM consumption composition | baobab-iam / feat/iam-33-c1-owner-aware-mapping / #85 | Head abd67bc94fda911ed24d7e9f0fa5ac0633cdbf69; merged 9129bf1acd0953f2c9487a5708e385cb555c74c8; all CI workflows passed |
-| C2 status reconciliation | baobab-iam / docs/iam-mp-status-reconciliation / #79 | Head 8570f3a13a204a5b29aedd58f8cc8bb36038edff; merged 23f0d2fbbe2bdf12819ea76ce9e7908fb5fd5e5c; all CI workflows passed |
-| C2 enterprise dispatch | baobab-iam / feat/iam-mp3-mp4-enterprise-dispatch / #80 | Reconciled C1/current main at 9b8724fd2fe11b8c0fa202974d87da2b8a349bc1; preserve authority outage semantics, reject invalid trust and clock rollback; integration requires merge and current CI |
+| C1 CP owner-aware evidence | baobab-cp / fix/iam-33-c1-canonical-target-authority / [#282](https://github.com/baobab-platform/baobab-cp/pull/282) | Head 9b11cc10069247ee2fc84db04209f8434e26be83; merged 72e54afbe48ca3a121308e599f76c778657d8d63; PostgreSQL 17/race, readiness, foundation and security CI passed |
+| C1 IAM consumption composition | baobab-iam / feat/iam-33-c1-owner-aware-mapping / [#85](https://github.com/baobab-platform/baobab-iam/pull/85) | Head abd67bc94fda911ed24d7e9f0fa5ac0633cdbf69; merged 9129bf1acd0953f2c9487a5708e385cb555c74c8; all CI workflows passed |
+| C2 status reconciliation | baobab-iam / docs/iam-mp-status-reconciliation / [#79](https://github.com/baobab-platform/baobab-iam/pull/79) | Head 8570f3a13a204a5b29aedd58f8cc8bb36038edff; merged 23f0d2fbbe2bdf12819ea76ce9e7908fb5fd5e5c; all CI workflows passed |
+| C2 enterprise dispatch | baobab-iam / feat/iam-mp3-mp4-enterprise-dispatch / [#80](https://github.com/baobab-platform/baobab-iam/pull/80) | Head 9b8724fd2fe11b8c0fa202974d87da2b8a349bc1; merged a2d977877df8139ec649e61598045d730f56c420; all current-head CI workflows passed; preserve authority outage semantics, reject invalid trust and clock rollback |
 
 C1 uses the real executable governance factory, native targets, four-eyes
 approval ledger, trust lifecycle, TLS authority handler, signed OIDC verifier
@@ -33,6 +33,21 @@ ProviderCapabilitySupport. Naming executable mechanics in a declaration does
 not authorise registration of unsupported support. No provider/runtime profile,
 binding, trust, grant, workload or estate is activated by this change.
 
+Current C1 construction workflow receipts:
+[CP Go/PostgreSQL CI](https://github.com/baobab-platform/baobab-cp/actions/runs/37689586084),
+[IAM CI](https://github.com/baobab-platform/baobab-iam/actions/runs/37689281831),
+[IAM Ory live](https://github.com/baobab-platform/baobab-iam/actions/runs/37689281860),
+[IAM foundation](https://github.com/baobab-platform/baobab-iam/actions/runs/37689284219)
+and [IAM secret scan](https://github.com/baobab-platform/baobab-iam/actions/runs/37689282825).
+PR #79's current-head workflows also passed. PR #80's reconciled-head
+[CI](https://github.com/baobab-platform/baobab-iam/actions/runs/37690974317),
+[Ory live](https://github.com/baobab-platform/baobab-iam/actions/runs/37690974150),
+[foundation](https://github.com/baobab-platform/baobab-iam/actions/runs/37690975984)
+and [secret scan](https://github.com/baobab-platform/baobab-iam/actions/runs/37690974839)
+passed before merge. C3 declaration/evidence reconciliation is tracked in
+[#86](https://github.com/baobab-platform/baobab-iam/pull/86) on
+feat/iam-33-c3-provider-declarations; this does not complete C3 registration.
+
 ## MP0–MP20 matrix
 
 All rows retain Accepted ADR-IAM-0033 and its implementation plan as normative
@@ -45,7 +60,7 @@ assertion that every accepted requirement in that gate is finished.
 | MP1 allocation | .baobab/iam-capability-matrix.yaml; scripts/iam_capability_matrix.py; Python tests | Implemented ownership matrix; runtime declarations and acceptance independent | IAM / CP |
 | MP2 contracts/composition | Shared identity/v1; governance_composition.go; canonical_composition_test.go; CP #282 | Bounded Integration Verified in C1; real protected registered service/estate acceptance open | IAM / CP / Operations |
 | MP3 registry | .baobab/capability-provider.yaml; CP identity_runtime_profile_handler.go | Designed plus partial implementation declarations; full contract support, real profiles, registration and drift convergence open | IAM / CP / Operations |
-| MP4 resolver | #80; enterprise_dispatch.go/tests; CP capability resolution | Bounded enterprise implementation; native/workload governed dispatch and supervised context renewal open | IAM / CP |
+| MP4 resolver | #80; enterprise_dispatch.go/tests; CP capability resolution | Bounded enterprise Integration Verified in #80; native/workload governed dispatch and supervised context renewal open | IAM / CP |
 | MP5 native identity | internal/provider/ory/kratos.go; foundation_live_test.go; ory foundation CI | Partial implementation; credential/recovery/MFA/passkey/session/step-up journey conformance open; imports unverified | IAM / Estate owners |
 | MP6 workloads | internal/provider/ory/hydra.go; hydra_federated_workload_test.go; consumer_live_test.go | Partial implementation; M4-F intended audience, projected issuer, real registered consumer acceptance open | IAM / CP / Consumer owners |
 | MP7 Keycloak reduction | allocation matrix; provider docs; retained enterprise assets | Designed safe reduction; deployed capability census and rollback-approved per-capability retirement open | IAM / Operations |
@@ -63,6 +78,18 @@ assertion that every accepted requirement in that gate is finished.
 | MP19 certification | protocol negatives; race; container/security CI | Construction evidence only; deployed security/resilience/compatibility matrix and approval open | Security / Operations |
 | MP20 acceptance | implementation plan; this dossier; operations runbooks | Designed, not accepted; registered consumer, staging/production operational evidence and owner sign-off open | Platform owners |
 
+## Estate-specific acceptance dependencies
+
+| Estate / inspected main | Repository reality | Independent remaining work |
+|---|---|---|
+| ZuriBeans / a03690116ce5cd4727e5fe8284996a97e479a3f3 | src/app/api/auth/callback/route.ts forwards OIDC code/state to Trade's zuribeans-oidc provider; src/lib/auth/sso.ts keeps a bounded return cookie | Prove native and enterprise paths through registered CP/IAM and Trade, canonical normalization, correlation, session expiry/revocation and required step-up |
+| Thamani / 8dd76e97a358e3aeb27e7b9d27f6f2177a5bd2c3 | README, docs/medusa-integration.md and Accepted ADR-0002 keep accounts/authentication gated; supplier applicantIdentityRef is unimplemented | Implement the approved account/BFF integration after canonical IAM entry paths and estate contracts; native and enterprise acceptance independently open |
+| Nabhold / 9336d49dfd4cabcb4bf894b81d3835c5edc3301e | src/lib/auth/session.ts returns null by default and permits a nonproduction preview only; sign-in explicitly says federation is unconnected | Implement registered workforce federation and canonical session integration; preserve preview denial in production; operational/administrative step-up acceptance open |
+
+These are implementation dependencies as well as missing live configuration.
+Thamani is accessible through repository APIs; its private visibility is not
+classified as an inability to inspect it. No estate code was modified in C1–C3.
+
 ## Verification ledger
 
 | Check | Outcome | Evidence / limitation |
@@ -79,7 +106,7 @@ assertion that every accepted requirement in that gate is finished.
 | IAM executable authority and OIDC/SAML broker integration | Passed | #85 construction/live CI; remote CP boundary simulated in IAM composition test |
 | IAM PostgreSQL concurrency/recovery | Passed | #85 federation-postgres CI; not cloud HA/DR |
 | Container build and security checks | Passed | #85 CI authority/image/Trivy/SBOM and main image; no production certification |
-| Actual registered estate/consumer acceptance | Blocked | Approved live IAM/CP/estate/resource configuration and protected access absent |
+| Actual registered estate/consumer acceptance | Blocked | Canonical entry/BFF integration work remains; approved live IAM/CP/estate/resource configuration and protected access unavailable in this execution |
 | Staging deployment/smoke | Blocked | Account-specific reviewed infrastructure declaration and protected account/environment configuration absent |
 | Deployed HA/DR, residency and key compromise/rotation drills | Blocked | Live environment, approved objectives and operational authority absent |
 | Destructive Keycloak retirement / production cutover | Not run | Explicitly outside this execution's authorisation |
