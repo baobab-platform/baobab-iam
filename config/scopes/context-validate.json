@@ -1,0 +1,22 @@
+{
+  "name": "context:validate",
+  "description": "Lets a resource server call baobab-cp's POST /v1/platform-context/validate with a caller's token as evidence. Grants no authority and creates no context. Carries the aud=baobab-control-plane mapper; validated audiences are set in the workload registry.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}
