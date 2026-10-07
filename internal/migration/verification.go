@@ -22,8 +22,8 @@ func NewVerificationStage(svc *Service) (*VerificationStage, error) {
 
 // VerificationResult is the row after a verification transition.
 type VerificationResult struct {
-	Record *Record
-	Outcome string
+	Record          *Record
+	Outcome         string
 	AlreadyVerified bool
 }
 
