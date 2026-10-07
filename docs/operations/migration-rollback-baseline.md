@@ -8,6 +8,20 @@
 
 ---
 
+## Current authority and scope
+
+Accepted ADR-IAM-0033 supersedes global Keycloak retirement assumptions in this
+historical baseline. Keycloak remains the permanent enterprise federation/SSO
+provider. Apply rollback only to the explicitly approved capability and tenant
+scope; preserve retained federation realms, databases, clients, trust and SSO
+infrastructure. A native-human or workload rollback does not authorise changing
+enterprise federation authority. Historical Phase A statements below are dated
+construction evidence, not a current deployment census or acceptance record.
+
+The capability-specific migration ledger and live rollback proof remain open
+under MP18. See [current execution evidence](../governance/iam-33-execution-evidence.md).
+No production cutover or retirement is authorised by this runbook.
+
 ## 1. Purpose
 
 This runbook defines the **rollback baseline** for the Keycloak → Ory migration.

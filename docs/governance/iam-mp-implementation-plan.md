@@ -169,3 +169,11 @@ or deployment are implied by this reconciliation.
 EA-04 remains ADVANCED. Completion requires operational and real registered
 consumer evidence, including the outstanding federated workload path; the new
 provider allocation does not waive those gates.
+
+## Current execution evidence
+
+See [ADR-IAM-0033 execution and acceptance evidence](iam-33-execution-evidence.md)
+for the C1/C2 commits, MP0–MP20 open-gate matrix, current verification outcomes
+and exact operational dependencies. Provider declaration status is independent
+of adapter mechanics: PARTIAL support is excluded from CP registration by Shared.
+No staging or production acceptance is inferred from construction CI.
