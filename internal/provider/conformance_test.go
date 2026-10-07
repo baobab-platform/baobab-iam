@@ -19,8 +19,12 @@ func ProviderConformanceSuite(t *testing.T, adapter provider.IdentityProvider, i
 	t.Helper()
 	ctx := context.Background()
 	info, err := adapter.ProviderInfo(ctx)
-	if err != nil { t.Fatal(err) }
-	if info.Issuer != issuer || info.Name != info.Capabilities.Provider { t.Fatal("provider metadata mismatch") }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Issuer != issuer || info.Name != info.Capabilities.Provider {
+		t.Fatal("provider metadata mismatch")
+	}
 	if info.Capabilities.PasswordImport || info.Capabilities.TOTPImport || info.Capabilities.PasskeyImport {
 		t.Fatal("unverified imports advertised as supported")
 	}
@@ -29,9 +33,15 @@ func ProviderConformanceSuite(t *testing.T, adapter provider.IdentityProvider, i
 		{Issuer: issuer, Subject: " "},
 	} {
 		_, err := adapter.GetIdentity(ctx, subject)
-		if !provider.IsInvalidArgument(err) { t.Fatalf("unsafe subject accepted: %v", err) }
-		if err := adapter.DisableIdentity(ctx, subject); !provider.IsInvalidArgument(err) { t.Fatalf("unsafe disable: %v", err) }
-		if err := adapter.RevokeSessions(ctx, subject); !provider.IsInvalidArgument(err) { t.Fatalf("unsafe revoke: %v", err) }
+		if !provider.IsInvalidArgument(err) {
+			t.Fatalf("unsafe subject accepted: %v", err)
+		}
+		if err := adapter.DisableIdentity(ctx, subject); !provider.IsInvalidArgument(err) {
+			t.Fatalf("unsafe disable: %v", err)
+		}
+		if err := adapter.RevokeSessions(ctx, subject); !provider.IsInvalidArgument(err) {
+			t.Fatalf("unsafe revoke: %v", err)
+		}
 	}
 	subject := provider.ExternalSubject{Issuer: issuer, Subject: "id"}
 	identity, err := adapter.GetIdentity(ctx, subject)
@@ -39,16 +49,28 @@ func ProviderConformanceSuite(t *testing.T, adapter provider.IdentityProvider, i
 		if err != nil || identity == nil || identity.Issuer != issuer || identity.Subject != subject.Subject {
 			t.Fatalf("normalized identity failed: identity=%+v err=%v", identity, err)
 		}
-		if err := adapter.DisableIdentity(ctx, subject); err != nil { t.Fatal(err) }
-		if err := adapter.EnableIdentity(ctx, subject); err != nil { t.Fatal(err) }
+		if err := adapter.DisableIdentity(ctx, subject); err != nil {
+			t.Fatal(err)
+		}
+		if err := adapter.EnableIdentity(ctx, subject); err != nil {
+			t.Fatal(err)
+		}
 	} else {
-		if !provider.IsUnsupported(err) { t.Fatalf("undeclared read support: %v", err) }
-		if err := adapter.DisableIdentity(ctx, subject); !provider.IsUnsupported(err) { t.Fatalf("undeclared lifecycle support: %v", err) }
+		if !provider.IsUnsupported(err) {
+			t.Fatalf("undeclared read support: %v", err)
+		}
+		if err := adapter.DisableIdentity(ctx, subject); !provider.IsUnsupported(err) {
+			t.Fatalf("undeclared lifecycle support: %v", err)
+		}
 	}
 	err = adapter.RevokeSessions(ctx, subject)
 	if info.Capabilities.SessionRevocation {
-		if err != nil { t.Fatal(err) }
-	} else if !provider.IsUnsupported(err) { t.Fatalf("undeclared session support: %v", err) }
+		if err != nil {
+			t.Fatal(err)
+		}
+	} else if !provider.IsUnsupported(err) {
+		t.Fatalf("undeclared session support: %v", err)
+	}
 }
 
 func TestProviderConformanceSuite(t *testing.T) {
@@ -76,12 +98,16 @@ func TestProviderConformanceSuite(t *testing.T) {
 	defer server.Close()
 	t.Run("OryAdapter", func(t *testing.T) {
 		adapter, err := ory.NewAdapter(ory.Config{KratosAdminURL: server.URL, HydraAdminURL: server.URL, PublicIssuer: "https://identity.example"})
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		ProviderConformanceSuite(t, adapter, "https://identity.example")
 	})
 	t.Run("KeycloakAdapter", func(t *testing.T) {
 		adapter, err := keycloak.NewAdapter(keycloak.Config{AdminURL: server.URL, Realm: "baobab", PublicIssuer: "https://legacy.example/realms/baobab"})
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		ProviderConformanceSuite(t, adapter, "https://legacy.example/realms/baobab")
 	})
 }
