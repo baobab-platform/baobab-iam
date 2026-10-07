@@ -46,12 +46,12 @@ func TestOrphanCannotAdvanceOrMutateOnRejectedTransition(t *testing.T) {
 
 type unavailableStore struct {
 	migration.RecordStore
-	err error
+	err    error
 	writes int
 }
 
 func (s *unavailableStore) Get(context.Context, string) (*migration.Record, error) { return nil, s.err }
-func (s *unavailableStore) Put(context.Context, *migration.Record) error { s.writes++; return nil }
+func (s *unavailableStore) Put(context.Context, *migration.Record) error           { s.writes++; return nil }
 
 func TestRegistrationPropagatesStorageFailure(t *testing.T) {
 	failure := errors.New("storage unavailable")
@@ -59,7 +59,7 @@ func TestRegistrationPropagatesStorageFailure(t *testing.T) {
 	svc := &migration.Service{Store: store}
 	r := &migration.Record{
 		MigrationID: "mapped", CanonicalIdentityID: "ci-1",
-		Source: migration.ProviderBinding{Provider: "keycloak", Issuer: "https://issuer", Subject: "subject"},
+		Source:        migration.ProviderBinding{Provider: "keycloak", Issuer: "https://issuer", Subject: "subject"},
 		IdentityClass: migration.ClassHuman, CredentialStrategy: migration.StrategyFirstLoginMigration,
 		MigrationState: migration.StateDiscovered,
 	}
