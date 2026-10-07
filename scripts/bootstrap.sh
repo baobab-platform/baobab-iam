@@ -289,7 +289,7 @@ reconcile_client_scopes_and_roles() {
     client_uuid=$(kcadm get clients -r baobab -q clientId="$client_id" --fields id | jq -r '.[0].id // empty')
     [ -n "$client_uuid" ] || continue
     # Default scopes: only Baobab vocabulary (a scope defined under config/scopes/), only ever added. This is how a scope
-    # newly declared for an existing client (e.g. erp:read and erp:provision on baobab-erp-workload) reaches a deployment
+    # newly declared for an existing client (e.g. context:validate on baobab-erp-workload) reaches a deployment
     # bootstrapped before it existed; Keycloak's own built-in default scopes are left alone.
     for scope_name in $(jq -r '.defaultClientScopes // [] | .[]' "$client_file"); do
       [ -f "/opt/keycloak/config/scopes/$(echo "$scope_name" | tr ':' '-').json" ] || continue
@@ -330,7 +330,32 @@ reconcile_client_scopes_and_roles() {
     done
   done
 }
+
+# revoke_client_scopes removes scopes a client was once given and the registry no longer allows it. reconcile_client_scopes_and_roles only
+# ever adds, so without this a deployment bootstrapped before the removal keeps the authority. Each entry is a deliberate, reviewed decision
+# ("<clientId> <scope>"); the function is idempotent, and an absent client, scope or attachment is skipped.
+#   baobab-erp-workload erp:read, erp:provision -- shared#235: ERP is the resource server of the Boundary API, not a caller of it.
+revoke_client_scopes() {
+  local client_id scope_name client_uuid scope_uuid kind
+  while read -r client_id scope_name; do
+    [ -n "$client_id" ] || continue
+    client_uuid=$(kcadm get clients -r baobab -q clientId="$client_id" --fields id | jq -r '.[0].id // empty')
+    [ -n "$client_uuid" ] || continue
+    scope_uuid=$(kcadm get client-scopes -r baobab --fields id,name | jq -r --arg n "$scope_name" '[.[] | select(.name == $n)][0].id // empty')
+    [ -n "$scope_uuid" ] || continue
+    for kind in default optional; do
+      if kcadm get "clients/$client_uuid/$kind-client-scopes" -r baobab | jq -e --arg n "$scope_name" 'any(.[]; .name == $n)' > /dev/null; then
+        echo "Revoking $kind scope '$scope_name' from '$client_id' ..."
+        kcadm delete "clients/$client_uuid/$kind-client-scopes/$scope_uuid" -r baobab
+      fi
+    done
+  done <<'REVOKED'
+baobab-erp-workload erp:read
+baobab-erp-workload erp:provision
+REVOKED
+}
 reconcile_client_scopes_and_roles
+revoke_client_scopes
 
 rm -f "$KCADM_CONFIG"
 echo "Bootstrap completed."

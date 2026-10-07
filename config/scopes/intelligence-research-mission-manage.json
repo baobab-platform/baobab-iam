@@ -1,0 +1,22 @@
+{
+  "name": "intelligence:research-mission:manage",
+  "description": "Invokes baobab-pulse ResearchMission management. Grants no tenant authority. After caller-bound Control Plane context validation, this scope permits data through CONFIDENTIAL; RESTRICTED also requires intelligence:restricted.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-pulse",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-pulse",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}

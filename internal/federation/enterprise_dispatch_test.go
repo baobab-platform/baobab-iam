@@ -271,3 +271,37 @@ func TestProtectedResolutionContextReloadsAndRejectsUnsafeFiles(t *testing.T) {
 		t.Fatal("public file accepted")
 	}
 }
+
+type recheckUnavailableGovernance struct {
+	*fakeAuthority
+	calls int
+}
+
+func (g *recheckUnavailableGovernance) Trust(ctx context.Context, id string) (TrustSnapshot, error) {
+	g.calls++
+	if g.calls > 1 {
+		return TrustSnapshot{}, ErrUnavailable
+	}
+	return g.fakeAuthority.Trust(ctx, id)
+}
+func TestEnterpriseDispatchPreservesUnavailableOnFinalAuthorityRead(t *testing.T) {
+	d, f, _, _, a := dispatchSetup(t, "oidc")
+	d.config.Governance = &recheckUnavailableGovernance{fakeAuthority: f}
+	if _, err := d.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: f.snapshot.Trust.ID}); !errors.Is(err, ErrUnavailable) || a.begins != 0 {
+		t.Fatal(err, a.begins)
+	}
+}
+func TestEnterpriseDispatchRejectsClockRollback(t *testing.T) {
+	d, f, _, _, a := dispatchSetup(t, "oidc")
+	calls := 0
+	d.config.Now = func() time.Time {
+		calls++
+		if calls > 1 {
+			return f.clock.Add(-time.Second)
+		}
+		return f.clock
+	}
+	if _, err := d.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: f.snapshot.Trust.ID}); err == nil || a.begins != 0 {
+		t.Fatal(err, a.begins)
+	}
+}

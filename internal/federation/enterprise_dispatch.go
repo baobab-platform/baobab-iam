@@ -98,11 +98,15 @@ func (d *EnterpriseDispatch) selectAdapter(ctx context.Context, trustID string) 
 		}
 	}()
 	now := c.Now().UTC()
+	started := now
+	if now.IsZero() {
+		return nil, ErrInvalid
+	}
 	s, err := c.Governance.Trust(ctx, trustID)
 	if err != nil {
 		return nil, authorityError(err)
 	}
-	if s.Trust.ID != trustID || s.Trust.Status != "ACTIVE" || s.Trust.Revision == 0 || s.ApprovedRevision != s.Trust.Revision ||
+	if ValidateTrust(s.Trust) != nil || s.Trust.UpdatedAt.After(now) || s.Trust.ID != trustID || s.Trust.Status != "ACTIVE" || s.Trust.Revision == 0 || s.ApprovedRevision != s.Trust.Revision ||
 		!exact(s.SnapshotID) || !now.Before(s.ValidUntil) || !validBinding(s.Trust.ProviderBinding) ||
 		!slices.Contains(s.Trust.OrganisationIDs, c.Scope.OrganisationID) || !slices.Contains(s.Trust.EstateIDs, c.Scope.EstateID) {
 		return nil, ErrDenied
@@ -158,8 +162,12 @@ func (d *EnterpriseDispatch) selectAdapter(ctx context.Context, trustID string) 
 		return nil, err
 	}
 	current, err := c.Governance.Trust(ctx, trustID)
-	if err != nil || !sameSnapshot(s, current) || !c.Now().Before(s.ValidUntil) || !c.Now().Before(*r.ExpiresAt) ||
-		!c.Now().Before(contextHandle.ExpiresAt) || !c.Now().Before(p.EvidenceExpiresAt) || ctx.Err() != nil {
+	if err != nil {
+		return nil, authorityError(err)
+	}
+	finished := c.Now().UTC()
+	if finished.Before(started) || !sameSnapshot(s, current) || !finished.Before(s.ValidUntil) || !finished.Before(*r.ExpiresAt) ||
+		!finished.Before(contextHandle.ExpiresAt) || !finished.Before(p.EvidenceExpiresAt) || ctx.Err() != nil {
 		return nil, ErrDenied
 	}
 	for _, binding := range c.Adapters {

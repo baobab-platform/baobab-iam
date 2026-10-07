@@ -410,7 +410,6 @@ func TestProvisionBridge_HumanFailureMarksRetryable(t *testing.T) {
 	}
 }
 
-
 type fixtureHumanTraits struct {
 	email string
 }
@@ -430,9 +429,9 @@ func TestProvisionBridgeMissingTraitsDoesNotInventEmail(t *testing.T) {
 	}
 	r := &migration.Record{
 		MigrationID: "missing-traits", CanonicalIdentityID: "ci-1",
-		Source: migration.ProviderBinding{Provider: "keycloak", Issuer: "https://source", Subject: "user"},
+		Source:                  migration.ProviderBinding{Provider: "keycloak", Issuer: "https://source", Subject: "user"},
 		SourceSnapshotReference: "mailto:untrusted@example.com",
-		IdentityClass: migration.ClassHuman, CredentialStrategy: migration.StrategyFirstLoginMigration,
+		IdentityClass:           migration.ClassHuman, CredentialStrategy: migration.StrategyFirstLoginMigration,
 		MigrationState: migration.StateDiscovered,
 	}
 	if err := svc.Register(ctx, r); err != nil {

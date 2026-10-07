@@ -49,8 +49,9 @@ var m4ClientCredentials = []string{
 // credential_type=federated_workload_token. Provisioning either with a client
 // secret would violate EA-04 and silently downgrade the intended trust model.
 var federatedNoSecretWorkloads = map[string]struct{}{
-	"baobab-cp-workload":            {},
-	"baobab-subscriptions-workload": {},
+	"baobab-cp-workload":              {},
+	"baobab-cp-provisioning-workload": {},
+	"baobab-subscriptions-workload":   {},
 }
 
 var displayNames = map[string]string{

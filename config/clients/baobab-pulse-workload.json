@@ -24,7 +24,8 @@
     "roles",
     "openid",
     "actor-type-workload",
-    "context:resolve"
+    "context:resolve",
+    "context:validate"
   ],
   "optionalClientScopes": [
     "address",
