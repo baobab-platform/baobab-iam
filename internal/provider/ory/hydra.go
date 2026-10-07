@@ -541,13 +541,13 @@ type hydraTrustJWTIssuerRequest struct {
 }
 
 type hydraTrustedJWTIssuer struct {
-	ID              string                    `json:"id"`
-	AllowAnySubject bool                      `json:"allow_any_subject"`
-	ExpiresAt       time.Time                 `json:"expires_at"`
-	Issuer          string                    `json:"issuer"`
-	PublicKey       hydraTrustedJWTGrantKey   `json:"public_key"`
-	Scope           []string                  `json:"scope"`
-	Subject         string                    `json:"subject"`
+	ID              string                  `json:"id"`
+	AllowAnySubject bool                    `json:"allow_any_subject"`
+	ExpiresAt       time.Time               `json:"expires_at"`
+	Issuer          string                  `json:"issuer"`
+	PublicKey       hydraTrustedJWTGrantKey `json:"public_key"`
+	Scope           []string                `json:"scope"`
+	Subject         string                  `json:"subject"`
 }
 
 type hydraTrustedJWTGrantKey struct {
