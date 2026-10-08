@@ -36,7 +36,7 @@ configuration; do not accept it through an ordinary workload API.
 
 Hydra v26.2.0 accepts the client-credentials resource audience through its native `audience` form parameter and registered client audience. The hook validates the granted audience against Shared and refuses missing or unintended audiences. It does not rewrite `aud`.
 
-Hydra `oauth2.allowed_top_level_claims` allows the existing Shared `actor_type`, `azp`, and `scope` claims; `strategies.jwt.scope_claim=string` preserves the consumer contract. `ttl.access_token=15m` matches the maximum enforced by current Subscriptions and Payments verifiers. The protected issuer, subject, expiry, signing key and JWT ID remain provider-owned. The hook returns only the three governed extra claims.
+Hydra `oauth2.allowed_top_level_claims` allows the existing Shared `actor_type`, `azp`, and `scope` claims; `strategies.jwt.scope_claim=string` preserves the consumer contract. `ttl.access_token=10m` keeps every token strictly inside the 15-minute maximum (`exp - iat <= 900 s`) enforced by current Subscriptions, Payments and Control Plane verifiers. It must not equal that maximum: Hydra stamps `iat` when the request starts and computes `exp` after the token-profile hook, and both are truncated to whole seconds, so a 15-minute TTL produces 901-second tokens whenever the request straddles a second boundary, and the verifier rejects them (observed as an intermittent `verified=false` on the live federated audience proof). Workloads obtain replacement tokens on demand, so the shorter lifetime costs nothing. The protected issuer, subject, expiry, signing key and JWT ID remain provider-owned. The hook returns only the three governed extra claims.
 
 ## Pinned RFC 7523 limitation
 

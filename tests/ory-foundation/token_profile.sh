@@ -49,7 +49,10 @@ for name, scope, audiences in (
 config = yaml.safe_load(Path('config/ory/hydra/hydra.yml').read_text())
 if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1':
     config['oauth2']['grant'] = {'jwt': {'omit_assertion_audience': True}}
-config['ttl'] = {'access_token': '15m'}
+# Strictly below the CP verifiers' 15-minute maximum (exp - iat <= 900 s). Hydra stamps iat when the request starts and computes exp
+# later (after the token-profile hook), and both are truncated to whole seconds, so a TTL equal to the maximum yields 901 s about as
+# often as the request straddles a second boundary and the verifier then rejects a valid token.
+config['ttl'] = {'access_token': '10m'}
 config['strategies']['jwt'] = {'scope_claim': 'string'}
 config['oauth2'].update({'allowed_top_level_claims': ['actor_type', 'azp', 'scope'],
                        'mirror_top_level_claims': False,
