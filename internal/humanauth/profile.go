@@ -9,18 +9,19 @@ import (
 	"io"
 	"math/big"
 	"net/url"
+	"unicode/utf8"
 )
 
 type Request struct {
-	GrantType          string `json:"grant_type"`
-	CodeChallenge      string `json:"code_challenge"`
+	GrantType           string `json:"grant_type"`
+	CodeChallenge       string `json:"code_challenge"`
 	CodeChallengeMethod string `json:"code_challenge_method"`
-	ClientID           string `json:"client_id,omitempty"`
-	RedirectURI        string `json:"redirect_uri,omitempty"`
-	Scope              string `json:"scope,omitempty"`
-	State              string `json:"state,omitempty"`
-	Nonce              string `json:"nonce,omitempty"`
-	ACRValues          string `json:"acr_values,omitempty"`
+	ClientID            string `json:"client_id,omitempty"`
+	RedirectURI         string `json:"redirect_uri,omitempty"`
+	Scope               string `json:"scope,omitempty"`
+	State               string `json:"state,omitempty"`
+	Nonce               string `json:"nonce,omitempty"`
+	ACRValues           string `json:"acr_values,omitempty"`
 }
 
 type Response struct {
@@ -34,16 +35,11 @@ type Response struct {
 }
 
 func (r Request) Validate() error {
-	if r.GrantType != "authorization_code" || r.CodeChallengeMethod != "S256" || len(r.CodeChallenge) < 43 || len(r.CodeChallenge) > 128 || len(r.ClientID) > 255 || len(r.Scope) > 500 || len(r.ACRValues) > 500 {
+	if r.GrantType != "authorization_code" || r.CodeChallengeMethod != "S256" || utf8.RuneCountInString(r.CodeChallenge) < 43 || utf8.RuneCountInString(r.CodeChallenge) > 128 || utf8.RuneCountInString(r.ClientID) > 255 || utf8.RuneCountInString(r.Scope) > 500 || utf8.RuneCountInString(r.ACRValues) > 500 {
 		return fmt.Errorf("invalid canonical human authentication request")
 	}
-	for _, value := range []string{r.ClientID, r.RedirectURI, r.Scope, r.ACRValues} {
-		if value != "" && len(value) < 1 {
-			return fmt.Errorf("invalid optional human authentication field")
-		}
-	}
 	for _, value := range []string{r.State, r.Nonce} {
-		if value != "" && (len(value) < 16 || len(value) > 500) {
+		if value != "" && (utf8.RuneCountInString(value) < 16 || utf8.RuneCountInString(value) > 500) {
 			return fmt.Errorf("invalid transaction binding")
 		}
 	}
@@ -57,7 +53,7 @@ func (r Request) Validate() error {
 }
 
 func (r Response) Validate() error {
-	if len(r.AccessToken) < 20 || r.TokenType != "Bearer" || r.ExpiresIn < 60 || r.ExpiresIn > 86400 || (r.IDToken != "" && len(r.IDToken) < 20) || (r.RefreshToken != "" && len(r.RefreshToken) < 20) || (r.Scope != "" && len(r.Scope) < 1) {
+	if utf8.RuneCountInString(r.AccessToken) < 20 || r.TokenType != "Bearer" || r.ExpiresIn < 60 || r.ExpiresIn > 86400 || (r.IDToken != "" && utf8.RuneCountInString(r.IDToken) < 20) || (r.RefreshToken != "" && utf8.RuneCountInString(r.RefreshToken) < 20) {
 		return fmt.Errorf("invalid canonical human authentication response")
 	}
 	return nil
@@ -97,7 +93,7 @@ func decodeClosed(raw []byte, allowed map[string]func(json.RawMessage) error) er
 
 func stringField(target *string, minimum, maximum int) func(json.RawMessage) error {
 	return func(value json.RawMessage) error {
-		if err := json.Unmarshal(value, target); err != nil || len(*target) < minimum || (maximum > 0 && len(*target) > maximum) {
+		if err := json.Unmarshal(value, target); err != nil || utf8.RuneCountInString(*target) < minimum || (maximum > 0 && utf8.RuneCountInString(*target) > maximum) {
 			return fmt.Errorf("invalid string field")
 		}
 		return nil
@@ -107,15 +103,15 @@ func stringField(target *string, minimum, maximum int) func(json.RawMessage) err
 func (r *Request) UnmarshalJSON(raw []byte) error {
 	var out Request
 	fields := map[string]func(json.RawMessage) error{
-		"grant_type": func(v json.RawMessage) error { return json.Unmarshal(v, &out.GrantType) },
-		"code_challenge": func(v json.RawMessage) error { return json.Unmarshal(v, &out.CodeChallenge) },
+		"grant_type":            func(v json.RawMessage) error { return json.Unmarshal(v, &out.GrantType) },
+		"code_challenge":        func(v json.RawMessage) error { return json.Unmarshal(v, &out.CodeChallenge) },
 		"code_challenge_method": func(v json.RawMessage) error { return json.Unmarshal(v, &out.CodeChallengeMethod) },
-		"client_id": stringField(&out.ClientID, 1, 255),
-		"redirect_uri": stringField(&out.RedirectURI, 1, 0),
-		"scope": stringField(&out.Scope, 1, 500),
-		"state": stringField(&out.State, 16, 500),
-		"nonce": stringField(&out.Nonce, 16, 500),
-		"acr_values": stringField(&out.ACRValues, 1, 500),
+		"client_id":             stringField(&out.ClientID, 1, 255),
+		"redirect_uri":          stringField(&out.RedirectURI, 1, 0),
+		"scope":                 stringField(&out.Scope, 1, 500),
+		"state":                 stringField(&out.State, 16, 500),
+		"nonce":                 stringField(&out.Nonce, 16, 500),
+		"acr_values":            stringField(&out.ACRValues, 1, 500),
 	}
 	if err := decodeClosed(raw, fields); err != nil || out.Validate() != nil {
 		return fmt.Errorf("invalid canonical human authentication request")
@@ -136,18 +132,26 @@ func exactLifetime(value json.RawMessage) (int, error) {
 	if !ok || !rational.IsInt() || !rational.Num().IsInt64() {
 		return 0, fmt.Errorf("integer lifetime required")
 	}
-	return int(rational.Num().Int64()), nil
+	lifetime := rational.Num().Int64()
+	if lifetime < 60 || lifetime > 86400 {
+		return 0, fmt.Errorf("lifetime outside canonical range")
+	}
+	return int(lifetime), nil
 }
 
 func (r *Response) UnmarshalJSON(raw []byte) error {
 	var out Response
 	fields := map[string]func(json.RawMessage) error{
 		"access_token": func(v json.RawMessage) error { return json.Unmarshal(v, &out.AccessToken) },
-		"token_type": func(v json.RawMessage) error { return json.Unmarshal(v, &out.TokenType) },
-		"expires_in": func(v json.RawMessage) error { var err error; out.ExpiresIn, err = exactLifetime(v); return err },
-		"id_token": stringField(&out.IDToken, 20, 0),
+		"token_type":   func(v json.RawMessage) error { return json.Unmarshal(v, &out.TokenType) },
+		"expires_in": func(v json.RawMessage) error {
+			var err error
+			out.ExpiresIn, err = exactLifetime(v)
+			return err
+		},
+		"id_token":      stringField(&out.IDToken, 20, 0),
 		"refresh_token": stringField(&out.RefreshToken, 20, 0),
-		"scope": stringField(&out.Scope, 1, 0),
+		"scope":         stringField(&out.Scope, 1, 0),
 		"session_state": func(v json.RawMessage) error { return json.Unmarshal(v, &out.SessionState) },
 	}
 	if err := decodeClosed(raw, fields); err != nil || out.Validate() != nil {
@@ -158,13 +162,17 @@ func (r *Response) UnmarshalJSON(raw []byte) error {
 }
 
 func (r Request) MarshalJSON() ([]byte, error) {
-	if err := r.Validate(); err != nil { return nil, err }
+	if err := r.Validate(); err != nil {
+		return nil, err
+	}
 	type wire Request
 	return json.Marshal(wire(r))
 }
 
 func (r Response) MarshalJSON() ([]byte, error) {
-	if err := r.Validate(); err != nil { return nil, err }
+	if err := r.Validate(); err != nil {
+		return nil, err
+	}
 	type wire Response
 	return json.Marshal(wire(r))
 }
