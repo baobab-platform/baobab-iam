@@ -3,6 +3,7 @@ package ory
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,12 +25,21 @@ type NativeHumanHandoff struct {
 	kratos, hydra, issuer *url.URL
 	client                *http.Client
 	now                   func() time.Time
+	fence                 NativeChallengeFence
+}
+
+// NativeChallengeFence must atomically consume each key exactly once across
+// replicas and restarts. Keys are hashes, not challenges or session credentials.
+// Failed/uncertain acceptance stays consumed; recovery starts a new flow.
+type NativeChallengeFence interface {
+	ConsumeNativeChallenge(context.Context, string) error
 }
 
 type NativeHumanConfig struct {
 	KratosPublicURL, HydraAdminURL, Issuer string
 	Client                                 *http.Client
 	Now                                    func() time.Time
+	Fence                                  NativeChallengeFence
 	// Disposable test providers only. Production constructors must leave false.
 	AllowLoopbackHTTP bool
 }
@@ -58,14 +68,14 @@ func NewNativeHumanHandoff(c NativeHumanConfig) (*NativeHumanHandoff, error) {
 	if err != nil {
 		return nil, err
 	}
-	if c.Now == nil {
-		return nil, fmt.Errorf("native handoff clock required")
+	if c.Now == nil || c.Fence == nil {
+		return nil, fmt.Errorf("native handoff clock and challenge fence required")
 	}
 	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	if c.Client != nil {
 		client.Transport = c.Client.Transport
 	}
-	return &NativeHumanHandoff{k, h, i, client, c.Now}, nil
+	return &NativeHumanHandoff{k, h, i, client, c.Now, c.Fence}, nil
 }
 
 func (h *NativeHumanHandoff) call(ctx context.Context, method, endpoint, token string, body, out any) error {
@@ -247,6 +257,10 @@ func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id, credential st
 	current, err := h.session(ctx, credential)
 	if err != nil || current != s {
 		return "", fmt.Errorf("native session changed during handoff")
+	}
+	key := fmt.Sprintf("%x", sha256.Sum256([]byte(h.issuer.String()+"\x00"+kind+"\x00"+id)))
+	if err := h.fence.ConsumeNativeChallenge(ctx, key); err != nil {
+		return "", fmt.Errorf("native challenge already consumed or fence unavailable")
 	}
 	var result struct {
 		Redirect string `json:"redirect_to"`

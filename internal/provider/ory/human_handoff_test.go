@@ -3,10 +3,15 @@ package ory
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	bolt "go.etcd.io/bbolt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -90,7 +95,7 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 				json.NewEncoder(w).Encode(c)
 			}))
 			defer server.Close()
-			h, err := NewNativeHumanHandoff(NativeHumanConfig{KratosPublicURL: server.URL, HydraAdminURL: server.URL, Issuer: server.URL, Client: server.Client(), Now: func() time.Time { return now }})
+			h, err := NewNativeHumanHandoff(NativeHumanConfig{KratosPublicURL: server.URL, HydraAdminURL: server.URL, Issuer: server.URL, Client: server.Client(), Now: func() time.Time { return now }, Fence: openNativeTestFence(t)})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -112,6 +117,9 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 }
 
 func TestNativeHumanRejectsUnprotectedOriginsAndUnsupportedIntent(t *testing.T) {
+	if _, err := NewNativeHumanHandoff(NativeHumanConfig{KratosPublicURL: "https://kratos.invalid", HydraAdminURL: "https://hydra-admin.invalid", Issuer: "https://issuer.invalid", Now: time.Now}); err == nil {
+		t.Fatal("constructor accepted absent replay fence")
+	}
 	if _, err := NewNativeHumanHandoff(NativeHumanConfig{KratosPublicURL: "http://127.0.0.1:4433", HydraAdminURL: "http://127.0.0.1:4445", Issuer: "http://127.0.0.1:4444", Now: time.Now}); err == nil {
 		t.Fatal("production constructor accepted plaintext")
 	}
@@ -119,4 +127,67 @@ func TestNativeHumanRejectsUnprotectedOriginsAndUnsupportedIntent(t *testing.T) 
 	if _, err := h.AcceptLogin(context.Background(), "challenge", "credential", humanauth.Request{}); err == nil {
 		t.Fatal("nil bridge accepted handoff")
 	}
+}
+
+func TestNativeChallengeFenceConcurrencyAndRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "fence.db")
+	db, err := bolt.Open(path, 0600, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fence := &nativeTestFence{db}
+	var accepted atomic.Int32
+	var workers sync.WaitGroup
+	for range 16 {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			if fence.ConsumeNativeChallenge(context.Background(), "same-key") == nil {
+				accepted.Add(1)
+			}
+		}()
+	}
+	workers.Wait()
+	if accepted.Load() != 1 {
+		t.Fatal("challenge fence admitted concurrent replay")
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = bolt.Open(path, 0600, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if (&nativeTestFence{db}).ConsumeNativeChallenge(context.Background(), "same-key") == nil {
+		t.Fatal("restart lost replay fence")
+	}
+}
+
+// Disposable durable test storage; production uses a shared atomic ledger.
+type nativeTestFence struct{ db *bolt.DB }
+
+func openNativeTestFence(t *testing.T) *nativeTestFence {
+	t.Helper()
+	db, err := bolt.Open(filepath.Join(t.TempDir(), "native-fence.db"), 0600, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return &nativeTestFence{db}
+}
+func (f *nativeTestFence) ConsumeNativeChallenge(ctx context.Context, key string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return f.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte("consumed"))
+		if err != nil {
+			return err
+		}
+		if bucket.Get([]byte(key)) != nil {
+			return fmt.Errorf("replay")
+		}
+		return bucket.Put([]byte(key), []byte{1})
+	})
 }

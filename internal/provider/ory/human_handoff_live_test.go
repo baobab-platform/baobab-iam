@@ -7,11 +7,14 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	bolt "go.etcd.io/bbolt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +58,7 @@ func TestLiveNativeHumanCanonicalHandoff(t *testing.T) {
 	defer foundationRequest(t, context.Background(), client, "DELETE", ka+"/admin/identities/"+registered.Identity.ID, nil, "", 204, nil)
 	foundationRequest(t, ctx, client, "POST", ha+"/admin/clients", map[string]any{"client_id": id, "grant_types": []string{"authorization_code"}, "response_types": []string{"code"}, "scope": "openid", "redirect_uris": []string{callback}, "token_endpoint_auth_method": "none", "subject_type": "public"}, "", 201, nil)
 	defer foundationRequest(t, context.Background(), client, "DELETE", ha+"/admin/clients/"+id, nil, "", 204, nil)
-	h, err := ory.NewNativeHumanHandoff(ory.NativeHumanConfig{KratosPublicURL: kratos, HydraAdminURL: ha, Issuer: issuer, Now: time.Now, AllowLoopbackHTTP: true})
+	h, err := ory.NewNativeHumanHandoff(ory.NativeHumanConfig{KratosPublicURL: kratos, HydraAdminURL: ha, Issuer: issuer, Now: time.Now, Fence: openNativeTestFence(t), AllowLoopbackHTTP: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,4 +189,32 @@ func TestLiveNativeHumanCanonicalHandoff(t *testing.T) {
 		t.Fatal("revoked session accepted on a fresh login challenge")
 	}
 	t.Log("real Kratos session to Hydra S256 code, canonical response, signed ID token, exact subject/nonce and replay denial passed")
+}
+
+// Disposable durable test storage; production uses a shared atomic ledger.
+type nativeTestFence struct{ db *bolt.DB }
+
+func openNativeTestFence(t *testing.T) *nativeTestFence {
+	t.Helper()
+	db, err := bolt.Open(filepath.Join(t.TempDir(), "native-fence.db"), 0600, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return &nativeTestFence{db}
+}
+func (f *nativeTestFence) ConsumeNativeChallenge(ctx context.Context, key string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return f.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte("consumed"))
+		if err != nil {
+			return err
+		}
+		if bucket.Get([]byte(key)) != nil {
+			return fmt.Errorf("replay")
+		}
+		return bucket.Put([]byte(key), []byte{1})
+	})
 }
