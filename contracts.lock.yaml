@@ -63,6 +63,8 @@ contracts:
   # Capabilities declared in .baobab/capability-provider.yaml.
   - contracts/identity/v1/workload-token-request.schema.json
   - contracts/identity/v1/workload-token-response.schema.json
+  - contracts/identity/v1/human-authentication-request.schema.json
+  - contracts/identity/v1/human-authentication-response.schema.json
   - contracts/identity/v1/capabilities.yaml
   # Canonical workloads, credential types and allowed scopes (ADR-0007).
   - contracts/identity/v1/workload-registry.yaml
