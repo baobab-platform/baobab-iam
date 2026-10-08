@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
+	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
+	"github.com/baobab-platform/baobab-iam/internal/tokenprofile"
 )
 
 func TestLiveCPContextRoute(t *testing.T) {
@@ -156,5 +158,53 @@ func TestLiveCPContextRoute(t *testing.T) {
 	data, err := json.MarshalIndent(evidence, "", "  ")
 	if err != nil || os.WriteFile(filepath.Join(os.Getenv("ORY_M4_EVIDENCE_DIR"), "cp-context-route.json"), append(data, '\n'), 0600) != nil {
 		t.Fatal("write safe route evidence")
+	}
+}
+
+// TestLiveCanonicalCPContextRoute proves the complete fixture composition:
+// authenticated Hydra admission of ACTIVE workloads, signed token issuance,
+// CP's production verifier and the actual protected context route. The CP
+// registry and identities remain isolated fixtures, so this is integration
+// evidence rather than live registration or deployment acceptance.
+func TestLiveCanonicalCPContextRoute(t *testing.T) {
+	if os.Getenv("ORY_CP_ROUTE_PROBE") == "" || os.Getenv("ORY_TOKEN_PROFILE") != "1" {
+		t.Skip("requires immutable CP route probe and isolated canonical Hydra hook")
+	}
+	f := newWorkloadFixture(t)
+	issue := func(id, scope, audience string) string {
+		w, err := f.adapter.ProvisionWorkload(f.ctx, provider.WorkloadProvisioningSpec{LogicalClientID: id, AllowedScopes: []string{scope}, Audiences: []string{audience}, AuthMethod: provider.WorkloadAuthClientSecret})
+		if err != nil {
+			t.Fatal("provision canonical route fixture")
+		}
+		f.cleanup(t, "/admin/clients/"+url.PathEscape(id))
+		form := secretForm(id, w.ClientSecret, scope)
+		form.Set("audience", audience)
+		token := f.exchange(t, form, false)
+		if _, err := ory.ProjectWorkloadTokenResponse(token.RawResponse, tokenprofile.WorkloadTokenRequest{WorkloadID: id, Audience: audience, Scopes: []string{scope}}); err != nil {
+			t.Fatal("canonical route token projection failed")
+		}
+		return token.AccessToken
+	}
+	validator := issue("m4-ci-validator", "context:validate", "baobab-control-plane")
+	subject := issue("m4-ci-subject", "context:resolve", "baobab-erp")
+	input, err := json.Marshal(map[string]string{"validator": validator, "subject": subject, "scenario": "owned"})
+	if err != nil {
+		t.Fatal("encode canonical route input")
+	}
+	cmd := exec.CommandContext(f.ctx, os.Getenv("ORY_CP_ROUTE_PROBE"))
+	cmd.Stdin = bytes.NewReader(input)
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatal("canonical CP route probe infrastructure failure")
+	}
+	var result struct {
+		Status            int  `json:"status"`
+		CredentialsAbsent bool `json:"credentials_absent"`
+		ContextMatches    bool `json:"context_matches"`
+		NoStore           bool `json:"no_store"`
+		LegalEntityAbsent bool `json:"legal_entity_absent"`
+	}
+	if json.Unmarshal(output, &result) != nil || result.Status != http.StatusOK || !result.CredentialsAbsent || !result.ContextMatches || !result.NoStore || !result.LegalEntityAbsent {
+		t.Fatal("canonically admitted tokens were not accepted by the protected CP route")
 	}
 }
