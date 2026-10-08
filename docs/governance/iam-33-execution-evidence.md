@@ -231,3 +231,16 @@ principal, tenant and context fixtures. It does not prove current live CP
 registration, deployed resource consumption, staging acceptance or production
 acceptance. Provider declarations remain PARTIAL pending complete capability
 entry-path evidence and owner-approved live registration inputs.
+### C3 human authentication canonical boundary
+
+The IAM domain now mirrors the pinned Shared human authentication request and
+response envelopes for Authorization Code with S256 PKCE. Closed decoding rejects
+unknown, duplicate, null and trailing fields; transaction bindings, redirect URI,
+token lifetime and optional token fields retain the exact Shared bounds. Exact
+numeric parsing prevents fractional lifetimes from crossing the integer contract.
+The Shared validator independently checks the common corpus at the immutable pin.
+
+This establishes provider-neutral wire types only. Kratos native authentication
+and permanent Keycloak enterprise federation remain PARTIAL until their real
+browser entry paths project into this boundary, verify returned tokens and prove
+estate consumption, replay denial, assurance and session behavior.
