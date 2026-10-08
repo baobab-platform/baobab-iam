@@ -2,21 +2,332 @@
   {
     "schema": "identity/v1/human-authentication-request.schema.json",
     "valid": true,
-    "value": {"grant_type": "authorization_code", "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "code_challenge_method": "S256", "redirect_uri": "https://estate.example/callback", "state": "0123456789abcdef", "nonce": "fedcba9876543210"}
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210"
+    },
+    "name": "canonical request"
   },
   {
     "schema": "identity/v1/human-authentication-request.schema.json",
     "valid": false,
-    "value": {"grant_type": "authorization_code", "code_challenge": "short", "code_challenge_method": "plain"}
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "short",
+      "code_challenge_method": "plain"
+    },
+    "name": "invalid request"
   },
   {
     "schema": "identity/v1/human-authentication-response.schema.json",
     "valid": true,
-    "value": {"access_token": "xxxxxxxxxxxxxxxxxxxx", "token_type": "Bearer", "expires_in": 60, "id_token": "yyyyyyyyyyyyyyyyyyyy"}
+    "value": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "id_token": "yyyyyyyyyyyyyyyyyyyy"
+    },
+    "name": "canonical response"
   },
   {
     "schema": "identity/v1/human-authentication-response.schema.json",
     "valid": false,
-    "value": {"access_token": "short", "token_type": "bearer", "expires_in": 59}
+    "value": {
+      "access_token": "short",
+      "token_type": "bearer",
+      "expires_in": 59
+    },
+    "name": "invalid response"
+  },
+  {
+    "name": "short Unicode state",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "😀😀😀😀",
+      "nonce": "fedcba9876543210"
+    }
+  },
+  {
+    "name": "Unicode state minimum",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": true,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "nonce": "fedcba9876543210"
+    }
+  },
+  {
+    "name": "Unicode nonce maximum",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": true,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    }
+  },
+  {
+    "name": "Unicode nonce overflow",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    }
+  },
+  {
+    "name": "Unicode challenge minimum",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": true,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210"
+    }
+  },
+  {
+    "name": "Unicode client maximum",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": true,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210",
+      "client_id": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    }
+  },
+  {
+    "name": "Unicode client overflow",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210",
+      "client_id": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    }
+  },
+  {
+    "name": "empty client_id",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210",
+      "client_id": ""
+    }
+  },
+  {
+    "name": "empty scope",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210",
+      "scope": ""
+    }
+  },
+  {
+    "name": "empty state",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "",
+      "nonce": "fedcba9876543210"
+    }
+  },
+  {
+    "name": "empty nonce",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": ""
+    }
+  },
+  {
+    "name": "empty acr_values",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210",
+      "acr_values": ""
+    }
+  },
+  {
+    "name": "missing grant_type",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210"
+    }
+  },
+  {
+    "name": "missing code_challenge",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge_method": "S256",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210"
+    }
+  },
+  {
+    "name": "missing code_challenge_method",
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {
+      "grant_type": "authorization_code",
+      "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "redirect_uri": "https://estate.example/callback",
+      "state": "0123456789abcdef",
+      "nonce": "fedcba9876543210"
+    }
+  },
+  {
+    "name": "short Unicode token",
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": false,
+    "value": {
+      "access_token": "😀😀😀😀😀",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "id_token": "yyyyyyyyyyyyyyyyyyyy"
+    }
+  },
+  {
+    "name": "Unicode token minimum",
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": true,
+    "value": {
+      "access_token": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "id_token": "yyyyyyyyyyyyyyyyyyyy"
+    }
+  },
+  {
+    "name": "null ID token",
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": false,
+    "value": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "id_token": null
+    }
+  },
+  {
+    "name": "empty scope",
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": false,
+    "value": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "id_token": "yyyyyyyyyyyyyyyyyyyy",
+      "scope": ""
+    }
+  },
+  {
+    "name": "empty session state",
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": true,
+    "value": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "id_token": "yyyyyyyyyyyyyyyyyyyy",
+      "session_state": ""
+    }
+  },
+  {
+    "name": "lifetime maximum",
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": true,
+    "value": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 86400,
+      "id_token": "yyyyyyyyyyyyyyyyyyyy"
+    }
+  },
+  {
+    "name": "lifetime overflow",
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": false,
+    "value": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 86401,
+      "id_token": "yyyyyyyyyyyyyyyyyyyy"
+    }
+  },
+  {
+    "name": "32bit wraparound lifetime",
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": false,
+    "value": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 4294967356,
+      "id_token": "yyyyyyyyyyyyyyyyyyyy"
+    }
   }
 ]
