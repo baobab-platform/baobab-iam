@@ -34,8 +34,9 @@ providers:
   implementation_key: kratos
 - provider_key: baobab-iam.hydra
   name: Hydra OAuth and workloads
-  description: Client and projected-assertion issuance mechanics exist; M4-F audience and actual
-    registered resource consumption remain open.
+  description: Client and projected-assertion issuance mechanics exist; the isolated Hydra audience
+    candidate passes CP verifier acceptance. Canonical issuance dispatch and live registered
+    resource consumption remain open.
   provider_type: ADAPTER
   simulated: false
   production_permitted: true
@@ -53,6 +54,8 @@ providers:
       path: internal/provider/ory/hydra.go
     - type: integration-test
       path: internal/provider/ory/hydra_federated_workload_test.go
+    - type: integration-test
+      path: internal/provider/ory/token_profile_live_test.go
   implementation_key: hydra
 - provider_key: baobab-iam.keycloak
   name: Permanent enterprise federation and SSO
