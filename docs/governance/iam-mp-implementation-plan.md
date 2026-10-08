@@ -22,6 +22,11 @@ C3 executable-support convergence: actual adapter metadata is compared with
 canonical declarations in CI. Strict publication requires the executable census;
 PARTIAL support remains excluded. Full canonical entry-path completion and live
 CP registration remain open; this construction check is not runtime readiness.
+C3 canonical workload admission on baseline `f740403` (merged #94):
+closed Shared request decoding and ACTIVE-only registration/credential/scope/
+audience admission reuse the token-profile hook's evidence checks. This is an
+admission library; composed issuance and current CP binding dispatch remain
+open. See [workload admission](../operations/canonical-workload-admission.md).
 **Date:** 2026-10-08.
 **Current evidence:** [Programme status](iam-mp-programme-status.md), reconciled
 against IAM `a927259753a0d2dee16f8df6f5509c5dc9cb18e9`.
