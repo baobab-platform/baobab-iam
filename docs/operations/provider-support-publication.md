@@ -63,3 +63,56 @@ providers and zero registrations, as required. No live publication was run.
 Docker/container scanning, live OIDC/SAML providers and PostgreSQL tests were
 not run here because their executable environments are unavailable. Staging
 and production acceptance remain open.
+
+## C3 runtime profile publication client
+
+`scripts/runtime_profile_publication.py` consumes an owner-supplied, secret-free
+Shared `IdentityProviderRuntimeProfile`. It never derives VERIFIED evidence
+from local tests or invents CP provider, instance or reference identifiers.
+Use the exact clean Shared pin and independently reviewed target arguments:
+
+```sh
+python3 scripts/runtime_profile_publication.py \
+  --shared-checkout .shared-contracts --profile approved-runtime-profile.json \
+  --provider-id "$CP_PROVIDER_ID" --engine-instance-id "$CP_ENGINE_INSTANCE_ID" \
+  --artifact-digest "$APPROVED_ARTIFACT_DIGEST" \
+  --configuration-reference "$CP_CONFIGURATION_REFERENCE" \
+  --security-domain-reference "$CP_SECURITY_DOMAIN_REFERENCE"
+```
+
+The default is validation only. To submit, append `--publish --cp-origin` with
+the protected HTTPS CP origin, and optionally `--ca-file` for its trust bundle.
+Supply `CP_RUNTIME_OBSERVER_TOKEN` through protected environment configuration;
+never put credentials in arguments, profile documents or evidence receipts.
+CP must independently admit that workload for `identity-runtime:observe` and
+the target environment/regions. The existing
+`POST /internal/identity-runtime/v1/profiles` API checks registered targets,
+current authority, references, artifact, revisions and idempotent replay.
+The client rejects duplicate JSON, duplicated facets, substituted targets,
+future publication, mismatched/expired evidence, non-HTTPS origins and
+redirects. TLS verification stays enabled; publication is bounded to ten seconds
+(default), at most thirty seconds, and has no automatic retries or fallback.
+
+An exact 201 RECORDED or 200 REPLAY receipt is accepted only for the submitted
+provider, instance and revision. The output includes a digest of the submitted
+wire bytes, not a CP content digest. `CP_PROFILE_RECORDED` means the API accepted
+an observation; `runtime_authority_verified` remains false. It proves neither
+ACTIVE support, a current capability binding, runtime health nor readiness.
+Consumers still need current CP resolution and readiness revalidation.
+
+Construction tests cover the canonical profile, negative evidence/target
+validation, bounded publication, exact replay/receipts and failure handling.
+No live publication was executed: protected CP origin/trust configuration,
+registered observer credentials, independently approved targets/evidence and
+release digests remain required. All three full capability declarations remain
+PARTIAL and the strict registration gate remains blocked. Hydra's isolated
+candidate now passes fixture CP-verifier acceptance (#90); this is not a live
+registered resource-server or estate acceptance claim. C4 native/workload
+adapter dispatch remains open and must not activate from these receipts.
+
+Validation on the C3 publication-client branch based on IAM `4c7f57a`:
+40 Python tests passed, including 11 runtime-publication tests; IAM `go test
+./...`, `go vet ./...`, `go build ./...`, and race tests for federation, Ory and
+the executable authority command passed. Pinned Shared declaration validation
+passed. Live provider/container/PostgreSQL/staging runs require their environments;
+local unit successes are not operational acceptance.

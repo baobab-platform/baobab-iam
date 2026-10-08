@@ -87,3 +87,20 @@ The baseline MP3/MP4 table above describes the audited main. This increment
 closes the bounded enterprise dispatch gap, not production support publication,
 native/workload dispatch, neutral discovery, supervised deployed context renewal
 or MP17/MP19/MP20 acceptance. No registry or Shared capability is duplicated.
+
+## C3 runtime-profile publication construction (2026-10-08)
+
+Baseline: IAM `4c7f57a`, Shared `70f92ee179888e9fd38e31ae9225060d76833944`,
+CP `897cc6c`. IAM can validate and submit owner-supplied canonical runtime
+profiles through CP's existing scoped API. Local canonical/transport negatives
+pass. CP alone admits observations and governs registered support and dispatch.
+
+| Gate | Repository construction | Integration / operational acceptance | Dependency / owner |
+|---|---|---|---|
+| MP3/C3 runtime observation publication | Client and canonical tests implemented | Live publication not run; staging/production open | CP/platform owners: registered targets, observer admission, approved references, immutable artifact/evidence |
+| MP3 canonical support/registration | Preflight implemented; three PARTIAL declarations excluded | Strict gate remains blocked; zero draft registrations | IAM: full canonical human/workload contract implementation and composed proof |
+| MP4/C4 native/workload dispatch | Open | Not verified; no activation | IAM/CP: canonical support completion and current governed bindings |
+| M4-F consumer acceptance | Hydra candidate/fixture CP verifier passed in #90 | Actual registered consumer, staging and production remain open | Consumer/platform owners: registered consumer and live acceptance environment |
+
+The existing MP0–MP20 matrix remains applicable. This increment does not close
+any estate, HA/DR, migration/cutover or production certification gate.
