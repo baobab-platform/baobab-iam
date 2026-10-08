@@ -24,3 +24,7 @@
 # against the 38 other h1: lines in the same patch, which it does not flag. Keep this fingerprint exact (it names the
 # commit) so no other finding in the patch is hidden.
 a23746136065d290d18afca5430e664b3ade4be5:tests/ory-foundation/hydra-audience/security.patch:generic-api-key:157
+
+# Same go.sum checksum finding as above, as re-fingerprinted by the squash merge of #90 (commit 4d9ae2c). Fingerprints name
+# the commit, and history scans on main see the squashed commit rather than the PR branch commit. Exact, not a path wildcard.
+4d9ae2c9fb5d35315223d7fdd1ed5bf380f9c3db:tests/ory-foundation/hydra-audience/security.patch:generic-api-key:157
