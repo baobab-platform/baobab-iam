@@ -63,6 +63,8 @@ func TestLiveTokenProfileFederatedAudienceBoundary(t *testing.T) {
 					"wrong_issuer": wrongIssuer, "expected_client_id": id, "expected_subject": subject})
 				cmd := exec.CommandContext(f.ctx, os.Getenv("ORY_CP_CONSUMER_PROBE"))
 				cmd.Stdin = bytes.NewReader(input)
+				var stderr bytes.Buffer
+				cmd.Stderr = &stderr
 				output, err := cmd.Output()
 				var result struct {
 					Verified bool `json:"verified"`
@@ -71,7 +73,9 @@ func TestLiveTokenProfileFederatedAudienceBoundary(t *testing.T) {
 				}
 				if err != nil || json.Unmarshal(output, &result) != nil || result.Verified != wantVerified ||
 					result.Scope != wantScope || (wantVerified && !result.Identity) {
-					t.Fatal("candidate CP consumer verification failed")
+					// The probe's output is booleans only and it never prints the token, so this is safe to log.
+					t.Fatalf("candidate CP consumer verification failed: want verified=%t scope=%t, got %s; exec error: %v; stderr: %.300s",
+						wantVerified, wantScope, strings.TrimSpace(string(output)), err, stderr.String())
 				}
 			}
 			probe(token.AccessToken, p.Audiences[0], p.Scopes[0], false, true, true)
