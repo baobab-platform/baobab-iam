@@ -15,6 +15,8 @@ selected = {
     'baobab-trade-workload': 'client_credentials',
     'baobab-cp-workload': 'federated_workload_token',
     'baobab-subscriptions-workload': 'federated_workload_token',
+    # FB-05: the dedicated staging evidence provisioner (ACTIVE by explicit, bounded exception).
+    'baobab-cp-provisioning-evidence-workload': 'federated_workload_token',
 }
 profiles = {}
 for name, credential_type in selected.items():
@@ -28,4 +30,4 @@ for name, credential_type in selected.items():
 destination = ROOT / 'ory-foundation-evidence/workload-profiles.json'
 destination.write_text(json.dumps({'shared_commit': lock['source']['commit'],
                                    'workloads': profiles}, indent=2) + '\n')
-print('Loaded three workload fixture profiles from the exact Shared commit')
+print('Loaded the workload fixture profiles from the exact Shared commit')

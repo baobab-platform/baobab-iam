@@ -27,7 +27,11 @@ import (
 
 const bearerGrant = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 
+// evidenceWorkload is the dedicated staging evidence provisioner (FB-05).
+const evidenceWorkload = "baobab-cp-provisioning-evidence-workload"
+
 type workloadProfile struct {
+	Environment    string   `json:"environment"`
 	CredentialType string   `json:"credential_type"`
 	Status         string   `json:"status"`
 	Scopes         []string `json:"allowed_scopes"`
@@ -201,11 +205,20 @@ func TestLiveWorkloadClientCredentials(t *testing.T) {
 
 func TestLiveWorkloadFederated(t *testing.T) {
 	f := newWorkloadFixture(t)
-	for _, id := range []string{"baobab-cp-workload", "baobab-subscriptions-workload"} {
+	// FB-05: the staging evidence provisioner is the one federated workload that is ACTIVE at the Shared pin (a bounded, explicit
+	// staging exception); the others stay PROVISIONED. A change of either status fails here so the evidence is reviewed.
+	for _, id := range []string{"baobab-cp-workload", "baobab-subscriptions-workload", evidenceWorkload} {
 		t.Run(id, func(t *testing.T) {
 			p := f.profile(t, id, "federated_workload_token")
-			if p.Status != "PROVISIONED" {
-				t.Fatal("federated fixture is no longer PROVISIONED at Shared pin; review activation evidence")
+			wantStatus := "PROVISIONED"
+			if id == evidenceWorkload {
+				wantStatus = "ACTIVE"
+				if p.Environment != "staging" || !sameScopes(p.Scopes, []string{"erp:provision"}) || !sameScopes(p.Audiences, []string{"baobab-erp"}) {
+					t.Fatal("evidence provisioner differs from its bounded staging profile at the Shared pin")
+				}
+			}
+			if p.Status != wantStatus {
+				t.Fatalf("federated fixture is no longer %s at Shared pin; review activation evidence", wantStatus)
 			}
 			key, err := rsa.GenerateKey(rand.Reader, 2048)
 			if err != nil {
@@ -283,6 +296,49 @@ func TestLiveWorkloadFederated(t *testing.T) {
 					t.Fatal("federated secret rotation accepted")
 				}
 				f.exchange(t, secretForm(id, "invalid-ci-credential", p.Scopes[0]), true)
+			})
+			t.Run("rotation-replaces-trusted-key", func(t *testing.T) {
+				// Same client, a distinct subject so this subtest owns both trust grants. Rotation is revoke-then-install: the
+				// adapter refuses to swap the key of an existing trust (no silent overlap), and a removed key stops working at once.
+				rotSubject := subject + ":rotation"
+				claimsFor := func() map[string]any {
+					c := newClaims()
+					c["sub"] = rotSubject
+					return c
+				}
+				publicJWK := func(k *rsa.PrivateKey, kid string) map[string]any {
+					return map[string]any{"kty": "RSA", "use": "sig", "alg": "RS256", "kid": kid, "n": base64.RawURLEncoding.EncodeToString(k.N.Bytes()), "e": base64.RawURLEncoding.EncodeToString(big.NewInt(int64(k.E)).Bytes())}
+				}
+				// One expiry for every spec, so the only difference between the two is the key.
+				expires := time.Now().UTC().Add(15 * time.Minute).Truncate(time.Second)
+				spec := func(k *rsa.PrivateKey, kid string) provider.FederatedWorkloadTrustSpec {
+					return provider.FederatedWorkloadTrustSpec{LogicalClientID: id, AllowedScopes: p.Scopes, IntendedAudiences: p.Audiences, AssertionIssuer: assertionIssuer, AssertionSubject: rotSubject, AssertionJWK: publicJWK(k, kid), TrustExpiresAt: expires}
+				}
+				oldKey, newKey := key, func() *rsa.PrivateKey {
+					k, err := rsa.GenerateKey(rand.Reader, 2048)
+					if err != nil {
+						t.Fatal("generate rotated assertion signer")
+					}
+					return k
+				}()
+				oldKID, newKID := kid+"-old", kid+"-new"
+				oldTrust, err := f.adapter.ProvisionFederatedWorkload(f.ctx, spec(oldKey, oldKID))
+				if err != nil {
+					t.Fatal("provision the key to be rotated")
+				}
+				f.exchange(t, form(signAssertion(t, oldKey, oldKID, claimsFor()), p.Scopes[0]), false)
+				if _, err := f.adapter.ProvisionFederatedWorkload(f.ctx, spec(newKey, newKID)); err == nil {
+					t.Fatal("a second key silently replaced the trusted key of an existing trust")
+				}
+				foundationRequest(t, f.ctx, f.client, http.MethodDelete, f.admin+"/admin/trust/grants/jwt-bearer/issuers/"+url.PathEscape(oldTrust.TrustID), nil, "", http.StatusNoContent, nil)
+				f.exchange(t, form(signAssertion(t, oldKey, oldKID, claimsFor()), p.Scopes[0]), true)
+				newTrust, err := f.adapter.ProvisionFederatedWorkload(f.ctx, spec(newKey, newKID))
+				if err != nil {
+					t.Fatal("install the rotated key")
+				}
+				f.cleanup(t, "/admin/trust/grants/jwt-bearer/issuers/"+url.PathEscape(newTrust.TrustID))
+				f.exchange(t, form(signAssertion(t, newKey, newKID, claimsFor()), p.Scopes[0]), false)
+				f.exchange(t, form(signAssertion(t, oldKey, oldKID, claimsFor()), p.Scopes[0]), true)
 			})
 			t.Run("revoke-denies-future-exchange", func(t *testing.T) {
 				if err := f.adapter.RevokeWorkload(f.ctx, provider.ProviderWorkloadReference{LogicalClientID: id}); err != nil {
