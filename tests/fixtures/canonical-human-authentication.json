@@ -1,0 +1,22 @@
+[
+  {
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": true,
+    "value": {"grant_type": "authorization_code", "code_challenge": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "code_challenge_method": "S256", "redirect_uri": "https://estate.example/callback", "state": "0123456789abcdef", "nonce": "fedcba9876543210"}
+  },
+  {
+    "schema": "identity/v1/human-authentication-request.schema.json",
+    "valid": false,
+    "value": {"grant_type": "authorization_code", "code_challenge": "short", "code_challenge_method": "plain"}
+  },
+  {
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": true,
+    "value": {"access_token": "xxxxxxxxxxxxxxxxxxxx", "token_type": "Bearer", "expires_in": 60, "id_token": "yyyyyyyyyyyyyyyyyyyy"}
+  },
+  {
+    "schema": "identity/v1/human-authentication-response.schema.json",
+    "valid": false,
+    "value": {"access_token": "short", "token_type": "bearer", "expires_in": 59}
+  }
+]
