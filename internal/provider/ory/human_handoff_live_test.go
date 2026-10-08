@@ -149,6 +149,28 @@ func TestLiveNativeHumanCanonicalHandoff(t *testing.T) {
 	if _, err := h.AcceptConsent(ctx, consent, registered.SessionToken, intent, true); err == nil {
 		t.Fatal("consent challenge replay accepted")
 	}
+	// A fresh flow proves verifier mismatch, separately from used-code replay.
+	intent.State = strings.Repeat("b", 32)
+	intent.Nonce = strings.Repeat("c", 32)
+	query.Set("state", intent.State)
+	query.Set("nonce", intent.Nonce)
+	login = next(issuer + "/oauth2/auth?" + query.Encode()).Query().Get("login_challenge")
+	redirect, err = h.AcceptLogin(ctx, login, registered.SessionToken, intent)
+	if err != nil {
+		t.Fatal("fresh native login denied", err)
+	}
+	consent = next(redirect).Query().Get("consent_challenge")
+	redirect, err = h.AcceptConsent(ctx, consent, registered.SessionToken, intent, true)
+	if err != nil {
+		t.Fatal("fresh native consent denied", err)
+	}
+	code = next(redirect).Query().Get("code")
+	if code == "" {
+		t.Fatal("fresh native authorization code absent")
+	}
+	if status, _ := exchange(strings.Repeat("z", 43)); status == 200 {
+		t.Fatal("wrong S256 verifier accepted")
+	}
 	a, err := ory.NewAdapter(ory.Config{KratosAdminURL: ka, HydraAdminURL: ha, PublicIssuer: issuer, HTTPClient: client})
 	if err != nil {
 		t.Fatal(err)
@@ -156,8 +178,12 @@ func TestLiveNativeHumanCanonicalHandoff(t *testing.T) {
 	if err := a.RevokeSessions(ctx, provider.ExternalSubject{Issuer: issuer, Subject: registered.Identity.ID}); err != nil {
 		t.Fatal(err)
 	}
+	login = next(issuer + "/oauth2/auth?" + query.Encode()).Query().Get("login_challenge")
+	if login == "" {
+		t.Fatal("fresh revocation-test login challenge absent")
+	}
 	if _, err := h.AcceptLogin(ctx, login, registered.SessionToken, intent); err == nil {
-		t.Fatal("revoked session/replayed login accepted")
+		t.Fatal("revoked session accepted on a fresh login challenge")
 	}
 	t.Log("real Kratos session to Hydra S256 code, canonical response, signed ID token, exact subject/nonce and replay denial passed")
 }
