@@ -44,12 +44,13 @@ export ORY_SMOKE=1 ORY_FOUNDATION=1 ORY_WORKLOAD=1
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
 # Test output contains only statuses, never fixture credential or response bodies.
-go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
+go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
 python3 - <<'PY'
 import json
 from pathlib import Path
 events = [json.loads(line) for line in Path('ory-foundation-evidence/tests.jsonl').read_text().splitlines()]
 for name in ('TestSmoke_ProviderInfoAgainstLocalStack', 'TestLiveFoundation',
+             'TestLiveNativeHumanCanonicalHandoff',
              'TestLiveFoundation/authorized-human-migration-and-lifecycle',
              'TestLiveFoundation/real-session-revocation',
              'TestLiveWorkloadClientCredentials', 'TestLiveWorkloadFederated',
