@@ -11,13 +11,17 @@ declarations remain PARTIAL; the strict publication gate is blocked. Reviewed
 registration-export comparison is offline construction drift evidence, not live
 CP projection or readiness. See
 [provider-support publication](../operations/provider-support-publication.md).
-C3 runtime-profile publication client (2026-10-08): the pinned Shared profile
+C3 runtime-profile publication client #93 merged at `9195532` (2026-10-08): the pinned Shared profile
 is validated before submission to CP's existing scoped observation API. Exact
 owner-reviewed provider/instance/configuration/security-domain/artifact targets,
 time-bounded evidence and exact CP receipts are required. No capability
 support promotion or binding activation is performed. Construction verification
 is implemented; live registration, support completion, staging and production
 acceptance remain open. C4 remains the next increment after the C3 gate.
+C3 executable-support convergence: actual adapter metadata is compared with
+canonical declarations in CI. Strict publication requires the executable census;
+PARTIAL support remains excluded. Full canonical entry-path completion and live
+CP registration remain open; this construction check is not runtime readiness.
 **Date:** 2026-10-08.
 **Current evidence:** [Programme status](iam-mp-programme-status.md), reconciled
 against IAM `a927259753a0d2dee16f8df6f5509c5dc9cb18e9`.

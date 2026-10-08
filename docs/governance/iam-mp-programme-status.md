@@ -104,3 +104,12 @@ pass. CP alone admits observations and governs registered support and dispatch.
 
 The existing MP0–MP20 matrix remains applicable. This increment does not close
 any estate, HA/DR, migration/cutover or production certification gate.
+
+C3 executable-support convergence on baseline `9195532`: Ory and permanent
+Keycloak adapter ports export separate Kratos/Hydra/Keycloak construction
+declarations. CI compares capability keys, contract majors, implementation keys
+and statuses against pinned-Shared-validated declarations. 43 Python tests, Go
+tests, provider/federation/authority race tests, vet and build passed locally.
+Strict registration still returns exit 2 with three PARTIAL providers and zero
+registrations. Construction drift detection is implemented; full canonical
+entry paths, live registration, staging and production acceptance remain open.

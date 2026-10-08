@@ -78,6 +78,35 @@ class PublicationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 publication.prepare(self.module, self.checkout, declaration)
 
+    def census(self):
+        return {'classification': 'EXECUTABLE_CONSTRUCTION_CENSUS', 'providers': [
+            {'provider_key': p['provider_key'], 'implementation_key': p['implementation_key'],
+             'support': [{k: entry[k] for k in ('capability_key', 'contract_versions', 'implementation_status')}
+                         for entry in p['support']]}
+            for p in self.declaration['providers']]}
+
+    def test_executable_convergence(self):
+        publication.compare_executable_support(self.declaration, self.census())
+
+    def test_executable_drift_and_premature_promotion_denied(self):
+        for field, value in (('implementation_status', 'IMPLEMENTED'),
+                             ('contract_versions', [2]), ('capability_key', 'identity.human.provision')):
+            census = self.census()
+            census['providers'][0]['support'][0][field] = value
+            with self.assertRaises(ValueError):
+                publication.compare_executable_support(self.declaration, census)
+
+    def test_provider_substitution_missing_duplicate_and_extra_denied(self):
+        for mutate in (lambda c: c['providers'].pop(),
+                       lambda c: c['providers'].append(copy.deepcopy(c['providers'][0])),
+                       lambda c: c['providers'][0].update(implementation_key='hydra'),
+                       lambda c: c['providers'][0].update(provider_key='unregistered'),
+                       lambda c: c.update(classification='CP_AUTHORITY')):
+            census = self.census()
+            mutate(census)
+            with self.assertRaises(ValueError):
+                publication.compare_executable_support(self.declaration, census)
+
     def test_wrong_pin_denied_before_loading_shared_code(self):
         with tempfile.TemporaryDirectory() as directory:
             repository = Path(directory)

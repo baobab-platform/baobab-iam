@@ -95,10 +95,37 @@ def compare_exports(module, contracts, registrations, exports):
     return drift
 
 
+def compare_executable_support(declaration, census):
+    """Bind publication eligibility to adapter declarations; never runtime truth."""
+    if not isinstance(census, dict) or set(census) != {'classification', 'providers'} or census['classification'] != 'EXECUTABLE_CONSTRUCTION_CENSUS':
+        raise ValueError('invalid executable support census')
+    rows = census['providers']
+    if not isinstance(rows, list):
+        raise ValueError('invalid executable provider list')
+    actual = {}
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {'provider_key', 'implementation_key', 'support'}:
+            raise ValueError('invalid executable provider declaration')
+        key = row['provider_key']
+        if not isinstance(key, str) or key in actual:
+            raise ValueError('duplicate or invalid executable provider')
+        actual[key] = row
+    expected = {p['provider_key']: {k: p[k] for k in ('provider_key', 'implementation_key', 'support')}
+                for p in declaration['providers']}
+    # Evidence paths remain validated through Shared; executable code reports
+    # conformance, not copies of the declaration's documentary evidence.
+    for row in expected.values():
+        row['support'] = [{k: s[k] for k in ('capability_key', 'contract_versions', 'implementation_status')}
+                          for s in row['support']]
+    if actual != expected:
+        raise ValueError('canonical declaration and executable support drift')
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--shared-checkout', type=Path, required=True)
     parser.add_argument('--registration-export', type=Path)
+    parser.add_argument('--executable-support-export', type=Path)
     parser.add_argument('--require-registrable', action='store_true')
     args = parser.parse_args(argv)
     try:
@@ -108,6 +135,10 @@ def main(argv=None):
         declaration = yaml.safe_load(raw)
         contracts, registrations, excluded = prepare(
             module, args.shared_checkout.resolve(), declaration)
+        if args.executable_support_export:
+            compare_executable_support(declaration, json.loads(args.executable_support_export.read_text()))
+        elif args.require_registrable:
+            raise ValueError('strict publication requires an executable support census')
         drift = compare_exports(module, contracts, registrations,
                                 json.loads(args.registration_export.read_text())) if args.registration_export else None
         eligible = {r['provider']['provider_key'] for r in registrations}
@@ -120,6 +151,7 @@ def main(argv=None):
             'source_dirty': bool(subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'], text=True).strip()),
             'draft_registrations': registrations,
             'excluded_support': excluded,
+            'executable_support_verified': bool(args.executable_support_export),
             'blocked_providers': blocked,
             'registration_drift': drift,
             'runtime_authority_verified': False,
