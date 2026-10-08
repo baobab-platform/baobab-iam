@@ -43,3 +43,31 @@ container, PostgreSQL and staging tests were not run for this increment. CI
 adds the contract corpus and token-profile race checks; current PR checks must
 pass before merge. No credentials, production activation or Keycloak reduction
 are introduced.
+
+## Authenticated Hydra hook composition
+
+`NewCanonicalTokenProfileHook` reconstructs canonical intent from Hydra's
+authenticated standard OAuth callback payload: exactly one `audience` value,
+exactly one explicit `scope` value, and the verified client ID. Admission uses
+the existing credential-bound evidence and rejects any mismatch with granted
+scopes or audiences before emitting workload claims. This path requires explicit
+scopes; no default is inferred inside the hook.
+
+The executable `ory-token-profile-hook` selects this stricter constructor for
+a `production` profile. PROVISIONED cannot pass that production path. Staging/
+development retain the mechanics constructor for existing bounded fixtures.
+The port remains a private authenticated Hydra callback, not a proprietary
+public token endpoint. Production callers that omit audience/scope or request
+multiple resources will be denied; prepare explicit single-resource OAuth
+requests before adopting the new executable. No production deployment or
+activation was performed.
+
+Composition tests exercise both credential types, ACTIVE success and denied
+PROVISIONED/revoked registrations, unauthenticated senders, missing/substituted/
+extra audiences, scope inflation and subject mismatch. The executable factory
+test proves production cannot select mechanics-only admission. These fixtures
+represent Hydra after credential verification; they do not independently prove
+assertion signatures or current CP registration. Full workload support remains
+PARTIAL until current CP authority, actual issuance and consumer acceptance are
+composed and proven. Runtime projection freshness/revocation is still a C4
+dependency, not established by this immutable hook configuration.

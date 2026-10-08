@@ -18,6 +18,17 @@ import (
 // after Hydra has verified the client or assertion. It never trusts body claims
 // from an unauthenticated caller and never logs the credential-bearing payload.
 func NewTokenProfileHook(config tokenprofile.Config, key string) (http.Handler, error) {
+	return newTokenProfileHook(config, key, false)
+}
+
+// NewCanonicalTokenProfileHook admits the canonical intent reconstructed from
+// Hydra's authenticated standard OAuth payload. It requires ACTIVE registration
+// and exact one-resource intent; mechanics-only PROVISIONED admission is absent.
+func NewCanonicalTokenProfileHook(config tokenprofile.Config, key string) (http.Handler, error) {
+	return newTokenProfileHook(config, key, true)
+}
+
+func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool) (http.Handler, error) {
 	if len(key) < 32 {
 		return nil, fmt.Errorf("token hook authentication key must contain at least 32 bytes")
 	}
@@ -94,6 +105,18 @@ func NewTokenProfileHook(config tokenprofile.Config, key string) (http.Handler, 
 			// These fields describe the assertion verified by the authenticated Hydra
 			// sender. They are checked against separately governed exact bindings.
 			e.AssertionIssuer, e.AssertionSubject = assertion.Issuer, assertion.Subject
+		}
+		if canonical {
+			audiences, scopes := body.Request.Payload["audience"], body.Request.Payload["scope"]
+			if len(audiences) != 1 || len(scopes) != 1 {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			request := tokenprofile.WorkloadTokenRequest{WorkloadID: e.ClientID, Audience: audiences[0], Scopes: strings.Fields(scopes[0])}
+			if _, err := snapshot.AdmitRequest(request, nil, e); err != nil {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 		}
 		claims, err := snapshot.Claims(e)
 		if err != nil {

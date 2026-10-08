@@ -27,6 +27,11 @@ closed Shared request decoding and ACTIVE-only registration/credential/scope/
 audience admission reuse the token-profile hook's evidence checks. This is an
 admission library; composed issuance and current CP binding dispatch remain
 open. See [workload admission](../operations/canonical-workload-admission.md).
+C3 authenticated hook composition follows merged #95: canonical admission is
+invoked on Hydra's authenticated callback, and the executable production factory
+requires this constructor. ACTIVE-only, exact one-resource/scope intent is
+checked before claims emission. CP-governed current authority/dispatch and actual
+registered consumer acceptance remain open; no support declaration is promoted.
 **Date:** 2026-10-08.
 **Current evidence:** [Programme status](iam-mp-programme-status.md), reconciled
 against IAM `a927259753a0d2dee16f8df6f5509c5dc9cb18e9`.

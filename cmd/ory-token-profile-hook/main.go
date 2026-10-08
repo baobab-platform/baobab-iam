@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatal("cannot read token hook authentication key")
 	}
-	hook, err := ory.NewTokenProfileHook(config, strings.TrimSpace(string(key)))
+	hook, err := configuredHook(config, strings.TrimSpace(string(key)))
 	if err != nil {
 		log.Fatal("invalid token profile configuration or hook authentication key")
 	}
@@ -41,4 +41,13 @@ func main() {
 	mux.Handle("/internal/ory/token-profile", hook)
 	server := &http.Server{Addr: *listen, Handler: mux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	log.Fatal(server.ListenAndServe())
+}
+
+// configuredHook is the executable service's construction gate, not a provider
+// selector. Production never falls back to mechanics-only PROVISIONED admission.
+func configuredHook(config tokenprofile.Config, key string) (http.Handler, error) {
+	if config.Environment == "production" {
+		return ory.NewCanonicalTokenProfileHook(config, key)
+	}
+	return ory.NewTokenProfileHook(config, key)
 }

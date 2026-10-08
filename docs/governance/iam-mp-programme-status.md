@@ -120,3 +120,12 @@ with a shared Go/Shared contract corpus and race coverage. Full workload support
 stays PARTIAL: composed credential verification/issuance, current CP binding
 dispatch, live registration and actual consumer acceptance remain open. MP4/C4
 native/workload dispatch and staging/production acceptance are unchanged.
+
+C3 authenticated hook composition on baseline `b8c6c93` (merged #95): actual
+Hydra hook processing invokes canonical intent admission, and production service
+construction requires it. Both credential types and executable production
+PROVISIONED denial are covered by race-tested HTTP composition fixtures. These
+are construction tests with an authenticated sender fixture, not deployed CP
+authority or signature-verification acceptance. All full support declarations
+remain PARTIAL; C4 dispatch/freshness, resource consumption and staging/production
+acceptance remain open.
