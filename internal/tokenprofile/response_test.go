@@ -30,6 +30,7 @@ func TestCanonicalResponseSharedCorpus(t *testing.T) {
 		t.Fatal("JSON Schema integer form rejected")
 	}
 	for _, raw := range []string{
+		`{"access_token":"xxxxxxxxxxxxxxxxxxxx","token_type":"Bearer","expires_in":"60"}`,
 		`{"access_token":"xxxxxxxxxxxxxxxxxxxx","token_type":"Bearer","expires_in":60.000000000000001}`,
 		`{"access_token":"xxxxxxxxxxxxxxxxxxxx","token_type":"Bearer","expires_in":60,"expires_in":61}`,
 		`{"access_token":"xxxxxxxxxxxxxxxxxxxx","token_type":"Bearer","expires_in":60} {}`,
