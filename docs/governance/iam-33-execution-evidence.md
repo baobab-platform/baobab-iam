@@ -180,3 +180,18 @@ Classification: repository implementation only. Current-head Docker/composed CI
 is required. The boundary does not verify token signatures or establish current CP
 registration, resource consumption, staging or production acceptance. Provider
 support remains PARTIAL. C3 registration and C4 dispatch remain open.
+
+### C3 registration input integrity (2026-10-08)
+
+Canonical response boundary #97 merged at `cc900620`; registration wire-input
+integrity #98 merged at `1a8296a`. Each exact head passed all four PR workflows,
+including CI and both Ory live variants. These are bounded construction and
+fixture integration receipts, not live registration or staging acceptance.
+
+Executable support comparison now rejects boolean, floating-point, string,
+nonpositive, empty and duplicate contract versions before equality comparison.
+Python equality must not collapse malformed evidence such as `true` into canonical
+major version `1`. Closed support entries and unique capability keys are checked
+independently before comparing with the pinned-Shared-validated declaration.
+All providers remain PARTIAL. Full canonical conformance, owner-approved CP
+registration inputs and registered consumer acceptance still gate C3 completion.
