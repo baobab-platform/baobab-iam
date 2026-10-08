@@ -553,7 +553,11 @@ func TestLiveCanonicalActiveFixture(t *testing.T) {
 	form := secretForm(id, w.ClientSecret, scopes[0])
 	form.Set("audience", "baobab-control-plane")
 	token := f.exchange(t, form, false)
-	response := tokenprofile.WorkloadTokenResponse{AccessToken: token.AccessToken, TokenType: token.TokenType, ExpiresIn: token.ExpiresIn, Scope: &token.Scope}
+	tokenType := token.TokenType
+	if strings.EqualFold(tokenType, "bearer") {
+		tokenType = "Bearer"
+	}
+	response := tokenprofile.WorkloadTokenResponse{AccessToken: token.AccessToken, TokenType: tokenType, ExpiresIn: token.ExpiresIn, Scope: &token.Scope}
 	if err := response.BindRequest(tokenprofile.WorkloadTokenRequest{WorkloadID: id, Audience: "baobab-control-plane", Scopes: scopes}); err != nil {
 		t.Fatal("canonical response envelope or admitted scopes mismatch")
 	}
