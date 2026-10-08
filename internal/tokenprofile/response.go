@@ -73,6 +73,9 @@ func (r *WorkloadTokenResponse) UnmarshalJSON(raw []byte) error {
 		case "token_type":
 			err = json.Unmarshal(value, &out.TokenType)
 		case "expires_in":
+			if len(value) == 0 || value[0] == '"' {
+				return fmt.Errorf("invalid canonical response lifetime type")
+			}
 			var number json.Number
 			err = json.Unmarshal(value, &number)
 			if err == nil {
