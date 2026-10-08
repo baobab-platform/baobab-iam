@@ -93,7 +93,8 @@ fixtures do not establish canonical ACTIVE or actual-consumer acceptance.
 
 The optional [governed token-profile runner](./ory-workload-token-profile.md)
 (`bash tests/ory-foundation/token_profile.sh`, after the foundation runner)
-adds the Shared audience, workload claims, string scope and 15-minute lifetime
+adds the Shared audience, workload claims, string scope and a 10-minute lifetime
+(kept strictly under the verifiers' 15-minute maximum; see the linked profile document)
 for the client-credentials fixture. It denies the current pinned RFC 7523
 audience mismatch. Its private callback key/configuration is temporary input,
 never evidence. The hook is workload-only; do not enable it globally on a
