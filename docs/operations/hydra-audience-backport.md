@@ -12,11 +12,18 @@ Base: Ory Hydra v26.2.0, commit
 Upstream fix: `92bd3eab9864453d72edc3d0bc51f004ff986c06`.
 
 The build fetches these exact Git objects and applies the upstream diff for the
-configuration, schema, Fosite handler and their tests. No other master changes
-are adopted. The upstream OAuth HTTP test hunk does not apply to the released
-file layout; the released HTTP suite is retained with its legacy behavior
-explicitly selected. IAM's live candidate suite separately tests the new
-behavior with the existing governed hook and unchanged CP verifier source.
+configuration, schema, Fosite handler and their unit tests verbatim. No other
+master changes are adopted. The upstream commit's OAuth HTTP test hunk also
+applies, with one exception: it sits on top of a later upstream test (an
+unrelated "issuer-derived audience" subtest) that is not in v26.2.0. The
+repository holds that hunk with only that unrelated subtest removed
+(`tests/ory-foundation/hydra-audience/oauth2-jwt-bearer-test.patch`); it keeps
+upstream's own edit that pins the released HTTP suite to the legacy copy
+behavior and adds upstream's test that the assertion audience is omitted when
+the option is enabled (opaque and JWT access-token strategies). The build
+fails unless that subtest passes, and the receipt records its patch hash. IAM's
+live candidate suite separately tests the new behavior with the existing
+governed hook and unchanged CP verifier source.
 
 The fix introduces `oauth2.grant.jwt.omit_assertion_audience`. Candidate hook
 configuration explicitly sets it true. The incoming assertion still names the
@@ -43,7 +50,7 @@ bash tests/ory-foundation/token_profile.sh
 The source build executes upstream RFC7523/config race tests and the released
 OAuth JWT-bearer HTTP suite before building. The candidate image inherits the
 existing digest-pinned runtime and replaces only the source-built executable.
-Build receipts record base/fix commits, patch hash and binary hash. The fixture
+Build receipts record base/fix commits, source patch hash, test patch hash and binary hash. The fixture
 records the resulting local image ID and refuses image substitution before use.
 The build context contains only the binary and Dockerfile, never source .git
 metadata, credentials or temporary tests.
