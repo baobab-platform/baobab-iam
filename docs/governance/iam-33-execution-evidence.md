@@ -214,3 +214,20 @@ registered resource consumption and full human Authorization Code/PKCE handoff
 remain open. All provider declarations remain PARTIAL, so strict registration
 remains blocked. Owner-approved targets, references, artifacts, evidence,
 protected CP origin/CA and scoped observer credentials remain live dependencies.
+
+### C3 canonical issuance-to-resource composed fixture
+
+The isolated production-mode hook now admits two explicitly ACTIVE CI identities
+through authenticated Hydra callback fields, issues their signed and
+audience-bound tokens, projects the raw OAuth responses into the canonical Shared
+envelope, and presents them to the current immutable CP source's production
+verifier, middleware and `POST /v1/platform-context/validate` handler. The test
+requires HTTP 200, matching bounded context, no-store response semantics, absent
+legal-entity disclosure and absence of credentials from output and audit data.
+The existing PROVISIONED denial remains in the same canonical-hook phase.
+
+This is composed integration evidence with disposable provider, registry,
+principal, tenant and context fixtures. It does not prove current live CP
+registration, deployed resource consumption, staging acceptance or production
+acceptance. Provider declarations remain PARTIAL pending complete capability
+entry-path evidence and owner-approved live registration inputs.
