@@ -121,6 +121,23 @@ def compare_executable_support(declaration, census):
         raise ValueError('canonical declaration and executable support drift')
 
 
+def read_evidence_export(path):
+    """Reject ambiguous wire evidence before any schema or drift comparison."""
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError('duplicate registration evidence property')
+            result[key] = value
+        return result
+
+    def reject_constant(value):
+        raise ValueError('non-finite registration evidence number')
+
+    return json.loads(path.read_text(), object_pairs_hook=unique_object,
+                      parse_constant=reject_constant)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--shared-checkout', type=Path, required=True)
@@ -136,11 +153,11 @@ def main(argv=None):
         contracts, registrations, excluded = prepare(
             module, args.shared_checkout.resolve(), declaration)
         if args.executable_support_export:
-            compare_executable_support(declaration, json.loads(args.executable_support_export.read_text()))
+            compare_executable_support(declaration, read_evidence_export(args.executable_support_export))
         elif args.require_registrable:
             raise ValueError('strict publication requires an executable support census')
         drift = compare_exports(module, contracts, registrations,
-                                json.loads(args.registration_export.read_text())) if args.registration_export else None
+                                read_evidence_export(args.registration_export)) if args.registration_export else None
         eligible = {r['provider']['provider_key'] for r in registrations}
         blocked = sorted(p['provider_key'] for p in declaration['providers'] if p['provider_key'] not in eligible)
         report = {
