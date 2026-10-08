@@ -177,7 +177,7 @@ func (h *NativeHumanHandoff) challenge(ctx context.Context, kind, id string, int
 			return c, fmt.Errorf("native authentication cannot grant business scopes")
 		}
 	}
-	if intent.Validate() != nil || intent.ClientID == "" || intent.RedirectURI == "" || intent.State == "" || intent.Nonce == "" || !slices.Contains(strings.Fields(intent.Scope), "openid") || intent.ACRValues != "" || id == "" || len(id) > 1024 || strings.TrimSpace(id) != id {
+	if intent.Validate() != nil || intent.ClientID == "" || intent.RedirectURI == "" || intent.State == "" || intent.Nonce == "" || !slices.Contains(strings.Fields(intent.Scope), "openid") || intent.ACRValues != "" || id == "" || len(id) > 16384 || strings.TrimSpace(id) != id {
 		return c, fmt.Errorf("incomplete or unsupported native intent")
 	}
 	endpoint := strings.TrimRight(h.hydra.String(), "/") + "/admin/oauth2/auth/requests/" + kind + "?" + kind + "_challenge=" + url.QueryEscape(id)
