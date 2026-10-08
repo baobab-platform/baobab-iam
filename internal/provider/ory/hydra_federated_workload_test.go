@@ -103,8 +103,10 @@ func TestProvisionFederatedWorkloadCreatesNoSecretClientAndExactTrust(t *testing
 	if _, ok := clientBody["client_secret"]; ok {
 		t.Fatal("federated client must not contain client_secret")
 	}
-	if _, ok := clientBody["audience"]; ok {
-		t.Fatal("Shared logical audience must not be copied into Hydra URL resource-indicator audience")
+	// Hydra grants only a requested audience the client has registered, so the workload's intended
+	// audiences (exactly those, nothing broader) are registered on the client.
+	if aud, _ := clientBody["audience"].([]any); len(aud) != 1 || aud[0] != "baobab-subscriptions" {
+		t.Fatalf("registered client audience=%#v, want exactly [baobab-subscriptions]", clientBody["audience"])
 	}
 	grants, _ := clientBody["grant_types"].([]any)
 	if len(grants) != 1 || grants[0] != "urn:ietf:params:oauth:grant-type:jwt-bearer" {

@@ -29,7 +29,11 @@ The fix introduces `oauth2.grant.jwt.omit_assertion_audience`. Candidate hook
 configuration explicitly sets it true. The incoming assertion still names the
 Hydra token endpoint and still requires exact issuer/subject, signature, expiry
 and replay verification. The requested resource audience comes from the OAuth
-`audience` parameter and the client's registered audience. IAM's hook independently
+`audience` parameter and the client's registered audience. The federated
+workload's Hydra client therefore registers its intended audiences (exactly
+those): Hydra grants a requested audience only if the client has registered it
+and otherwise drops it without error, leaving an audience-less token that the
+hook denies. Hydra's default audience strategy matches a non-URL name exactly. IAM's hook independently
 checks the granted audience against its Shared-derived workload projection.
 No reserved claim is rewritten and no verification fallback is introduced.
 

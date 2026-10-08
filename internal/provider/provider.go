@@ -177,9 +177,12 @@ type FederatedWorkloadTrustSpec struct {
 	AllowedScopes []string `json:"allowed_scopes"`
 
 	// IntendedAudiences records the Baobab resource-server audiences that live
-	// consumer evidence must prove. They are not blindly copied into the Hydra
-	// client audience field because Hydra models that field as URL resource
-	// indicators while Shared currently uses logical service audience names.
+	// consumer evidence must prove. For a federated Hydra workload they are
+	// also registered as the client's audience: Hydra grants only a requested
+	// audience the client has registered and silently drops any other, which
+	// would leave an audience-less token. Registration is the allow-list of what
+	// the workload may request, not a claim of activation (the token-profile
+	// hook and the live consumer proof still decide that).
 	IntendedAudiences []string `json:"intended_audiences"`
 
 	// LifecycleStatus is provider-side only; on provision only empty/PROVISIONED.
