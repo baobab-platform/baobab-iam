@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/big"
 	"net/url"
+	"strconv"
 	"unicode/utf8"
 )
 
@@ -127,6 +128,12 @@ func exactLifetime(value json.RawMessage) (int, error) {
 	var number json.Number
 	if json.Unmarshal(value, &number) != nil {
 		return 0, fmt.Errorf("integer lifetime required")
+	}
+	// Bound magnitude before allocating exact rational arithmetic. The rational
+	// check below still rejects fractions that round to an integer in float64.
+	magnitude, err := strconv.ParseFloat(number.String(), 64)
+	if err != nil || magnitude < 60 || magnitude > 86400 {
+		return 0, fmt.Errorf("lifetime outside canonical range")
 	}
 	rational, ok := new(big.Rat).SetString(number.String())
 	if !ok || !rational.IsInt() || !rational.Num().IsInt64() {
