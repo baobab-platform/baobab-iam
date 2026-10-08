@@ -70,6 +70,8 @@ jobs:
           python3 scripts/provider_publication.py --shared-checkout .shared-contracts --executable-support-export /tmp/iam-executable-support.json
           python3 -m unittest discover -s tests/unit -p 'test_provider_publication.py'
           python3 -m unittest discover -s tests/unit -p 'test_runtime_profile_publication.py'
+          python3 -m unittest discover -s tests/unit -p 'test_canonical_workload_request.py'
+          go test -race ./internal/tokenprofile -count=1
       - name: Every issued scope exists in the pinned Shared scope registry
         run: ./scripts/check-issued-scopes.sh
       - name: Every client and scope description fits Keycloak's 255-character limit

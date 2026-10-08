@@ -1,0 +1,92 @@
+[
+  {
+    "valid": true,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cp"
+    }
+  },
+  {
+    "valid": true,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cp",
+      "scopes": [
+        "context:resolve"
+      ]
+    }
+  },
+  {
+    "valid": true,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cp",
+      "scopes": []
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cp",
+      "scopes": null
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cp",
+      "credential": "fixture-only"
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cp",
+      "grant_type": "client_credentials"
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "Worker",
+      "audience": "baobab-cp"
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "https://cp.example"
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cp",
+      "scopes": [
+        "*"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cp",
+      "scopes": [
+        "context:resolve",
+        "context:resolve"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "audience": "baobab-cp"
+    }
+  }
+]

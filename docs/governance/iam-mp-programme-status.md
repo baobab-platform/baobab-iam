@@ -113,3 +113,10 @@ tests, provider/federation/authority race tests, vet and build passed locally.
 Strict registration still returns exit 2 with three PARTIAL providers and zero
 registrations. Construction drift detection is implemented; full canonical
 entry paths, live registration, staging and production acceptance remain open.
+
+C3 workload admission increment on `f740403`: canonical request decoding and
+ACTIVE-only, exact client/issuer/subject/audience/scope admission are implemented
+with a shared Go/Shared contract corpus and race coverage. Full workload support
+stays PARTIAL: composed credential verification/issuance, current CP binding
+dispatch, live registration and actual consumer acceptance remain open. MP4/C4
+native/workload dispatch and staging/production acceptance are unchanged.
