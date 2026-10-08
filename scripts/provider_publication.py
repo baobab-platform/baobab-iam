@@ -109,6 +109,26 @@ def compare_executable_support(declaration, census):
         key = row['provider_key']
         if not isinstance(key, str) or key in actual:
             raise ValueError('duplicate or invalid executable provider')
+        if not isinstance(row['implementation_key'], str) or not row['implementation_key']:
+            raise ValueError('invalid executable implementation key')
+        support = row['support']
+        if not isinstance(support, list):
+            raise ValueError('invalid executable support list')
+        seen_capabilities = set()
+        for entry in support:
+            if not isinstance(entry, dict) or set(entry) != {'capability_key', 'contract_versions', 'implementation_status'}:
+                raise ValueError('invalid executable support entry')
+            capability = entry['capability_key']
+            if not isinstance(capability, str) or not capability or capability in seen_capabilities:
+                raise ValueError('duplicate or invalid executable capability')
+            seen_capabilities.add(capability)
+            versions = entry['contract_versions']
+            if (not isinstance(versions, list) or not versions or
+                    any(type(version) is not int or version < 1 for version in versions) or
+                    len(set(versions)) != len(versions)):
+                raise ValueError('invalid executable contract versions')
+            if entry['implementation_status'] not in ('IMPLEMENTED', 'PARTIAL', 'UNSUPPORTED'):
+                raise ValueError('invalid executable implementation status')
         actual[key] = row
     expected = {p['provider_key']: {k: p[k] for k in ('provider_key', 'implementation_key', 'support')}
                 for p in declaration['providers']}
