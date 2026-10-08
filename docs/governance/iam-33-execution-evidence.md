@@ -302,3 +302,52 @@ MP3/MP4/MP5 estate composition and real registered acceptance remain open.
 Repository tests and disposable provider CI are separate from staging and
 production acceptance. All three providers remain PARTIAL; no live registration,
 synthetic authority, production activation or certification is claimed.
+
+### Native handoff merge receipt and governed registration review (2026-10-08)
+
+Native handoff [#104](https://github.com/baobab-platform/baobab-iam/pull/104)
+merged normally as `2ab14a480cf882514c0474725f1297e6e524f856`, with expected
+head `0af385e0dec50568032ef3f3193e0b396b2b483e`. Current-head
+[CI](https://github.com/baobab-platform/baobab-iam/actions/runs/37827491593),
+[Ory Foundation Live](https://github.com/baobab-platform/baobab-iam/actions/runs/37827491478),
+[Foundation](https://github.com/baobab-platform/baobab-iam/actions/runs/37827493324)
+and [secret scanning](https://github.com/baobab-platform/baobab-iam/actions/runs/37827492613)
+all passed. Action pinning was inspected and its workflow-path filter did not
+apply to this code/docs increment. The browser-cookie review blocker was fixed
+and resolved. This supersedes the preceding pending native CI statement.
+
+Both real Hydra variants passed the canonical native journey using actual
+CSRF-bound Kratos browser login cookies and API session tokens, direct S256
+exchange, independently verified ID token with exact issuer/client/subject/nonce,
+wrong-verifier denial, replay and revocation. The real PostgreSQL race suite
+passed independent-replica native challenge consumption and recovery-epoch
+fencing. IAM's shared ledger burns a hash before acceptance and never releases
+uncertain consumption. Local build, vet, full Go tests and selected race tests
+passed; those local live tests skip without Docker and are not the CI receipt.
+
+Governed registration tooling now prepares prospective reviewed Shared bundles
+and the explicit index used by CP's existing embedded registration importer.
+It requires a clean exact source revision, exact pinned Shared/index digest,
+fresh executable support census and canonical IMPLEMENTED support. It preserves
+existing index entries, rejects global provider/path collisions and unsafe
+existing output, and emits only DRAFT support plus a construction receipt.
+Fifteen publication tests pass, including synthetic positive bundle fixtures
+and negative PARTIAL, ACTIVE, foreign membership, path and output cases.
+Candidate preparation requires a separate clean Shared checkout outside IAM;
+nested preflight checkouts receive an explicit diagnostic, preserving source
+cleanliness rather than excluding untracked directories from that check.
+Actual current PARTIAL declarations, an unreviewed source revision and a changed
+index digest each deny candidate preparation; no candidate was published.
+
+MP3 registration preparation is repository construction evidence. MP4/MP5 native
+provider mechanics have disposable integration evidence; current CP-governed
+native/workload dispatch, registered estate consumers and full operational
+session/assurance composition remain open. The MP0–MP20 staging/production rows
+remain unproved. All provider declarations stay PARTIAL.
+
+Live registration/profile publication still needs reviewed full composed support
+proof, actual CP-allocated targets and provider/instance IDs, approved references,
+artifact digests/evidence, registered estate clients, scoped observer credentials
+and protected CP origin/CA. No owner inputs were fabricated, no Shared bundle
+was submitted as IMPLEMENTED, and no production activation or certification
+was performed. Registration candidates do not resolve or override CP authority.

@@ -1,10 +1,14 @@
 """Contract-bound construction tests; synthetic IMPLEMENTED is never published."""
 import copy
+from contextlib import redirect_stderr
+import io
+import json
 import importlib.util
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import yaml
 
@@ -32,6 +36,14 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(len(excluded), 3)
         self.assertTrue(all(s['implementation_status'] == 'PARTIAL' for s in excluded))
 
+    def test_nested_shared_candidate_layout_diagnosed_before_contract_loading(self):
+        errors = io.StringIO()
+        with redirect_stderr(errors):
+            result = publication.main(['--shared-checkout', str(ROOT / '.shared-contracts'),
+                                       '--bundle-provider', 'baobab-iam.kratos'])
+        self.assertEqual(result, 1)
+        self.assertIn('Shared checkout outside the IAM worktree', errors.getvalue())
+
     def test_canonical_generation_draft_only(self):
         _, registrations, excluded = self.generated_fixture()
         self.assertEqual(len(registrations), 1)
@@ -39,6 +51,54 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(registrations[0]['provider']['lifecycle'], 'DRAFT')
         self.assertEqual(registrations[0]['support'], [{
             'capability_key': 'identity.authentication.perform', 'contract_versions': [1]}])
+
+    def test_review_bundle_partial_denied_and_draft_only(self):
+        index = yaml.safe_load((self.checkout / 'contracts' / publication.INDEX_PATH).read_text())
+        provider = self.declaration['providers'][0]['provider_key']
+        contracts, partial, _ = publication.prepare(self.module, self.checkout, self.declaration)
+        with self.assertRaisesRegex(ValueError, 'IMPLEMENTED'):
+            publication.bundle_candidate(self.module, contracts, partial, index, provider, 'identity/v1/iam-test.json')
+        contracts, registrations, _ = self.generated_fixture()
+        proposed, registration = publication.bundle_candidate(
+            self.module, contracts, registrations, index, provider, 'identity/v1/iam-test.json')
+        self.assertEqual(registration['provider']['lifecycle'], 'DRAFT')
+        self.assertEqual(proposed['bundles'][:-1], index['bundles'])
+        self.assertEqual(len(proposed['bundles']), len(index['bundles']) + 1)
+        self.assertNotIn('provider_id', registration['provider'])
+        foreign_index = copy.deepcopy(index)
+        foreign_index['bundles'].append({'path': 'payments/v1/another.json',
+                                        'engine_id': 'baobab-payments', 'provider_key': provider})
+        for bad_index, path in ((proposed, 'identity/v1/another.json'),
+                                (foreign_index, 'identity/v1/iam-test.json'),
+                                (index, index['bundles'][0]['path']),
+                                (index, '../escape.json'),
+                                (index, '/absolute.json'),
+                                ({**index, 'bundles': index['bundles'] * 2}, 'identity/v1/iam-test.json')):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                publication.bundle_candidate(self.module, contracts, registrations, bad_index, provider, path)
+        active = copy.deepcopy(registrations)
+        active[0]['provider']['lifecycle'] = 'ACTIVE'
+        with self.assertRaises(ValueError):
+            publication.bundle_candidate(self.module, contracts, active, index, provider, 'identity/v1/iam-test.json')
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'review'
+            publication.write_bundle_candidate(output, 'identity/v1/iam-test.json', proposed, registration,
+                                               {'classification': 'SYNTHETIC_TEST_ONLY'})
+            self.assertEqual(json.loads((output / 'contracts/identity/v1/iam-test.json').read_text()), registration)
+            with self.assertRaises(ValueError):
+                publication.write_bundle_candidate(output, 'identity/v1/iam-test.json', proposed, registration, {})
+            link = Path(directory) / 'dangling-output'
+            link.symlink_to(Path(directory) / 'missing')
+            with self.assertRaises(ValueError):
+                publication.write_bundle_candidate(link, 'identity/v1/iam-test.json', proposed, registration, {})
+            raced = Path(directory) / 'raced-output'
+            raced.mkdir()
+            original_exists = Path.exists
+            # Model another writer creating the directory after our precheck.
+            with patch.object(Path, 'exists', lambda p: False if p == raced else original_exists(p)):
+                with self.assertRaises(FileExistsError):
+                    publication.write_bundle_candidate(raced, 'identity/v1/iam-test.json', proposed, registration, {})
+            self.assertEqual(list(raced.iterdir()), [])
 
     def test_missing_and_unsupported_registration(self):
         contracts, registrations, _ = self.generated_fixture()
