@@ -31,6 +31,7 @@ func TestCanonicalHumanAuthenticationWireBoundary(t *testing.T) {
 		strings.Replace(validResponse, `"Bearer"`, `"bearer"`, 1),
 		strings.Replace(validResponse, `6e1`, `60.000000000000001`, 1),
 		strings.Replace(validResponse, `6e1`, `"60"`, 1),
+		strings.Replace(validResponse, `6e1`, `1e1000000000`, 1),
 		strings.Replace(validResponse, `"id_token":"yyyyyyyyyyyyyyyyyyyy"`, `"realm":"master"`, 1),
 		validResponse + ` {}`,
 	} {
