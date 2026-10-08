@@ -16,16 +16,24 @@ import (
 )
 
 type input struct {
-	Token       string `json:"token"`
-	Audience    string `json:"audience"`
-	Scope       string `json:"scope"`
-	WrongIssuer bool   `json:"wrong_issuer"`
+	Token            string `json:"token"`
+	Audience         string `json:"audience"`
+	Scope            string `json:"scope"`
+	WrongIssuer      bool   `json:"wrong_issuer"`
+	ExpectedClientID string `json:"expected_client_id"`
+	ExpectedSubject  string `json:"expected_subject"`
 }
 
 func main() {
 	var in input
 	if json.NewDecoder(io.LimitReader(os.Stdin, 1<<20)).Decode(&in) != nil {
 		os.Exit(2)
+	}
+	if in.ExpectedClientID == "" {
+		in.ExpectedClientID = "baobab-trade-workload"
+	}
+	if in.ExpectedSubject == "" {
+		in.ExpectedSubject = in.ExpectedClientID
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -57,7 +65,7 @@ func main() {
 	result := map[string]any{"verified": err == nil, "required_scope_present": false, "workload_identity_matches": false}
 	if err == nil {
 		result["required_scope_present"] = principal.HasScope(in.Scope)
-		result["workload_identity_matches"] = principal.ActorType == "workload" && principal.ClientID == "baobab-trade-workload" && principal.Subject == principal.ClientID && strings.TrimRight(principal.Issuer, "/") == "http://127.0.0.1:4444"
+		result["workload_identity_matches"] = principal.ActorType == "workload" && principal.ClientID == in.ExpectedClientID && principal.Subject == in.ExpectedSubject && strings.TrimRight(principal.Issuer, "/") == "http://127.0.0.1:4444"
 	}
 	if json.NewEncoder(os.Stdout).Encode(result) != nil {
 		os.Exit(2)

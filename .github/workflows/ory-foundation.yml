@@ -12,13 +12,37 @@ permissions:
 jobs:
   ory-foundation-live:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        hydra: [released, audience-backport]
+    env:
+      ORY_HYDRA_AUDIENCE_CANDIDATE: ${{ matrix.hydra == 'audience-backport' && '1' || '0' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: go.mod
           cache: true
+      - name: Build exact upstream audience backport candidate
+        if: matrix.hydra == 'audience-backport'
+        run: bash tests/ory-foundation/hydra-audience/build.sh
+      - name: Generate candidate SBOM
+        if: matrix.hydra == 'audience-backport'
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: baobab-hydra-audience-candidate:ci
+          format: cyclonedx
+          output: ory-foundation-evidence/hydra-candidate.cyclonedx.json
+      - name: Scan candidate image
+        if: matrix.hydra == 'audience-backport'
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: baobab-hydra-audience-candidate:ci
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          format: table
       - name: Check M4 Go formatting
         run: |
           if [ -n "$(gofmt -l internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go tests/consumer/current/main.go internal/provider/ory/context_route_live_test.go)" ]; then
@@ -59,7 +83,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ory-foundation-evidence
+          name: ory-foundation-evidence-${{ matrix.hydra }}
           path: ory-foundation-evidence/
           retention-days: 30
           if-no-files-found: error

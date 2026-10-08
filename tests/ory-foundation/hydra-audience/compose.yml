@@ -1,0 +1,6 @@
+# Isolated acceptance fixture only; no production/runtime pin is changed.
+services:
+  hydra:
+    image: baobab-hydra-audience-candidate:ci
+  hydra-migrate:
+    image: baobab-hydra-audience-candidate:ci

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+source tests/ory-foundation/hydra-audience/compose.sh
 mkdir -p ory-foundation-evidence
 # Require lock/Compose agreement before contacting registries or starting services.
 python3 - <<'PY'
@@ -16,7 +17,7 @@ for provider in ('kratos', 'hydra'):
             raise SystemExit(f'{service}: Compose differs from provider.lock.yaml')
 print('Kratos and Hydra Compose images match the exact provider lock')
 PY
-timeout 240 docker compose -p ory-foundation-ci -f docker-compose.ory.yml up -d
+timeout 240 docker compose -p ory-foundation-ci "${ory_compose[@]}" up -d
 for port in 4434 4445; do
   ready=0
   for attempt in $(seq 1 30); do

@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+source tests/ory-foundation/hydra-audience/compose.sh
 task_dir=$(mktemp -d)
 cleanup() {
   if [ -n "${hook_pid:-}" ]; then kill "$hook_pid" 2>/dev/null || true; wait "$hook_pid" 2>/dev/null || true; fi
-  docker compose -p ory-foundation-ci -f docker-compose.ory.yml stop hydra >/dev/null 2>&1 || true
+  docker compose -p ory-foundation-ci "${ory_compose[@]}" stop hydra >/dev/null 2>&1 || true
   rm -rf "$task_dir"
 }
 trap cleanup EXIT
 mkdir -p ory-foundation-evidence/token-profile
 python3 - "$task_dir" <<'PY'
-import json, secrets, sys
+import json, secrets, sys, os
 from pathlib import Path
 import yaml
 sys.path.insert(0, str(Path.cwd() / "scripts"))
@@ -46,6 +47,8 @@ for name, scope, audiences in (
 (root / 'profiles.json').write_text(json.dumps(profiles))
 (root / 'profiles.json').chmod(0o600)
 config = yaml.safe_load(Path('config/ory/hydra/hydra.yml').read_text())
+if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1':
+    config['oauth2']['grant'] = {'jwt': {'omit_assertion_audience': True}}
 config['ttl'] = {'access_token': '15m'}
 config['strategies']['jwt'] = {'scope_claim': 'string'}
 config['oauth2'].update({'allowed_top_level_claims': ['actor_type', 'azp', 'scope'],
@@ -71,7 +74,7 @@ for attempt in $(seq 1 20); do
   sleep 1
 done
 kill -0 "$hook_pid"
-timeout 120 docker compose -p ory-foundation-ci -f docker-compose.ory.yml -f "$task_dir/compose.yml" up -d hydra
+timeout 120 docker compose -p ory-foundation-ci "${ory_compose[@]}" -f "$task_dir/compose.yml" up -d hydra
 ready=0
 for attempt in $(seq 1 30); do
   if curl --max-time 3 -fsS -o /dev/null http://127.0.0.1:4445/health/ready; then ready=1; break; fi
@@ -93,9 +96,9 @@ export ORY_WORKLOAD=1 ORY_TOKEN_PROFILE=1
 export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434 ORY_HYDRA_ADMIN_URL=http://127.0.0.1:4445 ORY_PUBLIC_ISSUER=http://127.0.0.1:4444
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence/token-profile"
-go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials|TestLiveTokenProfileFederatedAudienceBlocked|TestLiveCPConsumerVerifier|TestLiveCPContextRoute)$' -count=1 | tee ory-foundation-evidence/token-profile/tests.jsonl
+go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials|TestLiveTokenProfileFederatedAudienceBoundary|TestLiveCPConsumerVerifier|TestLiveCPContextRoute)$' -count=1 | tee ory-foundation-evidence/token-profile/tests.jsonl
 python3 - <<'PY'
-import json
+import json, os
 from pathlib import Path
 root = Path('ory-foundation-evidence/token-profile')
 events = [json.loads(line) for line in (root / 'tests.jsonl').read_text().splitlines()]
@@ -104,7 +107,7 @@ required = ('TestLiveWorkloadClientCredentials',
             'TestLiveWorkloadClientCredentials/wrong-and-missing-resource-audience',
             'TestLiveWorkloadClientCredentials/rotation-invalidates-old-credential',
             'TestLiveWorkloadClientCredentials/suspend-denies-future-issuance',
-            'TestLiveTokenProfileFederatedAudienceBlocked',
+            'TestLiveTokenProfileFederatedAudienceBoundary',
             'TestLiveCPConsumerVerifier',
             'TestLiveCPConsumerVerifier/accept-governed-workload',
             'TestLiveCPConsumerVerifier/reject-wrong-audience',
@@ -115,6 +118,15 @@ required = ('TestLiveWorkloadClientCredentials',
 for name in required:
     if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
         raise SystemExit(f'{name}: missing live PASS evidence')
+if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1':
+    for workload in ('baobab-cp-workload', 'baobab-subscriptions-workload'):
+        name='TestLiveTokenProfileFederatedAudienceBoundary/'+workload
+        if not any(e.get('Test')==name and e.get('Action')=='pass' for e in events):
+            raise SystemExit(f'{name}: missing candidate PASS evidence')
+        receipt=json.loads((root/('candidate-'+workload+'.json')).read_text())
+        if (not receipt['fixture_only'] or not receipt['signature_verified'] or not receipt['logical_audience_matches']
+                or not receipt['cp_consumer_verified'] or receipt['canonical_activation_proven'] or receipt['production_accepted']):
+            raise SystemExit('Candidate proof incomplete or claims deployment acceptance')
 proof = json.loads((root / 'baobab-trade-workload.json').read_text())
 if not proof['logical_audience_matches'] or not proof['actor_type_is_workload']:
     raise SystemExit('Governed signed workload profile not proven')
@@ -141,5 +153,5 @@ if (route['consumer_commit'] != 'c84063cb07dce76e1ffac4b12fa29c5e4e5ec855'
 consumer = json.loads((root / 'cp-consumer-verifier.json').read_text())
 if not consumer['actual_consumer_verifier_tested'] or consumer['deployed_resource_route_tested'] or consumer['canonical_activation_proven']:
     raise SystemExit('Consumer verifier proof must not claim route acceptance or activation')
-print('M4-C governed token profile verified; pinned M4-F audience mismatch fails closed')
+print('M4-F candidate audience and CP verifier checks passed' if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1' else 'M4-F released audience mismatch fails closed')
 PY
