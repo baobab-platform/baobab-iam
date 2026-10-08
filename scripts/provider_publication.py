@@ -49,7 +49,7 @@ def bundle_candidate(module, contracts, registrations, index, provider_key, path
 
 
 def write_bundle_candidate(output, path, index, registration, receipt):
-    """Publish a complete review directory atomically, refusing replacement."""
+    """Reserve a new output exclusively; publish complete contracts, receipt last."""
     if output.exists() or output.is_symlink():
         raise ValueError('candidate output already exists')
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -62,7 +62,11 @@ def write_bundle_candidate(output, path, index, registration, receipt):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(yaml.safe_dump(index, sort_keys=False))
         (root / 'receipt.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
-        root.rename(output)
+        # mkdir is exclusive even if another writer races the initial check.
+        # Never rename over an existing (including empty) output directory.
+        output.mkdir()
+        (root / 'contracts').rename(output / 'contracts')
+        (root / 'receipt.json').rename(output / 'receipt.json')
 
 
 def load_shared(checkout, repository=ROOT):
@@ -274,8 +278,9 @@ def main(argv=None):
                        'provider_key': args.bundle_provider, 'bundle_path': args.bundle_path,
                        'bundle_sha256': hashlib.sha256((json.dumps(registration, indent=2, sort_keys=True) + '\n').encode()).hexdigest(),
                        'runtime_authority_verified': False, 'published': False}
-            output = args.bundle_output.resolve()
-            if output.is_relative_to(ROOT) or output.is_relative_to(args.shared_checkout.resolve()):
+            output = args.bundle_output.absolute()
+            resolved_output = output.resolve()
+            if resolved_output.is_relative_to(ROOT) or resolved_output.is_relative_to(args.shared_checkout.resolve()):
                 raise ValueError('review output must be outside IAM and the pinned Shared checkout')
             if subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=all'], text=True).strip():
                 raise ValueError('bundle source changed during preparation')

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import yaml
 
@@ -80,6 +81,14 @@ class PublicationTests(unittest.TestCase):
             link.symlink_to(Path(directory) / 'missing')
             with self.assertRaises(ValueError):
                 publication.write_bundle_candidate(link, 'identity/v1/iam-test.json', proposed, registration, {})
+            raced = Path(directory) / 'raced-output'
+            raced.mkdir()
+            original_exists = Path.exists
+            # Model another writer creating the directory after our precheck.
+            with patch.object(Path, 'exists', lambda p: False if p == raced else original_exists(p)):
+                with self.assertRaises(FileExistsError):
+                    publication.write_bundle_candidate(raced, 'identity/v1/iam-test.json', proposed, registration, {})
+            self.assertEqual(list(raced.iterdir()), [])
 
     def test_missing_and_unsupported_registration(self):
         contracts, registrations, _ = self.generated_fixture()
