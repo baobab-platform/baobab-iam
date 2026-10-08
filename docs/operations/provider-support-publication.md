@@ -9,10 +9,12 @@ Use a clean Shared checkout at the exact `contracts.lock.yaml` commit:
 
 ```sh
 python3 scripts/provider_publication.py --shared-checkout .shared-contracts
-python3 scripts/provider_publication.py --shared-checkout .shared-contracts --require-registrable
+go run ./cmd/provider-support-census > executable-support.json
+python3 scripts/provider_publication.py --shared-checkout .shared-contracts \
+  --executable-support-export executable-support.json --require-registrable
 ```
 
-The first command validates construction and reports exclusions. The second is
+The first command validates construction and reports exclusions. The final command is
 the publication gate: exit 2 means one or more providers have no IMPLEMENTED
 canonical support. Exit 1 is invalid input or contract validation failure.
 Only Shared's canonical generator emits EngineRegistration, always DRAFT.
@@ -116,3 +118,23 @@ Validation on the C3 publication-client branch based on IAM `4c7f57a`:
 the executable authority command passed. Pinned Shared declaration validation
 passed. Live provider/container/PostgreSQL/staging runs require their environments;
 local unit successes are not operational acceptance.
+
+## C3 executable support convergence
+
+The actual Ory and permanent Keycloak adapters expose secret-free construction
+declarations through `CanonicalSupportSource`. Combined Ory mechanics emit
+separate Kratos and Hydra entries. `cmd/provider-support-census` calls these
+ports and exports their exact canonical capability keys, contract majors and
+implementation statuses. It performs no network calls or runtime activation.
+CI builds/runs the command and compares its output to the pinned-Shared-validated
+provider declaration before generating registration documents.
+
+`--executable-support-export` rejects missing/extra/duplicate providers, swapped
+implementations, changed capability keys/versions/status and premature support
+promotion. Strict `--require-registrable` now requires this export (missing
+export is invalid input, exit 1); matching PARTIAL support remains excluded
+(exit 2). Documentary evidence is independently checked by Shared. A supplied
+offline export is a construction comparison, not an attestation of deployed
+code or a replacement for CP release/profile evidence. No CP support records,
+IDs or bindings are manufactured. Full capability entry paths and current
+approved runtime projections remain required before C3 can close.
