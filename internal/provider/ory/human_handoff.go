@@ -266,7 +266,8 @@ func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id string, creden
 	if err != nil || current != s {
 		return "", fmt.Errorf("native session changed during handoff")
 	}
-	key := fmt.Sprintf("%x", sha256.Sum256([]byte(h.issuer.String()+"\x00"+kind+"\x00"+id)))
+	// Origins with an optional root slash must share the same replay key.
+	key := fmt.Sprintf("%x", sha256.Sum256([]byte(h.issuer.Scheme+"://"+h.issuer.Host+"\x00"+kind+"\x00"+id)))
 	if err := h.fence.ConsumeNativeChallenge(ctx, key); err != nil {
 		return "", fmt.Errorf("native challenge already consumed or fence unavailable")
 	}

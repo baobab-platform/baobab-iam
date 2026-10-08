@@ -111,6 +111,13 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 				if err != nil || redirect == "" || accepts != 1 {
 					t.Fatalf("valid native handoff failed: %v", err)
 				}
+				replica, err := NewNativeHumanHandoff(NativeHumanConfig{KratosPublicURL: server.URL, HydraAdminURL: server.URL, Issuer: server.URL + "/", Client: server.Client(), Now: func() time.Time { return now }, Fence: h.fence})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := replica.AcceptConsent(context.Background(), strings.Repeat("opaque", 700), credential, intent, true); err == nil || accepts != 1 {
+					t.Fatal("issuer root slash bypassed replay fence")
+				}
 				return
 			}
 			if err == nil || redirect != "" {
