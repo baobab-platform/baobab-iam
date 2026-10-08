@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -32,6 +33,7 @@ type brokerFixture struct {
 	key                     *rsa.PrivateKey
 	exchangeCalls           int
 	badProof                bool
+	rawResponse             string
 	server                  *httptest.Server
 }
 
@@ -59,6 +61,11 @@ func brokerSetup(t *testing.T, protocol string) (*BrokerEvents, *brokerFixture, 
 	f := &brokerFixture{clock: now, key: key}
 	f.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.exchangeCalls++
+		if f.rawResponse != "" {
+			w.Header().Set("Content-Type", "application/json")
+			io.WriteString(w, f.rawResponse)
+			return
+		}
 		r.ParseForm()
 		if r.Form.Get("code_verifier") == "" || r.Form.Get("grant_type") != "authorization_code" {
 			t.Error("PKCE exchange absent")
@@ -71,7 +78,7 @@ func brokerSetup(t *testing.T, protocol string) (*BrokerEvents, *brokerFixture, 
 		}
 		claims := map[string]any{"iss": f.config.Settings.Issuer, "sub": "broker-local-subject", "aud": f.config.Settings.ClientID, "exp": f.clock.Add(4 * time.Minute).Unix(), "iat": f.clock.Unix(), "auth_time": f.clock.Unix(), "nonce": f.downstreamNonce, "baobab_upstream_evidence_digest": digest}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"id_token": signOIDC(t, key, claims)})
+		json.NewEncoder(w).Encode(map[string]any{"access_token": strings.Repeat("fixture-access-token-", 2), "token_type": "bearer", "expires_in": 240, "scope": "openid", "id_token": signOIDC(t, key, claims)})
 	}))
 	t.Cleanup(f.server.Close)
 	f.config = BrokerConfiguration{TrustID: s.Trust.ID, SnapshotID: s.SnapshotID, Revision: s.ApprovedRevision, Binding: s.Trust.ProviderBinding, Settings: BrokerSettings{Issuer: f.server.URL, ClientID: "bff", AuthorizationEndpoint: f.server.URL + "/auth", TokenEndpoint: f.server.URL + "/token", RedirectURI: "https://bff.example/callback", ProviderRoute: "enterprise", SigningAlgorithm: "RS256"}, BrokerJWKS: keys, Upstream: OIDCConfiguration{TrustID: s.Trust.ID, SnapshotID: s.SnapshotID, Revision: s.ApprovedRevision, Binding: s.Trust.ProviderBinding, ClientID: "broker-upstream", SigningAlgorithm: "RS256", JWKS: keys, ValidUntil: s.ValidUntil}, SAML: SAMLSettings{EntityID: "https://broker.example/realm", ACSURL: "https://broker.example/broker/enterprise/endpoint"}, ValidUntil: s.ValidUntil}
@@ -286,6 +293,47 @@ func TestBrokerCaptureReplayAndClockFenceSurviveRestart(t *testing.T) {
 	f.clock = f.clock.Add(-6 * time.Minute)
 	if _, err = reopened.Prune(context.Background(), 128); err == nil {
 		t.Fatal("clock rollback accepted after pruning")
+	}
+}
+
+func TestBrokerMalformedCanonicalResponseBurnsCallback(t *testing.T) {
+	e, f, s, _ := brokerSetup(t, "oidc")
+	defer e.Close()
+	r, secret := runBrokerCapture(t, e, f, s)
+	callback := BrokerCallback{r.EventID, r.State, secret, r.PKCEVerifier, "code", f.config.Settings.Issuer}
+	f.rawResponse = `{"id_token":"yyyyyyyyyyyyyyyyyyyy"}`
+	if e.Complete(context.Background(), s, callback) == nil || f.exchangeCalls != 1 {
+		t.Fatal("malformed canonical response authenticated a callback")
+	}
+	f.rawResponse = ""
+	if e.Complete(context.Background(), s, callback) == nil || f.exchangeCalls != 1 {
+		t.Fatal("failed canonical handoff permitted a second code exchange")
+	}
+	if _, _, err := e.Verify(context.Background(), r.EventID, s); err == nil {
+		t.Fatal("failed canonical handoff produced an authentication event")
+	}
+}
+
+func TestBrokerCanonicalTokenResponse(t *testing.T) {
+	e, f, _, _ := brokerSetup(t, "oidc")
+	defer e.Close()
+	valid := `{"access_token":"xxxxxxxxxxxxxxxxxxxx","token_type":"bearer","expires_in":240,"id_token":"yyyyyyyyyyyyyyyyyyyy","scope":"openid","not-before-policy":0}`
+	f.rawResponse = valid
+	if token, err := e.exchange(context.Background(), f.config, "code", strings.Repeat("v", 43)); err != nil || token != strings.Repeat("y", 20) {
+		t.Fatalf("canonical broker exchange failed: %v", err)
+	}
+	for _, raw := range []string{
+		`{"id_token":"yyyyyyyyyyyyyyyyyyyy"}`,
+		strings.Replace(valid, `"expires_in":240`, `"expires_in":240.5`, 1),
+		strings.Replace(valid, `"access_token":"xxxxxxxxxxxxxxxxxxxx"`, `"access_token":null`, 1),
+		strings.Replace(valid, `"id_token":"yyyyyyyyyyyyyyyyyyyy"`, `"id_token":null`, 1),
+		strings.Replace(valid, `"not-before-policy":0`, `"error":"invalid_grant"`, 1),
+		valid + `{}`,
+	} {
+		f.rawResponse = raw
+		if token, err := e.exchange(context.Background(), f.config, "code", strings.Repeat("v", 43)); err == nil || token != "" {
+			t.Fatal("invalid broker response released an ID token")
+		}
 	}
 }
 
