@@ -195,3 +195,22 @@ major version `1`. Closed support entries and unique capability keys are checked
 independently before comparing with the pinned-Shared-validated declaration.
 All providers remain PARTIAL. Full canonical conformance, owner-approved CP
 registration inputs and registered consumer acceptance still gate C3 completion.
+
+### C3 OAuth-to-canonical workload response projection
+
+Based on main `509e0c0` (#99 merged), the Ory adapter now exposes a reusable
+successful-response projection. It bounds input to 1 MiB, rejects duplicate and
+trailing wire input and OAuth error envelopes, normalizes bearer spelling, and
+validates the pinned canonical response plus exact admitted scopes. OAuth
+extensions and refresh credentials are excluded from the returned envelope;
+failures return no token. The ACTIVE live fixture invokes the same adapter
+projection on actual raw Hydra response bytes before its independent verifier.
+Repository unit and race tests cover projection and malformed-response denial.
+Current-head composed CI is required; no staging or production proof is supplied.
+
+This closes the fixture-only response projection gap, not C3 as a whole.
+Canonical issuance entry-path/default-scope conformance, current CP authority,
+registered resource consumption and full human Authorization Code/PKCE handoff
+remain open. All provider declarations remain PARTIAL, so strict registration
+remains blocked. Owner-approved targets, references, artifacts, evidence,
+protected CP origin/CA and scoped observer credentials remain live dependencies.

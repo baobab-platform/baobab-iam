@@ -96,11 +96,12 @@ func (f *workloadFixture) cleanup(t *testing.T, path string) {
 }
 
 type workloadToken struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"`
-	Scope       string `json:"scope"`
-	Error       string `json:"error"`
+	RawResponse json.RawMessage `json:"-"`
+	AccessToken string          `json:"access_token"`
+	TokenType   string          `json:"token_type"`
+	ExpiresIn   int             `json:"expires_in"`
+	Scope       string          `json:"scope"`
+	Error       string          `json:"error"`
 }
 
 // Only OAuth status/error codes are logged. Bodies may carry live credentials.
@@ -117,7 +118,8 @@ func (f *workloadFixture) exchange(t *testing.T, form url.Values, denied bool) w
 	}
 	defer resp.Body.Close()
 	var token workloadToken
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&token); err != nil {
+	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	if readErr != nil || len(raw) > 1<<20 || json.Unmarshal(raw, &token) != nil {
 		t.Fatal("decode OAuth exchange response")
 	}
 	if denied {
@@ -128,6 +130,7 @@ func (f *workloadFixture) exchange(t *testing.T, form url.Values, denied bool) w
 	} else if resp.StatusCode != 200 || token.AccessToken == "" || !strings.EqualFold(token.TokenType, "bearer") || token.ExpiresIn <= 0 || token.ExpiresIn > 3600 {
 		t.Fatalf("expected bounded bearer token, received HTTP %d", resp.StatusCode)
 	}
+	token.RawResponse = raw
 	return token
 }
 
@@ -553,12 +556,7 @@ func TestLiveCanonicalActiveFixture(t *testing.T) {
 	form := secretForm(id, w.ClientSecret, scopes[0])
 	form.Set("audience", "baobab-control-plane")
 	token := f.exchange(t, form, false)
-	tokenType := token.TokenType
-	if strings.EqualFold(tokenType, "bearer") {
-		tokenType = "Bearer"
-	}
-	response := tokenprofile.WorkloadTokenResponse{AccessToken: token.AccessToken, TokenType: tokenType, ExpiresIn: token.ExpiresIn, Scope: &token.Scope}
-	if err := response.BindRequest(tokenprofile.WorkloadTokenRequest{WorkloadID: id, Audience: "baobab-control-plane", Scopes: scopes}); err != nil {
+	if _, err := ory.ProjectWorkloadTokenResponse(token.RawResponse, tokenprofile.WorkloadTokenRequest{WorkloadID: id, Audience: "baobab-control-plane", Scopes: scopes}); err != nil {
 		t.Fatal("canonical response envelope or admitted scopes mismatch")
 	}
 	f.verify(t, token, scopes, id)
