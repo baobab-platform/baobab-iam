@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
+	"math/big"
 	"strings"
 	"unicode/utf8"
 )
@@ -73,13 +73,18 @@ func (r *WorkloadTokenResponse) UnmarshalJSON(raw []byte) error {
 		case "token_type":
 			err = json.Unmarshal(value, &out.TokenType)
 		case "expires_in":
-			var number float64
+			var number json.Number
 			err = json.Unmarshal(value, &number)
 			if err == nil {
-				if number < 60 || number > 86400 || math.Trunc(number) != number {
+				rational, ok := new(big.Rat).SetString(number.String())
+				if !ok || !rational.IsInt() || !rational.Num().IsInt64() {
 					return fmt.Errorf("invalid canonical response lifetime")
 				}
-				out.ExpiresIn = int(number)
+				lifetime := rational.Num().Int64()
+				if lifetime < 60 || lifetime > 86400 {
+					return fmt.Errorf("invalid canonical response lifetime")
+				}
+				out.ExpiresIn = int(lifetime)
 			}
 		case "scope":
 			err = json.Unmarshal(value, &out.Scope)
