@@ -23,6 +23,7 @@ import (
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
+	"github.com/baobab-platform/baobab-iam/internal/tokenprofile"
 )
 
 const bearerGrant = "urn:ietf:params:oauth:grant-type:jwt-bearer"
@@ -551,5 +552,10 @@ func TestLiveCanonicalActiveFixture(t *testing.T) {
 	f.cleanup(t, "/admin/clients/"+url.PathEscape(id))
 	form := secretForm(id, w.ClientSecret, scopes[0])
 	form.Set("audience", "baobab-control-plane")
-	f.verify(t, f.exchange(t, form, false), scopes, id)
+	token := f.exchange(t, form, false)
+	response := tokenprofile.WorkloadTokenResponse{AccessToken: token.AccessToken, TokenType: token.TokenType, ExpiresIn: token.ExpiresIn, Scope: &token.Scope}
+	if err := response.BindRequest(tokenprofile.WorkloadTokenRequest{WorkloadID: id, Audience: "baobab-control-plane", Scopes: scopes}); err != nil {
+		t.Fatal("canonical response envelope or admitted scopes mismatch")
+	}
+	f.verify(t, token, scopes, id)
 }

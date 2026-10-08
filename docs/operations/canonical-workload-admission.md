@@ -75,3 +75,14 @@ dependency, not established by this immutable hook configuration.
 The Ory live mechanics harness uses `tests/ory-foundation/mechanics-hook`, a disposable launcher for PROVISIONED provider mechanics. It does not use the production executable and cannot establish canonical activation or production acceptance. The production factory remains ACTIVE-only; its authenticated canonical composition and negative cases are covered by Go and race tests.
 
 Pinned Hydra exposes requested scopes and granted audience as authenticated callback fields, and sanitizes payload to assertion only. Canonical admission uses those fields and requires one granted resource, nonempty requested scopes, exact granted scopes and ACTIVE status. The callback cannot prove that an audience parameter was explicitly supplied; explicit wire-parameter provenance remains unproven and is not a support claim.
+
+## Canonical response envelope
+
+`tokenprofile.WorkloadTokenResponse` validates the closed pinned Shared envelope.
+`BindRequest` requires the admitted request's exact scope set and explicit response
+scopes. Apply it after protocol response projection, without retaining OAuth
+extensions or refresh credentials in the canonical envelope. This check does not
+parse or authenticate the access token. Verify its signature, issuer, subject,
+audience, actor classification, expiry and current authority independently before
+resource acceptance. The live isolated ACTIVE fixture applies envelope/scope checks
+and then the existing token verifier; it is not a registered production consumer.

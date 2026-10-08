@@ -21,3 +21,13 @@ class WorkloadRequestContractTests(unittest.TestCase):
             with self.subTest(index=index):
                 errors = contracts.errors('identity/v1/workload-token-request.schema.json', case['request'])
                 self.assertEqual(not errors, case['valid'])
+
+    def test_pinned_shared_response_corpus(self):
+        checkout = Path(os.environ['SHARED_REPO_DIR']).resolve()
+        module, _ = load_shared(checkout)
+        contracts = module.Contracts(checkout / 'contracts')
+        cases = json.loads((ROOT / 'tests/fixtures/canonical-workload-response.json').read_text())
+        for index, case in enumerate(cases):
+            with self.subTest(index=index):
+                errors = contracts.errors('identity/v1/workload-token-response.schema.json', case['response'])
+                self.assertEqual(not errors, case['valid'])

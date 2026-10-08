@@ -163,3 +163,20 @@ resolver convergence, then C5/C6 login discovery and the first registered estate
 acceptance. C7–C11 and the remaining implementation work in the matrix remain
 open. Repository readiness is bounded; full integration readiness, staging
 acceptance and production acceptance are not established.
+
+### C3 canonical workload response boundary (2026-10-08)
+
+Baseline: merged IAM #96 at `3866f12`. The response envelope now mirrors the exact
+Shared `70f92ee179888e9fd38e31ae9225060d76833944` workload-token response contract:
+closed properties, required Bearer type, 60–86400-second lifetime and optional
+nonempty scope. Duplicate/null/trailing input is rejected. Scope binding requires
+an explicit exact admitted scope set; omission never supplies permissions.
+The real Hydra ACTIVE fixture checks this boundary before its existing token
+verification. The Shared pin is unchanged; both workload schemas are now explicit
+consumer-lock entries. Unit/contract corpus and race tests cover malformed
+responses, scope inflation, duplicate grants and missing scope.
+
+Classification: repository implementation only. Current-head Docker/composed CI
+is required. The boundary does not verify token signatures or establish current CP
+registration, resource consumption, staging or production acceptance. Provider
+support remains PARTIAL. C3 registration and C4 dispatch remain open.

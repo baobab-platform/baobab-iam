@@ -1,0 +1,99 @@
+[
+  {
+    "valid": true,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 60
+    }
+  },
+  {
+    "valid": true,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "scope": "context:resolve"
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "access_token": "short",
+      "token_type": "Bearer",
+      "expires_in": 60
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "bearer",
+      "expires_in": 60
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 59
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 86401
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "scope": ""
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "scope": null
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer",
+      "expires_in": 60,
+      "refresh_token": "unexpected"
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "token_type": "Bearer",
+      "expires_in": 60
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "expires_in": 60
+    }
+  },
+  {
+    "valid": false,
+    "response": {
+      "access_token": "xxxxxxxxxxxxxxxxxxxx",
+      "token_type": "Bearer"
+    }
+  }
+]
