@@ -197,11 +197,17 @@ func (c *hydraClient) provisionFederatedWorkload(
 			ResponseTypes:           []string{},
 			Scope:                   joinScopes(spec.AllowedScopes),
 			TokenEndpointAuthMethod: "none",
+			Audience:                append([]string(nil), spec.IntendedAudiences...),
 			Metadata:                metadata,
 		}
-		// Do not copy Shared logical audiences into Hydra Audience. Hydra models
-		// that field as URL resource indicators; the Baobab logical audience is
-		// an activation claim that must be proven by the live token profile.
+		// Register the workload's intended resource audiences on the client. Hydra only grants
+		// a requested `audience` that the client has registered; an unregistered one is not
+		// refused but silently dropped, which yields an audience-less access token that the
+		// governed token-profile hook then denies. Registration is an allow-list of what this
+		// workload may request, not a claim of activation: the hook still requires the granted
+		// audience to match the Shared-derived workload projection, and the live token profile
+		// still has to prove it. Hydra's default audience strategy matches a non-URL name
+		// exactly, so a logical audience such as "baobab-erp" is not widened to its prefixes.
 		if _, err := c.postClient(ctx, body); err != nil {
 			return nil, err
 		}
@@ -221,7 +227,7 @@ func (c *hydraClient) provisionFederatedWorkload(
 		existing.ClientName = spec.DisplayName
 		existing.GrantTypes = []string{hydraJWTBearerGrantType}
 		existing.Scope = joinScopes(spec.AllowedScopes)
-		existing.Audience = nil
+		existing.Audience = append([]string(nil), spec.IntendedAudiences...)
 		existing.TokenEndpointAuthMethod = "none"
 		existing.Metadata = metadata
 		existing.ClientSecret = ""
