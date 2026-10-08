@@ -138,3 +138,8 @@ offline export is a construction comparison, not an attestation of deployed
 code or a replacement for CP release/profile evidence. No CP support records,
 IDs or bindings are manufactured. Full capability entry paths and current
 approved runtime projections remain required before C3 can close.
+
+Registration and executable-support export inputs reject duplicate JSON properties
+at every nesting level, non-finite numbers and trailing documents before schema
+validation or drift comparison. Ambiguous wire evidence cannot erase a conflicting
+lifecycle or support claim. This input hardening does not change support eligibility.
