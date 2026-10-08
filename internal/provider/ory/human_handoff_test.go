@@ -77,7 +77,7 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 				if negative == "duplicate-query" {
 					query.Add("state", intent.State)
 				}
-				c := map[string]any{"challenge": "challenge-ci", "request_url": server.URL + "/oauth2/auth?" + query.Encode(), "client": map[string]string{"client_id": intent.ClientID}, "requested_scope": []string{"openid"}, "requested_access_token_audience": []string{}, "subject": "exact-kratos-subject"}
+				c := map[string]any{"challenge": strings.Repeat("opaque", 700), "request_url": server.URL + "/oauth2/auth?" + query.Encode(), "client": map[string]string{"client_id": intent.ClientID}, "requested_scope": []string{"openid"}, "requested_access_token_audience": []string{}, "subject": "exact-kratos-subject"}
 				if negative == "scope" {
 					c["requested_scope"] = []string{"openid", "payments:write"}
 				}
@@ -94,7 +94,7 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			redirect, err := h.AcceptConsent(context.Background(), "challenge-ci", "private-session-credential", intent, negative != "no-consent")
+			redirect, err := h.AcceptConsent(context.Background(), strings.Repeat("opaque", 700), "private-session-credential", intent, negative != "no-consent")
 			if negative == "" {
 				if err != nil || redirect == "" || accepts != 1 {
 					t.Fatalf("valid native handoff failed: %v", err)
