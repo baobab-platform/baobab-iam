@@ -101,6 +101,14 @@ class PublicationTests(unittest.TestCase):
             path.write_text('{"providers":[]}')
             self.assertEqual(publication.read_evidence_export(path), {'providers': []})
 
+    def test_executable_contract_version_types_denied(self):
+        for versions in ([True], [1.0], ["1"], [0], [-1], [], [1, 1], None):
+            with self.subTest(versions=versions):
+                census = self.census()
+                census['providers'][0]['support'][0]['contract_versions'] = versions
+                with self.assertRaises(ValueError):
+                    publication.compare_executable_support(self.declaration, census)
+
     def test_executable_convergence(self):
         publication.compare_executable_support(self.declaration, self.census())
 
