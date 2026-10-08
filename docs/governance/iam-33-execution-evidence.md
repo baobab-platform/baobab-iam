@@ -1,7 +1,7 @@
 # ADR-IAM-0033 execution and acceptance evidence
 
-Date: 2026-10-07. Authority: Accepted ADR-IAM-0033; Shared immutable IAM pin
-`363e0ead9ebb5aa87f5f813b63b785b7f63cc39e`. This dossier records the bounded
+Date: 2026-10-08. Authority: Accepted ADR-IAM-0033; Shared immutable IAM pin
+`70f92ee179888e9fd38e31ae9225060d76833944`. This dossier records the bounded
 C1/C2 implementation and C3 declaration reconciliation. It does not certify
 MP0–MP20 or close unimplemented requirements.
 
@@ -49,6 +49,24 @@ passed before merge. C3 declaration/evidence reconciliation is tracked in
 feat/iam-33-c3-provider-declarations; this does not complete C3 registration.
 
 ## MP0–MP20 matrix
+
+2026-10-08 refresh: main `cef8d0210f128352b2d3a264f349e5c12e646d4d`
+includes #85, #79, #80, #86 and staging-evidence provisioning work #87/#88.
+C3 declaration reconciliation #86 is merged; it did not publish support.
+The C3 publication preflight on `feat/iam-33-c3-publication-preflight` uses the
+exact Shared generator, excludes PARTIAL/planned support and compares reviewed
+registration exports. It is implemented construction tooling, not completed
+registry convergence. All three providers remain blocked for registration.
+See [publication procedure](../operations/provider-support-publication.md).
+
+Fresh local verification: `go test ./...`, federation and authority race tests,
+`go vet ./...`, `go build ./...`, all 29 Python tests, declaration/matrix and
+federation/resolution wire validation Passed. The strict publication command
+returned the expected Blocked result (exit 2). Live provider tests, PostgreSQL
+concurrency/recovery, container builds/scans and new GitHub Actions are Not run
+locally; Docker/PostgreSQL/security executables are unavailable. Staging and
+production remain Blocked on protected configuration and owner evidence.
+Historical CI receipts below are historical, not fresh results for this branch.
 
 All rows retain Accepted ADR-IAM-0033 and its implementation plan as normative
 requirements. The code/test column identifies construction evidence, not an

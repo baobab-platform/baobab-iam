@@ -12,6 +12,8 @@ jobs:
   provider-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
@@ -60,6 +62,12 @@ jobs:
           python3 scripts/check-federation-contracts.py
       - name: Validate provider declarations against approved Shared contracts
         run: python3 .shared-contracts/scripts/capability_catalogue.py validate-declaration .baobab/capability-provider.yaml --engine-id baobab-iam --repository-root .
+      - name: Verify registration publication exclusions and drift detection
+        env:
+          SHARED_REPO_DIR: .shared-contracts
+        run: |
+          python3 scripts/provider_publication.py --shared-checkout .shared-contracts
+          python3 -m unittest discover -s tests/unit -p 'test_provider_publication.py'
       - name: Every issued scope exists in the pinned Shared scope registry
         run: ./scripts/check-issued-scopes.sh
       - name: Every client and scope description fits Keycloak's 255-character limit
