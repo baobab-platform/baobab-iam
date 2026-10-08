@@ -1,0 +1,29 @@
+package candidatesecurity
+
+import (
+	"fmt"
+	"testing"
+
+	legacy "github.com/jackc/pgconn"
+	current "github.com/jackc/pgx/v5/pgconn"
+	"github.com/ory/x/sqlcon"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+)
+
+func TestSQLStateCompatibility(t *testing.T) {
+	for code, want := range map[string]error{
+		"40001": sqlcon.ErrConcurrentUpdate,
+		"23505": sqlcon.ErrUniqueViolation,
+		"42P01": sqlcon.ErrNoSuchTable,
+		"42703": sqlcon.ErrNoSuchColumn,
+	} {
+		for _, original := range []error{&legacy.PgError{Code: code}, &current.PgError{Code: code}} {
+			err := fmt.Errorf("wrapped: %w", original)
+			require.ErrorIs(t, sqlcon.HandleError(err), want)
+			var state interface{ SQLState() string }
+			require.True(t, errors.As(err, &state))
+			require.Equal(t, code, state.SQLState())
+		}
+	}
+}

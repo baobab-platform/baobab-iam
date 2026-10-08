@@ -48,9 +48,29 @@ bash tests/ory-foundation/token_profile.sh
 ```
 
 The source build executes upstream RFC7523/config race tests and the released
-OAuth JWT-bearer HTTP suite before building. The candidate image inherits the
-existing digest-pinned runtime and replaces only the source-built executable.
-Build receipts record base/fix commits, source patch hash, test patch hash and binary hash. The fixture
+OAuth JWT-bearer HTTP suite before building. CI exposed vulnerable released
+runtime libraries and Go modules. The candidate now uses a scratch runtime with
+the exact digest-pinned trust bundle and nonroot account; the static binary needs
+no OpenSSL, musl or zlib. An explicit USER retains UID/GID 65532.
+
+`security.patch` pins Go dependency fixes and their checksum closure, isolates
+Ory's Docker schema-dump helper behind an explicit integration-test build tag,
+and removes redundant legacy pgconn imports. Transaction retries still use exact
+SQLSTATE 40001 through the error interface, including wrapped errors. No retry,
+replay or recovery fencing is disabled. The runtime dependency graph rejects
+Docker, pgconn and pgproto3/v2; original Docker helpers remain compiled in the
+upstream HTTP tests with `hydra_integration_tests`.
+
+The exact released Pop module is copied into a local candidate replacement;
+only its configuration parser import moves to pgx/v5, the driver already used for
+actual connections. Compatibility tests compare consumed fields and rejection
+for URI/keyword DSNs, IPv6, Unix sockets and TLS modes. pgx/v5 deliberately rejects
+nonexistent certificate files even with TLS disabled; the released disabled-TLS
+test uses a valid DSN, and an additional test requires that rejection. No SQL
+migrations or connection runtime are substituted. No other Pop release is adopted.
+
+Build receipts record base/fix commits, audience/security patch hashes, module
+manifest/checksum hashes and binary hash. The fixture
 records the resulting local image ID and refuses image substitution before use.
 The build context contains only the binary and Dockerfile, never source .git
 metadata, credentials or temporary tests.
@@ -93,6 +113,7 @@ migration delta before promotion; this backport changes no SQL migration files.
 | Existing Python tests | Passed, 21 tests |
 | Upstream RFC7523/config race tests on backported source | Passed |
 | Released OAuth JWT bearer HTTP suite, SQLite enabled | Passed |
+| Candidate Pop PostgreSQL parser compatibility/race tests | Passed |
 | Shell syntax, workflow YAML parsing, unchanged CP source provenance | Passed |
 | Container/image security and live Hydra/CP acceptance | Not run locally; Docker unavailable; required CI matrix |
 | Staging/production acceptance | Open; no deployment/promotion performed |

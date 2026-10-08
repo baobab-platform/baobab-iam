@@ -1,0 +1,50 @@
+package pop
+
+import (
+	"fmt"
+	"testing"
+
+	legacy "github.com/jackc/pgconn"
+	"github.com/stretchr/testify/require"
+)
+
+// The released parser and replacement must agree on the fields Pop consumes,
+// including rejection. The legacy module is test-only, never in the executable.
+func TestCandidateParserParity(t *testing.T) {
+	for _, dsn := range []string{
+		"postgres://user:pass%23@localhost:5432/database?sslmode=disable",
+		"postgres://user:pass@[::1]:5544/database?sslmode=require",
+		"host=/tmp port=5432 dbname=database user=user sslmode=disable",
+		"host=localhost user=user fallback_application_name=hydra sslmode=prefer",
+		"postgres://user@host/database?sslmode=verify-full",
+		"postgres://user@host/database?sslmode=invalid",
+		"host=host port=not-a-port",
+		"postgres://user:bad%escape@host/database",
+	} {
+		t.Run(dsn, func(t *testing.T) {
+			old, oldErr := legacy.ParseConfig(dsn)
+			cd := &ConnectionDetails{URL: dsn}
+			err := urlParserPostgreSQL(cd)
+			require.Equal(t, oldErr == nil, err == nil, "parser rejection changed")
+			if oldErr != nil {
+				return
+			}
+			require.Equal(t, old.Database, cd.Database)
+			require.Equal(t, old.Host, cd.Host)
+			require.Equal(t, old.User, cd.User)
+			require.Equal(t, old.Password, cd.Password)
+			require.Equal(t, fmt.Sprint(old.Port), cd.Port)
+			if app, ok := old.RuntimeParams["fallback_application_name"]; ok {
+				require.Equal(t, app, cd.Options["fallback_application_name"])
+			}
+			if old.TLSConfig == nil {
+				require.Equal(t, "disable", cd.Options["sslmode"])
+			}
+		})
+	}
+}
+
+func TestCandidateParserRejectsMissingCertificate(t *testing.T) {
+	cd := &ConnectionDetails{URL: "postgres://user@host/database?sslmode=disable&sslrootcert=/nonexistent/candidate-root.pem"}
+	require.Error(t, urlParserPostgreSQL(cd))
+}
