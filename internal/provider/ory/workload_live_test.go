@@ -517,14 +517,15 @@ func (f *workloadFixture) recordProfile(t *testing.T, id string, p workloadProfi
 }
 
 // The production executable must reject a canonical registration that is still PROVISIONED.
-// This proof uses real Hydra authentication and hook composition without promoting Shared status.
+// This proof uses real Hydra authentication and hook composition with an isolated CI fixture.
+// The pinned Shared lifecycle is neither modified nor inferred.
 func TestLiveCanonicalProvisionedDenied(t *testing.T) {
 	if os.Getenv("ORY_TOKEN_PROFILE") != "1" {
 		t.Skip("requires authenticated canonical hook")
 	}
 	f := newWorkloadFixture(t)
-	const id = "baobab-trade-workload"
-	p := f.profile(t, id, "client_credentials")
+	const id = "m4-ci-canonical-provisioned"
+	p := workloadProfile{Scopes: []string{"context:resolve"}, Audiences: []string{"baobab-control-plane"}}
 	w, err := f.adapter.ProvisionWorkload(f.ctx, provider.WorkloadProvisioningSpec{LogicalClientID: id, AllowedScopes: p.Scopes, Audiences: p.Audiences, AuthMethod: provider.WorkloadAuthClientSecret})
 	if err != nil {
 		t.Fatal("provision canonical denial fixture")
