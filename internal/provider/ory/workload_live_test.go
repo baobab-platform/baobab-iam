@@ -515,3 +515,41 @@ func (f *workloadFixture) recordProfile(t *testing.T, id string, p workloadProfi
 	}
 	t.Logf("Verified provider token; Shared audience match=%t, actor_type=workload=%t; canonical activation remains unproven", logicalAudience, actor == "workload")
 }
+
+// The production executable must reject a canonical registration that is still PROVISIONED.
+// This proof uses real Hydra authentication and hook composition with an isolated CI fixture.
+// The pinned Shared lifecycle is neither modified nor inferred.
+func TestLiveCanonicalProvisionedDenied(t *testing.T) {
+	if os.Getenv("ORY_TOKEN_PROFILE") != "1" {
+		t.Skip("requires authenticated canonical hook")
+	}
+	f := newWorkloadFixture(t)
+	const id = "m4-ci-canonical-provisioned"
+	p := workloadProfile{Scopes: []string{"context:resolve"}, Audiences: []string{"baobab-control-plane"}}
+	w, err := f.adapter.ProvisionWorkload(f.ctx, provider.WorkloadProvisioningSpec{LogicalClientID: id, AllowedScopes: p.Scopes, Audiences: p.Audiences, AuthMethod: provider.WorkloadAuthClientSecret})
+	if err != nil {
+		t.Fatal("provision canonical denial fixture")
+	}
+	f.cleanup(t, "/admin/clients/"+url.PathEscape(id))
+	form := secretForm(id, w.ClientSecret, p.Scopes[0])
+	form.Set("audience", p.Audiences[0])
+	f.exchange(t, form, true)
+}
+
+// This isolated identity is not a Shared allocation or production activation.
+func TestLiveCanonicalActiveFixture(t *testing.T) {
+	if os.Getenv("ORY_TOKEN_PROFILE") != "1" {
+		t.Skip("requires authenticated canonical hook")
+	}
+	f := newWorkloadFixture(t)
+	const id = "m4-ci-canonical-active"
+	scopes := []string{"context:resolve"}
+	w, err := f.adapter.ProvisionWorkload(f.ctx, provider.WorkloadProvisioningSpec{LogicalClientID: id, AllowedScopes: scopes, Audiences: []string{"baobab-control-plane"}, AuthMethod: provider.WorkloadAuthClientSecret})
+	if err != nil {
+		t.Fatal("provision isolated ACTIVE fixture")
+	}
+	f.cleanup(t, "/admin/clients/"+url.PathEscape(id))
+	form := secretForm(id, w.ClientSecret, scopes[0])
+	form.Set("audience", "baobab-control-plane")
+	f.verify(t, f.exchange(t, form, false), scopes, id)
+}
