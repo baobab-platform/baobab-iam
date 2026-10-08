@@ -85,6 +85,22 @@ class PublicationTests(unittest.TestCase):
                          for entry in p['support']]}
             for p in self.declaration['providers']]}
 
+    def test_ambiguous_wire_evidence_denied(self):
+        for raw in ('{"providers":[],"providers":[]}',
+                    '[{"provider":{"lifecycle":"ACTIVE","lifecycle":"DRAFT"}}]',
+                    '{"providers":[{"support":[{"implementation_status":"IMPLEMENTED",'
+                    '"implementation_status":"PARTIAL"}]}]}',
+                    '{"revision":NaN}', '{"revision":Infinity}', '{} {}'):
+            with self.subTest(raw=raw), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'export.json'
+                path.write_text(raw)
+                with self.assertRaises(ValueError):
+                    publication.read_evidence_export(path)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'export.json'
+            path.write_text('{"providers":[]}')
+            self.assertEqual(publication.read_evidence_export(path), {'providers': []})
+
     def test_executable_convergence(self):
         publication.compare_executable_support(self.declaration, self.census())
 
