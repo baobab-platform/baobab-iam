@@ -25,9 +25,9 @@ jobs:
           gofmt -d cmd internal
           test -z "$(gofmt -l cmd internal)"
       - name: Build packages
-        run: go build ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/
+        run: go build ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/
       - name: Test packages
-        run: go test ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority -count=1
+        run: go test ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority -count=1
       - name: Test federation consumption with race detector
         run: go test -race ./internal/federation/... -count=1
       - name: Install matrix validator dependency
@@ -71,7 +71,8 @@ jobs:
           python3 -m unittest discover -s tests/unit -p 'test_provider_publication.py'
           python3 -m unittest discover -s tests/unit -p 'test_runtime_profile_publication.py'
           python3 -m unittest discover -s tests/unit -p 'test_canonical_workload_request.py'
-          go test -race ./internal/tokenprofile ./internal/provider/ory ./cmd/ory-token-profile-hook -count=1
+          python3 -m unittest discover -s tests/unit -p 'test_canonical_human_auth.py'
+          go test -race ./internal/humanauth ./internal/tokenprofile ./internal/provider/ory ./cmd/ory-token-profile-hook -count=1
       - name: Every issued scope exists in the pinned Shared scope registry
         run: ./scripts/check-issued-scopes.sh
       - name: Every client and scope description fits Keycloak's 255-character limit
