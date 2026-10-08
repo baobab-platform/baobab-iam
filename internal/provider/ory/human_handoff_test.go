@@ -21,17 +21,17 @@ import (
 func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	intent := humanauth.Request{GrantType: "authorization_code", ClientID: "estate-ci", RedirectURI: "https://estate.invalid/callback", Scope: "openid", CodeChallenge: strings.Repeat("x", 43), CodeChallengeMethod: "S256", State: strings.Repeat("s", 32), Nonce: strings.Repeat("n", 32)}
-	for _, negative := range []string{"", "state", "nonce", "client", "scope", "audience", "subject", "duplicate-query", "expired", "inactive", "future-authentication", "duplicate-session", "revoked-before-accept", "no-consent", "redirect", "provider-redirect"} {
+	for _, negative := range []string{"", "browser-cookie", "mixed-credentials", "state", "nonce", "client", "scope", "audience", "subject", "duplicate-query", "expired", "inactive", "future-authentication", "duplicate-session", "revoked-before-accept", "no-consent", "redirect", "provider-redirect"} {
 		t.Run(negative, func(t *testing.T) {
 			accepts, sessions := 0, 0
 			var server *httptest.Server
 			server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if strings.HasPrefix(r.URL.Path, "/admin/") && r.Header.Get("X-Session-Token") != "" {
+				if strings.HasPrefix(r.URL.Path, "/admin/") && (r.Header.Get("X-Session-Token") != "" || r.Header.Get("Cookie") != "") {
 					t.Error("Kratos credential sent to Hydra")
 				}
 				if r.URL.Path == "/sessions/whoami" {
 					sessions++
-					if r.Header.Get("X-Session-Token") != "private-session-credential" {
+					if (negative == "browser-cookie" && (r.Header.Get("Cookie") != "ory_kratos_session=private-cookie" || r.Header.Get("X-Session-Token") != "")) || (negative != "browser-cookie" && r.Header.Get("X-Session-Token") != "private-session-credential") {
 						w.WriteHeader(401)
 						return
 					}
@@ -99,8 +99,15 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			redirect, err := h.AcceptConsent(context.Background(), strings.Repeat("opaque", 700), "private-session-credential", intent, negative != "no-consent")
-			if negative == "" {
+			credential := NativeSessionCredential{SessionToken: "private-session-credential"}
+			if negative == "browser-cookie" {
+				credential = NativeSessionCredential{Cookie: "ory_kratos_session=private-cookie"}
+			}
+			if negative == "mixed-credentials" {
+				credential.Cookie = "ory_kratos_session=private-cookie"
+			}
+			redirect, err := h.AcceptConsent(context.Background(), strings.Repeat("opaque", 700), credential, intent, negative != "no-consent")
+			if negative == "" || negative == "browser-cookie" {
 				if err != nil || redirect == "" || accepts != 1 {
 					t.Fatalf("valid native handoff failed: %v", err)
 				}
@@ -124,7 +131,7 @@ func TestNativeHumanRejectsUnprotectedOriginsAndUnsupportedIntent(t *testing.T) 
 		t.Fatal("production constructor accepted plaintext")
 	}
 	var h *NativeHumanHandoff
-	if _, err := h.AcceptLogin(context.Background(), "challenge", "credential", humanauth.Request{}); err == nil {
+	if _, err := h.AcceptLogin(context.Background(), "challenge", NativeSessionCredential{SessionToken: "credential"}, humanauth.Request{}); err == nil {
 		t.Fatal("nil bridge accepted handoff")
 	}
 }

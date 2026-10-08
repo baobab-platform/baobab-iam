@@ -35,6 +35,10 @@ type NativeChallengeFence interface {
 	ConsumeNativeChallenge(context.Context, string) error
 }
 
+// NativeSessionCredential keeps browser cookies distinct from API session tokens.
+// Supply exactly one credential captured by the trusted estate/BFF.
+type NativeSessionCredential struct{ SessionToken, Cookie string }
+
 type NativeHumanConfig struct {
 	KratosPublicURL, HydraAdminURL, Issuer string
 	Client                                 *http.Client
@@ -78,7 +82,7 @@ func NewNativeHumanHandoff(c NativeHumanConfig) (*NativeHumanHandoff, error) {
 	return &NativeHumanHandoff{k, h, i, client, c.Now, c.Fence}, nil
 }
 
-func (h *NativeHumanHandoff) call(ctx context.Context, method, endpoint, token string, body, out any) error {
+func (h *NativeHumanHandoff) call(ctx context.Context, method, endpoint string, credential NativeSessionCredential, body, out any) error {
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("invalid native request")
@@ -88,8 +92,11 @@ func (h *NativeHumanHandoff) call(ctx context.Context, method, endpoint, token s
 		return fmt.Errorf("invalid native request")
 	}
 	request.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		request.Header.Set("X-Session-Token", token)
+	if credential.SessionToken != "" {
+		request.Header.Set("X-Session-Token", credential.SessionToken)
+	}
+	if credential.Cookie != "" {
+		request.Header.Set("Cookie", credential.Cookie)
 	}
 	response, err := h.client.Do(request)
 	if err != nil {
@@ -155,9 +162,10 @@ type nativeSession struct {
 	} `json:"identity"`
 }
 
-func (h *NativeHumanHandoff) session(ctx context.Context, credential string) (nativeSession, error) {
+func (h *NativeHumanHandoff) session(ctx context.Context, credential NativeSessionCredential) (nativeSession, error) {
 	var s nativeSession
-	if credential == "" || len(credential) > 4096 || strings.TrimSpace(credential) != credential || strings.ContainsAny(credential, "\r\n") {
+	value := credential.SessionToken + credential.Cookie
+	if (credential.SessionToken == "") == (credential.Cookie == "") || len(value) > 4096 || strings.TrimSpace(value) != value || strings.ContainsAny(value, "\r\n") {
 		return s, fmt.Errorf("native session credential required")
 	}
 	if err := h.call(ctx, http.MethodGet, strings.TrimRight(h.kratos.String(), "/")+"/sessions/whoami", credential, nil, &s); err != nil {
@@ -191,7 +199,7 @@ func (h *NativeHumanHandoff) challenge(ctx context.Context, kind, id string, int
 		return c, fmt.Errorf("incomplete or unsupported native intent")
 	}
 	endpoint := strings.TrimRight(h.hydra.String(), "/") + "/admin/oauth2/auth/requests/" + kind + "?" + kind + "_challenge=" + url.QueryEscape(id)
-	if err := h.call(ctx, http.MethodGet, endpoint, "", nil, &c); err != nil {
+	if err := h.call(ctx, http.MethodGet, endpoint, NativeSessionCredential{}, nil, &c); err != nil {
 		return c, err
 	}
 	u, err := url.Parse(c.RequestURL)
@@ -221,20 +229,20 @@ func (h *NativeHumanHandoff) challenge(ctx context.Context, kind, id string, int
 
 // AcceptLogin never treats Hydra's skip hint as authentication: it verifies a
 // current Kratos session and binds the retained canonical intent every time.
-func (h *NativeHumanHandoff) AcceptLogin(ctx context.Context, challenge, credential string, intent humanauth.Request) (string, error) {
+func (h *NativeHumanHandoff) AcceptLogin(ctx context.Context, challenge string, credential NativeSessionCredential, intent humanauth.Request) (string, error) {
 	return h.accept(ctx, "login", challenge, credential, intent)
 }
 
 // AcceptConsent requires explicit consent for the exact retained scope set.
 // No remembered consent, workload/resource audience or inferred grants apply.
-func (h *NativeHumanHandoff) AcceptConsent(ctx context.Context, challenge, credential string, intent humanauth.Request, consented bool) (string, error) {
+func (h *NativeHumanHandoff) AcceptConsent(ctx context.Context, challenge string, credential NativeSessionCredential, intent humanauth.Request, consented bool) (string, error) {
 	if !consented {
 		return "", fmt.Errorf("native consent required")
 	}
 	return h.accept(ctx, "consent", challenge, credential, intent)
 }
 
-func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id, credential string, intent humanauth.Request) (string, error) {
+func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id string, credential NativeSessionCredential, intent humanauth.Request) (string, error) {
 	if h == nil || ctx == nil || ctx.Err() != nil {
 		return "", fmt.Errorf("native handoff unavailable")
 	}
@@ -266,7 +274,7 @@ func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id, credential st
 		Redirect string `json:"redirect_to"`
 	}
 	endpoint := strings.TrimRight(h.hydra.String(), "/") + "/admin/oauth2/auth/requests/" + kind + "/accept?" + kind + "_challenge=" + url.QueryEscape(id)
-	if err := h.call(ctx, http.MethodPut, endpoint, "", body, &result); err != nil {
+	if err := h.call(ctx, http.MethodPut, endpoint, NativeSessionCredential{}, body, &result); err != nil {
 		return "", err
 	}
 	u, err := url.Parse(result.Redirect)

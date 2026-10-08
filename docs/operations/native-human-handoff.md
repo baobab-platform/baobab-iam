@@ -8,6 +8,13 @@ The adapter compares the Hydra challenge to client, redirect URI, state, nonce,
 scope and S256 challenge exactly. It rechecks the Kratos session immediately
 before acceptance and does not trust Hydra's remembered-login hint.
 
+Pass `NativeSessionCredential{Cookie: originalSessionCookie}` for Kratos browser
+sessions or `NativeSessionCredential{SessionToken: apiSessionToken}` for native
+API sessions. Exactly one is required. Both credential types go only to the
+configured Kratos origin and never to Hydra. The live journey obtains a genuine
+CSRF-bound browser login cookie for its first exchange and uses an API token
+for its second exchange; revocation must deny both credentials.
+
 Public authorization and token exchange remain direct standards operations.
 The bridge calls only Kratos's public session verification and Hydra's private
 login/consent admin plane. Its constructor requires explicit HTTPS origins and
