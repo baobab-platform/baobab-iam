@@ -68,8 +68,11 @@ overlay = {'services': {'hydra': {'extra_hosts': ['host.docker.internal:host-gat
                                 'volumes': [str(root / 'hydra.yml') + ':/etc/config/hydra/hydra.yml:ro']}}}
 (root / 'compose.yml').write_text(yaml.safe_dump(overlay))
 PY
-go build -o "$task_dir/token-profile-hook" ./cmd/ory-token-profile-hook
-"$task_dir/token-profile-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" > "$task_dir/hook.log" 2>&1 &
+# Mechanics proofs exercise PROVISIONED registrations through a fixture-only launcher.
+# The production executable keeps canonical ACTIVE admission; its composition is tested separately.
+go build -o "$task_dir/token-profile-hook" ./tests/ory-foundation/mechanics-hook
+go build -o "$task_dir/canonical-hook" ./cmd/ory-token-profile-hook
+"$task_dir/canonical-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" > "$task_dir/hook.log" 2>&1 &
 hook_pid=$!
 for attempt in $(seq 1 20); do
   # An unauthenticated health probe must be rejected, never treated as evidence.
@@ -99,6 +102,17 @@ export ORY_WORKLOAD=1 ORY_TOKEN_PROFILE=1
 export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434 ORY_HYDRA_ADMIN_URL=http://127.0.0.1:4445 ORY_PUBLIC_ISSUER=http://127.0.0.1:4444
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence/token-profile"
+# Prove the production executable rejects the real PROVISIONED Shared projection through Hydra.
+go test -json ./internal/provider/ory -run '^TestLiveCanonicalProvisionedDenied$' -count=1 | tee ory-foundation-evidence/token-profile/canonical-denial.jsonl
+kill "$hook_pid"
+wait "$hook_pid" 2>/dev/null || true
+"$task_dir/token-profile-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" > "$task_dir/mechanics-hook.log" 2>&1 &
+hook_pid=$!
+for attempt in $(seq 1 20); do
+  if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi
+  sleep 1
+done
+kill -0 "$hook_pid"
 go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials|TestLiveTokenProfileFederatedAudienceBoundary|TestLiveCPConsumerVerifier|TestLiveCPContextRoute)$' -count=1 | tee ory-foundation-evidence/token-profile/tests.jsonl
 python3 - <<'PY'
 import json, os

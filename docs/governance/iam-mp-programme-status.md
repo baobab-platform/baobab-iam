@@ -129,3 +129,7 @@ are construction tests with an authenticated sender fixture, not deployed CP
 authority or signature-verification acceptance. All full support declarations
 remain PARTIAL; C4 dispatch/freshness, resource consumption and staging/production
 acceptance remain open.
+
+### C3 live harness correction (2026-10-08)
+
+PR #96 exposed a mechanics/production construction mismatch: the PROVISIONED projection was being served by the new ACTIVE-only executable. The live harness now first exercises production denial through real Hydra, then uses a separate disposable mechanics launcher for the existing provider and CP fixture proofs. Shared registrations remain unchanged; all support stays PARTIAL. Local Go, race, vet/build and Python contract checks are recorded separately from pending Docker CI. No current CP authority, deployed consumer or production acceptance is established.

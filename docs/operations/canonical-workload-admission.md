@@ -71,3 +71,5 @@ assertion signatures or current CP registration. Full workload support remains
 PARTIAL until current CP authority, actual issuance and consumer acceptance are
 composed and proven. Runtime projection freshness/revocation is still a C4
 dependency, not established by this immutable hook configuration.
+
+The Ory live mechanics harness uses `tests/ory-foundation/mechanics-hook`, a disposable launcher for PROVISIONED provider mechanics. It does not use the production executable and cannot establish canonical activation or production acceptance. The production factory remains ACTIVE-only; its authenticated canonical composition and negative cases are covered by Go and race tests.
