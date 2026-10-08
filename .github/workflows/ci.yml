@@ -60,6 +60,12 @@ jobs:
           python3 scripts/check-federation-contracts.py
       - name: Validate provider declarations against approved Shared contracts
         run: python3 .shared-contracts/scripts/capability_catalogue.py validate-declaration .baobab/capability-provider.yaml --engine-id baobab-iam --repository-root .
+      - name: Verify registration publication exclusions and drift detection
+        env:
+          SHARED_REPO_DIR: .shared-contracts
+        run: |
+          python3 scripts/provider_publication.py --shared-checkout .shared-contracts
+          python3 -m unittest discover -s tests/unit -p 'test_provider_publication.py'
       - name: Every issued scope exists in the pinned Shared scope registry
         run: ./scripts/check-issued-scopes.sh
       - name: Every client and scope description fits Keycloak's 255-character limit

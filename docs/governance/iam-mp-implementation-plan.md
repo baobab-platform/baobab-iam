@@ -3,6 +3,14 @@
 **Status:** Advanced implementation; production acceptance not reached. Permanent
 Keycloak OIDC/SAML federation and PostgreSQL shared authority/recovery fencing
 are implemented. Enterprise CP-governed dispatch is merged in #80; broader MP3 support publication and native/workload MP4 dispatch remain open.
+
+2026-10-08: C3 declaration reconciliation #86 is merged. The registration
+publication preflight validates the immutable Shared pin and generates only
+canonical DRAFT documents for IMPLEMENTED support. All three provider
+declarations remain PARTIAL; the strict publication gate is blocked. Reviewed
+registration-export comparison is offline construction drift evidence, not live
+CP projection or readiness. See
+[provider-support publication](../operations/provider-support-publication.md).
 **Date:** 2026-10-07.
 **Current evidence:** [Programme status](iam-mp-programme-status.md), reconciled
 against IAM `a927259753a0d2dee16f8df6f5509c5dc9cb18e9`.
