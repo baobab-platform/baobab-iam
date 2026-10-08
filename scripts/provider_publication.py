@@ -222,6 +222,9 @@ def main(argv=None):
     parser.add_argument('--expected-index-sha256')
     args = parser.parse_args(argv)
     try:
+        if any((args.bundle_provider, args.bundle_path, args.bundle_output,
+                args.expected_source_revision, args.expected_index_sha256)) and args.shared_checkout.resolve().is_relative_to(ROOT):
+            raise ValueError('candidate preparation requires a Shared checkout outside the IAM worktree; nested checkouts are read-only preflight inputs')
         module, commit = load_shared(args.shared_checkout.resolve())
         path = ROOT / '.baobab/capability-provider.yaml'
         raw = path.read_bytes()

@@ -331,8 +331,11 @@ It requires a clean exact source revision, exact pinned Shared/index digest,
 fresh executable support census and canonical IMPLEMENTED support. It preserves
 existing index entries, rejects global provider/path collisions and unsafe
 existing output, and emits only DRAFT support plus a construction receipt.
-Fourteen publication tests pass, including synthetic positive bundle fixtures
+Fifteen publication tests pass, including synthetic positive bundle fixtures
 and negative PARTIAL, ACTIVE, foreign membership, path and output cases.
+Candidate preparation requires a separate clean Shared checkout outside IAM;
+nested preflight checkouts receive an explicit diagnostic, preserving source
+cleanliness rather than excluding untracked directories from that check.
 Actual current PARTIAL declarations, an unreviewed source revision and a changed
 index digest each deny candidate preparation; no candidate was published.
 

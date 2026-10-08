@@ -51,6 +51,12 @@ There is no provider-registration HTTP operation in the pinned contract.
 Prepare a prospective Shared review directory only after a provider has
 reviewed IMPLEMENTED support. The command requires all five options below:
 
+Use a separate Shared checkout outside the IAM worktree for this command.
+The nested `.shared-contracts` layout remains supported for read-only preflight,
+but would make IAM's reviewed source dirty during candidate preparation.
+The tool diagnoses that layout explicitly rather than excluding untracked files
+from the source cleanliness gate.
+
 ```sh
 python3 scripts/provider_publication.py --shared-checkout "$SHARED_CHECKOUT" \
   --bundle-provider "$REVIEWED_PROVIDER_KEY" \

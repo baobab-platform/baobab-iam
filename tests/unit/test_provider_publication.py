@@ -1,5 +1,7 @@
 """Contract-bound construction tests; synthetic IMPLEMENTED is never published."""
 import copy
+from contextlib import redirect_stderr
+import io
 import json
 import importlib.util
 import os
@@ -33,6 +35,14 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(registrations, [])
         self.assertEqual(len(excluded), 3)
         self.assertTrue(all(s['implementation_status'] == 'PARTIAL' for s in excluded))
+
+    def test_nested_shared_candidate_layout_diagnosed_before_contract_loading(self):
+        errors = io.StringIO()
+        with redirect_stderr(errors):
+            result = publication.main(['--shared-checkout', str(ROOT / '.shared-contracts'),
+                                       '--bundle-provider', 'baobab-iam.kratos'])
+        self.assertEqual(result, 1)
+        self.assertIn('Shared checkout outside the IAM worktree', errors.getvalue())
 
     def test_canonical_generation_draft_only(self):
         _, registrations, excluded = self.generated_fixture()
