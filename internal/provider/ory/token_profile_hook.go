@@ -22,7 +22,7 @@ func NewTokenProfileHook(config tokenprofile.Config, key string) (http.Handler, 
 }
 
 // NewCanonicalTokenProfileHook admits the canonical intent reconstructed from
-// Hydra's authenticated standard OAuth payload. It requires ACTIVE registration
+// Hydra's authenticated callback fields. It requires ACTIVE registration
 // and exact one-resource intent; mechanics-only PROVISIONED admission is absent.
 func NewCanonicalTokenProfileHook(config tokenprofile.Config, key string) (http.Handler, error) {
 	return newTokenProfileHook(config, key, true)
@@ -107,12 +107,14 @@ func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool)
 			e.AssertionIssuer, e.AssertionSubject = assertion.Issuer, assertion.Subject
 		}
 		if canonical {
-			audiences, scopes := body.Request.Payload["audience"], body.Request.Payload["scope"]
-			if len(audiences) != 1 || len(scopes) != 1 {
+			// Pinned Hydra sanitizes payload to assertion only. Its granted audience
+			// and requested scopes are the available authenticated intent boundary.
+			audiences, scopes := body.Request.GrantedAudience, body.Request.RequestedScopes
+			if len(audiences) != 1 || len(scopes) == 0 {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
-			request := tokenprofile.WorkloadTokenRequest{WorkloadID: e.ClientID, Audience: audiences[0], Scopes: strings.Fields(scopes[0])}
+			request := tokenprofile.WorkloadTokenRequest{WorkloadID: e.ClientID, Audience: audiences[0], Scopes: scopes}
 			if _, err := snapshot.AdmitRequest(request, nil, e); err != nil {
 				w.WriteHeader(http.StatusForbidden)
 				return

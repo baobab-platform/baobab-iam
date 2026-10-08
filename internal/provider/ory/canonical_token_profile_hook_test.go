@@ -21,7 +21,7 @@ func TestCanonicalTokenProfileHookComposition(t *testing.T) {
 				t.Run(scenario, func(t *testing.T) {
 					config := tokenprofile.Config{Environment: "production", SharedCommit: strings.Repeat("a", 40), Workloads: map[string]tokenprofile.Workload{"worker": {Environment: "production", CredentialType: credential, Status: "ACTIVE", Scopes: []string{"context:resolve", "billing:read"}, Audiences: []string{"baobab-cp", "baobab-billing"}}}}
 					grant, subject := "client_credentials", "worker"
-					payload := map[string][]string{"audience": {"baobab-cp"}, "scope": {"context:resolve"}}
+					payload := map[string][]string{}
 					if credential == "federated_workload_token" {
 						grant, subject = tokenprofile.FederatedGrant, "service-account-worker"
 						config.Bindings = map[string]tokenprofile.Binding{"worker": {Issuer: "https://projected.example", Subject: subject}}
@@ -31,6 +31,7 @@ func TestCanonicalTokenProfileHookComposition(t *testing.T) {
 					key := strings.Repeat("k", 32)
 					auth := key
 					audiences := []string{"baobab-cp"}
+					scopes := []string{"context:resolve"}
 					expected := http.StatusForbidden
 					switch scenario {
 					case "allowed":
@@ -43,15 +44,15 @@ func TestCanonicalTokenProfileHookComposition(t *testing.T) {
 						auth = ""
 						expected = http.StatusUnauthorized
 					case "missing-audience":
-						delete(payload, "audience")
+						audiences = nil
 					case "substituted-audience":
-						payload["audience"] = []string{"baobab-billing"}
+						audiences = []string{"unallocated-resource"}
 					case "extra-audience":
 						audiences = append(audiences, "baobab-billing")
 					case "missing-scope":
-						delete(payload, "scope")
+						scopes = nil
 					case "inflated-scope":
-						payload["scope"] = []string{"context:resolve billing:read"}
+						scopes = []string{"context:resolve", "billing:read"}
 					case "subject-mismatch":
 						subject = "other"
 					}
@@ -59,7 +60,7 @@ func TestCanonicalTokenProfileHookComposition(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					body, _ := json.Marshal(map[string]any{"session": map[string]any{"client_id": "worker", "id_token": map[string]string{"subject": subject}}, "request": map[string]any{"client_id": "worker", "grant_types": []string{grant}, "requested_scopes": []string{"context:resolve"}, "granted_scopes": []string{"context:resolve"}, "granted_audience": audiences, "payload": payload}})
+					body, _ := json.Marshal(map[string]any{"session": map[string]any{"client_id": "worker", "id_token": map[string]string{"subject": subject}}, "request": map[string]any{"client_id": "worker", "grant_types": []string{grant}, "requested_scopes": scopes, "granted_scopes": []string{"context:resolve"}, "granted_audience": audiences, "payload": payload}})
 					req := httptest.NewRequest(http.MethodPost, "/internal/ory/token-profile", strings.NewReader(string(body)))
 					req.Header.Set("X-Baobab-Token-Hook-Key", auth)
 					result := httptest.NewRecorder()

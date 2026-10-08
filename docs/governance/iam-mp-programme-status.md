@@ -133,3 +133,5 @@ acceptance remain open.
 ### C3 live harness correction (2026-10-08)
 
 PR #96 exposed a mechanics/production construction mismatch: the PROVISIONED projection was being served by the new ACTIVE-only executable. The live harness now first exercises production denial through real Hydra, then uses a separate disposable mechanics launcher for the existing provider and CP fixture proofs. Shared registrations remain unchanged; all support stays PARTIAL. Local Go, race, vet/build and Python contract checks are recorded separately from pending Docker CI. No current CP authority, deployed consumer or production acceptance is established.
+
+The current-head correction also removes synthesized payload audience/scope fields: pinned Hydra sanitizes them away. Tests use requested scopes and granted audience, with separate live fixture ACTIVE issuance and PROVISIONED denial. Explicit original audience-parameter provenance remains unproven; no support promotion is justified.

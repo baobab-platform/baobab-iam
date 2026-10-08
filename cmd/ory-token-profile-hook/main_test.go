@@ -16,7 +16,7 @@ func TestExecutableHookProductionRejectsMechanicsOnlyRegistration(t *testing.T) 
 		if err != nil {
 			t.Fatal(err)
 		}
-		request := httptest.NewRequest(http.MethodPost, "/internal/ory/token-profile", strings.NewReader(`{"session":{"client_id":"worker","id_token":{"subject":"worker"}},"request":{"client_id":"worker","grant_types":["client_credentials"],"requested_scopes":["context:resolve"],"granted_scopes":["context:resolve"],"granted_audience":["baobab-cp"],"payload":{"audience":["baobab-cp"],"scope":["context:resolve"]}}}`))
+		request := httptest.NewRequest(http.MethodPost, "/internal/ory/token-profile", strings.NewReader(`{"session":{"client_id":"worker","id_token":{"subject":"worker"}},"request":{"client_id":"worker","grant_types":["client_credentials"],"requested_scopes":["context:resolve"],"granted_scopes":["context:resolve"],"granted_audience":["baobab-cp"],"payload":{}}}`))
 		request.Header.Set("X-Baobab-Token-Hook-Key", key)
 		result := httptest.NewRecorder()
 		hook.ServeHTTP(result, request)

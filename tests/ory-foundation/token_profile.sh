@@ -44,6 +44,12 @@ for name, scope, audiences in (
     profiles['workloads'][name] = {
         'environment': 'production', 'credential_type': 'client_credentials', 'status': 'PROVISIONED',
         'allowed_scopes': [scope], 'allowed_audiences': audiences}
+# A separately named ACTIVE fixture proves canonical issuance without promoting a Shared workload.
+name = 'm4-ci-canonical-active'
+if name in profiles['workloads']:
+    raise SystemExit('Canonical ACTIVE fixture collides with allocation')
+profiles['workloads'][name] = {'environment': 'production', 'credential_type': 'client_credentials',
+    'status': 'ACTIVE', 'allowed_scopes': ['context:resolve'], 'allowed_audiences': ['baobab-control-plane']}
 (root / 'profiles.json').write_text(json.dumps(profiles))
 (root / 'profiles.json').chmod(0o600)
 config = yaml.safe_load(Path('config/ory/hydra/hydra.yml').read_text())
@@ -103,7 +109,7 @@ export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434 ORY_HYDRA_ADMIN_URL=http://127
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence/token-profile"
 # Prove the production executable rejects the real PROVISIONED Shared projection through Hydra.
-go test -json ./internal/provider/ory -run '^TestLiveCanonicalProvisionedDenied$' -count=1 | tee ory-foundation-evidence/token-profile/canonical-denial.jsonl
+go test -json ./internal/provider/ory -run '^TestLiveCanonical(ProvisionedDenied|ActiveFixture)$' -count=1 | tee ory-foundation-evidence/token-profile/canonical-denial.jsonl
 kill "$hook_pid"
 wait "$hook_pid" 2>/dev/null || true
 "$task_dir/token-profile-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" > "$task_dir/mechanics-hook.log" 2>&1 &
