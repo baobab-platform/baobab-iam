@@ -42,7 +42,8 @@ for name, scope, audiences in (
     if name in profiles['workloads']:
         raise SystemExit('CI fixture collides with canonical workload')
     profiles['workloads'][name] = {
-        'environment': 'production', 'credential_type': 'client_credentials', 'status': 'PROVISIONED',
+        'environment': 'production', 'credential_type': 'client_credentials',
+        'status': 'ACTIVE' if name in ('m4-ci-validator', 'm4-ci-subject') else 'PROVISIONED',
         'allowed_scopes': [scope], 'allowed_audiences': audiences}
 # A separately named ACTIVE fixture proves canonical issuance without promoting a Shared workload.
 profiles['workloads']['m4-ci-canonical-provisioned'] = {'environment': 'production',
@@ -112,7 +113,16 @@ export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434 ORY_HYDRA_ADMIN_URL=http://127
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence/token-profile"
 # Prove ACTIVE admission and PROVISIONED denial through isolated CI identities and real Hydra.
-go test -json ./internal/provider/ory -run '^TestLiveCanonical(ProvisionedDenied|ActiveFixture)$' -count=1 | tee ory-foundation-evidence/token-profile/canonical-denial.jsonl
+go test -json ./internal/provider/ory -run '^TestLiveCanonical(ProvisionedDenied|ActiveFixture|CPContextRoute)$' -count=1 | tee ory-foundation-evidence/token-profile/canonical-denial.jsonl
+python3 - <<'PY'
+import json
+from pathlib import Path
+events = [json.loads(line) for line in Path('ory-foundation-evidence/token-profile/canonical-denial.jsonl').read_text().splitlines()]
+for name in ('TestLiveCanonicalProvisionedDenied', 'TestLiveCanonicalActiveFixture',
+             'TestLiveCanonicalCPContextRoute'):
+    if not any(event.get('Test') == name and event.get('Action') == 'pass' for event in events):
+        raise SystemExit(f'{name}: missing canonical composed PASS evidence')
+PY
 kill "$hook_pid"
 wait "$hook_pid" 2>/dev/null || true
 "$task_dir/token-profile-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" > "$task_dir/mechanics-hook.log" 2>&1 &
