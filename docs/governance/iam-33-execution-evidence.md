@@ -244,3 +244,40 @@ This establishes provider-neutral wire types only. Kratos native authentication
 and permanent Keycloak enterprise federation remain PARTIAL until their real
 browser entry paths project into this boundary, verify returned tokens and prove
 estate consumption, replay denial, assurance and session behavior.
+
+### C3 enterprise canonical handoff (2026-10-08)
+
+Prerequisite [#102](https://github.com/baobab-platform/baobab-iam/pull/102)
+merged as `4df2be20f0e0a9f01356574aad1acca3d5d1ba18` after all five workflows
+passed on `080c153b6f8cd16176659c1ca3830d03dc592b6e` and the Unicode/CI review
+findings were corrected. These are prerequisite receipts, not this increment's
+current-head integration result.
+
+The governed Keycloak enterprise entry path now constructs and validates the
+canonical Shared Authorization Code/S256 request before persisting a browser
+transaction. Its direct standards token exchange projects the provider response
+through the canonical human response boundary, normalizes OAuth Bearer casing,
+and excludes provider extensions. Malformed, duplicate, null, error, fractional
+lifetime and trailing responses fail closed before any ID token is released to
+the independent signature/issuer/audience/nonce verifier. Refresh and access
+credentials are not persisted or exposed by the enterprise event result.
+
+Repository verification: Go 1.27 build and race tests for human authentication,
+federation and Keycloak pass. The composed broker tests retain private upstream
+evidence, current configuration rechecks, assurance mapping and durable replay
+fences. The existing real Keycloak OIDC/SAML browser workflow must pass on the
+new head to establish this increment's CI integration evidence; local unit
+results are not a live browser result.
+
+The executable support census agrees with the declarations. Strict pinned
+Shared publication preflight returns the expected blocked result (exit 2),
+excluding all three PARTIAL providers and producing zero draft registrations;
+runtime authority is not verified. The 27 selected Python human/workload
+contract and publication tests pass locally.
+
+This advances the MP3/MP4 entry boundary but does not complete C3. Native
+Kratos/Hydra human OAuth handoff, registered estate acceptance, complete session
+and assurance evidence, and real CP-owned registration inputs remain open.
+MP0–MP20 staging and production acceptance remain unproved; all provider
+declarations remain PARTIAL. No live targets, authority records or credentials
+were invented and no production activation was performed.

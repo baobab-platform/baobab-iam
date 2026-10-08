@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/baobab-platform/baobab-iam/internal/humanauth"
 )
 
 var brokerRequests = []byte("broker-requests-v1")
@@ -170,6 +172,11 @@ func (e *BrokerEvents) Begin(ctx context.Context, s TrustSnapshot, sessionDigest
 	}
 	now := e.cfg.Now()
 	until := minimum(s.ValidUntil, c.ValidUntil, now.Add(5*time.Minute))
+	sum := sha256.Sum256([]byte(verifier))
+	canonical := humanauth.Request{GrantType: "authorization_code", CodeChallenge: base64.RawURLEncoding.EncodeToString(sum[:]), CodeChallengeMethod: "S256", ClientID: c.Settings.ClientID, RedirectURI: c.Settings.RedirectURI, Scope: "openid", State: state, Nonce: nonce}
+	if canonical.Validate() != nil {
+		return BrokerChallenge{}, ErrInvalid
+	}
 	req := brokerRequest{Request: storedRequest{id, s.Trust.ID, s.SnapshotID, s.ApprovedRevision, sessionDigest, secretDigest(state), secretDigest(nonce), now, until, false}, PKCEDigest: secretDigest(verifier), ConfigurationDigest: brokerDigest(c)}
 	encoded, _ := json.Marshal(req)
 	err = e.db.Update(func(tx ledgerTx) error {
@@ -193,17 +200,16 @@ func (e *BrokerEvents) Begin(ctx context.Context, s TrustSnapshot, sessionDigest
 	if err != nil {
 		return BrokerChallenge{}, authorityError(err)
 	}
-	sum := sha256.Sum256([]byte(verifier))
 	auth, _ := url.Parse(c.Settings.AuthorizationEndpoint)
 	query := auth.Query()
-	query.Set("client_id", c.Settings.ClientID)
-	query.Set("redirect_uri", c.Settings.RedirectURI)
+	query.Set("client_id", canonical.ClientID)
+	query.Set("redirect_uri", canonical.RedirectURI)
 	query.Set("response_type", "code")
-	query.Set("scope", "openid")
-	query.Set("state", state)
-	query.Set("nonce", nonce)
-	query.Set("code_challenge", base64.RawURLEncoding.EncodeToString(sum[:]))
-	query.Set("code_challenge_method", "S256")
+	query.Set("scope", canonical.Scope)
+	query.Set("state", canonical.State)
+	query.Set("nonce", canonical.Nonce)
+	query.Set("code_challenge", canonical.CodeChallenge)
+	query.Set("code_challenge_method", canonical.CodeChallengeMethod)
 	query.Set("prompt", "login")
 	auth.RawQuery = query.Encode()
 	return BrokerChallenge{id, state, nonce, verifier, auth.String(), until}, nil
@@ -321,17 +327,8 @@ func (e *BrokerEvents) exchange(ctx context.Context, c BrokerConfiguration, code
 	if err != nil || len(body) > 65536 || response.StatusCode != http.StatusOK {
 		return "", ErrDenied
 	}
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	if uniqueJSON(decoder) != nil {
-		return "", ErrInvalid
-	}
-	if _, err = decoder.Token(); err != io.EOF {
-		return "", ErrInvalid
-	}
-	var token struct {
-		IDToken string `json:"id_token"`
-	}
-	if json.Unmarshal(body, &token) != nil || token.IDToken == "" {
+	token, err := humanauth.ProjectOAuthResponse(body)
+	if err != nil || token.IDToken == "" {
 		return "", ErrDenied
 	}
 	return token.IDToken, nil
