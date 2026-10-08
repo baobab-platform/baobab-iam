@@ -7,8 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	bolt "go.etcd.io/bbolt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -19,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/baobab-platform/baobab-iam/internal/federation"
 	"github.com/baobab-platform/baobab-iam/internal/humanauth"
 	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
@@ -191,30 +190,12 @@ func TestLiveNativeHumanCanonicalHandoff(t *testing.T) {
 	t.Log("real Kratos session to Hydra S256 code, canonical response, signed ID token, exact subject/nonce and replay denial passed")
 }
 
-// Disposable durable test storage; production uses a shared atomic ledger.
-type nativeTestFence struct{ db *bolt.DB }
-
-func openNativeTestFence(t *testing.T) *nativeTestFence {
+func openNativeTestFence(t *testing.T) *federation.NativeChallengeLedger {
 	t.Helper()
-	db, err := bolt.Open(filepath.Join(t.TempDir(), "native-fence.db"), 0600, nil)
+	ledger, err := federation.OpenNativeChallengeLedger(filepath.Join(t.TempDir(), "native-fence.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { db.Close() })
-	return &nativeTestFence{db}
-}
-func (f *nativeTestFence) ConsumeNativeChallenge(ctx context.Context, key string) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	return f.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("consumed"))
-		if err != nil {
-			return err
-		}
-		if bucket.Get([]byte(key)) != nil {
-			return fmt.Errorf("replay")
-		}
-		return bucket.Put([]byte(key), []byte{1})
-	})
+	t.Cleanup(func() { ledger.Close() })
+	return ledger
 }

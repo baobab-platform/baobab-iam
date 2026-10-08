@@ -11,10 +11,21 @@ before acceptance and does not trust Hydra's remembered-login hint.
 Public authorization and token exchange remain direct standards operations.
 The bridge calls only Kratos's public session verification and Hydra's private
 login/consent admin plane. Its constructor requires explicit HTTPS origins and
-an explicit clock; only isolated loopback fixtures may allow HTTP. Redirects
+an explicit clock and atomic challenge fence; only isolated loopback fixtures may allow HTTP. Redirects
 are disabled on server calls and returned continuations must stay on the exact
 Hydra issuer origin and authorization path. Session credentials never travel
 to Hydra. Provider JSON is bounded and duplicate/trailing JSON fails closed.
+
+Use `federation.OpenNativeChallengeLedgerWithStorage` with the existing shared,
+verified-TLS Postgres storage and exact namespace/recovery epoch in production.
+The bridge burns a digest of issuer, stage and exact opaque challenge before
+Hydra acceptance. Concurrent/repeated acceptance fails closed; a timeout or
+invalid continuation does not release the fence. Recovery starts a new browser
+transaction, never retries an uncertain acceptance. Local ledger files are
+disposable development/CI storage. Recovery-epoch rotation must also invalidate
+all retained estate browser transactions; old storage pools are fenced. Retain
+consumption records through the provider challenge lifetime and recovery window;
+this increment exposes no deletion/reset operation.
 
 Consent is explicit, for the exact retained OIDC scopes (openid/profile/email).
 Business scopes, resource audiences, unsupported ACR requests, inferred grants
