@@ -42,6 +42,42 @@ and review the declaration evidence before rerunning the gate.
 
 ## Owner-approved registry convergence
 
+### Reviewed Shared bundle candidate
+
+At CP source `489c921898c00e8d5432a113d0432fbadb7ddfbe`,
+`internal/billing/registration.go` imports the explicit Shared
+`capability/v1/registration-bundles.yaml` index through `RegisterEmbeddedEngines`.
+There is no provider-registration HTTP operation in the pinned contract.
+Prepare a prospective Shared review directory only after a provider has
+reviewed IMPLEMENTED support. The command requires all five options below:
+
+```sh
+python3 scripts/provider_publication.py --shared-checkout "$SHARED_CHECKOUT" \
+  --bundle-provider "$REVIEWED_PROVIDER_KEY" \
+  --bundle-path "$REVIEWED_SHARED_BUNDLE_PATH" \
+  --bundle-output "$NEW_REVIEW_DIRECTORY" \
+  --expected-source-revision "$REVIEWED_IAM_COMMIT" \
+  --expected-index-sha256 "$REVIEWED_PINNED_INDEX_DIGEST"
+```
+
+Use actual reviewed values. The source must be clean and exact; the tool runs
+the current Go adapter census and compares every provider's declared support.
+It validates the canonical bundle and prospective index with pinned Shared,
+preserves existing entries, rejects duplicate membership and existing paths,
+and writes the two proposed contract files plus a source/index/bundle digest
+receipt outside either checkout. It refuses an existing output directory.
+PARTIAL-only providers produce no candidate. Test fixtures that mark support
+IMPLEMENTED are synthetic unit tests and never publication evidence.
+
+Review the candidate in Shared, merge through its normal checks, then review
+CP's immutable Shared pin update and import. CP mints IDs and registers DRAFT
+support; the candidate receipt is not a registration receipt. Reconcile an
+already indexed bundle rather than generating a duplicate. Provider activation
+is a separate CP-owned PROVIDER_ACTIVATION changeset requiring real deployment,
+instances, approved release/configuration, health and composed evidence.
+Runtime profile publication uses its existing protected endpoint and credentials;
+this command neither invokes that endpoint nor grants binding/activation authority.
+
 After construction eligibility, CP owners must supply real provider and
 engine-instance IDs, approved configuration/security-domain references, exact
 artifact digest and revision, scoped runtime profiles, and governed binding

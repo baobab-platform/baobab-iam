@@ -12,10 +12,57 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+INDEX_PATH = 'capability/v1/registration-bundles.yaml'
+INDEX_REF = 'capability/v1/registration.schema.json#/$defs/RegistrationBundleIndex'
+
+
+def bundle_candidate(module, contracts, registrations, index, provider_key, path):
+    """Prospective Shared review input; never CP registration or activation."""
+    errors = contracts.errors(INDEX_REF, index)
+    if errors:
+        raise ValueError('invalid pinned registration index: ' + '; '.join(errors))
+    selected = [r for r in registrations if r['provider']['provider_key'] == provider_key]
+    if len(selected) != 1:
+        raise ValueError('selected provider has no canonical IMPLEMENTED support')
+    # Round-trip through the same canonical comparison used for reviewed exports.
+    compare_exports(module, contracts, selected, selected)
+    paths, keys = set(), set()
+    for entry in index['bundles']:
+        key = entry['provider_key']
+        if entry['path'] in paths or key in keys:
+            raise ValueError('duplicate pinned registration index entry')
+        paths.add(entry['path'])
+        keys.add(key)
+    if path in paths or provider_key in keys:
+        raise ValueError('registration already indexed; reconcile the existing bundle')
+    proposed = {'schema': dict(index['schema']), 'bundles': [dict(e) for e in index['bundles']] + [
+        {'path': path, 'engine_id': 'baobab-iam', 'provider_key': provider_key}]}
+    errors = contracts.errors(INDEX_REF, proposed)
+    if errors:
+        raise ValueError('invalid candidate registration index: ' + '; '.join(errors))
+    return proposed, selected[0]
+
+
+def write_bundle_candidate(output, path, index, registration, receipt):
+    """Publish a complete review directory atomically, refusing replacement."""
+    if output.exists() or output.is_symlink():
+        raise ValueError('candidate output already exists')
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=output.parent) as temporary:
+        root = Path(temporary) / 'candidate'
+        target = root / 'contracts' / path
+        target.parent.mkdir(parents=True)
+        target.write_text(json.dumps(registration, indent=2, sort_keys=True) + '\n')
+        target = root / 'contracts' / INDEX_PATH
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(yaml.safe_dump(index, sort_keys=False))
+        (root / 'receipt.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+        root.rename(output)
 
 
 def load_shared(checkout, repository=ROOT):
@@ -164,6 +211,11 @@ def main(argv=None):
     parser.add_argument('--registration-export', type=Path)
     parser.add_argument('--executable-support-export', type=Path)
     parser.add_argument('--require-registrable', action='store_true')
+    parser.add_argument('--bundle-provider')
+    parser.add_argument('--bundle-path')
+    parser.add_argument('--bundle-output', type=Path)
+    parser.add_argument('--expected-source-revision')
+    parser.add_argument('--expected-index-sha256')
     args = parser.parse_args(argv)
     try:
         module, commit = load_shared(args.shared_checkout.resolve())
@@ -193,6 +245,45 @@ def main(argv=None):
             'registration_drift': drift,
             'runtime_authority_verified': False,
         }
+        bundle_options = (args.bundle_provider, args.bundle_path, args.bundle_output,
+                          args.expected_source_revision, args.expected_index_sha256)
+        if any(bundle_options):
+            if not all(bundle_options):
+                raise ValueError('bundle preparation requires provider, path, output, source revision and index digest')
+            if report['source_dirty'] or report['source_revision'] != args.expected_source_revision:
+                raise ValueError('bundle source must be clean and match the reviewed revision')
+            if drift:
+                raise ValueError('registration export drift blocks bundle preparation')
+            if args.require_registrable and blocked:
+                raise ValueError('strict registration requires every provider to be registrable')
+            # Execute this revision, rather than trust an unbound census export.
+            census = json.loads(subprocess.check_output(
+                ['go', 'run', './cmd/provider-support-census'], cwd=ROOT, text=True))
+            compare_executable_support(declaration, census)
+            index_raw = (args.shared_checkout / 'contracts' / INDEX_PATH).read_bytes()
+            digest = hashlib.sha256(index_raw).hexdigest()
+            if digest != args.expected_index_sha256:
+                raise ValueError('registration index changed; reconcile the reviewed base')
+            proposed, registration = bundle_candidate(
+                module, contracts, registrations, yaml.safe_load(index_raw), args.bundle_provider, args.bundle_path)
+            if (args.shared_checkout / 'contracts' / args.bundle_path).exists():
+                raise ValueError('candidate path already exists in Shared')
+            receipt = {'classification': 'SHARED_REGISTRATION_REVIEW_CANDIDATE',
+                       'source_revision': report['source_revision'], 'shared_commit': commit,
+                       'base_index_sha256': digest, 'declaration_sha256': report['declaration_sha256'],
+                       'provider_key': args.bundle_provider, 'bundle_path': args.bundle_path,
+                       'bundle_sha256': hashlib.sha256((json.dumps(registration, indent=2, sort_keys=True) + '\n').encode()).hexdigest(),
+                       'runtime_authority_verified': False, 'published': False}
+            output = args.bundle_output.resolve()
+            if output.is_relative_to(ROOT) or output.is_relative_to(args.shared_checkout.resolve()):
+                raise ValueError('review output must be outside IAM and the pinned Shared checkout')
+            if subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=all'], text=True).strip():
+                raise ValueError('bundle source changed during preparation')
+            if subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip() != args.expected_source_revision:
+                raise ValueError('bundle source revision changed during preparation')
+            load_shared(args.shared_checkout.resolve())
+            write_bundle_candidate(output, args.bundle_path, proposed, registration, receipt)
+            report['bundle_candidate'] = receipt
         print(json.dumps(report, indent=2, sort_keys=True))
         return 2 if drift or (args.require_registrable and blocked) else 0
     except (ValueError, KeyError, OSError, subprocess.CalledProcessError, yaml.YAMLError) as error:
