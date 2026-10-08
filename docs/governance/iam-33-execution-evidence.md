@@ -281,3 +281,24 @@ and assurance evidence, and real CP-owned registration inputs remain open.
 MP0–MP20 staging and production acceptance remain unproved; all provider
 declarations remain PARTIAL. No live targets, authority records or credentials
 were invented and no production activation was performed.
+
+### C3 native human canonical handoff (2026-10-08)
+
+Prerequisite enterprise handoff #103 merged as
+`260cb5578f49bcb4b5c7730d516ac5835369470c`; its applicable current-head workflows
+passed, including actual Keycloak OIDC and SAML browser composition.
+
+The native provider bridge verifies live Kratos session state and exact subject,
+then accepts only Hydra challenges matching the retained canonical
+Authorization Code/S256 intent. It rechecks revocation before acceptance,
+requires explicit exact-scope consent, rejects resource/business grants and
+does not infer CP mappings or readiness. Local Go race, vet and formatting
+checks pass. The newly required real-provider CI journey covers Kratos session,
+Hydra login/consent, direct code exchange, canonical response, independently
+verified ID token, exact subject/nonce and replay denial on both Hydra variants.
+That CI journey is pending until a current-head PASS receipt exists.
+
+MP3/MP4/MP5 estate composition and real registered acceptance remain open.
+Repository tests and disposable provider CI are separate from staging and
+production acceptance. All three providers remain PARTIAL; no live registration,
+synthetic authority, production activation or certification is claimed.
