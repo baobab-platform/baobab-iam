@@ -7,7 +7,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED_PIN = "70f92ee179888e9fd38e31ae9225060d76833944"  # FB-05 (shared#251): adds the staging evidence provisioner
+SHARED_PIN = "c42bfebaa3a6edfe8aa3fe56ed3504af3328a73e"  # LA-05A (shared#261): retains P-CAP/FB-05 and registers assessor scope
 PULSE_SCOPES = {
     "intelligence:evidence:search",
     "intelligence:research-mission:manage",
