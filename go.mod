@@ -1,10 +1,10 @@
 module github.com/baobab-platform/baobab-iam
 
-go 1.27.0
+go 1.27.2
 
 // Provider and migration interfaces remain stdlib-only. Federation's actual
 // protocol verifier uses maintained OIDC/JOSE libraries and a durable ledger.
-// Go 1.25 is the dependency minimum; use the tested CP-aligned Go 1.27 toolchain.
+// Go 1.27.2 includes the security-fixed net/http and crypto/tls stdlib used by IAM federation binaries.
 
 require (
 	github.com/beevik/etree v1.8.1
