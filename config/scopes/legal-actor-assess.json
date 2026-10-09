@@ -1,6 +1,6 @@
 {
   "name": "legal-actor:assess",
-  "description": "LA-05B private Control Plane RUNTIME PlatformContext-bound legal actor assessment for governed engine workloads. This is not a company authority, provider entitlement or statutory permission. Scope is NOT assigned to any client by default; explicit canonical workload approval and CP active workload registry permission required.",
+  "description": "LA-05: Private CP legal actor assessment for registered workloads using an owned runtime context. Scope alone never grants legal, merchant, payment, document or provider authority. Explicit Shared registry approval required; no default client assignment.",
   "protocol": "openid-connect",
   "attributes": {
     "include.in.token.scope": "true",
