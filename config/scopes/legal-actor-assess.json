@@ -1,0 +1,22 @@
+{
+  "name": "legal-actor:assess",
+  "description": "LA-05B private Control Plane RUNTIME PlatformContext-bound legal actor assessment for governed engine workloads. This is not a company authority, provider entitlement or statutory permission. Scope is NOT assigned to any client by default; explicit canonical workload approval and CP active workload registry permission required.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}
