@@ -225,3 +225,25 @@ func TestHTTPAuthorityCPApprovalSourceWireUsesSnakeCase(t *testing.T) {
 		}
 	})
 }
+
+func TestHTTPAuthorityResolvesCanonicalWorkloadCapability(t *testing.T) {
+	calls := 0
+	a, _ := tlsAuthority(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		var req CapabilityRequest
+		if r.URL.Path != "/v1/capabilities/resolve" || r.Header.Get("Authorization") != "Bearer service-token" || json.NewDecoder(r.Body).Decode(&req) != nil || req.CapabilityKey != "identity.workload-token.issue" {
+			t.Fatal("wrong workload resolution transport")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(CapabilityResolution{Decision: "DENIED", ContextID: req.ContextID, CapabilityKey: req.CapabilityKey, CorrelationID: req.CorrelationID})
+	})
+	req := CapabilityRequest{"identity.workload-token.issue", 1, "ctx_iamowned", "11111111-1111-4111-8111-111111111111"}
+	out, err := a.ResolveCapability(context.Background(), req)
+	if err != nil || out.Decision != "DENIED" || calls != 1 {
+		t.Fatal("denial transport failed", err)
+	}
+	req.CapabilityKey = "identity.unregistered.issue"
+	if _, err = a.ResolveCapability(context.Background(), req); err == nil || calls != 1 {
+		t.Fatal("unapproved capability reached CP")
+	}
+}

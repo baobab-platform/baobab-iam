@@ -26,6 +26,7 @@ type NativeHumanHandoff struct {
 	client                *http.Client
 	now                   func() time.Time
 	fence                 NativeChallengeFence
+	authority             DispatchAuthority
 }
 
 // NativeChallengeFence must atomically consume each key exactly once across
@@ -79,7 +80,7 @@ func NewNativeHumanHandoff(c NativeHumanConfig) (*NativeHumanHandoff, error) {
 	if c.Client != nil {
 		client.Transport = c.Client.Transport
 	}
-	return &NativeHumanHandoff{k, h, i, client, c.Now, c.Fence}, nil
+	return &NativeHumanHandoff{k, h, i, client, c.Now, c.Fence, nil}, nil
 }
 
 func (h *NativeHumanHandoff) call(ctx context.Context, method, endpoint string, credential NativeSessionCredential, body, out any) error {
@@ -265,6 +266,11 @@ func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id string, creden
 	current, err := h.session(ctx, credential)
 	if err != nil || current != s {
 		return "", fmt.Errorf("native session changed during handoff")
+	}
+	// Governed composition rechecks CP after provider/session reads and before
+	// irreversible acceptance. Failed authority does not consume the challenge.
+	if h.authority != nil && h.authority.CheckCapability(ctx, "identity.authentication.perform") != nil {
+		return "", fmt.Errorf("current CP native dispatch denied")
 	}
 	// Origins with an optional root slash must share the same replay key.
 	key := fmt.Sprintf("%x", sha256.Sum256([]byte(h.issuer.Scheme+"://"+h.issuer.Host+"\x00"+kind+"\x00"+id)))

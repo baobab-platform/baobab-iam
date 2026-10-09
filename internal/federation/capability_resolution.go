@@ -47,7 +47,7 @@ type CapabilityResolver interface {
 // principal. CP independently verifies canonical ownership, bounded context,
 // grant, support, binding, health and existing policy. BFF contexts are not transferable.
 func (a *HTTPAuthority) ResolveCapability(ctx context.Context, request CapabilityRequest) (CapabilityResolution, error) {
-	if request.CapabilityKey != "identity.authentication.perform" || request.RequiredContractVersion != 1 ||
+	if (request.CapabilityKey != "identity.authentication.perform" && request.CapabilityKey != "identity.workload-token.issue") || request.RequiredContractVersion != 1 ||
 		!validResolutionContextID(request.ContextID) || !uuidPattern.MatchString(request.CorrelationID) {
 		return CapabilityResolution{}, ErrInvalid
 	}

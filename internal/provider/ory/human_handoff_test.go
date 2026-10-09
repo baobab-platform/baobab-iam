@@ -21,7 +21,7 @@ import (
 func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	intent := humanauth.Request{GrantType: "authorization_code", ClientID: "estate-ci", RedirectURI: "https://estate.invalid/callback", Scope: "openid", CodeChallenge: strings.Repeat("x", 43), CodeChallengeMethod: "S256", State: strings.Repeat("s", 32), Nonce: strings.Repeat("n", 32)}
-	for _, negative := range []string{"", "browser-cookie", "mixed-credentials", "state", "nonce", "client", "scope", "audience", "subject", "duplicate-query", "expired", "inactive", "future-authentication", "duplicate-session", "revoked-before-accept", "no-consent", "redirect", "provider-redirect"} {
+	for _, negative := range []string{"", "governed", "cp-revoked", "browser-cookie", "mixed-credentials", "state", "nonce", "client", "scope", "audience", "subject", "duplicate-query", "expired", "inactive", "future-authentication", "duplicate-session", "revoked-before-accept", "no-consent", "redirect", "provider-redirect"} {
 		t.Run(negative, func(t *testing.T) {
 			accepts, sessions := 0, 0
 			var server *httptest.Server
@@ -99,6 +99,13 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if negative == "governed" || negative == "cp-revoked" {
+				a := &testDispatchAuthority{}
+				if negative == "cp-revoked" {
+					a.err = fmt.Errorf("withdrawn after session reads")
+				}
+				h.authority = a
+			}
 			credential := NativeSessionCredential{SessionToken: "private-session-credential"}
 			if negative == "browser-cookie" {
 				credential = NativeSessionCredential{Cookie: "ory_kratos_session=private-cookie"}
@@ -107,7 +114,7 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 				credential.Cookie = "ory_kratos_session=private-cookie"
 			}
 			redirect, err := h.AcceptConsent(context.Background(), strings.Repeat("opaque", 700), credential, intent, negative != "no-consent")
-			if negative == "" || negative == "browser-cookie" {
+			if negative == "" || negative == "governed" || negative == "browser-cookie" {
 				if err != nil || redirect == "" || accepts != 1 {
 					t.Fatalf("valid native handoff failed: %v", err)
 				}
@@ -122,6 +129,16 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 			}
 			if err == nil || redirect != "" {
 				t.Fatal("invalid native handoff accepted")
+			}
+			if negative == "cp-revoked" {
+				if accepts != 0 {
+					t.Fatal("withdrawn authority reached provider acceptance")
+				}
+				h.authority = &testDispatchAuthority{}
+				if _, retryErr := h.AcceptConsent(context.Background(), strings.Repeat("opaque", 700), credential, intent, true); retryErr != nil || accepts != 1 {
+					t.Fatal("authority denial consumed challenge", retryErr)
+				}
+				return
 			}
 			if negative != "redirect" && accepts != 0 {
 				t.Fatal("invalid native intent or session reached Hydra acceptance")
