@@ -1178,7 +1178,7 @@ else
 fi
 # Mirror the check in the other direction -- the one-directional version only
 # proved zuribeans-web's redirect URI is off-limits to thamani-web, not that
-# the reverse holds too (nabhold/baobab-iam#31 review finding).
+# the reverse holds too (baobab-platform/baobab-iam#31 review finding).
 ZURIBEANS_CROSS_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
   "$AUTH_ENDPOINT?client_id=zuribeans-web&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid")
 ZURIBEANS_OWN_REDIRECT_STATUS=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \

@@ -12,14 +12,18 @@ Keycloak retained for enterprise SAML/OIDC federation and identity brokering**.
 Current Keycloak configuration still carries legacy native/client capabilities;
 retention does not prove that its scope has already been reduced.
 Provider-neutral interfaces preserve CP canonical identity and Shared capability/lifecycle authority.
-The Keycloak Go adapter remains incomplete: it is a retained boundary, but the
-permanent EnterpriseFederationProvider port/adapter is not implemented.
+The permanent Keycloak EnterpriseFederationProvider adapter and canonical human
+handoff are implemented, with OIDC/SAML integration tests. That construction
+evidence does not establish deployed tenant acceptance or completed provider support.
 Production dual-run, per-capability cutover and canonical workload activation
 remain blocked by their evidence gates. Global Keycloak deletion is not a target.
 Unit/mock tests do not establish production interoperability or activation.
 
 The [MP implementation plan](docs/governance/iam-mp-implementation-plan.md)
 sequences Shared contracts, provider registry/resolution and federation work.
+The [native/workload dispatch increment](docs/operations/native-workload-capability-dispatch.md)
+adds current-authority operation gates; CP runtime projection and executable wiring
+remain open before C4 acceptance.
 
 Human migration requires an authorized `HumanTraitsSource` keyed by the exact source
 binding and opaque snapshot reference. Missing traits fail closed; neither synthetic

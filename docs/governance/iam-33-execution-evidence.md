@@ -351,3 +351,20 @@ artifact digests/evidence, registered estate clients, scoped observer credential
 and protected CP origin/CA. No owner inputs were fabricated, no Shared bundle
 was submitted as IMPLEMENTED, and no production activation or certification
 was performed. Registration candidates do not resolve or override CP authority.
+
+### 2026-10-09 — C4 native/workload operation gates (repository construction)
+
+Added capability-specific current-CP dispatch gates and governed native/hook
+constructors. Selection, profile and context reads are repeated per operation;
+revision drift, withdrawal, scope mismatch, stale evidence and incompatible
+routing deny. Native authority is rechecked after session reads before replay
+consumption. Workload authority runs after authenticated canonical admission,
+before claim emission. No provider declaration changes or production activation.
+
+This is the IAM-side composition increment, not full C4 completion. CP's existing
+federation-only projection and standalone hook wiring remain outstanding;
+composed Hydra runtime coverage, actual CP authority and resource consumption
+require independent evidence. See
+[operation boundaries and next integration](../operations/native-workload-capability-dispatch.md).
+MP4 remains PARTIAL; MP3 registration and MP0–MP20 staging/production acceptance
+are not upgraded by synthetic repository fixtures.

@@ -3,7 +3,7 @@
 **Status:** Phase 1 complete (password policy fix + privileged-role MFA enforcement, structurally verified against a real Keycloak instance in CI). This is the largest ADR in the programme so far (188 sections) — most of it is scoped for later phases; see §4.
 **Date:** 2026-09-12
 **Governing ADR:** `ADR-0015 — Credential Security, MFA, Passkeys and Account Recovery`
-**Repositories:** `nabhold/baobab-iam` (owner of all human credential mechanisms per the ADR's own §178 ownership table)
+**Repositories:** `baobab-platform/baobab-iam` (owner of all human credential mechanisms per the ADR's own §178 ownership table)
 **Depends on:** Gate IAM-5 (workforce role namespace — this gate wires MFA onto the roles that gate created)
 
 ---

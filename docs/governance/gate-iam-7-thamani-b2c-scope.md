@@ -1,9 +1,9 @@
 # Gate IAM-7 — Thamani B2C
 
-**Status:** The full customer-identity gate remains scoped, not implemented — the two genuine architectural decisions in §3 still block it. However, `nabhold/zuribeans`'s **"ZuriBeans Go-Live Implementation Plan"** (its master cross-repo implementation plan) names a narrower, unblocked deliverable that touches this gate: Gate ZB-03 ("IAM and Isolation") lists **"Thamani ≠ ZuriBeans"** as a mandatory isolation test, provable today without resolving §3.1/§3.2. That structural isolation proof is now done — see §6.
+**Status:** The full customer-identity gate remains scoped, not implemented — the two genuine architectural decisions in §3 still block it. However, `baobab-platform/zuribeans`'s **"ZuriBeans Go-Live Implementation Plan"** (its master cross-repo implementation plan) names a narrower, unblocked deliverable that touches this gate: Gate ZB-03 ("IAM and Isolation") lists **"Thamani ≠ ZuriBeans"** as a mandatory isolation test, provable today without resolving §3.1/§3.2. That structural isolation proof is now done — see §6.
 **Date:** 2026-09-12
 **Governing ADR:** `ADR-0011 — Thamani B2C Customer Identity`
-**Repositories:** `nabhold/baobab-iam` (customer OIDC client, owner), `nabhold/baobab-cp` (canonical identity mapping), `nabhold/baobab-trade` (Medusa customer actor, order/cart ownership), `nabhold/thamani` (customer frontend UX)
+**Repositories:** `baobab-platform/baobab-iam` (customer OIDC client, owner), `baobab-platform/baobab-cp` (canonical identity mapping), `baobab-platform/baobab-trade` (Medusa customer actor, order/cart ownership), `baobab-platform/thamani` (customer frontend UX)
 **Depends on:** Gate IAM-3 (canonical identity spine), Gate IAM-5 phase 2a (proved the `@medusajs/auth-oidc` module pattern this gate would reuse for the `customer` actor type)
 
 The Consolidated Technical Specification's own one-line scope for this gate (§210) is: *"customer OIDC, guest flow, Medusa customer mapping, social login readiness, guest-to-account conversion, recovery, customer isolation."* ADR-0011 is 132 sections; this document scopes discovery and phase 1 planning only, since the two genuinely open design questions found below (§3) block a confident implementation.
@@ -18,7 +18,7 @@ The Consolidated Technical Specification's own one-line scope for this gate (§2
 
 **`baobab-cp`** needs no new construct: `internal/domain/identity.go` already documents that a Medusa customer maps via the same generic `Mapping`/`ExternalReference` machinery Gate IAM-3 built for `CanonicalIdentity`/`ExternalIdentity` — it explicitly names "Medusa customer" as a future example actor. This is ready to use as-is.
 
-**`nabhold/thamani`** (newly attached to this session to resolve §3's question) is a real, actively-scaffolded Next.js 16 app (catalogue/cart/checkout-gate vertical slice, its own ADRs, CI, tests) but has **zero** authentication code: no login/account/callback routes, no session-cookie handling, no PKCE/token logic, and no reference anywhere to `thamani-web`, OIDC, or Keycloak. Its own docs (`SECURITY.md`, `docs/medusa-integration.md`, `docs/adr/0002-supplier-onboarding-portal.md`) consistently describe authentication as something "governed by their owning engines" that Thamani will consume once those engines "publish contracts" — not something it plans to implement itself.
+**`baobab-platform/thamani`** (newly attached to this session to resolve §3's question) is a real, actively-scaffolded Next.js 16 app (catalogue/cart/checkout-gate vertical slice, its own ADRs, CI, tests) but has **zero** authentication code: no login/account/callback routes, no session-cookie handling, no PKCE/token logic, and no reference anywhere to `thamani-web`, OIDC, or Keycloak. Its own docs (`SECURITY.md`, `docs/medusa-integration.md`, `docs/adr/0002-supplier-onboarding-portal.md`) consistently describe authentication as something "governed by their owning engines" that Thamani will consume once those engines "publish contracts" — not something it plans to implement itself.
 
 ---
 
@@ -38,9 +38,9 @@ The Consolidated Technical Specification's own one-line scope for this gate (§2
 
 ADR-0011 §9's own flow diagram shows the authorization code landing at **"Thamani / BFF"** as a distinct step *before* a separate "Medusa customer mapping" step, and §61 explicitly recommends a BFF for higher-value deployments "where it materially reduces browser token exposure." That points toward Thamani's own Next.js app owning the redirect.
 
-But `nabhold/thamani`'s current state points the other way: it has no BFF/callback scaffolding at all, and its own docs consistently treat authentication as belonging to "owning engines" (`baobab-iam`/`baobab-trade`), not something it builds itself. Mirroring Gate IAM-5 phase 2a's proven pattern (Medusa's own `@medusajs/auth-oidc` module handling the full browser redirect for the `user` actor) would extend cleanly to a `customer` actor registration too — but doing so would require **changing `thamani-web`'s already-registered redirect URI** from Thamani's own frontend origin (`localhost:3001`) to Medusa's backend origin (`localhost:9000`), a change with real consequences if wrong.
+But `baobab-platform/thamani`'s current state points the other way: it has no BFF/callback scaffolding at all, and its own docs consistently treat authentication as belonging to "owning engines" (`baobab-iam`/`baobab-trade`), not something it builds itself. Mirroring Gate IAM-5 phase 2a's proven pattern (Medusa's own `@medusajs/auth-oidc` module handling the full browser redirect for the `user` actor) would extend cleanly to a `customer` actor registration too — but doing so would require **changing `thamani-web`'s already-registered redirect URI** from Thamani's own frontend origin (`localhost:3001`) to Medusa's backend origin (`localhost:9000`), a change with real consequences if wrong.
 
-**Decision (2026-09-12, explicit check-in): deferred.** Neither option was implemented. This needs either a `nabhold/thamani` architecture decision (does it become a BFF?) or explicit confirmation that Medusa should own the redirect, before `thamani-web`'s client config or `baobab-trade`'s `medusa-config.ts` should change.
+**Decision (2026-09-12, explicit check-in): deferred.** Neither option was implemented. This needs either a `baobab-platform/thamani` architecture decision (does it become a BFF?) or explicit confirmation that Medusa should own the redirect, before `thamani-web`'s client config or `baobab-trade`'s `medusa-config.ts` should change.
 
 ### 3.2 How is a guest order's claim proof delivered and verified?
 
@@ -52,7 +52,7 @@ ADR-0011 §24 requires additional proof beyond email match before attaching a hi
 
 ## 4. Remaining phases (scoped, not yet implemented)
 
-1. **Resolve §3.1** — likely needs a `nabhold/thamani` design decision, then either wire `@medusajs/auth-oidc` for the `customer` actor (if Medusa owns the redirect) or build BFF callback/session code in `nabhold/thamani` (if it does) — mirroring whichever of Gate IAM-5's two patterns (official-module configuration vs. custom `openid-client` build) applies.
+1. **Resolve §3.1** — likely needs a `baobab-platform/thamani` design decision, then either wire `@medusajs/auth-oidc` for the `customer` actor (if Medusa owns the redirect) or build BFF callback/session code in `baobab-platform/thamani` (if it does) — mirroring whichever of Gate IAM-5's two patterns (official-module configuration vs. custom `openid-client` build) applies.
 2. **Resolve §3.2** — design a guest-order-claim token mechanism (generation, storage, expiry, single-use, delivery), then implement claim verification in `src/baobab/thamani/customer/authorization.ts` alongside the existing `verifyGuestOrderLookup`.
 3. **Social login** (§41-44) — once phase 1 lands, add Keycloak identity-provider brokering (Google/Apple/etc.) — a Keycloak IdP-broker config task, not a code change, matching this repo's existing `config/` conventions.
 4. **Canonical identity mapping wiring** — no new construct needed in `baobab-cp` (§1), but the actual `Mapping`/`ExternalReference` row creation for a real Thamani customer needs the JIT-provisioning flow ADR-0011 §30-32 describes, which depends on phase 1 existing first.
@@ -69,7 +69,7 @@ Gate IAM-4 (workload identity) and Gate IAM-6 (Zuribeans B2B) both found concret
 
 ## 6. "Thamani ≠ ZuriBeans" structural isolation — **Done**
 
-`nabhold/zuribeans`'s master implementation plan (4,437-line ADR, "ZuriBeans Go-Live Implementation Plan — Multi-Market B2B Cross-Border Trading") sequences the whole cross-repo programme into 30 numbered gates (ZB-00 through ZB-29). Its **Gate ZB-03 ("IAM and Isolation")** requires several capabilities (workforce SSO, buyer organisations, supplier identities, Control Plane context, etc. — most blocked on Control Plane completion, ZB-02, which is not done) and lists seven mandatory tests, one of which is exactly: `Thamani ≠ ZuriBeans`.
+`baobab-platform/zuribeans`'s master implementation plan (4,437-line ADR, "ZuriBeans Go-Live Implementation Plan — Multi-Market B2B Cross-Border Trading") sequences the whole cross-repo programme into 30 numbered gates (ZB-00 through ZB-29). Its **Gate ZB-03 ("IAM and Isolation")** requires several capabilities (workforce SSO, buyer organisations, supplier identities, Control Plane context, etc. — most blocked on Control Plane completion, ZB-02, which is not done) and lists seven mandatory tests, one of which is exactly: `Thamani ≠ ZuriBeans`.
 
 This is provable today, independent of every other ZB-03 blocker, because it doesn't need a Control-Plane-issued canonical tenant id for either estate (neither exists yet) — it needs only what's already true structurally: `thamani-web`/`thamani-backend` and `zuribeans-web`/`zuribeans-backend` are fully independent registered Keycloak clients. This also deliberately does **not** touch §3.1/§3.2 above — no customer-facing login flow for either estate was built or assumed.
 

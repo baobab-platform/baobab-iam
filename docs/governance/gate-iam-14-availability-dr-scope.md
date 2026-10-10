@@ -7,8 +7,8 @@ fixed; R-1 re-confirmed still blocked). This ADR has 225 sections — the larges
 is overwhelmingly infrastructure territory; `baobab-iam`'s own slice is narrow — see §1.
 **Date:** 2026-09-12
 **Governing ADR:** `ADR-0018 — IAM Availability, Backup, Recovery and Disaster Resilience`
-**Repositories:** `nabhold/baobab-iam` (Keycloak application/signing configuration, DR
-runbook — this gate's scope), `nabhold/infrastructure` (attached to this session but not
+**Repositories:** `baobab-platform/baobab-iam` (Keycloak application/signing configuration, DR
+runbook — this gate's scope), `baobab-platform/infrastructure` (attached to this session but not
 investigated this gate — see §5)
 **Depends on:** Gate IAM-12 (admin-event audit — this gate's revocation-reconciliation
 discussion builds on it), Gate IAM-13 (audit redaction)
@@ -17,7 +17,7 @@ discussion builds on it), Gate IAM-13 (audit redaction)
 
 ## 1. Why this gate's IAM-side scope is narrow
 
-ADR-0018's own ownership table (§215) assigns almost everything to `nabhold/infrastructure`:
+ADR-0018's own ownership table (§215) assigns almost everything to `baobab-platform/infrastructure`:
 IAM runtime, PostgreSQL HA, database backup/PITR, secret management, TLS/PKI. `baobab-iam`'s
 own rows are "Keycloak application configuration," "Keycloak signing configuration"
 (jointly with Infrastructure), and "DR runbooks" (jointly with Infrastructure). This
@@ -103,7 +103,7 @@ gate's job is IAM-14, not a rewrite of Gate IAM-0's discovery doc).
 
 1. **`docs/operations/disaster-recovery-runbook.md`** (new) — the ADR-0018 §91 seventeen-step
    recovery sequence mapped against what `baobab-iam` actually owns (steps 6, 8, 9, 14) versus
-   what is `nabhold/infrastructure`'s or another repo's (everything else), per §215's
+   what is `baobab-platform/infrastructure`'s or another repo's (everything else), per §215's
    ownership table. Documents the manual, unautomated nature of §94-100's post-backup
    revocation reconciliation as a known, explicit gap rather than pretending it's handled.
 2. **`tests/integration/run.sh` §7** (modified) — the PKCE-on-public-clients check now also
@@ -162,7 +162,7 @@ repo's own scripts before fixing (not taken on faith):
    owns, vs. `baobab-cp` owning it as part of its own lifecycle event consumption per Gate
    IAM-12 §5's still-open architectural fork) — not guessed at here.
 6. **RPO/RTO targets, DR exercises, HA topology, backup/PITR, secret recovery, TLS/PKI,
-   multi-AZ failure domains** (§18-120, §215-220) — entirely `nabhold/infrastructure`'s
+   multi-AZ failure domains** (§18-120, §215-220) — entirely `baobab-platform/infrastructure`'s
    territory; not investigated this session (that repository is attached but out of scope
    for a Keycloak realm-configuration gate).
 7. **Digital Estate / ERP / Trade / CP post-restore validation** (§166-171) — each

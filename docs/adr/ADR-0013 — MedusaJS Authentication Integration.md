@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-trade`  
-**Primary Runtime Owners:** `nabhold/baobab-trade`, `nabhold/baobab-iam`, `nabhold/baobab-cp`  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-trade`  
+**Primary Runtime Owners:** `baobab-platform/baobab-trade`, `baobab-platform/baobab-iam`, `baobab-platform/baobab-cp`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** MedusaJS v2 authentication integration, Keycloak OIDC provider, customer and admin actor types, AuthIdentity mapping, callback handling, JIT provisioning, sessions, bearer-token validation, guest compatibility, workforce SSO, credential migration, account linking, logout, revocation and Medusa extension boundaries  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -1955,7 +1955,7 @@ These costs are accepted.
 | Tenant/estate/market context | `baobab-cp` |
 | Commerce authorization | `baobab-trade` |
 | Workforce authorization | CP + Trade |
-| Shared claims/contracts | `nabhold/shared` |
+| Shared claims/contracts | `baobab-platform/shared` |
 | Browser/BFF UX | respective Digital Estate |
 
 ---
@@ -1990,7 +1990,7 @@ Exact paths SHALL follow current Medusa conventions at implementation time.
 
 # 138. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define or extend:
+`baobab-platform/shared` SHOULD define or extend:
 
 ```text
 identity claims profile

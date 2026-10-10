@@ -4,15 +4,15 @@
 
 **Document Type:** Technical Architecture and Implementation Specification
 **System:** Baobab Platform IAM
-**Primary Repository:** `nabhold/baobab-iam`
+**Primary Repository:** `baobab-platform/baobab-iam`
 **Related Repositories:**
-`nabhold/baobab-cp`
-`nabhold/shared`
-`nabhold/baobab-trade`
-`nabhold/baobab-erp`
-`nabhold/baobab-cms`
-`nabhold/baobab-pulse`
-`nabhold/infrastructure`
+`baobab-platform/baobab-cp`
+`baobab-platform/shared`
+`baobab-platform/baobab-trade`
+`baobab-platform/baobab-erp`
+`baobab-platform/baobab-cms`
+`baobab-platform/baobab-pulse`
+`baobab-platform/infrastructure`
 Zuribeans Digital Estate
 Thamani Digital Estate
 Nabhold Corporate Digital Estate
@@ -258,7 +258,7 @@ Baobab IAM sits between human/workload actors and all platform services.
 
 # 7. Target Repository Architecture
 
-## 7.1 `nabhold/baobab-iam`
+## 7.1 `baobab-platform/baobab-iam`
 
 ```text
 baobab-iam/
@@ -344,7 +344,7 @@ A Keycloak fork requires a separate ADR.
 
 # 8. Shared IAM Contracts
 
-`nabhold/shared` SHALL contain cross-repository IAM contracts.
+`baobab-platform/shared` SHALL contain cross-repository IAM contracts.
 
 Recommended structure:
 
@@ -1317,7 +1317,7 @@ Example:
 ```yaml
 workloads:
   - id: trade-order-worker
-    repo: nabhold/baobab-trade
+    repo: baobab-platform/baobab-trade
     runtime: worker
     environment: production
     audience:
@@ -4629,7 +4629,7 @@ no unresolved authority ambiguity
 
 # 204. Gate IAM-1 — Shared Contracts
 
-Implement in `nabhold/shared`:
+Implement in `baobab-platform/shared`:
 
 ```text
 Principal

@@ -1,9 +1,9 @@
 # Gate IAM-9 — Medusa Integration
 
-**Status:** Mostly already satisfied by earlier gates. One real gap found and fixed — `nabhold/baobab-trade#71`. Remaining work (customer actor wiring) is blocked on Gate IAM-7's still-unresolved decision, not new to this gate.
+**Status:** Mostly already satisfied by earlier gates. One real gap found and fixed — `baobab-platform/baobab-trade#71`. Remaining work (customer actor wiring) is blocked on Gate IAM-7's still-unresolved decision, not new to this gate.
 **Date:** 2026-09-12
 **Governing ADR:** `ADR-0013 — MedusaJS Authentication Integration`
-**Repositories:** `nabhold/baobab-iam` (OIDC client configuration — already complete for admin), `nabhold/baobab-trade` (Medusa OIDC provider, AuthIdentity, actor mapping), `nabhold/baobab-cp` (canonical identity, unaffected)
+**Repositories:** `baobab-platform/baobab-iam` (OIDC client configuration — already complete for admin), `baobab-platform/baobab-trade` (Medusa OIDC provider, AuthIdentity, actor mapping), `baobab-platform/baobab-cp` (canonical identity, unaffected)
 **Depends on:** Gate IAM-5 (workforce SSO — proved the exact integration pattern this ADR specifies), Gate IAM-7 (Thamani B2C — the customer-side blocker this gate shares)
 
 The Consolidated Technical Specification's own one-line scope for this gate (§212) is: *"baobab-oidc provider, AuthIdentity mapping, customer actor, admin user actor, migration, negative tests, legacy credential retirement."* ADR-0013 is 146 sections describing, in detail, exactly the integration pattern Gate IAM-5 phase 2a already built and CI-verified.
@@ -20,13 +20,13 @@ Reading ADR-0013 closely against what Gate IAM-5 already shipped shows this gate
 - **§17, §24-27 (Authorization Code + PKCE, state, issuer/subject as the identity key)** — all handled by `@medusajs/auth-oidc` itself (verified directly against its source in Gate IAM-5's research): builds the authorization URL with PKCE S256 and a random `state`, validates `state`/`nonce` on callback, keys the `AuthIdentity` by `entity_id` derived from claims (`sub` by default), not email.
 - **§29-31 (AuthIdentity ≠ CanonicalIdentity, actor binding via `app_metadata`)** — this is exactly how Medusa's own `generateJwtTokenForAuthIdentity` works (`entityId = authIdentity.app_metadata[actor_type + "_id"]`), confirmed by reading Medusa core's source directly.
 - **§33-36 (admin JIT provisioning SHALL require explicit authorization, no login-equals-admin)** — **already safe, verified this session**: `OidcAuthService.validateCallback` never sets `app_metadata.user_id` — it only creates/updates the bare `AuthIdentity`. The resulting JWT's `actor_id` is empty unless a separate, already-governed Medusa mechanism (invite acceptance) has bound `app_metadata.user_id` first. A successful Keycloak login alone cannot make anyone a Medusa admin. `OidcAuthService.register()` even explicitly throws ("OIDC does not support registration") rather than offering a shortcut.
-- **§12-13 (`authMethodsPerActor` configured explicitly)** — **was NOT satisfied until this gate**: Gate IAM-5 registered the `oidc` provider globally with no actor restriction. Confirmed directly against Medusa's own `auth-methods-per-actor.js`: *"Not having the config defined would allow for all auth providers for the particular actor."* This meant `oidc` was also implicitly reachable via `/auth/customer/oidc/*` despite no customer integration existing. **Fixed — `nabhold/baobab-trade#71`.**
+- **§12-13 (`authMethodsPerActor` configured explicitly)** — **was NOT satisfied until this gate**: Gate IAM-5 registered the `oidc` provider globally with no actor restriction. Confirmed directly against Medusa's own `auth-methods-per-actor.js`: *"Not having the config defined would allow for all auth providers for the particular actor."* This meant `oidc` was also implicitly reachable via `/auth/customer/oidc/*` despite no customer integration existing. **Fixed — `baobab-platform/baobab-trade#71`.**
 
 ---
 
 ## 2. What this gate actually needed to do
 
-Given how much §1 was already correct, this gate's real, bounded contribution is `nabhold/baobab-trade#71`: adding `http.authMethodsPerActor` with `customer: ["emailpass"]` and `user: ["emailpass", "oidc"]` (derived from the already-registered provider list, not hand-duplicated). This is a small, precise, defense-in-depth fix — not a new integration.
+Given how much §1 was already correct, this gate's real, bounded contribution is `baobab-platform/baobab-trade#71`: adding `http.authMethodsPerActor` with `customer: ["emailpass"]` and `user: ["emailpass", "oidc"]` (derived from the already-registered provider list, not hand-duplicated). This is a small, precise, defense-in-depth fix — not a new integration.
 
 ---
 

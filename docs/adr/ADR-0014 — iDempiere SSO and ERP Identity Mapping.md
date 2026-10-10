@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-erp`  
-**Primary Runtime Owners:** `nabhold/baobab-erp`, `nabhold/baobab-iam`, `nabhold/baobab-cp`  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-erp`  
+**Primary Runtime Owners:** `baobab-platform/baobab-erp`, `baobab-platform/baobab-iam`, `baobab-platform/baobab-cp`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** iDempiere OIDC SSO, canonical identity mapping, AD_User provisioning, AD_Role preservation, AD_Client and AD_Org context, workforce ERP access, service identities, deprovisioning, role lifecycle, local account migration, privileged finance access, break-glass, audit and identity synchronization  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -2019,13 +2019,13 @@ These costs are accepted.
 | AD_Org | `baobab-erp` |
 | ERP domain authorization | `baobab-erp` |
 | Workload identity | `baobab-iam` + infrastructure |
-| Identity contracts | `nabhold/shared` |
+| Identity contracts | `baobab-platform/shared` |
 
 ---
 
 # 139. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define or extend versioned contracts for:
+`baobab-platform/shared` SHOULD define or extend versioned contracts for:
 
 ```text
 canonical identity reference

@@ -8,7 +8,7 @@ explicitly deferred it, blocked on `baobab-cp`'s tenant-shortcut rebuild (§4 it
 phase 4 for the same reason"). Phase 4 shipped in §8; item 5 itself was never picked back up until
 now.
 
-`nabhold/shared`'s `contracts/identity/v1/workload-registry.yaml` already carries a `status` field
+`baobab-platform/shared`'s `contracts/identity/v1/workload-registry.yaml` already carries a `status` field
 per workload (all six entries currently `ACTIVE`, matching the six already-provisioned
 `config/clients/*-workload.json` clients), and its own header comment already documents the
 intended lifecycle discipline: *"Removing one: set status to RETIRED here before
@@ -16,7 +16,7 @@ disabling/deleting the Keycloak client, never the other order."* Nothing enforce
 `tests/integration/run.sh` §9 checked registry membership and scope allowlisting, but never
 checked a client's live `enabled` flag against the registry's `status` at all — a registry entry
 marked `SUSPENDED`/`REVOKED`/`RETIRED` and a Keycloak client left `enabled: true` would pass every
-existing check. `gate-zb03-authority-contract-freeze.md` (`nabhold/baobab-cp`) independently names
+existing check. `gate-zb03-authority-contract-freeze.md` (`baobab-platform/baobab-cp`) independently names
 this the same gap: workload lifecycle state is "unowned," and revocation today is binary Keycloak
 client `enabled` toggling only.
 
@@ -61,9 +61,9 @@ Checked both other halves of this slice's title before scoping the above as the 
 `client_id` maps to a non-`ACTIVE` registry entry) is real follow-on work, tracked in
 `gate-zb03-authority-contract-freeze.md`, and is a separate `baobab-cp` change requiring its own
 PR — not folded into this slice, matching how phase 4's `baobab-cp` enforcement work in
-gate-iam-4 was its own separate PR (`nabhold/baobab-cp#102`) rather than bundled with the
+gate-iam-4 was its own separate PR (`baobab-platform/baobab-cp#102`) rather than bundled with the
 `baobab-iam`-side registry work. The sync-vs-event question for how `baobab-cp` would learn about
-a revocation (poll the registry, or consume `nabhold/shared`'s already-defined
+a revocation (poll the registry, or consume `baobab-platform/shared`'s already-defined
 `contracts/identity-events/v1/workload-revoked.schema.json`) is likewise left to that follow-on:
 building an event producer/consumer nothing yet uses would be speculative here, and the registry
 itself is already synchronously fetchable, so synchronous re-validation is the smaller, sufficient

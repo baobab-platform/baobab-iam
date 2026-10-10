@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
-**Primary Runtime Owners:** `nabhold/baobab-iam`, `nabhold/baobab-cp`  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-iam`  
+**Primary Runtime Owners:** `baobab-platform/baobab-iam`, `baobab-platform/baobab-cp`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** OpenID Connect, OAuth, browser flows, workload flows, token classes, claims, audiences, scopes, token lifetimes, JWKS, signing, revocation and validation  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -621,7 +621,7 @@ tenant:read
 tenant:write
 ```
 
-Exact scope names SHALL be version-controlled through `nabhold/shared`.
+Exact scope names SHALL be version-controlled through `baobab-platform/shared`.
 
 ---
 
@@ -1840,7 +1840,7 @@ These costs are accepted.
 
 # 111. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define:
+`baobab-platform/shared` SHOULD define:
 
 ```text
 identity claim profile

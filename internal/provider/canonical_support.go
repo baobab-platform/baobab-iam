@@ -1,5 +1,12 @@
 package provider
 
+// Canonical Shared capability keys consumed by governed runtime operation gates.
+// They name pinned Shared vocabulary; they are not CP grants or runtime authority.
+const (
+	CapabilityHumanAuthentication = "identity.authentication.perform"
+	CapabilityWorkloadTokenIssue  = "identity.workload-token.issue"
+)
+
 // CanonicalSupport describes construction conformance to a pinned Shared
 // capability. It is not CP ProviderCapabilitySupport or runtime authority.
 // Mechanical ProviderInfo flags cannot promote these declarations.

@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
-**Primary Runtime Owners:** `nabhold/baobab-iam`, `nabhold/baobab-cp`, `nabhold/baobab-trade`, `nabhold/zuribeans`  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-iam`  
+**Primary Runtime Owners:** `baobab-platform/baobab-iam`, `baobab-platform/baobab-cp`, `baobab-platform/baobab-trade`, `baobab-platform/zuribeans`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** Zuribeans B2B buyer identity, company registration, organization onboarding, invitations, representatives, procurement roles, buyer-company isolation, Trade integration, company verification, buyer lifecycle and account recovery  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -1795,14 +1795,14 @@ These costs are accepted.
 | Buyer membership | `baobab-trade` |
 | Procurement roles | `baobab-trade` |
 | Commercial terms | `baobab-trade` |
-| Buyer frontend UX | `nabhold/zuribeans` |
-| Shared schemas/events | `nabhold/shared` |
+| Buyer frontend UX | `baobab-platform/zuribeans` |
+| Shared schemas/events | `baobab-platform/shared` |
 
 ---
 
 # 116. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define or extend versioned contracts for:
+`baobab-platform/shared` SHOULD define or extend versioned contracts for:
 
 ```text
 organization identity reference

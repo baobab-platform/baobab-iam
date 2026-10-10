@@ -1,13 +1,16 @@
 package ory
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/baobab-platform/baobab-iam/internal/tokenprofile"
@@ -18,17 +21,32 @@ import (
 // after Hydra has verified the client or assertion. It never trusts body claims
 // from an unauthenticated caller and never logs the credential-bearing payload.
 func NewTokenProfileHook(config tokenprofile.Config, key string) (http.Handler, error) {
-	return newTokenProfileHook(config, key, false)
+	return newTokenProfileHook(config, key, false, nil)
 }
 
 // NewCanonicalTokenProfileHook admits the canonical intent reconstructed from
 // Hydra's authenticated callback fields. It requires ACTIVE registration
 // and exact one-resource intent; mechanics-only PROVISIONED admission is absent.
 func NewCanonicalTokenProfileHook(config tokenprofile.Config, key string) (http.Handler, error) {
-	return newTokenProfileHook(config, key, true)
+	return newTokenProfileHook(config, key, true, nil)
 }
 
-func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool) (http.Handler, error) {
+// DispatchAuthority must check current CP selection inside the authenticated
+// operation. Provider mechanics or an ACTIVE configuration flag are insufficient.
+type DispatchAuthority interface {
+	CheckCapability(context.Context, string) error
+}
+
+// NewGovernedCanonicalTokenProfileHook adds current CP admission to the existing
+// exact audience/scope and ACTIVE workload checks. No permissive fallback exists.
+func NewGovernedCanonicalTokenProfileHook(config tokenprofile.Config, key string, authority DispatchAuthority) (http.Handler, error) {
+	if absentDispatchAuthority(authority) {
+		return nil, fmt.Errorf("current CP dispatch authority required")
+	}
+	return newTokenProfileHook(config, key, true, authority)
+}
+
+func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool, authority DispatchAuthority) (http.Handler, error) {
 	if len(key) < 32 {
 		return nil, fmt.Errorf("token hook authentication key must contain at least 32 bytes")
 	}
@@ -125,7 +143,23 @@ func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool)
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
+		if authority != nil && authority.CheckCapability(r.Context(), provider.CapabilityWorkloadTokenIssue) != nil {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"session": map[string]any{"access_token": claims}})
 	}), nil
+}
+
+func absentDispatchAuthority(a DispatchAuthority) bool {
+	if a == nil {
+		return true
+	}
+	v := reflect.ValueOf(a)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return v.IsNil()
+	}
+	return false
 }

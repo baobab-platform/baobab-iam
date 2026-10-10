@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
-**Primary Runtime Owner:** `nabhold/baobab-cp`  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-iam`  
+**Primary Runtime Owner:** `baobab-platform/baobab-cp`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** Baobab canonical identities, external identities, engine-native identities, subject resolution, linking, unlinking and identity lifecycle  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -205,7 +205,7 @@ provider
 
 A canonical identifier SHOULD be generated using the platform's established identifier standard.
 
-If `nabhold/shared` defines a UUID or UUIDv7 convention for canonical entities, Canonical Identity SHALL follow that convention.
+If `baobab-platform/shared` defines a UUID or UUIDv7 convention for canonical entities, Canonical Identity SHALL follow that convention.
 
 No separate incompatible identity-ID standard should be invented.
 

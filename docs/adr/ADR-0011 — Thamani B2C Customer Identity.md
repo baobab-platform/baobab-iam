@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
-**Primary Runtime Owners:** `nabhold/baobab-iam`, `nabhold/baobab-cp`, `nabhold/baobab-trade`, `nabhold/thamani`  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-iam`  
+**Primary Runtime Owners:** `baobab-platform/baobab-iam`, `baobab-platform/baobab-cp`, `baobab-platform/baobab-trade`, `baobab-platform/thamani`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** Thamani customer authentication, self-service registration, guest checkout, customer accounts, OIDC integration, Medusa customer mapping, account linking, verification, recovery, social/federated login, privacy, account deletion, order ownership and abuse controls  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -1829,14 +1829,14 @@ These costs are accepted.
 | Customer mapping | `baobab-cp` / explicit mapping contract |
 | Cart/order ownership | `baobab-trade` |
 | Guest checkout | `baobab-trade` + `thamani` |
-| Customer frontend UX | `nabhold/thamani` |
-| Shared identity contracts | `nabhold/shared` |
+| Customer frontend UX | `baobab-platform/thamani` |
+| Shared identity contracts | `baobab-platform/shared` |
 
 ---
 
 # 126. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define or extend versioned contracts for:
+`baobab-platform/shared` SHOULD define or extend versioned contracts for:
 
 ```text
 customer identity mapping

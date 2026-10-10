@@ -3,7 +3,7 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
+**Repository:** `baobab-platform/baobab-iam`  
 **Scope:** Baobab Platform Identity Provider  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -19,7 +19,7 @@ ADR-0001 established a dedicated Baobab Identity and Access Management capabilit
 > Baobab Control Plane determines canonical platform context and entitlement.  
 > Domain engines enforce business-domain authorization.
 
-The next architectural decision is the technology used to provide the identity-provider capabilities required by `nabhold/baobab-iam`.
+The next architectural decision is the technology used to provide the identity-provider capabilities required by `baobab-platform/baobab-iam`.
 
 The selected identity platform must support a heterogeneous ecosystem composed of:
 
@@ -64,7 +64,7 @@ Baobab must obtain these capabilities without turning the Control Plane into a b
 NABHOLD SHALL adopt **Keycloak** as the initial identity provider and authentication runtime for:
 
 ```text id="8dkeex"
-nabhold/baobab-iam
+baobab-platform/baobab-iam
 ```
 
 The repository SHALL package and operate Keycloak through:
@@ -504,7 +504,7 @@ identity:read
 identity:self
 ```
 
-Exact scopes SHALL be standardised through `nabhold/shared` under the relevant identity-contract ADR.
+Exact scopes SHALL be standardised through `baobab-platform/shared` under the relevant identity-contract ADR.
 
 Business-domain permissions SHOULD NOT be converted blindly into OIDC scopes.
 
@@ -730,7 +730,7 @@ Realm exports and bootstrap automation SHALL be inspected to prevent accidental 
 - private keys;
 - external IdP secrets.
 
-Secret material SHALL come from the platform secret-management boundary owned by `nabhold/infrastructure`.
+Secret material SHALL come from the platform secret-management boundary owned by `baobab-platform/infrastructure`.
 
 ---
 
