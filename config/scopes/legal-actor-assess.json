@@ -1,0 +1,22 @@
+{
+  "name": "legal-actor:assess",
+  "description": "LA-05: Private CP legal actor assessment for registered workloads using an owned runtime context. Scope alone never grants legal, merchant, payment, document or provider authority. Explicit Shared registry approval required; no default client assignment.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}
