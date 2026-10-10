@@ -3,10 +3,10 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture and Security  
-**Primary Repository:** `nabhold/baobab-iam`  
-**Related Repositories:** `nabhold/baobab-cp`, `nabhold/baobab-trade`, `nabhold/baobab-erp`, `nabhold/baobab-cms`, `nabhold/baobab-pulse`, `nabhold/shared`, `nabhold/infrastructure`, Digital Estate repositories  
-**Primary Runtime Owner:** `nabhold/baobab-iam`  
-**Contract Owner:** `nabhold/shared`  
+**Primary Repository:** `baobab-platform/baobab-iam`  
+**Related Repositories:** `baobab-platform/baobab-cp`, `baobab-platform/baobab-trade`, `baobab-platform/baobab-erp`, `baobab-platform/baobab-cms`, `baobab-platform/baobab-pulse`, `baobab-platform/shared`, `baobab-platform/infrastructure`, Digital Estate repositories  
+**Primary Runtime Owner:** `baobab-platform/baobab-iam`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** Passwords, passkeys, WebAuthn, MFA, authentication assurance, step-up authentication, authenticator enrollment, recovery codes, credential recovery, credential reset, lost-device handling, privileged recovery, service credentials, credential migration, compromise response and credential-related audit  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -629,7 +629,7 @@ auth_time
 
 to determine whether the session satisfies policy.
 
-Custom claims SHALL be versioned through `nabhold/shared`.
+Custom claims SHALL be versioned through `baobab-platform/shared`.
 
 ---
 
@@ -2320,15 +2320,15 @@ These costs are accepted.
 | Platform authorization | `baobab-cp` |
 | Domain authorization | Domain engine |
 | Workload credentials | IAM + infrastructure |
-| Secrets infrastructure | `nabhold/infrastructure` |
-| Shared assurance contracts | `nabhold/shared` |
+| Secrets infrastructure | `baobab-platform/infrastructure` |
+| Shared assurance contracts | `baobab-platform/shared` |
 | Digital Estate UX | Estate repository |
 
 ---
 
 # 179. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define or extend versioned contracts for:
+`baobab-platform/shared` SHOULD define or extend versioned contracts for:
 
 ```text
 authentication assurance

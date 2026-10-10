@@ -3,7 +3,7 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
+**Repository:** `baobab-platform/baobab-iam`  
 **Scope:** Baobab Platform  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -16,13 +16,13 @@ The Baobab Platform is evolving into a polyrepo, polyglot platform composed of i
 
 Principal platform components include:
 
-- `nabhold/baobab-cp` — Baobab Control Plane;
-- `nabhold/baobab-trade` — MedusaJS-based commerce engine;
-- `nabhold/baobab-erp` — iDempiere-based ERP engine;
-- `nabhold/baobab-cms` — Payload CMS;
-- `nabhold/baobab-pulse` — Haystack-based intelligence platform;
-- `nabhold/shared` — canonical cross-platform contracts;
-- `nabhold/infrastructure` — production infrastructure and platform networking;
+- `baobab-platform/baobab-cp` — Baobab Control Plane;
+- `baobab-platform/baobab-trade` — MedusaJS-based commerce engine;
+- `baobab-platform/baobab-erp` — iDempiere-based ERP engine;
+- `baobab-platform/baobab-cms` — Payload CMS;
+- `baobab-platform/baobab-pulse` — Haystack-based intelligence platform;
+- `baobab-platform/shared` — canonical cross-platform contracts;
+- `baobab-platform/infrastructure` — production infrastructure and platform networking;
 - Zuribeans — B2B Digital Estate;
 - Thamani — B2C Digital Estate;
 - Nabhold — corporate Digital Estate;
@@ -84,7 +84,7 @@ Similarly, losing access to one Baobab business domain must not necessarily dest
 Baobab SHALL establish a dedicated platform capability and repository:
 
 ```text
-nabhold/baobab-iam
+baobab-platform/baobab-iam
 ```
 
 Baobab IAM SHALL provide the common authentication and credential-management foundation for the Baobab ecosystem.
@@ -236,7 +236,7 @@ Authentication success alone SHALL never grant these permissions.
 
 # 8. Shared Contract Authority
 
-`nabhold/shared` SHALL remain the source of truth for portable identity and authorization contracts.
+`baobab-platform/shared` SHALL remain the source of truth for portable identity and authorization contracts.
 
 These contracts SHOULD include:
 

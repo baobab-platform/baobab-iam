@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-09  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture and Security  
-**Primary Repository:** `nabhold/baobab-iam`  
-**Related Repositories:** `nabhold/baobab-cp`, `nabhold/baobab-trade`, `nabhold/baobab-erp`, `nabhold/baobab-cms`, `nabhold/baobab-pulse`, `nabhold/shared`, `nabhold/infrastructure`, Digital Estate repositories  
-**Contract Owner:** `nabhold/shared`  
+**Primary Repository:** `baobab-platform/baobab-iam`  
+**Related Repositories:** `baobab-platform/baobab-cp`, `baobab-platform/baobab-trade`, `baobab-platform/baobab-erp`, `baobab-platform/baobab-cms`, `baobab-platform/baobab-pulse`, `baobab-platform/shared`, `baobab-platform/infrastructure`, Digital Estate repositories  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** IAM audit, security-event taxonomy, authentication events, authorization decisions, privileged-action logging, cross-system correlation, event provenance, operational telemetry, immutable/tamper-evident audit expectations, retention, redaction, SIEM integration, OpenTelemetry conventions, metrics, alerting, anomaly signals, incident investigation and observability governance  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -2476,8 +2476,8 @@ These costs are accepted.
 | ERP audit | `baobab-erp` |
 | CMS audit | `baobab-cms` |
 | Pulse audit | `baobab-pulse` |
-| Canonical security contracts | `nabhold/shared` |
-| Telemetry transport | `nabhold/infrastructure` |
+| Canonical security contracts | `baobab-platform/shared` |
+| Telemetry transport | `baobab-platform/infrastructure` |
 | SIEM/security monitoring | Infrastructure/Security |
 | Digital Estate frontend telemetry | respective estate |
 
@@ -2485,7 +2485,7 @@ These costs are accepted.
 
 # 195. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define versioned schemas for:
+`baobab-platform/shared` SHOULD define versioned schemas for:
 
 ```text
 security event envelope

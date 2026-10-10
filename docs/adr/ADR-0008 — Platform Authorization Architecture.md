@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
-**Primary Runtime Owners:** `nabhold/baobab-cp`, `nabhold/baobab-iam`, domain engines  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-iam`  
+**Primary Runtime Owners:** `baobab-platform/baobab-cp`, `baobab-platform/baobab-iam`, domain engines  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** Platform authorization, context resolution, entitlements, policy composition, deny precedence, authorization decisions, caching, revocation, cross-tenant enforcement, domain authorization boundaries and future policy-engine extensibility  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -361,7 +361,7 @@ Conceptually:
 }
 ```
 
-The exact schema SHALL be owned by `nabhold/shared`.
+The exact schema SHALL be owned by `baobab-platform/shared`.
 
 ---
 
@@ -2287,7 +2287,7 @@ These costs are accepted.
 
 # 119. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define versioned contracts for:
+`baobab-platform/shared` SHOULD define versioned contracts for:
 
 ```text
 authorization context

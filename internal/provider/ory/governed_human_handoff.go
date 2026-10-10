@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/baobab-platform/baobab-iam/internal/humanauth"
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
 // GovernedNativeHumanHandoff consumes current CP routing before EACH login and
@@ -30,7 +31,7 @@ func (h *GovernedNativeHumanHandoff) AcceptLogin(ctx context.Context, challenge 
 	if h == nil || ctx == nil {
 		return "", fmt.Errorf("invalid governed handoff")
 	}
-	if err := h.authority.CheckCapability(ctx, "identity.authentication.perform"); err != nil {
+	if err := h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication); err != nil {
 		return "", fmt.Errorf("current CP native dispatch denied")
 	}
 	return h.mechanics.AcceptLogin(ctx, challenge, credential, intent)
@@ -39,7 +40,7 @@ func (h *GovernedNativeHumanHandoff) AcceptConsent(ctx context.Context, challeng
 	if h == nil || ctx == nil {
 		return "", fmt.Errorf("invalid governed handoff")
 	}
-	if err := h.authority.CheckCapability(ctx, "identity.authentication.perform"); err != nil {
+	if err := h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication); err != nil {
 		return "", fmt.Errorf("current CP native dispatch denied")
 	}
 	return h.mechanics.AcceptConsent(ctx, challenge, credential, intent, consented)

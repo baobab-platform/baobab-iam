@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"io"
 	"net/http"
 	"reflect"
@@ -142,7 +143,7 @@ func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool,
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-		if authority != nil && authority.CheckCapability(r.Context(), "identity.workload-token.issue") != nil {
+		if authority != nil && authority.CheckCapability(r.Context(), provider.CapabilityWorkloadTokenIssue) != nil {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}

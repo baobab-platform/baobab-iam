@@ -231,7 +231,7 @@ done
 # about not letting one impersonate the other. Sharing one literal secret
 # string between them would mean anyone holding it could authenticate as
 # either estate's backend interchangeably by simply naming the other
-# client_id (nabhold/baobab-iam#31 review finding) -- so each gets the
+# client_id (baobab-platform/baobab-iam#31 review finding) -- so each gets the
 # shared seed suffixed with its own client_id instead. This needs no new
 # binary dependency (this image is deliberately minimal ubi9-micro with
 # only jq added -- see this repo's Dockerfile), just a different string.

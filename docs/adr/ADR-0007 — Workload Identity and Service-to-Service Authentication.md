@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
-**Primary Runtime Owners:** `nabhold/baobab-iam`, `nabhold/infrastructure`, `nabhold/baobab-cp`  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-iam`  
+**Primary Runtime Owners:** `baobab-platform/baobab-iam`, `baobab-platform/infrastructure`, `baobab-platform/baobab-cp`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** Machine identities, service-to-service authentication, OAuth client credentials, mTLS, workload lifecycle, credential rotation, APISIX trust boundaries, delegated calls and engine integrations  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -551,7 +551,7 @@ events:publish
 engine-binding:read
 ```
 
-Exact scope names SHALL be defined in `nabhold/shared`.
+Exact scope names SHALL be defined in `baobab-platform/shared`.
 
 ---
 
@@ -775,7 +775,7 @@ Each layer remains distinct.
 
 # 36. Infrastructure Ownership of mTLS
 
-`nabhold/infrastructure` SHALL own production transport configuration including:
+`baobab-platform/infrastructure` SHALL own production transport configuration including:
 
 - certificate issuance/integration;
 - trust stores;
@@ -1842,7 +1842,7 @@ These costs are accepted.
 
 # 100. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define:
+`baobab-platform/shared` SHOULD define:
 
 ```text id="xk9sa7"
 workload identity claim shape

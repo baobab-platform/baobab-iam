@@ -42,7 +42,7 @@ Replace `{uuid}` throughout with the client's internal id (`GET
 4. **Deploy the new secret to the workload** — via this platform's secret-management boundary
    (ADR-0002 §25), never by hand-editing a running service's config. Exactly how depends on
    which system consumes the client (e.g. `baobab-erp`'s `baobab.iam.workload.client.secret`
-   system property, `nabhold/baobab-cp`'s own workload configuration) — see that system's own
+   system property, `baobab-platform/baobab-cp`'s own workload configuration) — see that system's own
    deployment docs for its specific mechanism.
 5. **Verify the new secret works and the old one is rejected**. This step requires the client
    to be **enabled** — if you arrived here from the incident runbook (`security-incident-runbook.md`

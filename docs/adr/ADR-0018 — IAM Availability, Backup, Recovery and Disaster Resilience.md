@@ -3,8 +3,8 @@
 **Status:** Proposed  
 **Date:** 2026-09-09  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture, Security and Infrastructure  
-**Primary Repository:** `nabhold/baobab-iam`  
-**Related Repositories:** `nabhold/infrastructure`, `nabhold/baobab-cp`, `nabhold/shared`, `nabhold/baobab-trade`, `nabhold/baobab-erp`, `nabhold/baobab-cms`, `nabhold/baobab-pulse`, Digital Estate repositories  
+**Primary Repository:** `baobab-platform/baobab-iam`  
+**Related Repositories:** `baobab-platform/infrastructure`, `baobab-platform/baobab-cp`, `baobab-platform/shared`, `baobab-platform/baobab-trade`, `baobab-platform/baobab-erp`, `baobab-platform/baobab-cms`, `baobab-platform/baobab-pulse`, Digital Estate repositories  
 **Primary Runtime:** Keycloak  
 **Primary Persistence:** PostgreSQL 17  
 **Scope:** High availability, failure domains, database durability, persistent sessions, backup, restore, disaster recovery, cryptographic-key recovery, secrets recovery, RPO/RTO, site failure, database failure, cache failure, partial outage behaviour, degraded operation, split-brain avoidance, revocation preservation, backup security, restore sequencing, disaster-recovery exercises and operational resilience  
@@ -745,7 +745,7 @@ audit/revocation recovery data
 Recoverable IAM configuration SHALL be maintained in:
 
 ```text
-nabhold/baobab-iam
+baobab-platform/baobab-iam
 ```
 
 where appropriate.
@@ -1130,7 +1130,7 @@ Only authorized operations/security roles SHALL initiate production IAM disaster
 
 # 90. Recovery Runbook
 
-`nabhold/baobab-iam` and/or `nabhold/infrastructure` SHALL maintain a version-controlled DR runbook.
+`baobab-platform/baobab-iam` and/or `baobab-platform/infrastructure` SHALL maintain a version-controlled DR runbook.
 
 ---
 
@@ -1853,13 +1853,13 @@ IAM infrastructure SHOULD be reconstructable through:
 Infrastructure as Code
 ```
 
-maintained in `nabhold/infrastructure`.
+maintained in `baobab-platform/infrastructure`.
 
 ---
 
 # 157. IAM Repository
 
-`nabhold/baobab-iam` SHOULD contain recoverable application-specific artifacts:
+`baobab-platform/baobab-iam` SHOULD contain recoverable application-specific artifacts:
 
 ```text
 config/
@@ -2517,13 +2517,13 @@ These costs are accepted because IAM is a Tier-0 security dependency.
 | Concern | Owner |
 |---|---|
 | Keycloak application configuration | `baobab-iam` |
-| IAM runtime | `nabhold/infrastructure` |
-| PostgreSQL HA | `nabhold/infrastructure` |
-| Database backup/PITR | `nabhold/infrastructure` |
-| Secret management | `nabhold/infrastructure` |
-| TLS/PKI | `nabhold/infrastructure` |
+| IAM runtime | `baobab-platform/infrastructure` |
+| PostgreSQL HA | `baobab-platform/infrastructure` |
+| Database backup/PITR | `baobab-platform/infrastructure` |
+| Secret management | `baobab-platform/infrastructure` |
+| TLS/PKI | `baobab-platform/infrastructure` |
 | Keycloak signing configuration | `baobab-iam` + Infrastructure |
-| Security/revocation contracts | `nabhold/shared` |
+| Security/revocation contracts | `baobab-platform/shared` |
 | Canonical identity reconciliation | `baobab-cp` |
 | Trade reconciliation | `baobab-trade` |
 | ERP reconciliation | `baobab-erp` |

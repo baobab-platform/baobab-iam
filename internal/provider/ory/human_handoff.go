@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/humanauth"
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
 // NativeHumanHandoff implements provider mechanics only. An estate/BFF must
@@ -269,7 +270,7 @@ func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id string, creden
 	}
 	// Governed composition rechecks CP after provider/session reads and before
 	// irreversible acceptance. Failed authority does not consume the challenge.
-	if h.authority != nil && h.authority.CheckCapability(ctx, "identity.authentication.perform") != nil {
+	if h.authority != nil && h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication) != nil {
 		return "", fmt.Errorf("current CP native dispatch denied")
 	}
 	// Origins with an optional root slash must share the same replay key.

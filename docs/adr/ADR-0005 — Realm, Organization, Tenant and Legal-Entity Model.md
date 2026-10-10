@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
-**Primary Runtime Owners:** `nabhold/baobab-iam`, `nabhold/baobab-cp`  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-iam`  
+**Primary Runtime Owners:** `baobab-platform/baobab-iam`, `baobab-platform/baobab-cp`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** IAM realm boundaries, Keycloak Organizations, Baobab tenants, legal entities, canonical entities, Digital Estates, buyer/supplier organizations and multi-market context  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -1810,7 +1810,7 @@ These costs are accepted.
 
 # 82. Shared Contract Requirements
 
-`nabhold/shared` SHOULD eventually expose clearly versioned structures for:
+`baobab-platform/shared` SHOULD eventually expose clearly versioned structures for:
 
 ```text
 tenant

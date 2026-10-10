@@ -5,7 +5,7 @@
 Indefinitely", "Privileged Access Approval", "Self-Grant Prohibition"); `ADR-0002 — Keycloak as the
 Baobab Identity Provider` §30-31 ("Privileged Authentication", "Bootstrap Administrator");
 `ADR-0018 — IAM Availability, Backup, Recovery and Disaster Resilience` §84 ("Bootstrap Account")
-**Owner of this document:** `nabhold/baobab-iam`
+**Owner of this document:** `baobab-platform/baobab-iam`
 
 This is a third, distinct document from
 [`security-incident-runbook.md`](./security-incident-runbook.md) and

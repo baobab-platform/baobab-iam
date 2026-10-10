@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
-**Primary Runtime Owners:** `nabhold/baobab-iam`, `nabhold/baobab-cp`, `nabhold/baobab-trade`, supplier onboarding/domain services, `nabhold/zuribeans`, `nabhold/thamani`  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-iam`  
+**Primary Runtime Owners:** `baobab-platform/baobab-iam`, `baobab-platform/baobab-cp`, `baobab-platform/baobab-trade`, supplier onboarding/domain services, `baobab-platform/zuribeans`, `baobab-platform/thamani`  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** Supplier identity, supplier-company representation, supplier representatives, onboarding, invitations, vetting, approval, suspension, market eligibility, product/category capability, multi-estate access, sensitive supplier changes, supplier administration, supplier/buyer separation and sourcing authorization  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -2269,13 +2269,13 @@ These costs are accepted.
 | Trade supplier mapping | `baobab-trade` |
 | ERP Business Partner mapping | `baobab-erp` |
 | Supplier UX | Digital Estate |
-| Shared contracts | `nabhold/shared` |
+| Shared contracts | `baobab-platform/shared` |
 
 ---
 
 # 133. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define or extend versioned contracts for:
+`baobab-platform/shared` SHOULD define or extend versioned contracts for:
 
 ```text
 supplier identity reference

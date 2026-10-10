@@ -10,7 +10,7 @@ having learned from Gate IAM-15's review the cost of an inaccurate governance do
 **Date:** 2026-09-12
 **Governing spec:** `docs/adr/Consolidated-Technical-Specification.md` §219 ("Gate IAM-16 —
 Production Hardening")
-**Repositories:** `nabhold/baobab-iam`
+**Repositories:** `baobab-platform/baobab-iam`
 **Depends on:** Gates IAM-2, IAM-4, IAM-6, IAM-11, IAM-12, IAM-13, IAM-14 (this gate cites, not
 duplicates, controls each of those already built)
 
@@ -24,10 +24,10 @@ duplicates, controls each of those already built)
 | 2 | Cross-tenant isolation | **Partial** | See §2 — workload isolation is proven; buyer/Organization cross-isolation is explicitly deferred by Gate IAM-6's own scope doc, not this gate's to newly resolve. |
 | 3 | Credential attack controls | **Done** | `bruteForceProtected: true` + `maxFailureWaitSeconds`/`failureFactor`/etc. (`config/realm/baobab-realm.json`, Gate IAM-2); password policy + mandatory privileged MFA (Gate IAM-11). |
 | 4 | Rate limiting | **Partial, rest deferred** | See §4 — Keycloak's own brute-force protection is a credential-specific rate limit; general HTTP rate limiting is an infrastructure/edge-layer concern, not this repo's. |
-| 5 | Secret scanning | **Done** | `.github/workflows/security-secrets-scan.yml` (weekly + every push/PR) delegates to `nabhold/shared`'s reusable scanner; `foundation.yml`'s Trivy run also scans in `secret` mode. |
+| 5 | Secret scanning | **Done** | `.github/workflows/security-secrets-scan.yml` (weekly + every push/PR) delegates to `baobab-platform/shared`'s reusable scanner; `foundation.yml`'s Trivy run also scans in `secret` mode. |
 | 6 | Container hardening | **Done** | `Dockerfile`: built `FROM quay.io/keycloak/keycloak:26.7.3` (upstream-hardened, non-root `USER 1000` already set), a throwaway UBI9 stage only for `jq` (no package manager shipped in the final image), `curl` deliberately excluded after a CVE scan flagged it, a real `HEALTHCHECK`. |
 | 7 | SBOM | **Fixed this gate** | See §3 — no SBOM existed anywhere in this repo's or the org's shared CI before this PR. |
-| 8 | Dependency scanning | **Done** | `foundation.yml`'s `dependency_review_enabled: true` + Trivy `vuln` scan (both `ci.yml`'s image scan and `nabhold/shared`'s filesystem scan). |
+| 8 | Dependency scanning | **Done** | `foundation.yml`'s `dependency_review_enabled: true` + Trivy `vuln` scan (both `ci.yml`'s image scan and `baobab-platform/shared`'s filesystem scan). |
 | 9 | DR exercise | **Not done, already tracked** | Gate IAM-14's DR runbook and Gate IAM-15's scope doc both already document that no real backup/restore/reconciliation exercise has been run. Not duplicated as a new open item here — see §5. |
 | 10 | Load testing | **Not done** | Needs a live, production-like environment this session doesn't have. See §5. |
 | 11 | Login storm testing | **Analyzed, not executed** | See §4 — a real, reasoned answer about whether a login storm risks mass lockout, not a deferral without analysis. |
@@ -56,12 +56,12 @@ was, not newly discovered or newly resolved by this gate.
 
 1. **SBOM (`.github/workflows/ci.yml`)** — added a second Trivy step in CycloneDX output mode
    against the same image the job already builds and scans, uploaded as a build artifact.
-   Checked directly: neither this repo's `ci.yml` nor `nabhold/shared`'s reusable
+   Checked directly: neither this repo's `ci.yml` nor `baobab-platform/shared`'s reusable
    `foundation-repository-gates.yml` (`vulnerability-scan` job) generated an SBOM anywhere —
    both only ran Trivy in vulnerability/secret/misconfig-scan mode. Reused the same
    already-vetted `trivy-action` pin (no new third-party action to get approved) and an
    `actions/upload-artifact` pin already in use and presumably vetted elsewhere in this org
-   (`nabhold/baobab-trade`'s `release-readiness.yml`), rather than introducing an unverified
+   (`baobab-platform/baobab-trade`'s `release-readiness.yml`), rather than introducing an unverified
    SHA pin of my own.
 2. **`docs/operations/security-incident-runbook.md`** (new) — a security-incident (not
    disaster-recovery) playbook for three shapes: a compromised identity credential, a
@@ -79,7 +79,7 @@ was, not newly discovered or newly resolved by this gate.
 the one `baobab-iam` itself can own. General HTTP-level rate limiting (requests/second per IP,
 API abuse/scraping protection) is not configured anywhere in this repo and structurally
 belongs at the edge/reverse-proxy/API-gateway layer per ADR-0018's own pattern of assigning
-infrastructure-layer concerns to `nabhold/infrastructure` — not something a Keycloak
+infrastructure-layer concerns to `baobab-platform/infrastructure` — not something a Keycloak
 realm-configuration repository can add.
 
 **Login storm testing.** Rather than defer this without analysis, the actual risk was
@@ -98,7 +98,7 @@ question — see §5.
    perform.
 2. **Cross-buyer isolation testing (Gate IAM-6 phase 2+)** — unchanged by this gate; still
    `baobab-cp`'s canonical-entity wiring work, tracked in that gate's own scope doc.
-3. **General HTTP rate limiting** — `nabhold/infrastructure`'s territory (edge/API-gateway
+3. **General HTTP rate limiting** — `baobab-platform/infrastructure`'s territory (edge/API-gateway
    layer); not something to add to a Keycloak realm-configuration repo.
 4. **A real DR exercise** — already tracked by Gates IAM-14/IAM-15; not duplicated here.
 5. **Load testing / login-storm capacity testing, executed for real** — needs a live,

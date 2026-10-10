@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-09  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture and Security  
-**Primary Repository:** `nabhold/baobab-iam`  
-**Related Repositories:** `nabhold/baobab-cp`, `nabhold/baobab-trade`, `nabhold/baobab-erp`, `nabhold/baobab-cms`, `nabhold/baobab-pulse`, `nabhold/shared`, `nabhold/infrastructure`, Digital Estate repositories  
-**Contract Owner:** `nabhold/shared`  
+**Primary Repository:** `baobab-platform/baobab-iam`  
+**Related Repositories:** `baobab-platform/baobab-cp`, `baobab-platform/baobab-trade`, `baobab-platform/baobab-erp`, `baobab-platform/baobab-cms`, `baobab-platform/baobab-pulse`, `baobab-platform/shared`, `baobab-platform/infrastructure`, Digital Estate repositories  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** Identity creation, activation, suspension, disablement, archival, membership lifecycle, entitlement lifecycle, credential lifecycle, session and token revocation, workforce joiner/mover/leaver, buyer and supplier representative lifecycle, customer closure, workload lifecycle, engine deprovisioning, revocation propagation, eventual consistency, orphan detection, reconciliation and identity-related security events  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -1186,7 +1186,7 @@ Canonical security event
 
 # 90. Event Examples
 
-`nabhold/shared` SHOULD define versioned events such as:
+`baobab-platform/shared` SHOULD define versioned events such as:
 
 ```text
 identity.suspended
@@ -2245,7 +2245,7 @@ Consumers SHALL reject unsupported security-event versions safely rather than si
 
 # 186. Required Shared Contracts
 
-`nabhold/shared` SHOULD define:
+`baobab-platform/shared` SHOULD define:
 
 ```text
 identity lifecycle event
@@ -2512,7 +2512,7 @@ These costs are accepted.
 | CMS actor/roles | `baobab-cms` |
 | Pulse domain access | `baobab-pulse` |
 | Workload identity | IAM + Infrastructure |
-| Lifecycle contracts | `nabhold/shared` |
+| Lifecycle contracts | `baobab-platform/shared` |
 | Security-event transport | Infrastructure/platform integration |
 
 ---

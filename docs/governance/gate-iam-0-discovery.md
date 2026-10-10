@@ -3,7 +3,7 @@
 **Status:** Complete
 **Date:** 2026-09-10
 **Scope:** Cross-repository discovery for the Baobab IAM programme (ADR-0001 through ADR-0018)
-**Repositories inspected:** `nabhold/baobab-iam`, `nabhold/baobab-cp`, `nabhold/shared`, `nabhold/baobab-trade`, `nabhold/baobab-erp`, `nabhold/baobab-cms`, `nabhold/baobab-pulse`, `nabhold/infrastructure`
+**Repositories inspected:** `baobab-platform/baobab-iam`, `baobab-platform/baobab-cp`, `baobab-platform/shared`, `baobab-platform/baobab-trade`, `baobab-platform/baobab-erp`, `baobab-platform/baobab-cms`, `baobab-platform/baobab-pulse`, `baobab-platform/infrastructure`
 
 This document satisfies Gate IAM-0 of the IAM implementation programme: it records the
 actual, verified implementation state against the ADRs, rather than assuming the
@@ -21,9 +21,9 @@ source/config files; grep for identity/auth-related code; and cross-reference ag
 architectural invariants in ADR-0001 through ADR-0018 and the Consolidated Technical
 Specification. Two structural facts constrain this matrix:
 
-- **`nabhold/baobab-iam`'s own README claims "Gate IAM-2 (scaffold) complete."** This is
+- **`baobab-platform/baobab-iam`'s own README claims "Gate IAM-2 (scaffold) complete."** This is
   contradicted by its own committed CI workflow, which cannot currently pass (see §4.1).
-- **`nabhold/baobab-cp` is materially further ahead than `baobab-iam`'s README implies.**
+- **`baobab-platform/baobab-cp` is materially further ahead than `baobab-iam`'s README implies.**
   It already has a working (if incomplete) OIDC verifier, tenant-isolation enforcement, and
   a context-resolution pipeline with real negative-security tests — this is IAM-3/IAM-8
   territory, not scaffold-only.
@@ -82,14 +82,14 @@ block the "Gate IAM-2 complete" claim in `baobab-iam`'s own README.
 
 ### 4.1 `baobab-iam` CI cannot pass as committed
 - `.github/workflows/ci.yml`'s `foundation` job calls
-  `nabhold/shared/.github/workflows/foundation-gates.yml@<SHA>` — this workflow file
-  **does not exist** in `nabhold/shared` (the real path is
+  `baobab-platform/shared/.github/workflows/foundation-gates.yml@<SHA>` — this workflow file
+  **does not exist** in `baobab-platform/shared` (the real path is
   `foundation-repository-gates.yml`), and `<SHA>` is a literal placeholder, not a commit
   SHA. Every `uses:` step in the `build` job (`actions/checkout`, `docker/setup-buildx-action`,
   `docker/build-push-action`, `aquasecurity/trivy-action`) has the same `@<SHA>` placeholder.
   GitHub Actions will fail to resolve any of these refs.
 - The repository **already has a correct, separately-pinned** `.github/workflows/foundation.yml`
-  (verified against `nabhold/shared`'s real `v1.2.0` tag: peeled commit
+  (verified against `baobab-platform/shared`'s real `v1.2.0` tag: peeled commit
   `38defb11aacd95a6f68b7db8026fe336417a2af6`). `ci.yml`'s `foundation` job is a broken,
   redundant duplicate of this and should be removed rather than fixed in place.
 
@@ -226,7 +226,7 @@ available release and re-pinning to itself would be a no-op.
 |---|---|---|---|
 | R-1 | `upstream.lock.yaml` Keycloak image digest cannot be verified from this session (quay.io network-blocked by policy) | High — production image pin is currently fabricated | **Needs human/CI action**: run `docker buildx imagetools inspect quay.io/keycloak/keycloak:26.7.3` from an environment with registry egress and commit the real digest |
 | R-2 | No `actor_type` claim wiring anywhere in `baobab-iam` config (§4.5) | High — blocks all workload authentication end-to-end | Addressed in this session's IAM-2 hardening PR |
-| R-3 | `baobab-cp` conflates `TenantID` with `CanonicalEntityID` in the resolver pipeline (violates ADR-0005 §2) | High — a core platform invariant is currently false in running code | **Fixed** in `nabhold/baobab-cp#63`, then the full Gate IAM-3 `CanonicalIdentity`/`ExternalIdentity` layer this conflation blocked was completed in `nabhold/baobab-cp#64`-`#71` — see [`gate-iam-3-canonical-identity-scope.md`](./gate-iam-3-canonical-identity-scope.md) |
+| R-3 | `baobab-cp` conflates `TenantID` with `CanonicalEntityID` in the resolver pipeline (violates ADR-0005 §2) | High — a core platform invariant is currently false in running code | **Fixed** in `baobab-platform/baobab-cp#63`, then the full Gate IAM-3 `CanonicalIdentity`/`ExternalIdentity` layer this conflation blocked was completed in `baobab-platform/baobab-cp#64`-`#71` — see [`gate-iam-3-canonical-identity-scope.md`](./gate-iam-3-canonical-identity-scope.md) |
 | R-4 | `shared`'s identity-event schemas are unresolvable (§4.3); only 3 of 12 required lifecycle events exist | High — blocks Gate IAM-12 (lifecycle/deprovisioning) entirely until fixed | Out of this session's bounded scope; tracked for next IAM-1 session |
 | R-5 | No reason-code registry, `AuthenticationAssurance`, or `Delegation` contract exists in `shared` | Medium — blocks step-up auth (ADR-0015) and confused-deputy defenses (§69 of programme spec) | Tracked for next IAM-1 session |
 | R-6 | `infrastructure` repo provisions no Keycloak service at all | Medium — no path to a real deployed environment yet | Tracked for a future IAM-2/IAM-14 session |
@@ -244,11 +244,11 @@ available release and re-pinning to itself would be a no-op.
 2. **Next:** Gate IAM-1 hardening in `shared` — fix the broken `$ref`s (§4.3), add the
    missing lifecycle events, add a reason-code registry, add real schema-validation tests.
 3. **Done:** Gate IAM-3 hardening in `baobab-cp` — a real `CanonicalIdentity`/
-   `ExternalIdentity(issuer, subject)` layer is implemented (`nabhold/baobab-cp#64`-`#71`,
+   `ExternalIdentity(issuer, subject)` layer is implemented (`baobab-platform/baobab-cp#64`-`#71`,
    see [`gate-iam-3-canonical-identity-scope.md`](./gate-iam-3-canonical-identity-scope.md)),
    and the Tenant/CanonicalEntity conflation (R-3) is fixed. `/v1/resolve`'s opaque-denial
    -reasons switch was not part of this pass — it remains a separate, unrelated gap (see
-   `nabhold/baobab-cp#63`'s "Not in scope" note).
+   `baobab-platform/baobab-cp#63`'s "Not in scope" note).
 4. **In progress:** Gate IAM-4 (workload identity, ADR-0007) — scoped and phase 1 underway, see
    [`gate-iam-4-workload-identity-scope.md`](./gate-iam-4-workload-identity-scope.md). Gates
    IAM-5 through IAM-16 remain next, as originally sequenced, now that the identity spine

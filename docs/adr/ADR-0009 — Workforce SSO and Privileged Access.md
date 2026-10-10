@@ -3,9 +3,9 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
-**Primary Runtime Owners:** `nabhold/baobab-iam`, `nabhold/baobab-cp`, domain engines  
-**Contract Owner:** `nabhold/shared`  
+**Repository:** `baobab-platform/baobab-iam`  
+**Primary Runtime Owners:** `baobab-platform/baobab-iam`, `baobab-platform/baobab-cp`, domain engines  
+**Contract Owner:** `baobab-platform/shared`  
 **Scope:** Workforce identity, single sign-on, privileged access, administrator segregation, MFA, step-up authentication, executive access, break-glass access, joiner/mover/leaver lifecycle and engine-specific workforce authorization  
 **Supersedes:** None  
 **Superseded by:** None  
@@ -1992,7 +1992,7 @@ These costs are accepted.
 
 # 120. Shared Contract Requirements
 
-`nabhold/shared` SHOULD define or extend contracts for:
+`baobab-platform/shared` SHOULD define or extend contracts for:
 
 ```text id="cw5fxs"
 workforce membership

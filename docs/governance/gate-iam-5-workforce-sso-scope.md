@@ -1,9 +1,9 @@
 # Gate IAM-5 — Workforce SSO
 
-**Status:** Phase 1 complete. Phase 2a (`baobab-trade` OIDC wiring) complete — `nabhold/baobab-trade#70`. Phase 2b (`baobab-cms` OIDC wiring) complete — `nabhold/baobab-cms#9` — see §5.1. Phase 3 (`baobab-cp` workforce membership model + role-aware admin authorization) complete — `nabhold/baobab-cp#104` — see §5.3. Phase 5 (MFA/step-up) complete — see §5.5. Phase 6 (break-glass) complete — see §5.6. Remaining: access review/audit correlation (§96-101) — see §5.
+**Status:** Phase 1 complete. Phase 2a (`baobab-trade` OIDC wiring) complete — `baobab-platform/baobab-trade#70`. Phase 2b (`baobab-cms` OIDC wiring) complete — `baobab-platform/baobab-cms#9` — see §5.1. Phase 3 (`baobab-cp` workforce membership model + role-aware admin authorization) complete — `baobab-platform/baobab-cp#104` — see §5.3. Phase 5 (MFA/step-up) complete — see §5.5. Phase 6 (break-glass) complete — see §5.6. Remaining: access review/audit correlation (§96-101) — see §5.
 **Date:** 2026-09-12
 **Governing ADR:** `ADR-0009 — Workforce SSO and Privileged Access`
-**Repositories:** `nabhold/baobab-iam` (workforce SSO clients, owner), `nabhold/baobab-cp` (canonical identity, CP administration), `nabhold/baobab-cms`, `nabhold/baobab-trade`, `nabhold/baobab-erp`, `nabhold/baobab-pulse` (engine admin surfaces)
+**Repositories:** `baobab-platform/baobab-iam` (workforce SSO clients, owner), `baobab-platform/baobab-cp` (canonical identity, CP administration), `baobab-platform/baobab-cms`, `baobab-platform/baobab-trade`, `baobab-platform/baobab-erp`, `baobab-platform/baobab-pulse` (engine admin surfaces)
 **Depends on:** Gate IAM-3 (canonical identity spine — complete), Gate IAM-4 (workload identity — complete)
 **Out of scope (this phase):** MFA/step-up policy mechanics (ADR-0015, Gate IAM-11), identity lifecycle/deprovisioning automation (ADR-0016, Gate IAM-12), audit/observability wiring (ADR-0017, Gate IAM-13-ish) — ADR-0009 itself defers these ("exact assurance policy will be refined in ADR-0015", §39/§82).
 
@@ -34,7 +34,7 @@ A discovery pass across all five engine repos, cross-checked directly against co
 1. **No distinct workforce admin client registrations** (§9-10) — fixed in phase 1 for CP/CMS/Trade (§4).
 2. **No workforce role namespace** (§102-103) — fixed in phase 1: a starter realm-role catalog (§4).
 3. **`baobab-cp`'s admin routes were unreachable by any real human token** (§3, §93 — "IAM login succeeds but application access denied" is expected only when authorization is correctly evaluated, not when the actor-type check itself is unsatisfiable) — fixed in phase 1 (§4).
-4. **No actual SSO wiring in any engine's admin UI** (§6) — **closed.** Trade (phase 2a, `nabhold/baobab-trade#70`) and CMS (phase 2b, `nabhold/baobab-cms#9`) are both wired now; `baobab-cp` has no admin console of its own yet to wire, and `baobab-pulse` has no admin surface at all (§1).
+4. **No actual SSO wiring in any engine's admin UI** (§6) — **closed.** Trade (phase 2a, `baobab-platform/baobab-trade#70`) and CMS (phase 2b, `baobab-platform/baobab-cms#9`) are both wired now; `baobab-cp` has no admin console of its own yet to wire, and `baobab-pulse` has no admin surface at all (§1).
 5. **No CP admin role model beyond flat scopes** (§14-16) — the new `cp:platform-admin`/`cp:tenant-admin` realm roles (§4) give IAM-side vocabulary, but nothing in `baobab-cp` yet maps a workforce token's roles into scoped authorization decisions beyond the existing flat per-route scopes. Deferred to phase 3 (§5).
 6. **MFA is not enforced for any client, privileged or not** (§37-40) — deferred to ADR-0015/Gate IAM-11 per ADR-0009's own text.
 7. **No joiner/mover/leaver process, break-glass mechanism, or access-review tooling** (§29-36, §53-67) — joiner/mover/leaver and break-glass are now closed (§5.3, §5.6); access-review tooling remains deferred.
@@ -67,9 +67,9 @@ The `baobab-cp` defect in §1/§2.3 is worth stating plainly because it's easy t
 
 ## 5. Remaining phases (scoped, not yet implemented)
 
-2a. ~~**`baobab-trade` — real OIDC wiring.**~~ **Done — `nabhold/baobab-trade#70`.** Enabled Medusa's bundled `@medusajs/auth-oidc` provider in `medusa-config.ts` pointed at `baobab-trade-admin` — no bespoke client code, only configuration (registering `@medusajs/medusa/auth` explicitly, with `emailpass` kept alongside the new conditional `oidc` entry so nothing regresses when `BAOBAB_IAM_OIDC_ISSUER` is unset). `npm run format:check`/`lint`/`typecheck`/`test`/`build` all green, `build` exercised in both the SSO-enabled and SSO-disabled configurations.
+2a. ~~**`baobab-trade` — real OIDC wiring.**~~ **Done — `baobab-platform/baobab-trade#70`.** Enabled Medusa's bundled `@medusajs/auth-oidc` provider in `medusa-config.ts` pointed at `baobab-trade-admin` — no bespoke client code, only configuration (registering `@medusajs/medusa/auth` explicitly, with `emailpass` kept alongside the new conditional `oidc` entry so nothing regresses when `BAOBAB_IAM_OIDC_ISSUER` is unset). `npm run format:check`/`lint`/`typecheck`/`test`/`build` all green, `build` exercised in both the SSO-enabled and SSO-disabled configurations.
 
-### 5.1 `baobab-cms` — real OIDC wiring — **Done, `nabhold/baobab-cms#9`**
+### 5.1 `baobab-cms` — real OIDC wiring — **Done, `baobab-platform/baobab-cms#9`**
 
 Unlike Trade, Payload CMS has no official or community OIDC auth-provider plugin (checked directly against the npm registry — nothing matching `payload`+`oidc`/`sso`/`keycloak` exists). This phase was originally deferred (2026-09-11 check-in) specifically because it meant writing net-new security-critical authentication code — PKCE/state/nonce handling, token exchange, ID-token verification, session issuance — rather than configuring an already-audited module, and that risk profile deserved its own dedicated pass rather than being rushed alongside phase 1/2a.
 
@@ -77,8 +77,8 @@ That dedicated pass is now complete. Built directly on `openid-client` (the same
 
 Two real, review-caught bugs were fixed before merge, both verified against a real local Postgres instance installed specifically to check rather than guess: (1) auto-provisioning a brand-new SSO user called `payload.create()` with no password, which Payload's local-auth strategy requires unconditionally and would have rejected every first-time SSO login — fixed with a generated, never-disclosed password; (2) the new `ssoSubject` column had no committed migration — generated and applied for real, including finding and fixing a broken import in Payload's own migration-generator output. **Not built this phase** (documented in `baobab-cms`'s `docs/identity/README.md`): a login-page UI link (the URL works when navigated to directly; wiring it into Payload's admin login screen needs an import-map rebuild no live instance here could verify) and Keycloak-side logout integration (a local Payload logout doesn't end the Keycloak session).
 
-3. ~~**`baobab-cp` — role-aware admin authorization.**~~ **Done, together with item 4 — `nabhold/baobab-cp#104`.** See §5.3.
-4. ~~**Workforce membership model in `baobab-cp`** (§27-28)~~ **Done — `nabhold/baobab-cp#104`.** See §5.3.
+3. ~~**`baobab-cp` — role-aware admin authorization.**~~ **Done, together with item 4 — `baobab-platform/baobab-cp#104`.** See §5.3.
+4. ~~**Workforce membership model in `baobab-cp`** (§27-28)~~ **Done — `baobab-platform/baobab-cp#104`.** See §5.3.
 5. ~~**MFA/step-up**~~ **Done.** See §5.5. (ADR-0015/Gate IAM-11 already covers *mandatory* MFA for privileged roles; this closes ADR-0009 §41-45's separate *on-demand* step-up requirement, which applies regardless of role.)
 6. ~~**Break-glass**~~ **Done.** See §5.6. Access review and audit correlation (§96-101) remain deferred — ADR-0017/Gate IAM-13-ish territory.
 7. **`baobab-pulse` admin surface** — revisit once Pulse has an operator-facing console to integrate; nothing to wire today.
@@ -86,7 +86,7 @@ Two real, review-caught bugs were fixed before merge, both verified against a re
 
 Each phase gets its own PR, full local validation, and a check-in loop to green/merge before the next phase starts, matching Gate IAM-3/IAM-4's discipline.
 
-### 5.3 `baobab-cp` — workforce membership model and role-aware admin authorization — **Done, `nabhold/baobab-cp#104`**
+### 5.3 `baobab-cp` — workforce membership model and role-aware admin authorization — **Done, `baobab-platform/baobab-cp#104`**
 
 Adds `domain.WorkforceMembership` (ADR-0009 §27: `CanonicalIdentity → WorkforceMembership → {LegalEntity, Tenant, status}`), with in-memory and PostgreSQL repository implementations (new migration `000032_workforce_membership.sql`, `identity.workforce_membership` with `UNIQUE(principal_id, tenant_id)` so a mover changes an existing row rather than accumulating privilege per §31-32) — deliberately with **no auto-provisioning path**, matching this gate's phase-1 no-privileged-JIT-provisioning precedent (§29, §87-88): membership is always created via an explicit joiner action, never materialized just because a token happened to resolve.
 

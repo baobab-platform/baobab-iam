@@ -13,7 +13,7 @@ over.
 Multi-Region Readiness"), cross-referenced against §23-27 (Multi-Region Model), §122-125
 (Multi-Region IAM Strategy), §146-148 (Region Context/Sovereignty), §164 (Multi-Region Test
 Matrix), §178-180 (Multi-Region Infrastructure/Regional Engine Architecture)
-**Repositories:** `nabhold/baobab-iam` (this gate's nominal owner), `nabhold/baobab-cp`
+**Repositories:** `baobab-platform/baobab-iam` (this gate's nominal owner), `baobab-platform/baobab-cp`
 (read-only discovery this gate — where the actual region model lives)
 **Depends on:** Gate IAM-3 (canonical identity spine), Gate IAM-4 (workload identity), Gate
 IAM-12 (kill switch), Gate IAM-14 (DR runbook)
@@ -37,7 +37,7 @@ Keycloak realm-configuration repository.
 
 ## 2. Discovery — `baobab-cp` already implements this checklist
 
-Rather than assume the checklist item was `baobab-iam`'s to build, `nabhold/baobab-cp` was
+Rather than assume the checklist item was `baobab-iam`'s to build, `baobab-platform/baobab-cp` was
 read directly. It already has, real and substantial:
 
 - `internal/capability/domain/capability.go`, `grant.go`, `scope.go` — the `CapabilityBinding`/
@@ -147,7 +147,7 @@ than one that says nothing):
    already proves. This is the same work as Gate IAM-14's §7.4 "post-backup security journal"
    item; not duplicated as a separate task here.
 2. **Phase B (warm DR region), Phase C (supported multi-site Keycloak), Phase D (regional
-   identity strategy)** (§124) — explicitly `nabhold/infrastructure`'s territory, and per §123
+   identity strategy)** (§124) — explicitly `baobab-platform/infrastructure`'s territory, and per §123
    deliberately not attempted before Phase A is solid. Nothing to design here until
    Infrastructure proposes standing up a second Keycloak-capable region.
 3. **§148's Data Sovereignty Rule, exercised for real** — untestable today because there is

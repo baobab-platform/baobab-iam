@@ -2,7 +2,7 @@
 
 **Governing spec:** `docs/adr/Consolidated-Technical-Specification.md` §219 ("Gate IAM-16 —
 Production Hardening"), checklist item "incident runbooks"
-**Owner of this document:** `nabhold/baobab-iam`
+**Owner of this document:** `baobab-platform/baobab-iam`
 
 This is deliberately a different document from
 [`disaster-recovery-runbook.md`](./disaster-recovery-runbook.md): that one is for

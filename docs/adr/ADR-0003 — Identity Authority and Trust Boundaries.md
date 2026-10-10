@@ -3,7 +3,7 @@
 **Status:** Proposed  
 **Date:** 2026-09-08  
 **Decision Owners:** NABHOLD / Baobab Platform Architecture  
-**Repository:** `nabhold/baobab-iam`  
+**Repository:** `baobab-platform/baobab-iam`  
 **Scope:** Baobab Identity Plane, Control Plane, Infrastructure, Digital Estates, and Domain Engines  
 **Supersedes:** None  
 **Superseded by:** None  

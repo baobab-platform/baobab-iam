@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"time"
 )
 
@@ -41,9 +42,9 @@ func NewRuntimeDispatch(c RuntimeDispatchConfig) (*RuntimeDispatch, error) {
 
 func runtimeFacet(key string) string {
 	switch key {
-	case "identity.authentication.perform":
+	case provider.CapabilityHumanAuthentication:
 		return "HUMAN_AUTHENTICATION"
-	case "identity.workload-token.issue":
+	case provider.CapabilityWorkloadTokenIssue:
 		return "WORKLOAD_TOKEN_ISSUANCE"
 	}
 	return ""
