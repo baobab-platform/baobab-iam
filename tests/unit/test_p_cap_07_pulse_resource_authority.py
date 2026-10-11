@@ -7,7 +7,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED_PIN = "8f7610da3517ab452f4d16aa824fe7a92dbb4e6e"  # PEO-03G (shared#278): retains LA-05A/P-CAP/FB-05 and reserves non-authorising verifier
+SHARED_PIN = "aac9ca1a5f566182d4c9ff4b73d241a4a71b09b6"  # PEO-03G (shared#278): retains LA-05A/P-CAP/FB-05 and reserves non-authorising verifier
 PULSE_SCOPES = {
     "intelligence:evidence:search",
     "intelligence:research-mission:manage",

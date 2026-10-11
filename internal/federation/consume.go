@@ -13,7 +13,7 @@ import (
 // SharedCommit is the accepted immutable Shared contract revision. Federation
 // semantics are unchanged by P-CAP-07; this constant advances with the repo's
 // single contracts.lock pin so CI proves all consumers use one authority revision.
-const SharedCommit = "8f7610da3517ab452f4d16aa824fe7a92dbb4e6e"
+const SharedCommit = "aac9ca1a5f566182d4c9ff4b73d241a4a71b09b6"
 
 type Policy struct {
 	Scope                Scope
