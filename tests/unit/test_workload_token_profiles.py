@@ -71,5 +71,31 @@ class WorkloadProjectionTests(unittest.TestCase):
             module.build('a' * 40, self.registry, ['cp', 'evidence'], {**self.binding, **bindings}, 'production')
 
 
+    def test_cipc_source_capture_profile_is_staging_scoped_and_non_authorising(self):
+        name = 'baobab-cipc-verifier-staging'
+        self.registry['workloads'][name] = {
+            'environment': 'staging',
+            'credential_type': 'federated_workload_token',
+            'status': 'PROVISIONED',
+            'allowed_scopes': ['verification:source-capture'],
+            'allowed_audiences': ['baobab-control-plane'],
+        }
+        binding = {name: {
+            'issuer': 'https://staging-verifier.example.invalid',
+            'subject': 'system:serviceaccount:verification:cipc-verifier',
+        }}
+        projected = module.build('e' * 40, self.registry, [name], binding, 'staging')
+        self.assertEqual(projected['workloads'][name]['allowed_scopes'], ['verification:source-capture'])
+        self.assertEqual(projected['workloads'][name]['status'], 'PROVISIONED')
+        self.assertNotIn('verification:decide', projected['workloads'][name]['allowed_scopes'])
+        self.assertNotIn('tenant:bootstrap', projected['workloads'][name]['allowed_scopes'])
+        for wrong in ('production', 'development'):
+            with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                module.build('e' * 40, self.registry, [name], binding, wrong)
+        forged = dict(binding[name], allowed_scopes=['verification:decide'])
+        with self.assertRaises(ValueError):
+            module.build('e' * 40, self.registry, [name], {name: forged}, 'staging')
+
+
 if __name__ == '__main__':
     unittest.main()
