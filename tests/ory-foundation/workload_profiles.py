@@ -17,6 +17,8 @@ selected = {
     'baobab-subscriptions-workload': 'federated_workload_token',
     # FB-05: the dedicated staging evidence provisioner (ACTIVE by explicit, bounded exception).
     'baobab-cp-provisioning-evidence-workload': 'federated_workload_token',
+    # Accepted PEO-03K custody extension: isolated scanner from pinned Shared registry.
+    'baobab-independent-scanner-staging': 'federated_workload_token',
 }
 profiles = {}
 for name, credential_type in selected.items():
@@ -25,6 +27,17 @@ for name, credential_type in selected.items():
         raise ValueError(f'{name}: unexpected credential profile at Shared pin')
     if not entry['allowed_scopes'] or not entry['allowed_audiences']:
         raise ValueError(f'{name}: empty Shared scope/audience profile')
+    if name == 'baobab-independent-scanner-staging':
+        expected = {
+            'environment': 'staging',
+            'credential_type': 'federated_workload_token',
+            'status': 'PROVISIONED',
+            'allowed_scopes': ['verification:scan-attest'],
+            'allowed_audiences': ['baobab-control-plane'],
+        }
+        actual = {key: entry[key] for key in expected}
+        if actual != expected:
+            raise ValueError(f'{name}: scope/audience/lifecycle drift from pinned Shared registry')
     profiles[name] = {key: entry[key] for key in
                       ('environment', 'credential_type', 'status', 'allowed_scopes', 'allowed_audiences')}
 destination = ROOT / 'ory-foundation-evidence/workload-profiles.json'
