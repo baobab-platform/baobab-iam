@@ -36,7 +36,7 @@ schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: c42bfebaa3a6edfe8aa3fe56ed3504af3328a73e
+  commit: eecbc0edd957ac9b7a5bcd194529684824f38611
 contracts:
   - contracts/capability/v1/resolution.schema.json
   - contracts/identity/v1/federation-authority-policy.yaml
