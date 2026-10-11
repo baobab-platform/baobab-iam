@@ -121,5 +121,31 @@ class WorkloadProjectionTests(unittest.TestCase):
             module.build('8' * 40, self.registry, [name], {name: forged}, 'staging')
 
 
+    def test_independent_scan_attestor_has_no_ocr_cipc_or_tenant_authority(self):
+        name = 'baobab-independent-scanner-staging'
+        self.registry['workloads'][name] = {
+            'environment': 'staging', 'credential_type': 'federated_workload_token',
+            'status': 'PROVISIONED',
+            'allowed_scopes': ['verification:scan-attest'],
+            'allowed_audiences': ['baobab-control-plane'],
+        }
+        binding = {name: {
+            'issuer': 'https://scanner.staging.example.invalid',
+            'subject': 'system:serviceaccount:verification:independent-scanner',
+        }}
+        profile = module.build('a' * 40, self.registry, [name], binding, 'staging')['workloads'][name]
+        self.assertEqual(profile['status'], 'PROVISIONED')
+        self.assertEqual(profile['allowed_scopes'], ['verification:scan-attest'])
+        self.assertEqual(profile['allowed_audiences'], ['baobab-control-plane'])
+        for forbidden in ('verification:document-extract', 'verification:source-capture',
+                          'verification:decide', 'legal-actor:assess', 'tenant:bootstrap'):
+            self.assertNotIn(forbidden, profile['allowed_scopes'])
+            forged = dict(binding[name], allowed_scopes=[forbidden])
+            with self.subTest(forbidden=forbidden), self.assertRaises(ValueError):
+                module.build('a' * 40, self.registry, [name], {name: forged}, 'staging')
+        with self.assertRaises(ValueError):
+            module.build('a' * 40, self.registry, [name], binding, 'production')
+
+
 if __name__ == '__main__':
     unittest.main()
