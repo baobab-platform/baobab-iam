@@ -97,5 +97,29 @@ class WorkloadProjectionTests(unittest.TestCase):
             module.build('e' * 40, self.registry, [name], {name: forged}, 'staging')
 
 
+    def test_document_extractor_cannot_use_cipc_source_or_production_scopes(self):
+        name = 'baobab-document-extractor-staging'
+        self.registry['workloads'][name] = {
+            'environment': 'staging', 'credential_type': 'federated_workload_token',
+            'status': 'PROVISIONED', 'allowed_scopes': ['verification:document-extract'],
+            'allowed_audiences': ['baobab-control-plane'],
+        }
+        binding = {name: {
+            'issuer': 'https://document-extractor.staging.example.invalid',
+            'subject': 'system:serviceaccount:verification:document-extractor',
+        }}
+        projected = module.build('8' * 40, self.registry, [name], binding, 'staging')
+        profile = projected['workloads'][name]
+        self.assertEqual(profile['allowed_scopes'], ['verification:document-extract'])
+        self.assertEqual(profile['status'], 'PROVISIONED')
+        for forbidden in ('verification:source-capture', 'verification:decide', 'tenant:bootstrap'):
+            self.assertNotIn(forbidden, profile['allowed_scopes'])
+        with self.assertRaises(ValueError):
+            module.build('8' * 40, self.registry, [name], binding, 'production')
+        forged = dict(binding[name], allowed_scopes=['verification:source-capture'])
+        with self.assertRaises(ValueError):
+            module.build('8' * 40, self.registry, [name], {name: forged}, 'staging')
+
+
 if __name__ == '__main__':
     unittest.main()
