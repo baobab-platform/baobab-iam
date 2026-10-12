@@ -29,6 +29,10 @@
 # entries and workload records are unchanged; context:validate is catalogued
 # but granted to no workload. See docs/governance/ea-01-shared-pin-reconciliation.md.
 #
+# LA-05 Priority 2: Shared #282 (f2790abb) registers the non-authorising
+# documentary:restriction-assess scope with only the PROVISIONED ERP/Payments
+# staging assessor profile ceilings. Keycloak's OIDC scope definition here is
+# NOT client allocation, IAM admission, canonical ACTIVE status or CP grant.
 # Every scope this repository issues must exist in the scope registry at this
 # exact commit: scripts/check-issued-scopes.sh, run in CI and in
 # tests/integration/run.sh section 9b.
@@ -36,7 +40,7 @@ schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: aac9ca1a5f566182d4c9ff4b73d241a4a71b09b6
+  commit: f2790abb8833fb40fdc7ef1d300faf887920fae4
 contracts:
   - contracts/capability/v1/resolution.schema.json
   - contracts/identity/v1/federation-authority-policy.yaml
