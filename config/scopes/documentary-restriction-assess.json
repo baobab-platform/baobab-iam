@@ -1,6 +1,6 @@
 {
   "name": "documentary:restriction-assess",
-  "description": "LA-05 Priority 2: negative-only CP documentary restriction assessment. Neither scope allocation nor nonblocked response grants financial, PSP, issuer, tenant or provider authority. Requires explicitly admitted staging assessor, approved client ID allowlist, and fresh authenticated workload-owned RUNTIME Context; never a default scope.",
+  "description": "Private negative-only Control Plane documentary restriction read. Requires an ACTIVE, explicitly approved workload and CP client allowlist; does not grant financial, merchant, payment, ERP or issuer authority.",
   "protocol": "openid-connect",
   "attributes": {
     "include.in.token.scope": "true",
