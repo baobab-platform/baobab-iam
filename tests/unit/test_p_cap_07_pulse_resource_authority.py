@@ -78,6 +78,13 @@ class PulseResourceAuthorityTests(unittest.TestCase):
                     "true",
                 )
 
+    def test_federation_consumer_uses_the_exact_shared_registry_pin(self) -> None:
+        # Static scope registration is ineffective if a compiled federation
+        # consumer still validates against another immutable Shared revision.
+        pin = yaml.safe_load((ROOT / "contracts.lock.yaml").read_text())["source"]["commit"]
+        source = (ROOT / "internal/federation/consume.go").read_text()
+        self.assertIn(f'const SharedCommit = "{pin}"', source)
+
     def test_documentary_restriction_scope_is_non_default_and_unallocated(self) -> None:
         # Definition is intentionally NOT client admission. Adding it to an
         # optional or default scope leaks the assessor capability to clients.
