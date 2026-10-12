@@ -78,6 +78,27 @@ class PulseResourceAuthorityTests(unittest.TestCase):
                     "true",
                 )
 
+    def test_documentary_restriction_scope_is_non_default_and_unallocated(self) -> None:
+        # Definition is intentionally NOT client admission. Adding it to an
+        # optional or default scope leaks the assessor capability to clients.
+        definition = load_json("config/scopes/documentary-restriction-assess.json")
+        self.assertEqual(definition["name"], "documentary:restriction-assess")
+        self.assertLessEqual(len(definition["description"]), 255)
+        self.assertEqual(definition["attributes"]["include.in.token.scope"], "true")
+        self.assertEqual(len(definition["protocolMappers"]), 1)
+        mapper = definition["protocolMappers"][0]
+        self.assertEqual(mapper["protocolMapper"], "oidc-audience-mapper")
+        self.assertEqual(mapper["config"]["included.custom.audience"], "baobab-control-plane")
+        self.assertEqual(mapper["config"]["access.token.claim"], "true")
+        self.assertEqual(mapper["config"]["id.token.claim"], "false")
+        for path in sorted((ROOT / "config" / "clients").glob("*.json")):
+            client = load_json(str(path.relative_to(ROOT)))
+            allocated = set(client.get("defaultClientScopes", []))
+            allocated.update(client.get("optionalClientScopes", []))
+            with self.subTest(client=path.name):
+                self.assertNotIn("documentary:restriction-assess", allocated)
+
+
     def test_no_client_receives_intelligence_scope_implicitly(self) -> None:
         for path in sorted((ROOT / "config" / "clients").glob("*.json")):
             with self.subTest(client=path.name):
