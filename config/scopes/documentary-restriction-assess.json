@@ -1,0 +1,22 @@
+{
+  "name": "documentary:restriction-assess",
+  "description": "LA-05 Priority 2: negative-only CP documentary restriction assessment. Neither scope allocation nor nonblocked response grants financial, PSP, issuer, tenant or provider authority. Requires explicitly admitted staging assessor, approved client ID allowlist, and fresh authenticated workload-owned RUNTIME Context; never a default scope.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}
