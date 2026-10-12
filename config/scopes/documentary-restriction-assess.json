@@ -1,0 +1,22 @@
+{
+  "name": "documentary:restriction-assess",
+  "description": "Private negative-only Control Plane documentary restriction read. Requires an ACTIVE, explicitly approved workload and CP client allowlist; does not grant financial, merchant, payment, ERP or issuer authority.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}

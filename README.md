@@ -4,6 +4,26 @@
 
 ---
 
+## LA-05 documentary restriction scope — configuration, not admission
+
+The Keycloak scope `documentary:restriction-assess` is defined at
+[`config/scopes/documentary-restriction-assess.json`](config/scopes/documentary-restriction-assess.json)
+and registered in the immutable Shared scope catalogue pinned by
+`contracts.lock.yaml`. Its access-token audience is `baobab-control-plane`.
+No client receives it as a default or optional scope. The definition does **not**
+register a workload, issue a credential, prove that the caller is ACTIVE, or
+authorise restriction evidence reads by itself. Any future consumer requires
+separate approved workload admission, explicit client assignment, current
+Control Plane caller allowlisting and negative-only documentary assessment.
+
+When updating the Shared pin, update `internal/federation/consume.go`'s
+`SharedCommit` **in the same PR**; `scripts/check-federation-contracts.py`
+enforces their equality. Run `scripts/check-issued-scopes.sh` to prove each
+token-visible scope is present in the exact pinned registry, and
+`scripts/check-config-limits.sh` to enforce Keycloak's 255-character
+description limit. The targeted unit test refuses implicit scope allocation.
+None of these static checks establishes live IAM/CP staging acceptance.
+
 ## Provider migration status
 
 Accepted ADR-IAM-0033 defines the multi-provider target: **Kratos for native

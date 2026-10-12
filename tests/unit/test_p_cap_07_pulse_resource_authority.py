@@ -7,7 +7,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED_PIN = "aac9ca1a5f566182d4c9ff4b73d241a4a71b09b6"  # PEO-03G (shared#278): retains LA-05A/P-CAP/FB-05 and reserves non-authorising verifier
+SHARED_PIN = "f2790abb8833fb40fdc7ef1d300faf887920fae4"  # LA-05 P2 (Shared #282) retains Pulse/FB-05 and adds documentary negative-only staging scope
 PULSE_SCOPES = {
     "intelligence:evidence:search",
     "intelligence:research-mission:manage",
@@ -77,6 +77,34 @@ class PulseResourceAuthorityTests(unittest.TestCase):
                     mapper["config"]["access.token.claim"],
                     "true",
                 )
+
+    def test_federation_consumer_uses_the_exact_shared_registry_pin(self) -> None:
+        # Static scope registration is ineffective if a compiled federation
+        # consumer still validates against another immutable Shared revision.
+        pin = yaml.safe_load((ROOT / "contracts.lock.yaml").read_text())["source"]["commit"]
+        source = (ROOT / "internal/federation/consume.go").read_text()
+        self.assertIn(f'const SharedCommit = "{pin}"', source)
+
+    def test_documentary_restriction_scope_is_non_default_and_unallocated(self) -> None:
+        # Definition is intentionally NOT client admission. Adding it to an
+        # optional or default scope leaks the assessor capability to clients.
+        definition = load_json("config/scopes/documentary-restriction-assess.json")
+        self.assertEqual(definition["name"], "documentary:restriction-assess")
+        self.assertLessEqual(len(definition["description"]), 255)
+        self.assertEqual(definition["attributes"]["include.in.token.scope"], "true")
+        self.assertEqual(len(definition["protocolMappers"]), 1)
+        mapper = definition["protocolMappers"][0]
+        self.assertEqual(mapper["protocolMapper"], "oidc-audience-mapper")
+        self.assertEqual(mapper["config"]["included.custom.audience"], "baobab-control-plane")
+        self.assertEqual(mapper["config"]["access.token.claim"], "true")
+        self.assertEqual(mapper["config"]["id.token.claim"], "false")
+        for path in sorted((ROOT / "config" / "clients").glob("*.json")):
+            client = load_json(str(path.relative_to(ROOT)))
+            allocated = set(client.get("defaultClientScopes", []))
+            allocated.update(client.get("optionalClientScopes", []))
+            with self.subTest(client=path.name):
+                self.assertNotIn("documentary:restriction-assess", allocated)
+
 
     def test_no_client_receives_intelligence_scope_implicitly(self) -> None:
         for path in sorted((ROOT / "config" / "clients").glob("*.json")):
