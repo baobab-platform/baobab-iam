@@ -7,7 +7,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED_PIN = "f2790abb8833fb40fdc7ef1d300faf887920fae4"  # LA-05 P2 (Shared #282) retains Pulse/FB-05 and adds documentary negative-only staging scope
+SHARED_PIN = "5dcff30de1bc6142ad4b8801bbe3b2b66a0670ae"  # LA-05 P2 (Shared #282) retains Pulse/FB-05 and adds documentary negative-only staging scope
 PULSE_SCOPES = {
     "intelligence:evidence:search",
     "intelligence:research-mission:manage",
