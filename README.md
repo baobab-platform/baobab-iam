@@ -254,3 +254,5 @@ BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret make bootstrap
 BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret ./tests/integration/run.sh
 ```
 
+
+P0-04B-02 adds four `trade-binding:*` CP human admission scope definitions only. They are not assigned to any client, optional/default scope list or workload; command authority requires a current exact CP administrative grant and assurance. See [binding scope maintenance](docs/operations/trade-binding-command-admission.md).

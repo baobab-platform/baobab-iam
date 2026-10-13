@@ -1,0 +1,22 @@
+{
+  "name": "trade-binding:revoke",
+  "description": "P0-04B-02 human-only CP revoke command admission; requires exact current administrative grant and assurance. Definition only: not assigned to clients and never workload/legal/provider authority.",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "audience-baobab-control-plane",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.custom.audience": "baobab-control-plane",
+        "id.token.claim": "false",
+        "access.token.claim": "true"
+      }
+    }
+  ]
+}
