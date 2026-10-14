@@ -88,5 +88,135 @@
     "request": {
       "audience": "baobab-cp"
     }
+  },
+  {
+    "valid": true,
+    "request": {
+      "workload_id": "nabhold-backend",
+      "audience": "baobab-cms",
+      "scopes": [
+        "content:entry:resolve"
+      ]
+    }
+  },
+  {
+    "valid": true,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cms",
+      "scopes": [
+        "content:entry:preview"
+      ]
+    }
+  },
+  {
+    "valid": true,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-pulse",
+      "scopes": [
+        "intelligence:evidence:search"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cms",
+      "scopes": [
+        "content::entry"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cms",
+      "scopes": [
+        "content:entry:"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cms",
+      "scopes": [
+        "content:entry:*"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cms",
+      "scopes": [
+        "Content:entry:resolve"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cms",
+      "scopes": [
+        "content:entry:resolve\n"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cms",
+      "scopes": [
+        "context:resolve\n"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker\n",
+      "audience": "baobab-cms",
+      "scopes": [
+        "content:entry:resolve"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker\r\n",
+      "audience": "baobab-cms",
+      "scopes": [
+        "content:entry:resolve"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cms\n",
+      "scopes": [
+        "content:entry:resolve"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "request": {
+      "workload_id": "worker",
+      "audience": "baobab-cms\r\n",
+      "scopes": [
+        "content:entry:resolve"
+      ]
+    }
   }
 ]

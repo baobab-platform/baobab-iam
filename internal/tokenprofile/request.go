@@ -19,7 +19,13 @@ type WorkloadTokenRequest struct {
 }
 
 var workloadKey = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
-var scopeKey = regexp.MustCompile(`^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$`)
+
+// Shared registers hierarchical CMS/Intelligence scopes as well as one-colon
+// scopes. This is lexical validation only: AdmitRequest/Claims still require
+// exact registered audience/scope ceilings and authenticated credential evidence.
+// Go's dollar anchor is end-of-text (unlike the JSON Schema regex final-newline
+// behaviour guarded by Shared), so trailing line terminators remain invalid.
+var scopeKey = regexp.MustCompile(`^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)+$`)
 
 func (r WorkloadTokenRequest) Validate() error {
 	if len(r.WorkloadID) > 63 || !workloadKey.MatchString(r.WorkloadID) || len(r.Audience) > 63 || !workloadKey.MatchString(r.Audience) || len(r.Scopes) > 32 {

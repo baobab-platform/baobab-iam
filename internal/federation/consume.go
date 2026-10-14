@@ -11,10 +11,10 @@ import (
 )
 
 // SharedCommit is the accepted immutable Shared contract revision. Federation
-// semantics are unchanged by P0-04B-02 human binding vocabulary. Every
+// semantics are unchanged by the workload request scope grammar correction. Every
 // federation consumer must use contracts.lock's same immutable Shared pin;
 // publishing a non-default scope never admits a workload or grants access.
-const SharedCommit = "5dcff30de1bc6142ad4b8801bbe3b2b66a0670ae"
+const SharedCommit = "892d09c64ca6490c46c2f54c37bd366fcc36c3e5"
 
 type Policy struct {
 	Scope                Scope
