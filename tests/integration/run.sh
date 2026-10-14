@@ -8,7 +8,7 @@
 #
 # Requires:
 #   KC_URL                             (default: http://localhost:8080)
-#   KEYCLOAK_ADMIN / KEYCLOAK_ADMIN_PASSWORD (default: admin / admin123)
+#   KEYCLOAK_ADMIN / KEYCLOAK_ADMIN_PASSWORD (explicit isolated fixture credentials)
 #   BOOTSTRAP_WORKLOAD_CLIENT_SECRET   the same value bootstrap.sh was run with
 #
 # Section 9 also fetches baobab-platform/shared's workload-registry.yaml (pinned in
@@ -17,11 +17,12 @@
 # the Keycloak container bootstrap.sh runs in deliberately has neither curl
 # nor yq (see Dockerfile's tools-build stage comment: curl was removed for
 # unfixed ubi9 CVEs, and nothing else in the image needed it back).
+set +x
 set -euo pipefail
 
 KC_URL=${KC_URL:-http://localhost:8080}
-KC_ADMIN=${KEYCLOAK_ADMIN:-admin}
-KC_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin123}
+KC_ADMIN=${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
+KC_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
 WORKLOAD_SECRET=${BOOTSTRAP_WORKLOAD_CLIENT_SECRET:?BOOTSTRAP_WORKLOAD_CLIENT_SECRET must be set to the value bootstrap.sh was run with}
 REALM=baobab
 EXPECTED_ISSUER="$KC_URL/realms/$REALM"

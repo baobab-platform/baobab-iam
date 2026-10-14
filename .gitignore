@@ -1,13 +1,18 @@
 # .gitignore
 .env
+.env.*
+!.env.example
+.bootstrap-env-*
 *.log
 *.pid
 *.tmp
 data/
-.dockerignore
 .idea/
 .vscode/
 *.swp
 .DS_Store
 # Ephemeral live-provider test certificates and credentials
 tests/enterprise/tls/
+
+# Python bootstrap/test bytecode is generated locally.
+__pycache__/

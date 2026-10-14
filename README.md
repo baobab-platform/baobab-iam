@@ -234,6 +234,15 @@ It does **not** own:
 
 ---
 
+## Local administrator bootstrap
+
+Use `make local-credentials` to generate fresh local Keycloak-provider and
+Postgres credentials in an exclusive mode-0600 `.env`. Secret values are never
+printed and existing credentials are not overwritten. This prepares the local
+stack; it does not create a Baobab-wide superadmin or grant CP permissions.
+See [local administrator bootstrap](docs/operations/local-admin-bootstrap.md)
+for the provider boundary, fresh-stack setup and later native/CP operator work.
+
 ## Getting started
 
 Clone the repository and start the local development stack:
@@ -241,17 +250,20 @@ Clone the repository and start the local development stack:
 ```bash
 git clone git@github.com:baobab-platform/baobab-iam.git
 cd baobab-iam
-cp .env.example .env
+make local-credentials  # creates private .env; no public/default admin password
 make dev-up
 make bootstrap
 make test
 ```
 
-Run the ADR-0002 Section 48 verification suite against a running, bootstrapped stack:
+For a **fresh isolated fixture**, set the test-only workload seed on its first
+bootstrap, then run the ADR-0002 Section 48 verification suite. Re-running
+bootstrap does not reseed existing clients; do not apply this fixture seed to
+an established deployment:
 
 ```bash
 BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret make bootstrap
-BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret ./tests/integration/run.sh
+BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret make integration-test
 ```
 
 
