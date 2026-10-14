@@ -256,11 +256,14 @@ make bootstrap
 make test
 ```
 
-Run the ADR-0002 Section 48 verification suite against a running, bootstrapped stack:
+For a **fresh isolated fixture**, set the test-only workload seed on its first
+bootstrap, then run the ADR-0002 Section 48 verification suite. Re-running
+bootstrap does not reseed existing clients; do not apply this fixture seed to
+an established deployment:
 
 ```bash
 BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret make bootstrap
-BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret ./tests/integration/run.sh
+BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret make integration-test
 ```
 
 

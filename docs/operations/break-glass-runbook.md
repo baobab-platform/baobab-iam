@@ -39,7 +39,8 @@ This satisfies ADR-0009 §54's requirements structurally, not just procedurally:
 - **Strongly protected** — in production this credential SHALL be issued through the platform
   secret-management boundary (ADR-0002 §25, the same boundary `scripts/bootstrap.sh` already
   documents for workload client secrets), never the `docker-compose.yml` default
-  (`KEYCLOAK_ADMIN_PASSWORD:-admin123}`, which exists only for local development and CI).
+  (local/CI credentials are now generated privately with `make local-credentials`;
+  neither Compose nor bootstrap supplies a public password fallback).
 - **Rarely used / not routine** — ADR-0002 §31 ("Bootstrap Administrator") and §30 ("Privileged
   Authentication ... not be used for routine administration") both say so directly. Routine IAM
   administration is done by governed `baobab`-realm humans holding `iam:security-admin`/
