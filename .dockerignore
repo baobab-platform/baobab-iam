@@ -1,0 +1,11 @@
+# Never send local credentials or privileged bootstrap session files as build context.
+.env
+.env.*
+!.env.example
+.bootstrap-env-*
+.git
+*.log
+*.tmp
+data
+__pycache__
+tests/enterprise/tls

@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
 # bootstrap.sh – idempotent realm and client provisioning
+# Do not let a traced operator shell print credential-bearing assignments.
+set +x
 set -euo pipefail
+umask 077
 
-KC_ADMIN=${KEYCLOAK_ADMIN:-admin}
-KC_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin123}
+# Privileged provider access requires explicit runtime credentials. A local
+# generator supplies these for isolated development; no public fallback exists.
+KC_ADMIN=${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN must be explicitly configured}
+KC_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be explicitly configured}
+if [ -n "${BOOTSTRAP_WORKLOAD_CLIENT_SECRET:-}" ]; then
+  case "${BAOBAB_ENVIRONMENT:-}" in
+    local | ci | test) ;;
+    *) echo "Deterministic workload secrets are restricted to isolated local/CI/test environments." >&2; exit 1 ;;
+  esac
+fi
 KC_URL=${KC_URL:-http://localhost:8080}
 
 # kcadm.sh persists its login session to $HOME/.keycloak/kcadm.config by
@@ -14,6 +25,15 @@ KC_URL=${KC_URL:-http://localhost:8080}
 # that UID, point the config file at a fresh file under /tmp, which is
 # writable by any UID regardless of image specifics.
 KCADM_CONFIG=$(mktemp)
+# kcadm persists privileged bearer material. Remove its private session file and
+# any interrupted temporary client document when bootstrap exits or is stopped.
+cleanup_bootstrap() {
+  rm -f -- "$KCADM_CONFIG"
+  if [ -n "${TMP_FILE:-}" ]; then rm -f -- "$TMP_FILE"; fi
+}
+trap cleanup_bootstrap EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 kcadm() {
   /opt/keycloak/bin/kcadm.sh "$@" --config "$KCADM_CONFIG"
 }

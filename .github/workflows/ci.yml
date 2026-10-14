@@ -20,6 +20,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Verify local bootstrap credential security
+        run: python3 -m unittest discover -s tests/unit -p 'test_local_bootstrap_env.py'
       - name: Enforce Go formatting across release source
         run: |
           gofmt -d cmd internal
@@ -197,6 +199,18 @@ jobs:
       KC_MANAGEMENT_URL: http://localhost:9000
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Prepare fresh isolated provider credentials
+        shell: bash
+        run: |
+          set +x
+          python3 scripts/local_bootstrap_env.py --environment ci
+          set -a
+          source .env
+          set +a
+          for name in KEYCLOAK_ADMIN KEYCLOAK_ADMIN_PASSWORD POSTGRES_PASSWORD; do
+            printf '::add-mask::%s\n' "${!name}"
+            printf '%s=%s\n' "$name" "${!name}" >> "$GITHUB_ENV"
+          done
       - name: Build and start stack
         run: docker compose up -d --build
       - name: Wait for Keycloak to accept connections

@@ -1,6 +1,14 @@
 # Makefile for baobab-iam local development
-.PHONY: dev-up dev-down bootstrap test integration-test role-policy lint clean
+.PHONY: local-credentials bootstrap-security-test dev-up dev-down bootstrap test integration-test role-policy lint clean
 
+# Generate fresh private local credentials once; never overwrite an existing .env.
+local-credentials:
+	python3 scripts/local_bootstrap_env.py
+
+bootstrap-security-test:
+	python3 -m unittest discover -s tests/unit -p 'test_local_bootstrap_env.py'
+
+# Compose consumes .env; require explicit generated/injected secrets before start.
 dev-up:
 	docker-compose up -d
 
@@ -18,8 +26,10 @@ test:
 	@curl -s http://localhost:9000/health/ready | grep -q "UP" || (echo "Keycloak not ready" && exit 1)
 	@echo "All tests passed."
 
+# The fixture runner executes on the host, so load the same private local
+# configuration Compose used. Keep the test-only workload seed explicit.
 integration-test:
-	./tests/integration/run.sh
+	@set +x; set -a; if [ -f .env ]; then . ./.env; fi; set +a; ./tests/integration/run.sh
 
 # Separation-of-duties rules Keycloak cannot enforce (config/governance/role-policy.json).
 role-policy:
