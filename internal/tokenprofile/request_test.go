@@ -177,3 +177,54 @@ func TestCanonicalClientCredentialsAndConcurrentAdmission(t *testing.T) {
 		})
 	}
 }
+
+// Hierarchical grammar makes the real CMS scope representable, never eligible
+// merely because it parses. The fixture below is synthetic ACTIVE authority;
+// production Nabhold remains PROVISIONED in the independent Shared registry.
+func TestHierarchicalContentScopeKeepsAdmissionFences(t *testing.T) {
+	fixture := func() (Config, WorkloadTokenRequest, Evidence) {
+		c, r, e := canonicalFixture()
+		p := c.Workloads["worker"]
+		p.Scopes = []string{"content:entry:resolve"}
+		p.Audiences = []string{"baobab-cms"}
+		c.Workloads["worker"] = p
+		r.Audience = "baobab-cms"
+		r.Scopes = []string{"content:entry:resolve"}
+		e.RequestedScopes = []string{"content:entry:resolve"}
+		e.GrantedScopes = []string{"content:entry:resolve"}
+		e.GrantedAudiences = []string{"baobab-cms"}
+		return c, r, e
+	}
+	c, r, e := fixture()
+	if _, err := c.AdmitRequest(r, nil, e); err != nil {
+		t.Fatalf("existing authorised CMS scope rejected: %v", err)
+	}
+	for _, scenario := range []string{"provisioned", "preview", "audience", "credential", "issuer", "environment"} {
+		t.Run(scenario, func(t *testing.T) {
+			c, r, e := fixture()
+			p := c.Workloads["worker"]
+			switch scenario {
+			case "provisioned":
+				p.Status = "PROVISIONED"
+			case "preview":
+				// Even authenticated grant evidence cannot add an unallocated
+				// editor scope to the approved read-only workload profile.
+				r.Scopes = []string{"content:entry:preview"}
+				e.RequestedScopes = []string{"content:entry:preview"}
+				e.GrantedScopes = []string{"content:entry:preview"}
+			case "audience":
+				r.Audience = "baobab-control-plane"
+			case "credential":
+				e.Grant = "client_credentials"
+			case "issuer":
+				e.AssertionIssuer = "https://other.example"
+			case "environment":
+				p.Environment = "production"
+			}
+			c.Workloads["worker"] = p
+			if _, err := c.AdmitRequest(r, nil, e); err == nil {
+				t.Fatal("scope grammar bypassed independent admission authority")
+			}
+		})
+	}
+}
