@@ -11,7 +11,6 @@ import argparse
 import base64
 import json
 import os
-import re
 import ssl
 import sys
 import time
