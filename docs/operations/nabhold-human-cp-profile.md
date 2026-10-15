@@ -53,8 +53,10 @@ invented.
    unmapped principal, session eviction/recovery and browser isolation.
 5. Run the separate safe technical observer below using **real** reviewed
    staging tokens. The negative token cases require an independently obtained
-   active token for another audience, a genuinely revoked token, and an active
-   unmapped CP-audience human. The script does not mint or revoke any of them.
+   active token for another audience **with the same issuer, client, human,
+   scopes and live validity as the positive token**, a genuinely revoked token,
+   and an active unmapped CP-audience human. The script does not mint or revoke
+   any of them. The other-audience negative must isolate the audience difference.
    A 404 for a nonexistent URL is not an isolation test.
 6. An independent identity/security/release reviewer examines the protected
    browser and token evidence, CP action policy, restore drills and operator

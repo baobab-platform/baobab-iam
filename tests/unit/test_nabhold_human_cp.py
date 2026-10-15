@@ -60,6 +60,23 @@ class NabholdHumanProfile(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(mod.Denied):
                 mod.check_positive_claims({**record, **change}, record["iss"], record["sub"])
 
+    def test_wrong_audience_probe_isolates_only_audience(self):
+        import time
+        positive = {"active": True, "iss": "https://iam.example.test/realms/baobab",
+                    "sub": "same-human", "client_id": "nabhold-executive",
+                    "aud": ["baobab-control-plane"], "scope": "openid authority:self",
+                    "exp": int(time.time()) + 120}
+        wrong = {**positive, "aud": ["baobab-cms"], "exp": positive["exp"] + 2}
+        self.assertTrue(mod.check_wrong_audience_claims(wrong, positive,
+                        positive["iss"], positive["sub"]))
+        for changes in ({"scope": "openid"}, {"sub": "different"},
+                        {"client_id": "other-client"}, {"iss": "https://other.test"},
+                        {"active": False}, {"exp": 1},
+                        {"aud": ["baobab-control-plane", "baobab-cms"]}):
+            with self.subTest(changes=changes), self.assertRaises(mod.Denied):
+                mod.check_wrong_audience_claims({**wrong, **changes}, positive,
+                                                positive["iss"], positive["sub"])
+
     def test_self_response_requires_current_canonical_principal(self):
         value = {"principal_id": "cba4dcea-40d1-4587-81f7-a79b3908a203",
                  "grants": [], "evaluated_at": datetime.now(timezone.utc).isoformat()}

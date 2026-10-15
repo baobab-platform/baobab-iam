@@ -120,6 +120,30 @@ def check_positive_claims(raw, issuer, subject, client_id=CLIENT):
     require(type(raw.get("exp")) is int and raw["exp"] > time.time())
     return True
 
+def check_wrong_audience_claims(wrong, positive, issuer, subject):
+    """Keep all non-audience authentication checks constant for the negative.
+
+    A CP denial is NOT audience evidence if the token also has a different
+    issuer, client, subject, missing human self-read scope, or is expired.
+    Actual token expiry timestamps may differ because the tokens are minted
+    independently, but both must be currently valid and issued by the same
+    governed client to the same principal.
+    """
+    require(isinstance(wrong, dict) and wrong.get("active") is True)
+    require(isinstance(positive, dict) and positive.get("active") is True)
+    for key in ("iss", "sub", "client_id"):
+        require(wrong.get(key) == positive.get(key))
+    require(wrong.get("iss") == issuer and wrong.get("sub") == subject
+            and wrong.get("client_id") == CLIENT)
+    for token in (positive, wrong):
+        require(type(token.get("exp")) is int and token["exp"] > time.time())
+        require(SCOPE in str(token.get("scope", "")).split())
+    require(set(str(wrong.get("scope", "")).split()) ==
+            set(str(positive.get("scope", "")).split()))
+    aud = wrong.get("aud")
+    require(AUDIENCE not in (aud if isinstance(aud, list) else [aud]))
+    return True
+
 def check_cp_response(raw, expected):
     require(isinstance(raw, dict) and raw.get("principal_id") == expected)
     require(isinstance(raw.get("grants"), list))
@@ -163,9 +187,7 @@ def run_protected(env):
     # Test a real token for a different audience, a genuinely revoked token,
     # and a live identity that CP has NOT mapped. No fabricated 404s count.
     wrong = introspect(issuer, secret, tokens["WRONG_AUDIENCE"])
-    require(wrong.get("active") is True)
-    aud = wrong.get("aud")
-    require(AUDIENCE not in (aud if isinstance(aud, list) else [aud]))
+    check_wrong_audience_claims(wrong, live, issuer, subject)
     require(cp_self(cp, tokens["WRONG_AUDIENCE"])[0] in (401, 403))
     revoked = introspect(issuer, secret, tokens["REVOKED"])
     require(revoked.get("active") is False)
