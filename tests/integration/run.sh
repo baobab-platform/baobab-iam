@@ -1270,10 +1270,10 @@ else
 fi
 
 # authority:self (ADR-BCP-020 sections 99-102, 110; Shared scope-registry.yaml):
-# a human administrator reads their own effective authority. It is read-only
-# and confers nothing, so it needs no client role, but it is human-only: it is
-# an optional scope of the workforce client alone and no workload or other
-# client can obtain it. Baobab owns its meaning; this provider only issues it.
+# only the CP administrative client (optional) and the dormant Nabhold
+# confidential BFF (default) may request it. Neither the scope nor a successful
+# introspection creates a CP principal, executive role, grant or permission.
+# All other applicant, engine, estate and workload clients MUST lack it.
 AUTHORITY_SELF_JSON=$(admin_api "$KC_ADMIN_API/client-scopes" | jq '[.[] | select(.name == "authority:self")][0]')
 AUTHORITY_SELF_AUDIENCE=$(echo "$AUTHORITY_SELF_JSON" | jq -r '[.protocolMappers[]? | select(.protocolMapper == "oidc-audience-mapper") | .config["included.custom.audience"]] | join(",")')
 if [ "$(echo "$AUTHORITY_SELF_JSON" | jq -r '.attributes["include.in.token.scope"] // empty')" = "true" ] && [ "$AUTHORITY_SELF_AUDIENCE" = "baobab-control-plane" ]; then
@@ -1292,14 +1292,34 @@ for client_file in config/clients/*.json; do
   [ "$CLIENT_ID" = "baobab-control-plane-admin" ] && continue
   CLIENT_UUID=$(admin_api "$KC_ADMIN_API/clients?clientId=$CLIENT_ID" | jq -r '.[0].id')
   ATTACHED=$( (admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/optional-client-scopes"; admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/default-client-scopes") | jq -r '.[].name')
+  if [ "$CLIENT_ID" = "nabhold-executive" ]; then
+    # The only other human CP token profile is a disabled, no-callback,
+    # confidential BFF. The specific default scope is necessary because
+    # Nabhold #55 requests identity-only "openid"; scope issuance still
+    # confers no business authority and CP authenticates the actual human.
+    CLIENT_RECORD=$(admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID")
+    NAB_DEFAULT=$(admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/default-client-scopes" | jq -r '[.[].name] | join(",")')
+    NAB_OPTIONAL=$(admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/optional-client-scopes" | jq -r '[.[].name] | join(",")')
+    if [ "$(echo "$CLIENT_RECORD" | jq -r '.enabled')" = "false" ] \
+       && [ "$(echo "$CLIENT_RECORD" | jq -r '.publicClient')" = "false" ] \
+       && [ "$(echo "$CLIENT_RECORD" | jq -r '.redirectUris | length')" = "0" ] \
+       && [[ ",$NAB_DEFAULT," == *",authority:self,"* ]] \
+       && [[ ",$NAB_OPTIONAL," != *",authority:self,"* ]] \
+       && [[ ",$NAB_OPTIONAL," != *",administrator:"* ]]; then
+      pass "Nabhold CP self-read client is dormant, confidential, exact-default and without optional authority"
+    else
+      fail "Nabhold CP self-read client has unexpected authority or activation"
+    fi
+    continue
+  fi
   if echo "$ATTACHED" | grep -qx 'authority:self'; then
     OTHER_CLIENTS_WITH_AUTHORITY_SELF="$OTHER_CLIENTS_WITH_AUTHORITY_SELF $CLIENT_ID"
   fi
 done
 if [ -z "$OTHER_CLIENTS_WITH_AUTHORITY_SELF" ]; then
-  pass "no client other than baobab-control-plane-admin (no workload, applicant, estate or engine client) can obtain authority:self"
+  pass "only CP admin and dormant Nabhold BFF clients can obtain human authority:self; no other client can"
 else
-  fail "authority:self is attached to:$OTHER_CLIENTS_WITH_AUTHORITY_SELF"
+  fail "authority:self is attached to unapproved clients:$OTHER_CLIENTS_WITH_AUTHORITY_SELF"
 fi
 
 # administrator:read / administrator:write (ADR-BCP-020 grant administration,

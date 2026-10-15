@@ -39,7 +39,10 @@ class NabholdHumanProfile(unittest.TestCase):
                            ("webOrigins", ["https://estate.example.test"]),
                            ("optionalClientScopes", ["administrator:write"]),
                            ("defaultClientScopes", ["openid", "authority:self"]),
-                           ("serviceAccountsEnabled", True), ("publicClient", True)):
+                           ("serviceAccountsEnabled", True), ("publicClient", True),
+                           ("authorizationServicesEnabled", True),
+                           ("protocolMappers", [{"name": "rogue"}]),
+                           ("attributes", {**approved["attributes"], "oauth2.device.authorization.grant.enabled": "true"})):
             with self.subTest(key=key), self.assertRaises(mod.Denied):
                 mod.check_reviewed_client({**approved, key: value}, callback)
 

@@ -38,7 +38,9 @@ invented.
    and scopes EXACT. Use a fresh independently managed confidential client
    secret, never a repository secret or deterministic workload bootstrap seed.
    Review the sanitized client record (omit secret) and hold it owner-private
-   with mode 0600. The Keycloak adapter must issue the exact human issuer,
+   with mode 0600. Supply the exact governed security-relevant record, not
+   provider-added generated metadata, to the technical observer. The Keycloak
+   adapter must issue the exact human issuer,
    subject, CP audience, authority:self scope, client_id and finite exp.
 3. Independently register/activate current canonical CP human Principals and
    exact issuer+subject links. No email, role, provider sub or IAM administrator
@@ -103,3 +105,8 @@ custody system, not in this repository.
   signed G17 release acceptance are NOT source facts.
 - This profile MUST NOT be enabled in production by changing enabled in Git.
   Separate protected configuration/review is mandatory.
+
+**CP route verification:** the authoritative `baobab-cp/api/router.go` mounts
+`GET /v1/admin/effective-authority` (not the older unversioned
+`/admin/effective-authority` wording in IAM MP2-C's narrative). Nabhold #55
+already calls the versioned route. The protected observer uses that same route.

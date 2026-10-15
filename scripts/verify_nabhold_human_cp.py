@@ -56,14 +56,15 @@ def check_template(value):
 
 def check_reviewed_client(value, callback):
     """Fail if an operator attempts wildcard/open redirects or privilege by scope."""
-    require(value.get("clientId") == CLIENT and value.get("enabled") is True)
-    require(value.get("publicClient") is False and value.get("standardFlowEnabled") is True)
-    require(all(value.get(k) is False for k in ("directAccessGrantsEnabled", "implicitFlowEnabled", "serviceAccountsEnabled", "bearerOnly")))
-    require(value.get("defaultClientScopes") == ["openid", "actor-type-human", SCOPE])
-    require(value.get("optionalClientScopes") == [])
-    require(value.get("attributes", {}).get("pkce.code.challenge.method") == "S256")
-    require(value.get("redirectUris") == [callback] and value.get("webOrigins") == [])
-    require("secret" not in value)
+    # A reviewed Keycloak record must not acquire ANY additional capability,
+    # mapper, OAuth grant type, origin, policy or vendor extension. Only these
+    # two fields may differ from the committed dormant source profile.
+    # Operators must redact the provider's generated IDs/secret and compare
+    # the explicitly governed security-relevant client representation.
+    expected = json.loads(TEMPLATE.read_text())
+    expected["enabled"] = True
+    expected["redirectUris"] = [callback]
+    require(value == expected)
     return True
 
 def response_json(response):
