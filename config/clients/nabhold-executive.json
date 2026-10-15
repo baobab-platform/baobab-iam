@@ -1,0 +1,28 @@
+{
+  "clientId": "nabhold-executive",
+  "name": "Nabhold Group Africa — confidential human BFF (dormant)",
+  "description": "G04B-04: disabled until reviewed exact callback, private credential, mapped CP humans and staging acceptance. CP self-read only; not an executive permission.",
+  "enabled": false,
+  "publicClient": false,
+  "bearerOnly": false,
+  "serviceAccountsEnabled": false,
+  "protocol": "openid-connect",
+  "directAccessGrantsEnabled": false,
+  "implicitFlowEnabled": false,
+  "standardFlowEnabled": true,
+  "attributes": {
+    "pkce.code.challenge.method": "S256",
+    "oauth2.device.authorization.grant.enabled": "false",
+    "backchannel.logout.session.required": "true",
+    "backchannel.logout.revoke.offline.tokens": "false"
+  },
+  "authenticationFlowBindingOverrides": {},
+  "defaultClientScopes": [
+    "openid",
+    "actor-type-human",
+    "authority:self"
+  ],
+  "optionalClientScopes": [],
+  "redirectUris": [],
+  "webOrigins": []
+}
