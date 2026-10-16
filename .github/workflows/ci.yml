@@ -20,6 +20,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Verify configured browser themes are packaged
+        run: |
+          python3 scripts/check_theme_inventory.py
+          python3 -m unittest discover -s tests/unit -p 'test_theme_inventory.py'
       - name: Verify local bootstrap credential security
         run: python3 -m unittest discover -s tests/unit -p 'test_local_bootstrap_env.py'
       - name: Validate dormant Nabhold human CP profile and negative contracts

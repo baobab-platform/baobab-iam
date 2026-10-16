@@ -268,3 +268,11 @@ BOOTSTRAP_WORKLOAD_CLIENT_SECRET=dev-secret make integration-test
 
 
 P0-04B-02 adds four `trade-binding:*` CP human admission scope definitions only. They are not assigned to any client, optional/default scope list or workload; command authority requires a current exact CP administrative grant and assurance. See [binding scope maintenance](docs/operations/trade-binding-command-admission.md).
+
+### INT-02 browser theme repair (16 October 2026)
+
+The earlier missing-`baobab`-theme finding now has packaged inheritance aliases
+for maintained Keycloak login/account themes; see [themes](themes/README.md).
+CI rejects absent custom theme types and unrecognised parents. No browser
+security or MFA policy is disabled. Complete live code/PKCE/MFA acceptance is
+owned by Infrastructure #35 and remains separately required.

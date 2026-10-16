@@ -168,3 +168,12 @@ repo's own scripts before fixing (not taken on faith):
 7. **Digital Estate / ERP / Trade / CP post-restore validation** (§166-171) — each
    downstream repository's own responsibility to test against a restored IAM instance; not
    `baobab-iam` code.
+
+## INT-02 follow-up — 16 October 2026
+
+The historical §5 missing-theme source finding is addressed by packaged
+`baobab/login` and `baobab/account` inheritance from the pinned upstream
+Keycloak v2 login/v3 account applications. There are no custom templates or
+MFA/authentication overrides. Source inventory and negative regressions run
+in CI. This supersedes the source gap, not the pending browser-flow evidence:
+Infrastructure #35 must run real code/S256 and the realm's enforced MFA.

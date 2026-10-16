@@ -1,9 +1,13 @@
 # Themes
 
-Custom Keycloak themes for Baobab (per ADR-0002 Section 28) live here, one
-subdirectory per theme (e.g. `baobab/`, `thamani/`, `zuribeans/`).
+The realm selects `baobab` for login and account. Its packaged theme types
+inherit the maintained `keycloak.v2` login and `keycloak.v3` account console
+bundled with the pinned Keycloak image. No templates, scripts, authentication
+flow or MFA policy are overridden. Future branding remains presentation only
+under ADR-0002 §28 and must preserve upstream security and accessibility.
 
-This directory currently exists only so `Dockerfile`'s `COPY themes/
-/opt/keycloak/themes/` has a source to copy — no custom theme has been
-built yet. Themes remain presentation customizations; they SHALL NOT
-contain authorization decisions (ADR-0002 Section 28).
+This closes the missing-theme source defect recorded in Gate IAM-14 §5.
+`scripts/check_theme_inventory.py` and its negative regressions run in CI to
+prevent selecting a custom theme type that the image never packages. Actual
+human code/PKCE and MFA interoperability remain Infrastructure INT-02 evidence;
+a source inventory check does not establish that live acceptance.
