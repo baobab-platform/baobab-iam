@@ -41,7 +41,16 @@ if verb == 'get':
     else:
         alias = unquote(resource[len('authentication/flows/'):-len('/executions')])
         result = info(next(f['id'] for f in state['flows'] if f['alias'] == alias))
-    print(json.dumps(result))
+    # Keycloak's JSON transport may omit primitive defaults. Preserve the
+    # typed model's false/zero semantics rather than inventing a new policy.
+    def omit_defaults(value):
+        if isinstance(value, list):
+            return [omit_defaults(item) for item in value]
+        if isinstance(value, dict):
+            return {key: omit_defaults(item) for key, item in value.items()
+                    if item is not None and item is not False and not (type(item) is int and item == 0)}
+        return value
+    print(json.dumps(omit_defaults(result) if state.get('omitDefaults') else result))
 elif verb == 'create' and resource == 'authentication/flows':
     values = dict(args[i+1].split('=', 1) for i, value in enumerate(args) if value == '-s')
     state['flows'].append({'id': 'new-primary', 'alias': values['alias'], 'builtIn': False, 'topLevel': False})

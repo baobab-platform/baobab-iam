@@ -16,24 +16,26 @@ reconcile_browser_primary() {
     echo 'Browser hierarchy repair refused: a custom browser flow requires review.' >&2; return 1;
   }
   flows=$(kcadm get authentication/flows -r baobab)
-  root_id=$(jq -er --arg alias "$root" '[.[]|select(.alias==$alias and .builtIn==false)]|select(length==1)|.[0].id' <<< "$flows")
+  # Keycloak's primitive false/zero defaults may be absent in its JSON.
+  # Interpret the representation's typed defaults, not absence as true.
+  root_id=$(jq -er --arg alias "$root" '[.[]|select(.alias==$alias and (.builtIn // false)==false)]|select(length==1)|.[0].id' <<< "$flows")
   forms_id=$(jq -er '[.[]|select(.alias=="Baobab forms")]|select(length==1)|.[0].id' <<< "$flows")
-  primary_id=$(jq -r --arg alias "$primary" '[.[]|select(.alias==$alias)]|if length==0 then "" elif length==1 and .[0].builtIn==false and .[0].topLevel==false then .[0].id else error("invalid primary flow") end' <<< "$flows")
+  primary_id=$(jq -r --arg alias "$primary" '[.[]|select(.alias==$alias)]|if length==0 then "" elif length==1 and (.[0].builtIn // false)==false and (.[0].topLevel // false)==false then .[0].id else error("invalid primary flow") end' <<< "$flows")
   root_entries=$(kcadm get authentication/flows/Baobab%20browser/executions -r baobab)
   # Refuse unknown active branches instead of silently restructuring an
   # operator-customised realm. Disabled historical entries remain untouched.
-  jq -e --arg primary "$primary" 'all(.[]|select(.level==0);
+  jq -e --arg primary "$primary" 'all(.[]|select((.level // 0)==0);
     if .requirement=="DISABLED" then true
     elif .displayName==$primary then .requirement=="REQUIRED"
     elif .providerId=="auth-cookie" or .providerId=="identity-provider-redirector" or .displayName=="Baobab forms" then .requirement=="ALTERNATIVE"
     elif .displayName=="Baobab - Step-Up" or .displayName=="Baobab - Passkey Step-Up" then .requirement=="CONDITIONAL"
     else false end)' <<< "$root_entries" >/dev/null
   # Both assurance branches must remain present, conditional and ordered.
-  jq -e '[.[]|select(.level==0 and (.displayName=="Baobab - Step-Up" or .displayName=="Baobab - Passkey Step-Up"))] as $s |
+  jq -e '[.[]|select((.level // 0)==0 and (.displayName=="Baobab - Step-Up" or .displayName=="Baobab - Passkey Step-Up"))] as $s |
     ($s|length)==2 and all($s[];.requirement=="CONDITIONAL" and .priority>5) and
     ([$s[]|select(.displayName=="Baobab - Passkey Step-Up")][0].priority < [$s[]|select(.displayName=="Baobab - Step-Up")][0].priority)' <<< "$root_entries" >/dev/null
-  legacy=$(jq -c '[.[]|select(.level==0 and (.providerId=="auth-cookie" or .providerId=="identity-provider-redirector" or .displayName=="Baobab forms"))]' <<< "$root_entries")
-  attached=$(jq -c --arg primary "$primary" '[.[]|select(.level==0 and .displayName==$primary)]' <<< "$root_entries")
+  legacy=$(jq -c '[.[]|select((.level // 0)==0 and (.providerId=="auth-cookie" or .providerId=="identity-provider-redirector" or .displayName=="Baobab forms"))]' <<< "$root_entries")
+  attached=$(jq -c --arg primary "$primary" '[.[]|select((.level // 0)==0 and .displayName==$primary)]' <<< "$root_entries")
   jq -e 'length<=1' <<< "$attached" >/dev/null
   if [ "$(jq 'length' <<< "$attached")" = 0 ]; then
     # A previously disabled/customised identification branch is operator
@@ -58,7 +60,7 @@ reconcile_browser_primary() {
     model=$(kcadm get "authentication/executions/$id" -r baobab)
     entries=$(kcadm get authentication/flows/Baobab%20-%20Primary%20Authentication/executions -r baobab)
     local match existing
-    match=$(jq -r --argjson model "$model" --arg forms "$forms_id" '[.[]|select(.level==0)|select(
+    match=$(jq -r --argjson model "$model" --arg forms "$forms_id" '[.[]|select((.level // 0)==0)|select(
       if $model.authenticatorFlow then .flowId==$forms else .providerId==$model.authenticator end)] |
       if length==0 then "" elif length==1 then .[0].id else error("duplicate primary execution") end' <<< "$entries")
     if [ -n "$match" ]; then
@@ -75,7 +77,7 @@ reconcile_browser_primary() {
   entries=$(kcadm get authentication/flows/Baobab%20-%20Primary%20Authentication/executions -r baobab)
   # Never attach an empty, partial, duplicated or policy-modified primary
   # flow. Fresh imports and interrupted repairs meet the same invariant.
-  jq -e --arg forms "$forms_id" '[.[]|select(.level==0)] as $e |
+  jq -e --arg forms "$forms_id" '[.[]|select((.level // 0)==0)] as $e |
     ($e|length)==3 and all($e[];.requirement=="ALTERNATIVE") and
     ([$e[]|select(.providerId=="auth-cookie")]|length)==1 and
     ([$e[]|select(.providerId=="identity-provider-redirector")]|length)==1 and

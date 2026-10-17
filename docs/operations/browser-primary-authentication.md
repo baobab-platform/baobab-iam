@@ -49,9 +49,9 @@ erase a realm/database to pick up this configuration.
 
 ## Evidence and remaining acceptance
 
-Eleven focused tests cover source topology, assurance preservation, actual
+Twelve focused tests cover source topology, assurance preservation, actual
 shell repair with stateful CLI transport, fresh no-op, interrupted preparation,
-retry, idempotence and rejection of operator customisations. The transport is
+retry, idempotence, omitted primitive JSON defaults and rejection of operator customisations. The transport is
 a test double, not authentication evidence. CI additionally requests a real
 code/S256 authorization page and requires username/password inputs. It does
 not log or retain session-bound HTML.

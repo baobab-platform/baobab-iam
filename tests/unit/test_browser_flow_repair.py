@@ -105,3 +105,13 @@ class BrowserRepairTests(unittest.TestCase):
         failed, after = self.invoke(state)
         self.assertNotEqual(failed.returncode, 0)
         self.assertEqual(state, after)
+
+    def test_keycloak_omitted_primitive_defaults_keep_false_and_zero_semantics(self):
+        for legacy in (False, True):
+            state = state_for(legacy=legacy)
+            state['omitDefaults'] = True
+            result, after = self.invoke(state)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result, again = self.invoke()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(after, again)

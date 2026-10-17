@@ -709,7 +709,7 @@ for ROLE in "iam:security-admin" "iam:helpdesk" "cp:platform-admin" "cp:tenant-a
 done
 BROWSER_FLOW_EXECUTIONS=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" \
   "$KC_URL/admin/realms/$REALM/authentication/flows/Baobab%20browser/executions")
-if echo "$BROWSER_FLOW_EXECUTIONS" | jq -e '[.[]|select(.level==0)] as $root |
+if echo "$BROWSER_FLOW_EXECUTIONS" | jq -e '[.[]|select((.level // 0)==0)] as $root |
     any($root[];.displayName=="Baobab - Primary Authentication" and .requirement=="REQUIRED") and
     all($root[];.requirement!="ALTERNATIVE")' >/dev/null; then
   pass "primary identity runs before conditional assurance; root has no ignored alternatives"
