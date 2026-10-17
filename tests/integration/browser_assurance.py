@@ -172,9 +172,11 @@ def run():
             raise RuntimeError('MFA did not complete')
         except Callback as result:
             if passkey or wrong_password:
-                assert 'code' not in result.query
-                return
-            assert result.query.get('state') == [state] and len(result.query.get('code', [])) == 1
+                # These regressions require the credential form / exact local
+                # acrNotFulfilled page above. An unrelated callback error must
+                # not be mistaken for the intended authentication denial.
+                raise RuntimeError('Unexpected negative callback')
+            assert result.query.get('state') == [state] and len(result.query.get('code', [])) == 1 and 'error' not in result.query
             STAGE = 'code_exchange'
             body = urllib.parse.urlencode(dict(grant_type='authorization_code', client_id=client,
                 code=result.query['code'][0], redirect_uri=callback, code_verifier=verifier)).encode()
