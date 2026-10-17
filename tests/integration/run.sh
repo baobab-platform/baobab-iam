@@ -710,7 +710,7 @@ done
 BROWSER_FLOW_EXECUTIONS=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" \
   "$KC_URL/admin/realms/$REALM/authentication/flows/Baobab%20browser/executions")
 if echo "$BROWSER_FLOW_EXECUTIONS" | jq -e '[.[]|select((.level // 0)==0)] as $root |
-    any($root[];.displayName=="Baobab - Primary Authentication" and .requirement=="REQUIRED") and
+    any($root[];.displayName=="Baobab - Primary Authentication" and .requirement=="CONDITIONAL") and
     all($root[];.requirement!="ALTERNATIVE")' >/dev/null; then
   pass "primary identity runs before conditional assurance; root has no ignored alternatives"
 else
@@ -748,12 +748,15 @@ if echo "$BROWSER_FLOW_EXECUTIONS" | jq -e '[.[].displayName] | any(. == "Condit
 else
   fail "the privileged-MFA subflow is missing its role-condition or OTP-form execution (got: $(echo "$BROWSER_FLOW_EXECUTIONS" | jq -c '[.[].displayName]'))"
 fi
-# What this suite cannot verify: an actual browser-redirect login being
-# challenged for OTP end-to-end. That needs a headless browser driving the
-# real login UI, which this repo's CI has no tooling for (every workforce
-# admin client has directAccessGrantsEnabled=false, so there is no
-# token-endpoint shortcut that exercises browserFlow at all -- see
-# docs/governance/gate-iam-11-credential-security-scope.md).
+# Use actual form actions/cookies and a real S256 code exchange, not a password
+# grant. Restrict destructive synthetic-user setup to loopback CI/local only.
+# The probe never prints HTML, exception messages, credentials, codes or tokens.
+if BROWSER_ADMIN_TOKEN="$ADMIN_TOKEN" BAOBAB_ENVIRONMENT="${BAOBAB_ENVIRONMENT:-ci}" KC_URL="$KC_URL" \
+   python3 tests/integration/browser_assurance.py; then
+  pass "real browser password and privileged TOTP complete at baseline LoA 1; invalid password and unenrolled passkey do not obtain codes"
+else
+  fail "real browser assurance regression failed"
+fi
 
 echo "== 16. Identity lifecycle: kill switch and admin audit (Gate IAM-12, ADR-0016 §32,§139,§158-159) =="
 # admin-cli is Keycloak's own built-in client, present in every realm by

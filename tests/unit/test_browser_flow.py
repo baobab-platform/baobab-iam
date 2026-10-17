@@ -44,3 +44,21 @@ class BrowserFlowTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BaselineAssuranceTests(unittest.TestCase):
+    setUp = BrowserFlowTests.setUp
+    flow = BrowserFlowTests.flow
+    def test_missing_baseline_condition_is_rejected(self):
+        self.flow('Baobab - Primary Authentication')['authenticationExecutions'].pop(0)
+        with self.assertRaisesRegex(ValueError,'alternatives changed'):
+            module.validate(self.realm)
+
+    def test_baseline_cannot_claim_mfa_or_persist_assurance(self):
+        config = next(c for c in self.realm['authenticatorConfig'] if c['alias']=='baobab-primary-loa-silver')
+        for field in ['loa-condition-level','loa-max-age']:
+            original = config['config'][field]
+            config['config'][field]='2'
+            with self.assertRaisesRegex(ValueError,'LoA 1'):
+                module.validate(self.realm)
+            config['config'][field]=original

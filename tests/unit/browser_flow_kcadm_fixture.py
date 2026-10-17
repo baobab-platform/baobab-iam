@@ -38,6 +38,8 @@ if verb == 'get':
         # Match AuthenticationManagementResource.getFlows exactly: children
         # are discoverable through execution references, never this list.
         result = [flow for flow in state['flows'] if flow['topLevel']]
+    elif resource.startswith('authentication/config/'):
+        result = next(c for c in state['configs'] if c['id'] == resource.rsplit('/', 1)[1])
     elif resource.startswith('authentication/executions/'):
         result = next(e for e in state['executions'] if e['id'] == resource.rsplit('/', 1)[1])
     else:
@@ -57,6 +59,13 @@ elif verb == 'create' and resource == 'authentication/flows':
     values = dict(args[i+1].split('=', 1) for i, value in enumerate(args) if value == '-s')
     state['flows'].append({'id': 'new-primary', 'alias': values['alias'], 'description': values['description'],
                           'builtIn': False, 'topLevel': values['topLevel'] == 'true'})
+elif verb == 'create' and resource.endswith('/config'):
+    if os.environ.get('BROWSER_FIXTURE_FAIL_CONFIG') == '1':
+        raise SystemExit(1)
+    model = json.loads(Path(args[args.index('-f')+1]).read_text())
+    model['id'] = 'config-'+str(1+max((int(c['id'].split('-')[-1]) for c in state['configs']), default=-1))
+    state['configs'].append(model)
+    next(e for e in state['executions'] if e['id'] == resource.split('/')[-2])['authenticatorConfig'] = model['id']
 elif verb == 'create' and resource == 'authentication/executions':
     model = json.loads(Path(args[args.index('-f')+1]).read_text())
     if os.environ.get('BROWSER_FIXTURE_FAIL_COPY') == '1' and model['parentFlow'] == 'new-primary':

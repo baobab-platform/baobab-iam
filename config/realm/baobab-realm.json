@@ -174,7 +174,7 @@
       "authenticationExecutions": [
         {
           "authenticatorFlow": true,
-          "requirement": "REQUIRED",
+          "requirement": "CONDITIONAL",
           "priority": 5,
           "flowAlias": "Baobab - Primary Authentication",
           "userSetupAllowed": false
@@ -197,11 +197,19 @@
     },
     {
       "alias": "Baobab - Primary Authentication",
-      "description": "Cookie, federation redirect or forms establish the user before root assurance conditions. Never mix alternatives with required/conditional siblings.",
+      "description": "Establish primary identity and current-request LoA 1 before stronger assurance conditions; preserve privileged MFA inside forms.",
       "providerId": "basic-flow",
       "topLevel": false,
       "builtIn": false,
       "authenticationExecutions": [
+        {
+          "authenticator": "conditional-level-of-authentication",
+          "authenticatorConfig": "baobab-primary-loa-silver",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "userSetupAllowed": false
+        },
         {
           "authenticator": "auth-cookie",
           "authenticatorFlow": false,
@@ -322,6 +330,10 @@
     }
   ],
   "authenticatorConfig": [
+    {
+      "alias": "baobab-primary-loa-silver",
+      "config": { "loa-condition-level": "1", "loa-max-age": "0" }
+    },
     {
       "alias": "baobab-mfa-required-role",
       "config": {
