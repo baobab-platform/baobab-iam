@@ -24,6 +24,8 @@ def state_for(legacy=True):
         browser['authenticationExecutions'] = [e for e in primary['authenticationExecutions'] if e['requirement']=='ALTERNATIVE'] + browser['authenticationExecutions'][1:]
         flows.remove(primary)
     if legacy:
+        passkey = next(f for f in flows if f['alias']=='Baobab - Passkey Step-Up')
+        passkey['authenticationExecutions'] = [e for e in passkey['authenticationExecutions'] if e.get('authenticator')!='conditional-user-configured']
         realm['authenticatorConfig'] = [c for c in realm['authenticatorConfig'] if c['alias'] != 'baobab-primary-loa-silver']
     configs = [dict(c, id='config-'+str(i)) for i, c in enumerate(realm['authenticatorConfig'])]
     ids = {flow['alias']: 'flow-'+str(i) for i, flow in enumerate(flows)}
@@ -74,7 +76,7 @@ class BrowserRepairTests(unittest.TestCase):
                 expected['requirement'] = 'DISABLED'
             self.assertEqual(model, expected)  # OTP/passkey/configuration identities untouched.
         self.assertEqual(len(after['flows']), len(before['flows'])+1)
-        self.assertEqual(len(after['executions']), len(before['executions'])+5)
+        self.assertEqual(len(after['executions']), len(before['executions'])+6)
 
     def test_repeated_repair_is_idempotent(self):
         first, state = self.invoke(state_for())
@@ -90,7 +92,7 @@ class BrowserRepairTests(unittest.TestCase):
         self.assertEqual(before['executions'], partial['executions'])
         success, after = self.invoke()
         self.assertEqual(success.returncode, 0, success.stderr)
-        self.assertEqual(len(after['executions']), len(before['executions'])+5)
+        self.assertEqual(len(after['executions']), len(before['executions'])+6)
 
     def test_operator_disabled_identification_is_not_reactivated(self):
         state = state_for()
@@ -149,3 +151,10 @@ class BrowserRepairTests(unittest.TestCase):
             failed, after = self.invoke(state)
             self.assertNotEqual(failed.returncode,0)
             self.assertEqual(state,after)
+
+    def test_custom_passkey_strength_is_not_changed(self):
+        state=state_for(legacy=False)
+        next(c for c in state['configs'] if c['alias']=='baobab-passkey-step-up-loa-3')['config']['loa-condition-level']='2'
+        result,after=self.invoke(state)
+        self.assertNotEqual(result.returncode,0)
+        self.assertEqual(state,after)

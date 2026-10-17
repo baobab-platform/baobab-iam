@@ -42,9 +42,6 @@ class BrowserFlowTests(unittest.TestCase):
             module.validate(self.realm)
 
 
-if __name__ == '__main__':
-    unittest.main()
-
 
 class BaselineAssuranceTests(unittest.TestCase):
     setUp = BrowserFlowTests.setUp
@@ -62,3 +59,12 @@ class BaselineAssuranceTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'LoA 1'):
                 module.validate(self.realm)
             config['config'][field]=original
+
+    def test_unenrolled_passkey_guard_is_required(self):
+        self.flow('Baobab - Passkey Step-Up')['authenticationExecutions'].pop(1)
+        with self.assertRaisesRegex(ValueError,'passkey must'):
+            module.validate(self.realm)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -26,6 +26,7 @@ else:
     # #118 repaired the hierarchy but recorded no LoA. Exercise that deployed
     # intermediate state as well as the original mixed-level historical root.
     next(e for e in browser['authenticationExecutions'] if e.get('flowAlias')==primary['alias'])['requirement']='REQUIRED'
+next(f for f in flows if f['alias']=='Baobab - Passkey Step-Up')['authenticationExecutions'] = [e for e in next(f for f in flows if f['alias']=='Baobab - Passkey Step-Up')['authenticationExecutions'] if e.get('authenticator')!='conditional-user-configured']
 realm['authenticatorConfig'] = [c for c in realm['authenticatorConfig'] if c['alias'] != 'baobab-primary-loa-silver']
 directory = ROOT/'tests/integration/.runtime'
 directory.mkdir(exist_ok=True)

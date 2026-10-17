@@ -320,6 +320,13 @@
           "userSetupAllowed": false
         },
         {
+          "authenticator": "conditional-user-configured",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 15,
+          "userSetupAllowed": false
+        },
+        {
           "authenticator": "webauthn-authenticator-passwordless",
           "authenticatorFlow": false,
           "requirement": "REQUIRED",

@@ -21,7 +21,7 @@ def validate(realm):
         # Keycloak removes ConditionalAuthenticator predicates before classifying
         # real required/alternative executions. A LoA predicate is not a factor.
         classified = [e for e in active if e.get('authenticator') not in {
-            'conditional-level-of-authentication', 'conditional-user-role'}]
+            'conditional-level-of-authentication', 'conditional-user-role', 'conditional-user-configured'}]
         requirements = {e['requirement'] for e in classified}
         if 'ALTERNATIVE' in requirements and requirements & {'REQUIRED', 'CONDITIONAL'}:
             raise ValueError('mixed required/conditional and alternative executions')
@@ -47,6 +47,12 @@ def validate(realm):
     if baseline['priority'] != 0 or len(configs) != 1 or configs[0] != {
         'alias': 'baobab-primary-loa-silver', 'config': {'loa-condition-level': '1', 'loa-max-age': '0'}}:
         raise ValueError('primary must establish current-request LoA 1 only')
+    passkey_entries = flows['Baobab - Passkey Step-Up']['authenticationExecutions']
+    if [(e.get('authenticator'), e['requirement'], e['priority']) for e in passkey_entries] != [
+        ('conditional-level-of-authentication', 'REQUIRED', 10),
+        ('conditional-user-configured', 'REQUIRED', 15),
+        ('webauthn-authenticator-passwordless', 'REQUIRED', 20)]:
+        raise ValueError('passkey must challenge enrolled users; essential unmet LoA is denied by the native top-flow check')
     forms = flows['Baobab forms']['authenticationExecutions']
     if [(e.get('authenticator') or e.get('flowAlias'), e['requirement']) for e in forms] != [
         ('auth-username-password-form', 'REQUIRED'), ('Baobab - Privileged MFA', 'CONDITIONAL')]:

@@ -44,6 +44,16 @@ limits this baseline to the current request. No password is labelled LoA 2/3;
 privileged role-driven TOTP and explicit stronger assurance remain enforced.
 Cookie/federation alternatives and existing session policy are unchanged.
 
+An unenrolled user requesting essential LoA 3 previously hit an internal
+`CREDENTIAL_SETUP_REQUIRED` error. The passkey branch now adds Keycloak's
+native `conditional-user-configured` predicate before REQUIRED WebAuthn.
+An enrolled key must still be proved; an unenrolled user cannot complete that
+branch. The native top-flow essential-LoA check rejects the unmet request
+with `acrNotFulfilled` (HTTP 400). It never enables automatic passkey enrollment
+or labels a password/OTP as LoA 3. The regression requires this exact denial;
+arbitrary HTTP errors, including 500, cannot count as a passing negative.
+Existing passkey policy/configuration is checked before adding the predicate.
+
 ## Persistent-realm reconciliation
 
 `bootstrap.sh` sources `reconcile_browser_primary.sh` after the existing
@@ -83,7 +93,7 @@ erase a realm/database to pick up this configuration.
 
 ## Evidence and remaining acceptance
 
-Seventeen focused tests cover source topology, baseline assurance limits,
+Nineteen focused tests cover source topology, baseline assurance limits,
 actual shell migration from both historical graphs, fresh no-op, interruption,
 retry, idempotence, omitted primitive defaults and rejection of custom policy.
 The CLI transport is a test double, not authentication evidence.
@@ -93,9 +103,15 @@ variants: fresh import, the historical mixed root and the intermediate #118
 REQUIRED wrapper. Every variant runs the full existing provider suite plus
 `browser_assurance.py`: real HTML form/cookie processing, ordinary password,
 privileged TOTP enrollment, S256 code exchange and baseline LoA output;
-wrong passwords and unsatisfied essential passkey requests cannot get codes.
+wrong passwords cannot get codes; an unenrolled essential passkey request
+must return the defined HTTP 400 assurance denial, never a generic server error.
 Synthetic users/sessions are removed through the Admin API. No direct-grant
 workforce shortcut, stored HTML or printed credential/session data is used.
+
+The standard-library HTTP probe models Chromium's localhost Secure-cookie
+behavior only for its guarded exact loopback HTTP origin. It refuses external
+form actions/redirects; HTTPS still uses normal certificate verification.
+Failure diagnostics contain only fixed stage/error kinds and HTTP status.
 
 A private native Keycloak diagnostic additionally completed real privileged
 password/TOTP enrollment to the callback. This is diagnostic, not the pinned

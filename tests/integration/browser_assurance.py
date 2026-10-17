@@ -23,6 +23,9 @@ import urllib.parse
 import urllib.request
 
 
+STAGE = "configuration"
+
+
 class Callback(Exception):
     def __init__(self, query):
         self.query = query
@@ -61,6 +64,7 @@ class Redirects(urllib.request.HTTPRedirectHandler):
 
 
 def run():
+    global STAGE
     origin = os.environ.get('KC_URL', 'http://localhost:8080').rstrip('/')
     parsed = urllib.parse.urlsplit(origin)
     if parsed.hostname not in {'localhost', '127.0.0.1'} or parsed.path or parsed.username or parsed.password:
@@ -82,6 +86,8 @@ def run():
             return json.loads(document) if document else None
 
     def user(privileged=False):
+        global STAGE
+        STAGE = 'privileged_user_setup' if privileged else 'ordinary_user_setup'
         username = 'browser-assurance-'+secrets.token_hex(8)
         password = secrets.token_urlsafe(32)
         api('users', {'username': username, 'enabled': True, 'email': username+'@example.invalid',
@@ -97,10 +103,19 @@ def run():
         return username, password
 
     def login(identity, privileged=False, passkey=False, wrong_password=False):
+        global STAGE
+        STAGE = 'passkey_authorize' if passkey else ('privileged_authorize' if privileged else 'ordinary_authorize')
         # Each ceremony gets a new cookie jar, state, verifier and nonce. A
         # previous enrolled session must not hide a broken first-login path.
         cb = urllib.parse.urlsplit(callback)
-        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+        # Chromium treats localhost as a secure context, including Secure cookies
+        # on loopback HTTP; urllib's default policy does not. This probe is
+        # already restricted to an exact loopback origin and refuses other
+        # redirects/form actions. Match that development-only browser behavior;
+        # HTTPS certificate verification remains the standard urllib default.
+        cookie_policy = http.cookiejar.DefaultCookiePolicy(
+            secure_protocols=('https', 'wss', 'http') if parsed.scheme == 'http' else ('https', 'wss'))
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar(policy=cookie_policy)),
             Redirects((parsed.scheme, parsed.netloc), (cb.scheme, cb.netloc, cb.path)))
         verifier, state, nonce = (secrets.token_urlsafe(32) for _ in range(3))
         params = dict(client_id=client, response_type='code', redirect_uri=callback, scope='openid',
@@ -117,6 +132,9 @@ def run():
                 response = error
             with response:
                 html = response.read().decode()
+                # Exact pinned upstream acrNotFulfilled error marker, not an
+                # arbitrary 400 or an unrelated server/transport failure.
+                page.last_acr_denial = 'id="kc-error-message"' in html and 'Authentication requirements not fulfilled' in html
                 forms = Forms()
                 forms.feed(html)
                 return response.status, forms.forms
@@ -129,6 +147,7 @@ def run():
         status, forms = page(issuer+'/protocol/openid-connect/auth?'+urllib.parse.urlencode(params))
         assert status == 200
         form = next(f for f in forms if {'username', 'password'} <= f['inputs'].keys())
+        STAGE = 'passkey_submit' if passkey else ('privileged_submit' if privileged else 'ordinary_submit')
         form['inputs'].update(username=identity[0], password=secrets.token_urlsafe(32) if wrong_password else identity[1])
         try:
             status, forms = submit(form)
@@ -136,14 +155,15 @@ def run():
                 assert status == 200 and any('password' in f['inputs'] for f in forms)
                 return
             if passkey:
-                # An unenrolled user must fail or receive a passkey challenge,
-                # never obtain a successful code using baseline credentials.
-                assert status in {200, 400, 500}
+                # An unenrolled essential request must receive the native unmet-ACR
+                # denial, not an unrelated 400 or any internal server error.
+                assert status == 400 and page.last_acr_denial
                 return
             assert privileged and status == 200
             form = next(f for f in forms if {'totp', 'totpSecret'} <= f['inputs'].keys())
             # Keycloak TotpBean.totpSecret is the raw secret, not the base32
             # manual display value. Use the source realm's SHA1/30s/6 policy.
+            STAGE = 'privileged_totp'
             digest = hmac.new(form['inputs']['totpSecret'].encode(), struct.pack('>Q', int(time.time())//30), hashlib.sha1).digest()
             offset = digest[-1] & 15
             form['inputs']['totp'] = str((struct.unpack('>I', digest[offset:offset+4])[0] & 0x7fffffff) % 1000000).zfill(6)
@@ -155,6 +175,7 @@ def run():
                 assert 'code' not in result.query
                 return
             assert result.query.get('state') == [state] and len(result.query.get('code', [])) == 1
+            STAGE = 'code_exchange'
             body = urllib.parse.urlencode(dict(grant_type='authorization_code', client_id=client,
                 code=result.query['code'][0], redirect_uri=callback, code_verifier=verifier)).encode()
             with urllib.request.urlopen(issuer+'/protocol/openid-connect/token', body, timeout=20) as response:
@@ -163,6 +184,7 @@ def run():
             # in this provider regression with the maintained RP verifier.
             segment = tokens['id_token'].split('.')[1]
             claims = json.loads(base64.urlsafe_b64decode(segment+'='*((-len(segment)) % 4)))
+            STAGE = 'baseline_claims'
             assert claims['iss'] == issuer and claims['nonce'] == nonce and claims['aud'] == client
             assert str(claims['acr']) in {'1', 'silver'}
 
@@ -184,6 +206,10 @@ def run():
 if __name__ == '__main__':
     try:
         run()
-    except Exception:
-        print('FAIL real browser assurance regression; no credential/session details emitted', file=sys.stderr)
+    except Exception as error:
+        # STAGE is assigned only fixed literals above. Exception messages and
+        # URLs are excluded; even a failed code exchange cannot leak a code.
+        status = error.code if isinstance(error, urllib.error.HTTPError) else 0
+        kind = 'HTTP' if status else ('ASSERTION' if isinstance(error, AssertionError) else 'OTHER')
+        print(f'FAIL real browser assurance regression stage={STAGE} kind={kind} status={status}; no session details emitted', file=sys.stderr)
         sys.exit(1)

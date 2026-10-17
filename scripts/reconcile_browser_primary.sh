@@ -112,6 +112,7 @@ reconcile_browser_primary() {
   rm -rf -- "$BROWSER_REPAIR_DIR"
   unset BROWSER_REPAIR_DIR
   reconcile_browser_primary_loa
+  reconcile_passkey_enrollment_guard
   echo 'Browser primary identity and current-request LoA 1 verified; MFA and step-up retained.'
 }
 
@@ -163,4 +164,35 @@ reconcile_browser_primary_loa() {
   fi
   rm -rf -- "$BROWSER_REPAIR_DIR"
   unset BROWSER_REPAIR_DIR
+}
+
+# A required passwordless authenticator with no enrolled key throws an internal
+# CREDENTIAL_SETUP_REQUIRED error. Do not call that a valid denial or enable
+# automatic enrollment and accidentally attest LoA 3. The native configured-user
+# predicate skips only that impossible factor branch. ConditionalLoaAuthenticator
+# onTopFlowSuccess still denies an essential unmet LoA via acrNotFulfilled/400;
+# configured users still execute REQUIRED WebAuthn with unchanged LoA policy.
+reconcile_passkey_enrollment_guard() {
+  local root branch entries guard model config
+  root=$(kcadm get authentication/flows/Baobab%20browser/executions -r baobab)
+  branch=$(jq -ce '[.[]|select((.level // 0)==0 and .displayName=="Baobab - Passkey Step-Up")]|select(length==1)|.[0]|select(.requirement=="CONDITIONAL")' <<< "$root")
+  entries=$(kcadm get authentication/flows/Baobab%20-%20Passkey%20Step-Up/executions -r baobab)
+  jq -e '[.[]|select((.level // 0)==0 and .providerId!="conditional-user-configured")]|sort_by(.priority)|
+    length==2 and .[0].providerId=="conditional-level-of-authentication" and .[0].requirement=="REQUIRED" and .[0].priority==10 and
+    .[1].providerId=="webauthn-authenticator-passwordless" and .[1].requirement=="REQUIRED" and .[1].priority==20' <<< "$entries" >/dev/null
+  model=$(kcadm get "authentication/executions/$(jq -r '.[]|select((.level // 0)==0 and .providerId=="conditional-level-of-authentication")|.id' <<< "$entries")" -r baobab)
+  config=$(kcadm get "authentication/config/$(jq -er '.authenticatorConfig' <<< "$model")" -r baobab)
+  jq -e 'del(.id)=={alias:"baobab-passkey-step-up-loa-3",config:{"loa-condition-level":"3","loa-max-age":"300"}}' <<< "$config" >/dev/null
+  guard=$(jq -c '[.[]|select((.level // 0)==0 and .providerId=="conditional-user-configured")]' <<< "$entries")
+  jq -e 'length<=1' <<< "$guard" >/dev/null
+  if [ "$(jq 'length' <<< "$guard")" = 0 ]; then
+    BROWSER_REPAIR_DIR=$(mktemp -d)
+    jq -n --arg parent "$(jq -r '.flowId' <<< "$branch")" \
+      '{parentFlow:$parent,authenticator:"conditional-user-configured",authenticatorFlow:false,requirement:"REQUIRED",priority:15}' > "$BROWSER_REPAIR_DIR/document.json"
+    kcadm create authentication/executions -r baobab -f "$BROWSER_REPAIR_DIR/document.json" >/dev/null
+    rm -rf -- "$BROWSER_REPAIR_DIR"
+    unset BROWSER_REPAIR_DIR
+  else
+    jq -e '.[0].requirement=="REQUIRED" and .[0].priority==15' <<< "$guard" >/dev/null
+  fi
 }
