@@ -35,7 +35,9 @@ if verb == 'get':
     if resource == 'realms/baobab':
         result = {'browserFlow': state['browserFlow']}
     elif resource == 'authentication/flows':
-        result = state['flows']
+        # Match AuthenticationManagementResource.getFlows exactly: children
+        # are discoverable through execution references, never this list.
+        result = [flow for flow in state['flows'] if flow['topLevel']]
     elif resource.startswith('authentication/executions/'):
         result = next(e for e in state['executions'] if e['id'] == resource.rsplit('/', 1)[1])
     else:
@@ -53,7 +55,8 @@ if verb == 'get':
     print(json.dumps(omit_defaults(result) if state.get('omitDefaults') else result))
 elif verb == 'create' and resource == 'authentication/flows':
     values = dict(args[i+1].split('=', 1) for i, value in enumerate(args) if value == '-s')
-    state['flows'].append({'id': 'new-primary', 'alias': values['alias'], 'builtIn': False, 'topLevel': False})
+    state['flows'].append({'id': 'new-primary', 'alias': values['alias'], 'description': values['description'],
+                          'builtIn': False, 'topLevel': values['topLevel'] == 'true'})
 elif verb == 'create' and resource == 'authentication/executions':
     model = json.loads(Path(args[args.index('-f')+1]).read_text())
     if os.environ.get('BROWSER_FIXTURE_FAIL_COPY') == '1' and model['parentFlow'] == 'new-primary':

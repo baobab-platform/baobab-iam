@@ -19,9 +19,23 @@ reconcile_browser_primary() {
   # Keycloak's primitive false/zero defaults may be absent in its JSON.
   # Interpret the representation's typed defaults, not absence as true.
   root_id=$(jq -er --arg alias "$root" '[.[]|select(.alias==$alias and (.builtIn // false)==false)]|select(length==1)|.[0].id' <<< "$flows")
-  forms_id=$(jq -er '[.[]|select(.alias=="Baobab forms")]|select(length==1)|.[0].id' <<< "$flows")
-  primary_id=$(jq -r --arg alias "$primary" '[.[]|select(.alias==$alias)]|if length==0 then "" elif length==1 and (.[0].builtIn // false)==false and (.[0].topLevel // false)==false then .[0].id else error("invalid primary flow") end' <<< "$flows")
   root_entries=$(kcadm get authentication/flows/Baobab%20browser/executions -r baobab)
+  # GET authentication/flows returns TOP-LEVEL flows only. Child IDs come
+  # from recursive execution references, including fresh non-top-level imports.
+  forms_id=$(jq -er '[.[]|select(.displayName=="Baobab forms")|.flowId]|unique|select(length==1)|.[0]' <<< "$root_entries")
+  attached=$(jq -c --arg primary "$primary" '[.[]|select((.level // 0)==0 and .displayName==$primary)]' <<< "$root_entries")
+  jq -e 'length<=1' <<< "$attached" >/dev/null
+  if [ "$(jq 'length' <<< "$attached")" = 1 ]; then
+    primary_id=$(jq -er '.[0].flowId' <<< "$attached")
+  else
+    # An off-path repair candidate is deliberately top-level/discoverable
+    # until it is attached. No realm/client binding is ever changed to it.
+    # Require our reserved description before resuming a prior candidate.
+    primary_id=$(jq -r --arg alias "$primary" '[.[]|select(.alias==$alias)]|
+      if length==0 then "" elif length==1 and (.[0].builtIn // false)==false and .[0].topLevel==true and
+        .[0].description=="Identify the user before evaluating assurance conditions." then .[0].id
+      else error("invalid primary repair candidate") end' <<< "$flows")
+  fi
   # Refuse unknown active branches instead of silently restructuring an
   # operator-customised realm. Disabled historical entries remain untouched.
   jq -e --arg primary "$primary" 'all(.[]|select((.level // 0)==0);
@@ -35,8 +49,6 @@ reconcile_browser_primary() {
     ($s|length)==2 and all($s[];.requirement=="CONDITIONAL" and .priority>5) and
     ([$s[]|select(.displayName=="Baobab - Passkey Step-Up")][0].priority < [$s[]|select(.displayName=="Baobab - Step-Up")][0].priority)' <<< "$root_entries" >/dev/null
   legacy=$(jq -c '[.[]|select((.level // 0)==0 and (.providerId=="auth-cookie" or .providerId=="identity-provider-redirector" or .displayName=="Baobab forms"))]' <<< "$root_entries")
-  attached=$(jq -c --arg primary "$primary" '[.[]|select((.level // 0)==0 and .displayName==$primary)]' <<< "$root_entries")
-  jq -e 'length<=1' <<< "$attached" >/dev/null
   if [ "$(jq 'length' <<< "$attached")" = 0 ]; then
     # A previously disabled/customised identification branch is operator
     # policy, not our legacy default. Never reactivate it while repairing.
@@ -46,7 +58,7 @@ reconcile_browser_primary() {
     # Construct an unattached flow first. An interruption here cannot replace
     # or weaken the active browser flow. Retry resumes the same named flow.
     kcadm create authentication/flows -r baobab -s "alias=$primary" \
-      -s providerId=basic-flow -s topLevel=false -s builtIn=false \
+      -s providerId=basic-flow -s topLevel=true -s builtIn=false \
       -s 'description=Identify the user before evaluating assurance conditions.' >/dev/null
     flows=$(kcadm get authentication/flows -r baobab)
     primary_id=$(jq -er --arg alias "$primary" '[.[]|select(.alias==$alias)]|select(length==1)|.[0].id' <<< "$flows")

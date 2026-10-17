@@ -30,9 +30,15 @@ assurance reconciliation. The repair uses authenticated Admin API operations:
 
 1. Require the known Baobab browser binding and expected active branches.
    Operator custom bindings/disabled identification branches fail for review.
-2. Prepare an unattached primary flow, copying the existing execution models
+2. Prepare an unattached, discoverable primary flow, copying the existing execution models
    and authenticator-configuration references. Interrupted preparation is
    restartable; a partial flow is never attached to the active browser root.
+   Keycloak lists only top-level flows, so the pending candidate uses that
+   discovery flag and a reserved description. Existing child IDs come from
+   recursive execution references. The migrated candidate remains listed
+   (the API does not update this flag); the realm's browser binding stays
+   `Baobab browser`, never the primary-only wrapper. Fresh imports can mark
+   the already-attached wrapper non-top-level.
 3. Verify exactly the three expected alternatives, then attach the complete
    primary as one REQUIRED execution before assurance. This single REST
    transaction is the security cutover.
@@ -55,6 +61,12 @@ retry, idempotence, omitted primitive JSON defaults and rejection of operator cu
 a test double, not authentication evidence. CI additionally requests a real
 code/S256 authorization page and requires username/password inputs. It does
 not log or retain session-bound HTML.
+
+The required `integration-test` aggregate requires two real Keycloak variants:
+fresh import and the historical mixed-level hierarchy mounted as synthetic
+realm policy before bootstrap. Both run the existing full provider suite and
+the credential-HTML regression. The legacy variant changes no image/source
+artifact; it validates the actual persistent-realm reconciliation API path.
 
 Complete browser login, actual privileged TOTP enrollment, callback/code/nonce
 negatives, current CP acceptance and record isolation still require the
