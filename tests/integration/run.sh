@@ -709,6 +709,34 @@ for ROLE in "iam:security-admin" "iam:helpdesk" "cp:platform-admin" "cp:tenant-a
 done
 BROWSER_FLOW_EXECUTIONS=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" \
   "$KC_URL/admin/realms/$REALM/authentication/flows/Baobab%20browser/executions")
+if echo "$BROWSER_FLOW_EXECUTIONS" | jq -e '[.[]|select((.level // 0)==0)] as $root |
+    any($root[];.displayName=="Baobab - Primary Authentication" and .requirement=="REQUIRED") and
+    all($root[];.requirement!="ALTERNATIVE")' >/dev/null; then
+  pass "primary identity runs before conditional assurance; root has no ignored alternatives"
+else
+  fail "browser root still mixes identification alternatives with assurance conditions"
+fi
+# Structural import checks alone previously passed while the real browser
+# skipped username/password. Exercise the actual issuer entry point too.
+# This response contains session-bound hidden fields: never print or retain it.
+BROWSER_PROBE_FILE=$(mktemp)
+trap 'rm -f -- "$BROWSER_PROBE_FILE"' EXIT
+BROWSER_STATUS=$(curl -sS --max-time 30 --get \
+  --data-urlencode 'client_id=baobab-control-plane-admin' \
+  --data-urlencode 'redirect_uri=http://localhost:3003/browser-hierarchy-probe' \
+  --data-urlencode 'response_type=code' --data-urlencode 'scope=openid' \
+  --data-urlencode 'state=synthetic-browser-hierarchy-probe' \
+  --data-urlencode 'code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM' \
+  --data-urlencode 'code_challenge_method=S256' \
+  -o "$BROWSER_PROBE_FILE" -w '%{http_code}' \
+  "$KC_URL/realms/$REALM/protocol/openid-connect/auth")
+if [ "$BROWSER_STATUS" = 200 ] && grep -q 'id="username"' "$BROWSER_PROBE_FILE" \
+   && grep -q 'id="password"' "$BROWSER_PROBE_FILE"; then
+  pass "real browser authorization presents username and password before assurance"
+else
+  fail "real browser authorization did not present the credential form"
+fi
+rm -f -- "$BROWSER_PROBE_FILE"
 if echo "$BROWSER_FLOW_EXECUTIONS" | jq -e '[.[].displayName] | any(. == "Baobab - Privileged MFA")' > /dev/null; then
   pass "'Baobab browser' flow's executions include the 'Baobab - Privileged MFA' conditional subflow"
 else

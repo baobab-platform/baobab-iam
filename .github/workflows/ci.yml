@@ -24,6 +24,11 @@ jobs:
         run: |
           python3 scripts/check_theme_inventory.py
           python3 -m unittest discover -s tests/unit -p 'test_theme_inventory.py'
+      - name: Verify browser primary authentication precedes assurance
+        run: |
+          python3 scripts/check_browser_flow.py
+          python3 -m unittest discover -s tests/unit -p 'test_browser_flow*.py'
+          bash -n scripts/reconcile_browser_primary.sh
       - name: Verify local bootstrap credential security
         run: python3 -m unittest discover -s tests/unit -p 'test_local_bootstrap_env.py'
       - name: Validate dormant Nabhold human CP profile and negative contracts
@@ -198,9 +203,13 @@ jobs:
   # Keycloak baseline verification suite (ADR-0002 §48).
   # Restores full fixture lifecycle required by tests/integration/run.sh:
   # secret env, Compose up, readiness, realm bootstrap, suite, logs, teardown.
-  integration-test:
+  integration-variants:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser_fixture: [fresh, legacy]
     env:
       BOOTSTRAP_WORKLOAD_CLIENT_SECRET: ci-test-only-secret-do-not-use-in-prod
       KC_URL: http://localhost:8080
@@ -219,6 +228,11 @@ jobs:
             printf '::add-mask::%s\n' "${!name}"
             printf '%s=%s\n' "$name" "${!name}" >> "$GITHUB_ENV"
           done
+      - name: Prepare isolated legacy browser hierarchy
+        if: matrix.browser_fixture == 'legacy'
+        run: |
+          python3 tests/integration/prepare_legacy_browser.py
+          echo 'COMPOSE_FILE=docker-compose.yml:tests/integration/.runtime/browser.override.json' >> "$GITHUB_ENV"
       - name: Build and start stack
         run: docker compose up -d --build
       - name: Wait for Keycloak to accept connections
@@ -246,6 +260,18 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down -v
+
+  # Preserve the existing required-check name while requiring BOTH actual
+  # Keycloak paths. A failed/cancelled variant cannot become an aggregate pass.
+  integration-test:
+    needs: [integration-variants]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require fresh import and persistent-realm repair
+        env:
+          VARIANTS_RESULT: ${{ needs.integration-variants.result }}
+        run: test "$VARIANTS_RESULT" = success
 
   federation-postgres:
     runs-on: ubuntu-26.04

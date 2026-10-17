@@ -276,3 +276,13 @@ for maintained Keycloak login/account themes; see [themes](themes/README.md).
 CI rejects absent custom theme types and unrecognised parents. No browser
 security or MFA policy is disabled. Complete live code/PKCE/MFA acceptance is
 owned by Infrastructure #35 and remains separately required.
+
+### Browser primary-authentication hierarchy
+
+The [17 October repair](docs/operations/browser-primary-authentication.md)
+places cookie/federation/password alternatives inside one REQUIRED primary
+subflow, before conditional OTP/passkey step-up. Keycloak otherwise ignores
+alternatives at a level containing required/conditional siblings. Existing
+realms are reconciled without deleting shared MFA flows or reactivating an
+operator-disabled branch. CI checks both the graph and actual credential HTML;
+Infrastructure #35 separately owns complete code/S256/MFA and CP acceptance.

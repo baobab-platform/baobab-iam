@@ -173,6 +173,36 @@
       "builtIn": false,
       "authenticationExecutions": [
         {
+          "authenticatorFlow": true,
+          "requirement": "REQUIRED",
+          "priority": 5,
+          "flowAlias": "Baobab - Primary Authentication",
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 35,
+          "flowAlias": "Baobab - Passkey Step-Up",
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 40,
+          "flowAlias": "Baobab - Step-Up",
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "Baobab - Primary Authentication",
+      "description": "Cookie, federation redirect or forms establish the user before root assurance conditions. Never mix alternatives with required/conditional siblings.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
           "authenticator": "auth-cookie",
           "authenticatorFlow": false,
           "requirement": "ALTERNATIVE",
@@ -191,20 +221,6 @@
           "requirement": "ALTERNATIVE",
           "priority": 30,
           "flowAlias": "Baobab forms",
-          "userSetupAllowed": false
-        },
-        {
-          "authenticatorFlow": true,
-          "requirement": "CONDITIONAL",
-          "priority": 35,
-          "flowAlias": "Baobab - Passkey Step-Up",
-          "userSetupAllowed": false
-        },
-        {
-          "authenticatorFlow": true,
-          "requirement": "CONDITIONAL",
-          "priority": 40,
-          "flowAlias": "Baobab - Step-Up",
           "userSetupAllowed": false
         }
       ]
