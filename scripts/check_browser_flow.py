@@ -4,7 +4,7 @@
 CONDITIONAL counts as REQUIRED before its condition is evaluated. Mixing it
 with ALTERNATIVE at one level discards identification alternatives, even if
 the condition would subsequently be disabled. Do not 'fix' that by disabling
-MFA: establish primary identity in a required wrapper, then evaluate assurance.
+MFA: establish primary identity and baseline LoA in a conditional wrapper, then evaluate assurance.
 """
 import json
 from pathlib import Path
@@ -18,7 +18,11 @@ def validate(realm):
         raise ValueError('duplicate flow alias')
     for flow in flows.values():
         active = [e for e in flow['authenticationExecutions'] if e['requirement'] != 'DISABLED']
-        requirements = {e['requirement'] for e in active}
+        # Keycloak removes ConditionalAuthenticator predicates before classifying
+        # real required/alternative executions. A LoA predicate is not a factor.
+        classified = [e for e in active if e.get('authenticator') not in {
+            'conditional-level-of-authentication', 'conditional-user-role', 'conditional-user-configured'}]
+        requirements = {e['requirement'] for e in classified}
         if 'ALTERNATIVE' in requirements and requirements & {'REQUIRED', 'CONDITIONAL'}:
             raise ValueError('mixed required/conditional and alternative executions')
         for entry in active:
@@ -29,14 +33,26 @@ def validate(realm):
     primary = by_alias['Baobab - Primary Authentication']
     passkey = by_alias['Baobab - Passkey Step-Up']
     otp = by_alias['Baobab - Step-Up']
-    if primary['requirement'] != 'REQUIRED' or not primary['priority'] < passkey['priority'] < otp['priority']:
+    if primary['requirement'] != 'CONDITIONAL' or not primary['priority'] < passkey['priority'] < otp['priority']:
         raise ValueError('identify the user before ordered assurance checks')
     if passkey['requirement'] != 'CONDITIONAL' or otp['requirement'] != 'CONDITIONAL':
         raise ValueError('assurance conditions must be retained')
     base = flows['Baobab - Primary Authentication']['authenticationExecutions']
     if [(e.get('authenticator') or e.get('flowAlias'), e['requirement']) for e in base] != [
+        ('conditional-level-of-authentication', 'REQUIRED'),
         ('auth-cookie', 'ALTERNATIVE'), ('identity-provider-redirector', 'ALTERNATIVE'), ('Baobab forms', 'ALTERNATIVE')]:
         raise ValueError('primary authentication alternatives changed')
+    baseline = base[0]
+    configs = [c for c in realm['authenticatorConfig'] if c['alias'] == baseline.get('authenticatorConfig')]
+    if baseline['priority'] != 0 or len(configs) != 1 or configs[0] != {
+        'alias': 'baobab-primary-loa-silver', 'config': {'loa-condition-level': '1', 'loa-max-age': '0'}}:
+        raise ValueError('primary must establish current-request LoA 1 only')
+    passkey_entries = flows['Baobab - Passkey Step-Up']['authenticationExecutions']
+    if [(e.get('authenticator'), e['requirement'], e['priority']) for e in passkey_entries] != [
+        ('conditional-level-of-authentication', 'REQUIRED', 10),
+        ('conditional-user-configured', 'REQUIRED', 15),
+        ('webauthn-authenticator-passwordless', 'REQUIRED', 20)]:
+        raise ValueError('passkey must challenge enrolled users; essential unmet LoA is denied by the native top-flow check')
     forms = flows['Baobab forms']['authenticationExecutions']
     if [(e.get('authenticator') or e.get('flowAlias'), e['requirement']) for e in forms] != [
         ('auth-username-password-form', 'REQUIRED'), ('Baobab - Privileged MFA', 'CONDITIONAL')]:

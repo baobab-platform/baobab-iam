@@ -35,7 +35,17 @@ Rather than guessing at Keycloak's authentication-flow JSON schema, the exact sh
 
 ## 3. What this phase does *not* verify (and why)
 
-This suite has no headless-browser tooling, and every workforce `-admin` client has `directAccessGrantsEnabled: false` (Gate IAM-5's own deliberate choice) — so there is no token-endpoint shortcut that exercises `browserFlow` end-to-end the way `tests/integration/run.sh` exercises `client_credentials`/`password` grants elsewhere. What's verified here is structural: the flow exists, is wired correctly, and is bound as the realm's `browserFlow`. Whether a real browser login for a `iam:mfa-required`-composited user is actually challenged for OTP is Keycloak's own well-tested authenticator behavior operating on a structure this suite confirms is correctly assembled — not independently re-proven end-to-end in this environment.
+Historical scope note (12 September): the original gate verified only the
+execution tree, which did not prove a usable browser flow. Infrastructure #35
+exposed both an ignored identification branch and missing baseline LoA.
+The [17 October repair](../operations/browser-primary-authentication.md) adds
+real HTML form/cookie password and privileged TOTP enrollment through code/S256,
+plus ordinary baseline assurance and wrong-password/unsatisfied-passkey
+negatives. It uses disposable synthetic users, not workforce password grants.
+CI must pass fresh and both historical realm variants before merge. This is
+provider regression coverage; maintained RP signature/nonce/replay checks,
+Chromium behavior and current CP authorization still belong to INT-02 and
+are not promoted by this document or by structural tests.
 
 ## 4. Remaining phases (scoped, not yet implemented — this ADR has 188 sections)
 

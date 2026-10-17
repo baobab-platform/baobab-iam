@@ -280,9 +280,11 @@ owned by Infrastructure #35 and remains separately required.
 ### Browser primary-authentication hierarchy
 
 The [17 October repair](docs/operations/browser-primary-authentication.md)
-places cookie/federation/password alternatives inside one REQUIRED primary
-subflow, before conditional OTP/passkey step-up. Keycloak otherwise ignores
+places cookie/federation/password alternatives inside a native LoA-1 conditional
+primary subflow, before conditional OTP/passkey step-up. Level 1 is recorded
+only after successful primary authentication and only for this request. Keycloak otherwise ignores
 alternatives at a level containing required/conditional siblings. Existing
 realms are reconciled without deleting shared MFA flows or reactivating an
-operator-disabled branch. CI checks both the graph and actual credential HTML;
+operator-disabled branch. CI checks the graph and real password/TOTP enrollment with S256 code exchange
+for fresh and both historical realm variants;
 Infrastructure #35 separately owns complete code/S256/MFA and CP acceptance.
