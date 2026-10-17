@@ -1018,18 +1018,21 @@ PASSKEY_FLOW_ALIAS="Baobab - Passkey Step-Up"
 PASSKEY_FLOW_PATH="Baobab%20-%20Passkey%20Step-Up"
 PASSKEY_EXECUTIONS=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" \
   "$KC_URL/admin/realms/$REALM/authentication/flows/$PASSKEY_FLOW_PATH/executions" || echo "[]")
-if echo "$PASSKEY_EXECUTIONS" | jq -e 'length == 2' > /dev/null; then
-  pass "'$PASSKEY_FLOW_ALIAS' contains exactly two executions"
+if echo "$PASSKEY_EXECUTIONS" | jq -e 'length == 3' > /dev/null; then
+  pass "'$PASSKEY_FLOW_ALIAS' contains exactly the LoA predicate, enrollment guard and WebAuthn factor"
 else
-  fail "'$PASSKEY_FLOW_ALIAS' must contain exactly the LoA condition and the passwordless WebAuthn authenticator (got: $(echo "$PASSKEY_EXECUTIONS" | jq -c '[.[].providerId]'))"
+  fail "'$PASSKEY_FLOW_ALIAS' must contain exactly the LoA condition, configured-user guard and passwordless WebAuthn (got: $(echo "$PASSKEY_EXECUTIONS" | jq -c '[.[].providerId]'))"
 fi
-if echo "$PASSKEY_EXECUTIONS" | jq -e '[.[].providerId] | sort == ["conditional-level-of-authentication","webauthn-authenticator-passwordless"]' > /dev/null; then
-  pass "'$PASSKEY_FLOW_ALIAS' is the LoA condition plus the passwordless WebAuthn authenticator"
+if echo "$PASSKEY_EXECUTIONS" | jq -e '[.[].providerId] | sort == ["conditional-level-of-authentication","conditional-user-configured","webauthn-authenticator-passwordless"]' > /dev/null; then
+  pass "'$PASSKEY_FLOW_ALIAS' is the LoA condition, native configured-user guard and required WebAuthn factor"
 else
   fail "'$PASSKEY_FLOW_ALIAS' has unexpected executions: $(echo "$PASSKEY_EXECUTIONS" | jq -c '[.[].providerId]')"
 fi
+# Predicates are not factors. An unenrolled user's branch is disabled and the
+# native essential-LoA top-flow check returns acrNotFulfilled/400; the actual
+# browser probe above verifies that result. Enrolled users must prove WebAuthn.
 if echo "$PASSKEY_EXECUTIONS" | jq -e 'all(.[]; .requirement == "REQUIRED")' > /dev/null; then
-  pass "every execution in '$PASSKEY_FLOW_ALIAS' is REQUIRED: WebAuthn cannot be skipped or replaced"
+  pass "every execution in '$PASSKEY_FLOW_ALIAS' is REQUIRED: enrolled-user WebAuthn cannot be replaced by a weaker factor"
 else
   fail "an execution in '$PASSKEY_FLOW_ALIAS' is not REQUIRED: $(echo "$PASSKEY_EXECUTIONS" | jq -c '[.[] | {providerId, requirement}]')"
 fi
