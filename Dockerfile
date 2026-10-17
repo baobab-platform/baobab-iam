@@ -56,6 +56,7 @@ COPY --from=bridge-build /bridge/evidence-bridge.jar /opt/keycloak/providers/evi
 # Copy realm configuration and bootstrap script
 COPY config/ /opt/keycloak/config/
 COPY scripts/bootstrap.sh /opt/keycloak/bootstrap.sh
+COPY scripts/reconcile_browser_primary.sh /opt/keycloak/reconcile_browser_primary.sh
 RUN chmod +x /opt/keycloak/bootstrap.sh
 
 # `db` is a build-time option in Keycloak: an `--optimized` runtime start

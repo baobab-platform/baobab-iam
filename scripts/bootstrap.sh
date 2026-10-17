@@ -30,6 +30,7 @@ KCADM_CONFIG=$(mktemp)
 cleanup_bootstrap() {
   rm -f -- "$KCADM_CONFIG"
   if [ -n "${TMP_FILE:-}" ]; then rm -f -- "$TMP_FILE"; fi
+  if [ -n "${BROWSER_REPAIR_DIR:-}" ]; then rm -rf -- "$BROWSER_REPAIR_DIR"; fi
 }
 trap cleanup_bootstrap EXIT
 trap 'exit 130' INT
@@ -37,6 +38,7 @@ trap 'exit 143' TERM
 kcadm() {
   /opt/keycloak/bin/kcadm.sh "$@" --config "$KCADM_CONFIG"
 }
+source /opt/keycloak/reconcile_browser_primary.sh
 
 # reconcile_step_up_flow adds Gate IAM-5 phase 3's (ADR-0009 §41-45)
 # "Baobab - Step-Up" subflow and its acr.loa.map realm attribute to an
@@ -57,8 +59,8 @@ reconcile_step_up_flow() {
   else
     echo "Reconciling Gate IAM-5 phase 3's 'Baobab - Step-Up' subflow into the existing realm..."
     # executions/flow creates the child flow already wired into its parent
-    # in one call. There is no REST operation to attach an already-created,
-    # standalone flow as a subflow instead -- and separately creating a
+    # in one call. Generic authentication/executions can attach an existing
+    # flowId (used by reconcile_browser_primary), but separately creating a
     # top-level flow, then deleting it, leaves the parent's execution list
     # holding a dangling reference to the deleted flow (verified against a
     # real Keycloak 26.7.3 instance while developing this: Keycloak's
@@ -222,6 +224,10 @@ else
   reconcile_step_up_flow
   reconcile_passkey_step_up_flow
 fi
+
+# Repair mixed-level browser authentication after the existing assurance
+# subflows have been reconciled, for both fresh and persistent realms.
+reconcile_browser_primary
 
 # Import client scopes (custom scopes required by ADR-0006's token profile,
 # e.g. actor-type-human, actor-type-workload, context:resolve). These must
