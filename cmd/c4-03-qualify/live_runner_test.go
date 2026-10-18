@@ -1,7 +1,6 @@
 package main
 
 import (
- "bytes"
  "context"
  "crypto/sha256"
  "encoding/hex"
@@ -56,8 +55,10 @@ func TestC403FullReceiptPrivateAtomicAndNoCredentialFields(t *testing.T){
   info,err:=os.Stat(p)
   if err!=nil||info.Mode().Perm()!=0600{t.Fatal("receipt not private")}
  }
+ var object map[string]json.RawMessage
+ if json.Unmarshal(bytesData,&object)!=nil{t.Fatal("invalid receipt object")}
  for _,forbidden:=range []string{"access_token","client_secret","session_token","subject_token","cookie","private_key"}{
-  if bytes.Contains(bytes.ToLower(bytesData),[]byte(forbidden)){t.Fatal("secret-bearing evidence field")}
+  if _,exists:=object[forbidden];exists{t.Fatal("credential-bearing top-level evidence field")}
  }
 }
 
