@@ -7,6 +7,7 @@ import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {checkIds,receipt,publish,observation} from './evidence.mjs';
+import {startCallbackReceiver} from './callback.mjs';
 import {loopbackOrigin, opaque, configuration, begin, exchange, freshPasskey, totpSequence} from './protocol.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');
@@ -20,7 +21,7 @@ async function run(){
  const username=process.env.KEYCLOAK_ADMIN,password=process.env.KEYCLOAK_ADMIN_PASSWORD;
  delete process.env.KEYCLOAK_ADMIN;delete process.env.KEYCLOAK_ADMIN_PASSWORD;
  requireProof(username&&password);
- const issuer=origin+'/realms/baobab', redirectUri='http://localhost:3003/passkey-qualification';
+ let redirectUri,receiver;
  const clientId='passkey-qualification-'+opaque().slice(0,16), userName='passkey-'+opaque().slice(0,16);
  const userPassword=opaque();
  const nextOTP=totpSequence();
@@ -54,6 +55,8 @@ async function run(){
  }
  try{
   stage='synthetic_setup';diagnostic.phase='BOOTSTRAP';
+  receiver=await startCallbackReceiver(raw=>{callback=raw;diagnostic.phase='CALLBACK';});
+  redirectUri=receiver.redirectUri;
   clientUuid=await create('clients',{clientId,enabled:true,protocol:'openid-connect',publicClient:true,standardFlowEnabled:true,
    directAccessGrantsEnabled:false,implicitFlowEnabled:false,serviceAccountsEnabled:false,fullScopeAllowed:false,
    defaultClientScopes:['acr'],optionalClientScopes:[],redirectUris:[redirectUri],
@@ -66,11 +69,11 @@ async function run(){
   const protocol=await configuration(origin,clientId);
   browser=await chromium.launch({headless:true});context=await browser.newContext({acceptDownloads:false});
   page=await context.newPage();page.setDefaultTimeout(15000);
-  // Only the fixed issuer and synthetic callback are permitted browser origins.
-  // Callback query/authorization codes stay in memory, with no callback server.
+  // The callback receiver is loopback-only and registered exactly for this run.
+  // Callback query/authorization codes stay in memory and are never logged.
   await page.route('**/*',async route=>{
    const u=new URL(route.request().url());
-   if(u.origin+u.pathname===redirectUri){callback=u.href;diagnostic.phase='CALLBACK';await route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><title>Synthetic callback</title>'});}
+   if(u.origin+u.pathname===redirectUri)await route.continue();
    else if(u.origin===origin)await route.continue();else {
     diagnostic.blocked_request=u.origin===new URL(redirectUri).origin?'CALLBACK_PATH':
      ['localhost','127.0.0.1','[::1]'].includes(u.hostname)?'LOCAL_ORIGIN':'REMOTE_ORIGIN';
@@ -184,6 +187,7 @@ async function run(){
   // Cleanup is independent: one failure must not skip the other resource.
   if(cdp&&authenticatorId)try{await cdp.send('WebAuthn.removeVirtualAuthenticator',{authenticatorId});}catch{cleaned=false;}
   if(browser)try{await browser.close();}catch{cleaned=false;}
+  if(receiver)try{await receiver.close();}catch{cleaned=false;}
   if(userId)try{await admin('users/'+userId,undefined,'DELETE');await admin('users/'+userId,undefined,'GET',true);}catch{cleaned=false;}
   if(clientUuid)try{await admin('clients/'+clientUuid,undefined,'DELETE');await admin('clients/'+clientUuid,undefined,'GET',true);}catch{cleaned=false;}
   teardown=cleaned&&Boolean(userId&&clientUuid);
