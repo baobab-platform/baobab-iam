@@ -60,12 +60,15 @@ func qualifyNative(ctx context.Context,c liveConfig,client *http.Client,tlsConfi
  if e!=nil{return checks,errors.New("Kratos whoami request invalid")}
  sessionRequest.Header.Set("X-Session-Token",session)
  reply,e:=client.Do(sessionRequest);if e!=nil{return checks,errors.New("Kratos whoami unreachable")}
- var identity struct{Active bool `json:"active"`;ExpiresAt time.Time `json:"expires_at"`;Identity struct{ID string `json:"id"`;State string `json:"state"`} `json:"identity"`}
+ var identity struct{Active bool `json:"active"`;ExpiresAt time.Time `json:"expires_at"`;Identity struct{ID string `json:"id"`;State string `json:"state"`;MetadataPublic map[string]any `json:"metadata_public"`} `json:"identity"`}
  if reply.StatusCode!=200||json.NewDecoder(io.LimitReader(reply.Body,65536)).Decode(&identity)!=nil{
   reply.Body.Close();return checks,errors.New("Kratos session not verified")
  }
  reply.Body.Close()
- if !identity.Active||identity.Identity.ID!=c.NativeIdentityID||identity.Identity.State!="active"||!time.Now().Before(identity.ExpiresAt){
+ // Revoke only a provider-marked disposable fixture, not a genuine human.
+ // This is checked on the live Kratos session's own identity document.
+ if !identity.Active||identity.Identity.ID!=c.NativeIdentityID||identity.Identity.State!="active"||
+  identity.Identity.MetadataPublic["c403_disposable_fixture"]!=true||!time.Now().Before(identity.ExpiresAt){
   return checks,errors.New("synthetic identity not proven")
  }
  checks["kratos_synthetic_session_verified"]=true
