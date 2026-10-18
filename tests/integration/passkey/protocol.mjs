@@ -45,7 +45,7 @@ export async function configuration(origin, clientId) {
   return {config,keys,issuer,clientId,tokenEndpoint:meta.token_endpoint};
 }
 export async function begin(config, redirectUri, level, fresh = false) {
-  const transaction = {state:opaque(),nonce:opaque(),verifier:oidc.randomPKCECodeVerifier(),expires:Date.now()+60000,used:false};
+  const transaction = {state:opaque(),nonce:opaque(),verifier:oidc.randomPKCECodeVerifier(),expires:Date.now()+60000,used:false,fresh};
   const params = {scope:'openid',response_type:'code',redirect_uri:redirectUri,state:transaction.state,nonce:transaction.nonce,
     code_challenge:await oidc.calculatePKCECodeChallenge(transaction.verifier),code_challenge_method:'S256'};
   // Numeric acr_values is Keycloak's native LoA selector. A claims-only request
@@ -57,10 +57,13 @@ export async function begin(config, redirectUri, level, fresh = false) {
 export async function exchange(protocol, raw, transaction, redirectUri) {
   const callback = callbackURL(raw,transaction,redirectUri);
   transaction.used=true; // Uncertain exchange is never retried as a new proof.
+  // OIDC makes auth_time conditional on the requested max_age. Retain that
+  // request intent and give it to the maintained verifier; baseline SSO need
+  // not emit auth_time, while every fresh step-up must prove it independently.
   const tokens = await oidc.authorizationCodeGrant(protocol.config,callback,{pkceCodeVerifier:transaction.verifier,
-    expectedState:transaction.state,expectedNonce:transaction.nonce,idTokenExpected:true});
+    expectedState:transaction.state,expectedNonce:transaction.nonce,idTokenExpected:true,...(transaction.fresh?{maxAge:0}:{})});
   const {payload} = await jwtVerify(tokens.id_token,protocol.keys,{issuer:protocol.issuer,audience:protocol.clientId,
-    algorithms:['RS256'],requiredClaims:['iss','sub','aud','exp','iat','auth_time','nonce','acr']});
+    algorithms:['RS256'],requiredClaims:['iss','sub','aud','exp','iat','nonce','acr',...(transaction.fresh?['auth_time']:[])]});
   if (!equal(payload.nonce,transaction.nonce)) throw Error('nonce');
   return payload;
 }
