@@ -1,7 +1,7 @@
 # C4-03 — live Kratos/Hydra–CP qualification programme
 
-**Status: C4-03A–E source qualification implemented, live B–E acceptance pending protected provider/CP evidence.** This branch is stacked on IAM #122
-(`feat/live-passkey-step-up`), not `main`. ADR-IAM-0033 and the accepted
+**Status: C4-03A–E source qualification implemented, live B–E acceptance pending protected provider/CP evidence.** This implementation builds on IAM #122's
+independent browser passkey qualification. ADR-IAM-0033 and the accepted
 assurance/identity-proofing boundaries remain authoritative. The runner uses
 pre-provisioned identities, clients, tenants, grants and provider registrations.
 During a live run it requests provider tokens and CP contexts; it does not
