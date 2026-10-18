@@ -12,10 +12,10 @@ authenticator, canonical identity or CP registration.
 | --- | --- | --- |
 | C4-03A | Live CP-issued IAM context and two current workload capability/runtime reads through C4-02 production composition | Executable, requires live CP configuration |
 | C4-03A negatives | Wrong facet, invalid service credential, simulated network outage, simulated future-expired evidence, cancelled supervision | Executable; outage/expiry are simulations and must never be called live withdrawal |
-| C4-03B | Real Hydra hook dispatch, signed workload token, scope/audience/binding/artifact/expiry and issuance revocation | Open; requires approved runtime registration and isolated provider |
-| C4-03C | Live Kratos human session + Hydra challenge + current CP native context, binding, authorisation, revocation and fence | Open |
-| C4-03D | Actual **running** protected CP/domain resource request with correct/incorrect audience, scope, tenant/organisation, independent grant withdrawal, session revocation and CP outage/recovery | Open; offline CP verifier probes do not qualify |
-| C4-03E | Complete receipt chain, protected staging evidence, registration approval and operational review | Open |
+| C4-03B | Real Hydra hook dispatch, signed workload token, scope/audience/binding/artifact/expiry and issuance revocation | Runner implemented for signed issuance/current authority; live fixture and issuance-revocation proof pending |
+| C4-03C | Live Kratos human session + Hydra challenge + current CP native context, binding, authorisation, revocation and fence | Runner implemented; requires approved disposable session and registered native bindings |
+| C4-03D | Actual running protected CP resource, ownership/tenant isolation and real withdrawal while bearer remains unexpired | Runner implemented for CP context-validation resource, cross-tenant proof and supervised manual withdrawal; protected execution pending |
+| C4-03E | Complete receipt chain, protected staging evidence, registration approval and operational review | Closed-schema receipt implementation committed; protected acceptance evidence and review remain open |
 
 The C4-03A qualifier is deliberately **read-only**. It refuses a claims-only
 authorization substitute, refuses a test/mock authority in lieu of the real
