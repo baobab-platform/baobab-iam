@@ -4,6 +4,7 @@
  * memory. HTTP is accepted only on the exact loopback CI issuer.
  */
 import {randomBytes, timingSafeEqual, createHmac} from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
 import * as oidc from 'openid-client';
 import {createRemoteJWKSet, customFetch, jwtVerify} from 'jose';
 
@@ -75,4 +76,22 @@ export function totp(secret, seconds = Math.floor(Date.now()/1000)) {
   const counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor(seconds/30)));
   const digest=createHmac('sha1',Buffer.from(secret,'utf8')).update(counter).digest();
   return ((digest.readUInt32BE(digest[digest.length-1]&15)&0x7fffffff)%1000000).toString().padStart(6,'0');
+}
+
+// The fixture realm forbids OTP reuse. Each login, including a negative
+// passkey ceremony, must advance past the last OTP window used for this user.
+export function totpSequence({now=Date.now,wait=delay}={}) {
+  let previous=-1;
+  return async secret=>{
+    let milliseconds=now(),window=Math.floor(milliseconds/30000);
+    if(window<=previous){
+      const remaining=(previous+1)*30000-milliseconds;
+      if(remaining<1||remaining>30000)throw Error('otp_clock');
+      await wait(remaining);
+      milliseconds=now();window=Math.floor(milliseconds/30000);
+      if(window<=previous)throw Error('otp_clock');
+    }
+    previous=window;
+    return totp(secret,Math.floor(milliseconds/1000));
+  };
 }

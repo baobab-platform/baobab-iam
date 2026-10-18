@@ -36,7 +36,7 @@ test('digest-write failure cannot leave a published PASS behind',async()=>{
 
 test('diagnostics reject arbitrary page, exception and secret-bearing content',async()=>{
  const {observation}=await import('./evidence.mjs');
- for(const [field,value] of [['form','private HTML'],['error','exception with code'],['claim','private claim'],['last_action','https://issuer.invalid/?code=private'],['phase','authorization_code=private']]){
+ for(const [field,value] of [['form','private HTML'],['error','exception with code'],['claim','private claim'],['last_action','https://issuer.invalid/?code=private'],['phase','authorization_code=private'],['blocked_request','https://private.invalid']]){
   assert.throws(()=>receipt(checks(),true,true,'a'.repeat(40),'registration',{...observation(),[field]:value}));
  }
  assert.throws(()=>receipt(checks(),true,true,'a'.repeat(40),'registration',{...observation(),token:'private'}));
