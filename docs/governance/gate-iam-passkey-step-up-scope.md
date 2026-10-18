@@ -23,7 +23,7 @@
 
 Run against a real Keycloak in CI, the suite proves the configuration cannot emit LoA 3 through anything weaker:
 
-- the passkey subflow is exactly the LoA condition plus passwordless WebAuthn, all `REQUIRED`, with no OTP, password or two-factor WebAuthn execution;
+- the passkey subflow is the LoA predicate, native configured-user guard and passwordless WebAuthn factor, all `REQUIRED`, with no OTP/password/two-factor alternative; the 17 October repair adds the guard so an unenrolled essential LoA-3 request gets the native unmet-ACR HTTP 400 denial rather than a server error, while enrolled users still must prove WebAuthn;
 - **exactly one** flow in the realm sets LoA 3, and it is the passkey subflow (any other flow able to set 3 would change what `acr=3` means);
 - the condition is level 3 with a 300-second maximum age;
 - the subflow is `CONDITIONAL` and evaluated before the OTP step-up;

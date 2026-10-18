@@ -209,7 +209,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser_fixture: [fresh, legacy]
+        browser_fixture: [fresh, legacy, primary]
     env:
       BOOTSTRAP_WORKLOAD_CLIENT_SECRET: ci-test-only-secret-do-not-use-in-prod
       KC_URL: http://localhost:8080
@@ -229,9 +229,9 @@ jobs:
             printf '%s=%s\n' "$name" "${!name}" >> "$GITHUB_ENV"
           done
       - name: Prepare isolated legacy browser hierarchy
-        if: matrix.browser_fixture == 'legacy'
+        if: matrix.browser_fixture != 'fresh'
         run: |
-          python3 tests/integration/prepare_legacy_browser.py
+          python3 tests/integration/prepare_legacy_browser.py "${{ matrix.browser_fixture }}"
           echo 'COMPOSE_FILE=docker-compose.yml:tests/integration/.runtime/browser.override.json' >> "$GITHUB_ENV"
       - name: Build and start stack
         run: docker compose up -d --build
@@ -261,7 +261,7 @@ jobs:
         if: always()
         run: docker compose down -v
 
-  # Preserve the existing required-check name while requiring BOTH actual
+  # Preserve the existing required-check name while requiring ALL actual
   # Keycloak paths. A failed/cancelled variant cannot become an aggregate pass.
   integration-test:
     needs: [integration-variants]

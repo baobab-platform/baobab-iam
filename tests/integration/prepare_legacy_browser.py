@@ -6,6 +6,7 @@ separately; the ordinary source image and production realm declaration retain
 the corrected graph. The real product bootstrap must repair this old graph.
 """
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -13,9 +14,20 @@ realm = json.loads((ROOT/'config/realm/baobab-realm.json').read_text())
 flows = realm['authenticationFlows']
 browser = next(f for f in flows if f['alias'] == 'Baobab browser')
 primary = next(f for f in flows if f['alias'] == 'Baobab - Primary Authentication')
-browser['authenticationExecutions'] = primary['authenticationExecutions'] + [
-    e for e in browser['authenticationExecutions'] if e.get('flowAlias') != primary['alias']]
-flows.remove(primary)
+variant = sys.argv[1] if len(sys.argv)>1 else 'legacy'
+if variant not in {'legacy', 'primary'}:
+    raise SystemExit('Unknown historical browser fixture')
+primary['authenticationExecutions'] = [e for e in primary['authenticationExecutions'] if e['requirement']=='ALTERNATIVE']
+if variant == 'legacy':
+    browser['authenticationExecutions'] = primary['authenticationExecutions'] + [
+        e for e in browser['authenticationExecutions'] if e.get('flowAlias') != primary['alias']]
+    flows.remove(primary)
+else:
+    # #118 repaired the hierarchy but recorded no LoA. Exercise that deployed
+    # intermediate state as well as the original mixed-level historical root.
+    next(e for e in browser['authenticationExecutions'] if e.get('flowAlias')==primary['alias'])['requirement']='REQUIRED'
+next(f for f in flows if f['alias']=='Baobab - Passkey Step-Up')['authenticationExecutions'] = [e for e in next(f for f in flows if f['alias']=='Baobab - Passkey Step-Up')['authenticationExecutions'] if e.get('authenticator')!='conditional-user-configured']
+realm['authenticatorConfig'] = [c for c in realm['authenticatorConfig'] if c['alias'] != 'baobab-primary-loa-silver']
 directory = ROOT/'tests/integration/.runtime'
 directory.mkdir(exist_ok=True)
 fixture = directory/'browser-legacy-realm.json'

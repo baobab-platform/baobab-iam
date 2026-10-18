@@ -40,7 +40,7 @@ reconcile_browser_primary() {
   # operator-customised realm. Disabled historical entries remain untouched.
   jq -e --arg primary "$primary" 'all(.[]|select((.level // 0)==0);
     if .requirement=="DISABLED" then true
-    elif .displayName==$primary then .requirement=="REQUIRED"
+    elif .displayName==$primary then (.requirement=="REQUIRED" or .requirement=="CONDITIONAL")
     elif .providerId=="auth-cookie" or .providerId=="identity-provider-redirector" or .displayName=="Baobab forms" then .requirement=="ALTERNATIVE"
     elif .displayName=="Baobab - Step-Up" or .displayName=="Baobab - Passkey Step-Up" then .requirement=="CONDITIONAL"
     else false end)' <<< "$root_entries" >/dev/null
@@ -89,7 +89,7 @@ reconcile_browser_primary() {
   entries=$(kcadm get authentication/flows/Baobab%20-%20Primary%20Authentication/executions -r baobab)
   # Never attach an empty, partial, duplicated or policy-modified primary
   # flow. Fresh imports and interrupted repairs meet the same invariant.
-  jq -e --arg forms "$forms_id" '[.[]|select((.level // 0)==0)] as $e |
+  jq -e --arg forms "$forms_id" '[.[]|select((.level // 0)==0 and .providerId!="conditional-level-of-authentication")] as $e |
     ($e|length)==3 and all($e[];.requirement=="ALTERNATIVE") and
     ([$e[]|select(.providerId=="auth-cookie")]|length)==1 and
     ([$e[]|select(.providerId=="identity-provider-redirector")]|length)==1 and
@@ -101,7 +101,7 @@ reconcile_browser_primary() {
     # populated REQUIRED primary precedes both untouched assurance branches.
     kcadm create authentication/executions -r baobab -f "$BROWSER_REPAIR_DIR/document.json" >/dev/null
   else
-    jq -e --arg child "$primary_id" '.[0].flowId==$child and .[0].requirement=="REQUIRED" and .[0].priority==5' <<< "$attached" >/dev/null
+    jq -e --arg child "$primary_id" '.[0].flowId==$child and (.[0].requirement=="REQUIRED" or .[0].requirement=="CONDITIONAL") and .[0].priority==5' <<< "$attached" >/dev/null
   fi
   for id in $(jq -r '.[]|select(.requirement!="DISABLED")|.id' <<< "$legacy"); do
     jq --arg id "$id" '.[]|select(.id==$id)|.requirement="DISABLED"' <<< "$legacy" > "$BROWSER_REPAIR_DIR/document.json"
@@ -111,5 +111,88 @@ reconcile_browser_primary() {
   done
   rm -rf -- "$BROWSER_REPAIR_DIR"
   unset BROWSER_REPAIR_DIR
-  echo 'Browser primary authentication hierarchy verified; MFA and step-up retained.'
+  reconcile_browser_primary_loa
+  reconcile_passkey_enrollment_guard
+  echo 'Browser primary identity and current-request LoA 1 verified; MFA and step-up retained.'
+}
+
+# Keycloak ConditionalLoaAuthenticator returns true for EVERY configured level
+# while currentAuthenticationLoa is zero. A plain REQUIRED identity wrapper
+# therefore triggers the level-3 WebAuthn branch even on an ordinary login.
+# Use the native LoA-1 condition's onParentFlowSuccess callback: only successful
+# primary authentication records level 1, before root assurance is evaluated.
+# max-age=0 records this request only, never reusable MFA/passkey assurance.
+reconcile_browser_primary_loa() {
+  local entries predicate primary root model config
+  entries=$(kcadm get authentication/flows/Baobab%20-%20Primary%20Authentication/executions -r baobab)
+  predicate=$(jq -c '[.[]|select((.level // 0)==0 and .providerId=="conditional-level-of-authentication")]' <<< "$entries")
+  jq -e 'length<=1' <<< "$predicate" >/dev/null
+  root=$(kcadm get authentication/flows/Baobab%20browser/executions -r baobab)
+  primary=$(jq -ce '[.[]|select((.level // 0)==0 and .displayName=="Baobab - Primary Authentication")]|select(length==1)|.[0]' <<< "$root")
+  BROWSER_REPAIR_DIR=$(mktemp -d)
+  if [ "$(jq 'length' <<< "$predicate")" = 0 ]; then
+    # Prepare while still REQUIRED, so an interrupted/unconfigured condition
+    # cannot disable primary identification. Fresh imports already have it.
+    jq -e '.requirement=="REQUIRED"' <<< "$primary" >/dev/null
+    jq -n --arg parent "$(jq -r '.flowId' <<< "$primary")" \
+      '{parentFlow:$parent,authenticator:"conditional-level-of-authentication",authenticatorFlow:false,requirement:"REQUIRED",priority:0}' > "$BROWSER_REPAIR_DIR/document.json"
+    kcadm create authentication/executions -r baobab -f "$BROWSER_REPAIR_DIR/document.json" >/dev/null
+    entries=$(kcadm get authentication/flows/Baobab%20-%20Primary%20Authentication/executions -r baobab)
+    predicate=$(jq -ce '[.[]|select((.level // 0)==0 and .providerId=="conditional-level-of-authentication")]|select(length==1)' <<< "$entries")
+  fi
+  jq -e '.[0].requirement=="REQUIRED" and (.[0].priority // 0)==0' <<< "$predicate" >/dev/null
+  # The execution model carries authenticatorConfig, unlike execution-info's
+  # authenticationConfig field. Read the actual model to avoid API ambiguity.
+  model=$(kcadm get "authentication/executions/$(jq -r '.[0].id' <<< "$predicate")" -r baobab)
+  config=$(jq -r '.authenticatorConfig // ""' <<< "$model")
+  if [ -z "$config" ]; then
+    jq -e '.requirement=="REQUIRED"' <<< "$primary" >/dev/null
+    jq -n '{alias:"baobab-primary-loa-silver",config:{"loa-condition-level":"1","loa-max-age":"0"}}' > "$BROWSER_REPAIR_DIR/document.json"
+    kcadm create "authentication/executions/$(jq -r '.id' <<< "$model")/config" -r baobab -f "$BROWSER_REPAIR_DIR/document.json" >/dev/null
+    model=$(kcadm get "authentication/executions/$(jq -r '.id' <<< "$model")" -r baobab)
+    config=$(jq -er '.authenticatorConfig' <<< "$model")
+  fi
+  # Refuse custom baseline policy, duplicate/extra fields or inflated levels;
+  # never overwrite operator assurance policy as part of a login repair.
+  config=$(kcadm get "authentication/config/$config" -r baobab)
+  jq -e 'del(.id)=={alias:"baobab-primary-loa-silver",config:{"loa-condition-level":"1","loa-max-age":"0"}}' <<< "$config" >/dev/null
+  if [ "$(jq -r '.requirement' <<< "$primary")" = REQUIRED ]; then
+    jq '.requirement="CONDITIONAL"' <<< "$primary" > "$BROWSER_REPAIR_DIR/document.json"
+    # Security cutover is last: a validated LoA-1 predicate and all three
+    # identification alternatives exist before enabling conditional semantics.
+    kcadm update authentication/flows/Baobab%20browser/executions -r baobab -f "$BROWSER_REPAIR_DIR/document.json" >/dev/null
+  fi
+  rm -rf -- "$BROWSER_REPAIR_DIR"
+  unset BROWSER_REPAIR_DIR
+}
+
+# A required passwordless authenticator with no enrolled key throws an internal
+# CREDENTIAL_SETUP_REQUIRED error. Do not call that a valid denial or enable
+# automatic enrollment and accidentally attest LoA 3. The native configured-user
+# predicate skips only that impossible factor branch. ConditionalLoaAuthenticator
+# onTopFlowSuccess still denies an essential unmet LoA via acrNotFulfilled/400;
+# configured users still execute REQUIRED WebAuthn with unchanged LoA policy.
+reconcile_passkey_enrollment_guard() {
+  local root branch entries guard model config
+  root=$(kcadm get authentication/flows/Baobab%20browser/executions -r baobab)
+  branch=$(jq -ce '[.[]|select((.level // 0)==0 and .displayName=="Baobab - Passkey Step-Up")]|select(length==1)|.[0]|select(.requirement=="CONDITIONAL")' <<< "$root")
+  entries=$(kcadm get authentication/flows/Baobab%20-%20Passkey%20Step-Up/executions -r baobab)
+  jq -e '[.[]|select((.level // 0)==0 and .providerId!="conditional-user-configured")]|sort_by(.priority)|
+    length==2 and .[0].providerId=="conditional-level-of-authentication" and .[0].requirement=="REQUIRED" and .[0].priority==10 and
+    .[1].providerId=="webauthn-authenticator-passwordless" and .[1].requirement=="REQUIRED" and .[1].priority==20' <<< "$entries" >/dev/null
+  model=$(kcadm get "authentication/executions/$(jq -r '.[]|select((.level // 0)==0 and .providerId=="conditional-level-of-authentication")|.id' <<< "$entries")" -r baobab)
+  config=$(kcadm get "authentication/config/$(jq -er '.authenticatorConfig' <<< "$model")" -r baobab)
+  jq -e 'del(.id)=={alias:"baobab-passkey-step-up-loa-3",config:{"loa-condition-level":"3","loa-max-age":"300"}}' <<< "$config" >/dev/null
+  guard=$(jq -c '[.[]|select((.level // 0)==0 and .providerId=="conditional-user-configured")]' <<< "$entries")
+  jq -e 'length<=1' <<< "$guard" >/dev/null
+  if [ "$(jq 'length' <<< "$guard")" = 0 ]; then
+    BROWSER_REPAIR_DIR=$(mktemp -d)
+    jq -n --arg parent "$(jq -r '.flowId' <<< "$branch")" \
+      '{parentFlow:$parent,authenticator:"conditional-user-configured",authenticatorFlow:false,requirement:"REQUIRED",priority:15}' > "$BROWSER_REPAIR_DIR/document.json"
+    kcadm create authentication/executions -r baobab -f "$BROWSER_REPAIR_DIR/document.json" >/dev/null
+    rm -rf -- "$BROWSER_REPAIR_DIR"
+    unset BROWSER_REPAIR_DIR
+  else
+    jq -e '.[0].requirement=="REQUIRED" and .[0].priority==15' <<< "$guard" >/dev/null
+  fi
 }
