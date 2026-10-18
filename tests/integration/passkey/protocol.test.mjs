@@ -79,7 +79,8 @@ test('enrollment, TOTP, stale and future authentication cannot become fresh pass
 });
 
 // The provider uses acr_values to select a conditional LoA subflow. The OIDC
-// claims parameter alone is not a substitute for this native requirement.
+// claims parameter alone is not a substitute for this native requirement;
+// acr_values alone is not an essential requirement and permits fallback.
 test('passkey challenge requests Keycloak native raw LoA 3 and freshness',async()=>{
  const base='http://localhost:8080/realms/baobab';
  const config=new oidc.Configuration({issuer:base,
@@ -91,7 +92,7 @@ test('passkey challenge requests Keycloak native raw LoA 3 and freshness',async(
  assert.equal(c.url.searchParams.get('acr_values'),'3');
  assert.equal(c.url.searchParams.get('max_age'),'0');
  assert.equal(c.url.searchParams.get('code_challenge_method'),'S256');
- assert.equal(c.url.searchParams.has('claims'),false);
+ assert.deepEqual(JSON.parse(c.url.searchParams.get('claims')),{id_token:{acr:{essential:true,values:['3']}}});
  assert.ok(c.transaction.verifier);
  assert.equal(c.transaction.fresh,true);
  const baseline=await begin(config,'http://localhost:3003/passkey-qualification');

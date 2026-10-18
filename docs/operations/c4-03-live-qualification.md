@@ -2,9 +2,10 @@
 
 **Status: C4-03A–E source qualification implemented, live B–E acceptance pending protected provider/CP evidence.** This branch is stacked on IAM #122
 (`feat/live-passkey-step-up`), not `main`. ADR-IAM-0033 and the accepted
-assurance/identity-proofing boundaries remain authoritative. This increment
-creates **no** workload client, access token, tenant, grant, context, privilege,
-authenticator, canonical identity or CP registration.
+assurance/identity-proofing boundaries remain authoritative. The runner uses
+pre-provisioned identities, clients, tenants, grants and provider registrations.
+During a live run it requests provider tokens and CP contexts; it does not
+provision or activate the underlying authorities.
 
 ## Evidence and gates
 
@@ -52,6 +53,12 @@ SHA-256 checksum. Never retain raw bearer tokens, OTP/passkeys, signed claims,
 response bodies, auth codes, browser traces, URLs, personal data or provider
 private keys. A failed CP request, missing credentials, expired authority,
 unknown status or uncertain receipt publication is FAIL.
+
+Both receipt schemas use the same private atomic publisher. Unknown check keys
+are rejected before serialization, and write, sync and close failures are
+preserved. Code replay requires `invalid_grant`, rather than a generic 400/401.
+Session revocation and CP withdrawal qualify only while the original session,
+bearer and context remain unexpired when the denial response arrives.
 
 ### Following increments
 
