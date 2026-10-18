@@ -48,7 +48,9 @@ export async function begin(config, redirectUri, level, fresh = false) {
   const transaction = {state:opaque(),nonce:opaque(),verifier:oidc.randomPKCECodeVerifier(),expires:Date.now()+60000,used:false};
   const params = {scope:'openid',response_type:'code',redirect_uri:redirectUri,state:transaction.state,nonce:transaction.nonce,
     code_challenge:await oidc.calculatePKCECodeChallenge(transaction.verifier),code_challenge_method:'S256'};
-  if (level) params.claims = JSON.stringify({id_token:{acr:{essential:true,values:[String(level)]}}});
+  // Numeric acr_values is Keycloak's native LoA selector. A claims-only request
+  // does not necessarily drive the conditional LoA-3 authenticator subflow.
+  if (level) params.acr_values = String(level);
   if (fresh) params.max_age='0';
   return {transaction,url:oidc.buildAuthorizationUrl(config,params)};
 }
