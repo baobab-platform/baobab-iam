@@ -46,6 +46,9 @@ test('successive ceremonies never reuse an OTP window or bypass a stalled clock'
  assert.equal(await next('synthetic-secret'),totp('synthetic-secret',300));
  assert.equal(await next('synthetic-secret'),totp('synthetic-secret',330));
  assert.deepEqual(waits,[29999]);
+ await next.ready();
+ assert.equal(await next('synthetic-secret'),totp('synthetic-secret',360));
+ assert.deepEqual(waits,[29999,30000]);
  const stalled=totpSequence({now:()=>300001,wait:async()=>{}});
  await stalled('synthetic-secret');await assert.rejects(stalled('synthetic-secret'));
 });
