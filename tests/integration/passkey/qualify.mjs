@@ -52,7 +52,7 @@ async function run(){
   return id;
  }
  try{
-  stage='synthetic_setup';
+  stage='synthetic_setup';diagnostic.phase='BOOTSTRAP';
   clientUuid=await create('clients',{clientId,enabled:true,protocol:'openid-connect',publicClient:true,standardFlowEnabled:true,
    directAccessGrantsEnabled:false,implicitFlowEnabled:false,serviceAccountsEnabled:false,redirectUris:[redirectUri],
    attributes:{'pkce.code.challenge.method':'S256'}});
@@ -68,7 +68,7 @@ async function run(){
   // Callback query/authorization codes stay in memory, with no callback server.
   await page.route('**/*',async route=>{
    const u=new URL(route.request().url());
-   if(u.origin+u.pathname===redirectUri){callback=u.href;await route.fulfill({status:200,body:'Synthetic callback received'});}
+   if(u.origin+u.pathname===redirectUri){callback=u.href;diagnostic.phase='CALLBACK';await route.fulfill({status:200,body:'Synthetic callback received'});}
    else if(u.origin===origin)await route.continue();else await route.abort();
   });
   page.on('dialog',dialog=>{void dialog.accept('Synthetic CI passkey').catch(()=>{});});
@@ -81,8 +81,8 @@ async function run(){
   cdp.on('WebAuthn.credentialAsserted',()=>{asserted++;});
 
   async function authorize(level,fresh=false){
-   callback=undefined;const ceremony=await begin(protocol.config,redirectUri,level,fresh);
-   let response=await page.goto(ceremony.url.href,{waitUntil:'domcontentloaded'});diagnostic.last_status=response?.status()??0;
+   callback=undefined;diagnostic.phase='AUTH_BEGIN';const ceremony=await begin(protocol.config,redirectUri,level,fresh);
+   diagnostic.phase='PAGE_GOTO';let response=await page.goto(ceremony.url.href,{waitUntil:'domcontentloaded'});diagnostic.last_status=response?.status()??0;
    async function navigate(action){[response]=await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),action()]);diagnostic.last_status=response?.status()??0;}
    for(let step=0;step<12;step++){
     if(callback)return {ceremony,callback};
@@ -91,41 +91,41 @@ async function run(){
     if(await page.locator('#kc-error-message, .alert-error, .pf-m-danger').count())
      return {denied:true,status:response?.status(),nativeACR:(await page.locator('body').innerText()).includes('Authentication requirements not fulfilled')};
     if(await page.locator('#username').isVisible().catch(()=>false)){
-     diagnostic.last_action='USERNAME_PASSWORD';
+     diagnostic.phase='PAGE_LOGIN';diagnostic.last_action='USERNAME_PASSWORD';
      await page.locator('#username').fill(userName);await page.locator('#password').fill(userPassword);
      await navigate(()=>page.locator('#kc-login').click());continue;
     }
     if(await page.locator('#password').isVisible().catch(()=>false)){
-     diagnostic.last_action='PASSWORD';
+     diagnostic.phase='PAGE_LOGIN';diagnostic.last_action='PASSWORD';
      await page.locator('#password').fill(userPassword);await navigate(()=>page.locator('#kc-login').click());continue;
     }
     if(await page.locator('#totpSecret').count()){ 
-     diagnostic.last_action='TOTP_SETUP';
+     diagnostic.phase='PAGE_TOTP';diagnostic.last_action='TOTP_SETUP';
      otpSecret=await page.locator('#totpSecret').inputValue();await page.locator('#totp').fill(totp(otpSecret));
      await page.locator('#userLabel').fill('Synthetic CI TOTP');await navigate(()=>page.locator('#saveTOTPBtn').click());continue;
     }
     if(await page.locator('#otp').isVisible().catch(()=>false)){
-     diagnostic.last_action='TOTP';
+     diagnostic.phase='PAGE_TOTP';diagnostic.last_action='TOTP';
      requireProof(otpSecret);await page.locator('#otp').fill(totp(otpSecret));await navigate(()=>page.locator('#kc-login').click());continue;
     }
     if(await page.locator('#registerWebAuthn').isVisible().catch(()=>false)){
-     diagnostic.last_action='PASSKEY_REGISTER';
+     diagnostic.phase='PAGE_REGISTER';diagnostic.last_action='PASSKEY_REGISTER';
      await navigate(()=>page.locator('#registerWebAuthn').click());continue;
     }
     if(await page.locator('#authenticateWebAuthnButton').isVisible().catch(()=>false)){
-     diagnostic.last_action='PASSKEY_AUTH';
+     diagnostic.phase='PAGE_PASSKEY';diagnostic.last_action='PASSKEY_AUTH';
      await navigate(()=>page.locator('#authenticateWebAuthnButton').click());continue;
     }
     throw Error('unsupported_page');
    }
    throw Error('ceremony_budget');
   }
-  async function consume(result){requireProof(result.callback);return exchange(protocol,result.callback,result.ceremony.transaction,redirectUri);}
-  async function reset(){await admin('users/'+userId+'/logout',undefined,'POST');await context.clearCookies();}
+  async function consume(result){diagnostic.phase='EXCHANGE';requireProof(result.callback);return exchange(protocol,result.callback,result.ceremony.transaction,redirectUri);}
+  async function reset(){diagnostic.phase='RESET';await admin('users/'+userId+'/logout',undefined,'POST');await context.clearCookies();}
 
   stage='registration';const enrollment=await consume(await authorize());
-  requireProof(added===1&&!wrongRP);checks.browser_registration=true;
-  requireProof(String(enrollment.acr)!=='3');checks.enrollment_is_not_step_up=true;
+  diagnostic.phase='PROOF';requireProof(added===1&&!wrongRP);checks.browser_registration=true;
+  diagnostic.phase='PROOF';requireProof(String(enrollment.acr)!=='3');checks.enrollment_is_not_step_up=true;
   stage='ordinary_sso';const beforeSSO=asserted;const sso=await consume(await authorize());
   requireProof(String(sso.acr)!=='3'&&asserted===beforeSSO);checks.ordinary_sso_not_step_up=true;
   stage='totp';await reset();const beforeTOTP=asserted;const mfa=await consume(await authorize(2,true));
