@@ -2,7 +2,6 @@ package federation
 
 import (
 	"context"
-	"sync"
 	"time"
 )
 
@@ -54,7 +53,7 @@ type ContextAcquirer func(context.Context) (ResolutionContext, error)
 // Cancellation terminates the supervisor and invalidates all future reads.
 type SupervisedContexts struct {
 	lastObserved time.Time
-	mu           sync.Mutex
+	guard        chan struct{}
 	parent       context.Context
 	acquire      ContextAcquirer
 	now          func() time.Time
@@ -67,7 +66,7 @@ func StartSupervisedContexts(ctx context.Context, acquire ContextAcquirer, now f
 	if ctx == nil || ctx.Err() != nil || acquire == nil || now == nil || interval <= 0 || margin < interval || margin > time.Minute {
 		return nil, ErrInvalid
 	}
-	s := &SupervisedContexts{parent: ctx, acquire: acquire, now: now, margin: margin, done: make(chan struct{})}
+	s := &SupervisedContexts{parent: ctx, acquire: acquire, now: now, margin: margin, done: make(chan struct{}), guard: make(chan struct{}, 1)}
 	if _, err := s.Context(ctx); err != nil {
 		return nil, err
 	}
@@ -78,9 +77,9 @@ func StartSupervisedContexts(ctx context.Context, acquire ContextAcquirer, now f
 		for {
 			select {
 			case <-ctx.Done():
-				s.mu.Lock()
+				s.guard <- struct{}{}
 				s.value = ResolutionContext{}
-				s.mu.Unlock()
+				<-s.guard
 				return
 			case <-timer.C:
 				_, _ = s.Context(ctx)
@@ -91,11 +90,19 @@ func StartSupervisedContexts(ctx context.Context, acquire ContextAcquirer, now f
 }
 
 func (s *SupervisedContexts) Context(ctx context.Context) (ResolutionContext, error) {
-	if s == nil || ctx == nil || s.parent == nil || s.acquire == nil || s.now == nil {
+	if s == nil || ctx == nil || s.parent == nil || s.acquire == nil || s.now == nil || s.guard == nil {
 		return ResolutionContext{}, ErrInvalid
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// Waiting behind a renewal must respect the operation deadline too. A
+	// plain mutex here could outlive the hook's overall response budget.
+	select {
+	case s.guard <- struct{}{}:
+		defer func() { <-s.guard }()
+	case <-ctx.Done():
+		return ResolutionContext{}, ErrUnavailable
+	case <-s.parent.Done():
+		return ResolutionContext{}, ErrUnavailable
+	}
 	if ctx.Err() != nil || s.parent.Err() != nil {
 		s.value = ResolutionContext{}
 		return ResolutionContext{}, ErrUnavailable

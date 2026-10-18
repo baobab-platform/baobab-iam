@@ -188,3 +188,43 @@ func TestSupervisorRejectsClockRollback(t *testing.T) {
 		t.Fatal("clock rollback reused lease")
 	}
 }
+
+func TestContextDeadlineBoundsWaitForRenewal(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	now := time.Now().UTC()
+	var clock atomic.Int64
+	clock.Store(now.UnixNano())
+	var calls atomic.Int64
+	entered := make(chan struct{})
+	s, err := StartSupervisedContexts(ctx, func(call context.Context) (ResolutionContext, error) {
+		if calls.Add(1) == 1 {
+			return ResolutionContext{"ctx_initial", now.Add(time.Minute)}, nil
+		}
+		close(entered)
+		<-call.Done()
+		return ResolutionContext{}, call.Err()
+	}, func() time.Time { return time.Unix(0, clock.Load()) }, time.Millisecond, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cancel(); <-s.Done() }()
+	clock.Store(now.Add(51 * time.Second).UnixNano())
+	select {
+	case <-entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("renewal not entered")
+	}
+	waiting, stop := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer stop()
+	result := make(chan error, 1)
+	go func() { _, err := s.Context(waiting); result <- err }()
+	select {
+	case err := <-result:
+		if err == nil {
+			t.Fatal("deadline returned context")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("renewal lock ignored operation deadline")
+	}
+}

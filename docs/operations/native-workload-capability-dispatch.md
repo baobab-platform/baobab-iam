@@ -122,7 +122,10 @@ existing is insufficient approval. Files/directories must satisfy the existing
 protected-service-document rules. Do not substitute environment tokens, provider
 hints or estate request values. The private hook listener retains sender-key
 authentication and must only be reachable by Hydra on the protected deployment
-network. Shutdown drains requests and joins context supervision.
+network. Shutdown waits for request draining and joins context supervision before exit.
+Listener/startup failures return a nonzero process status after cleanup. Each
+hook operation has an eight-second overall budget, including renewal-lock waits,
+below the ten-second response deadline; expiry denies issuance.
 
 The resolution credential needs separately allocated `context:resolve` transport scope and
 current canonical capability-resolution authority; runtime reads need `identity-runtime:read` plus
