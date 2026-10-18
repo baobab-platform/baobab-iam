@@ -371,6 +371,10 @@ are not upgraded by synthetic repository fixtures.
 
 ### 18 October 2026 — C4-01 current runtime authority adapter
 
+Source increments: [Shared #348](https://github.com/baobab-platform/shared/pull/348),
+[CP #417](https://github.com/baobab-platform/baobab-cp/pull/417) and
+[IAM #120](https://github.com/baobab-platform/baobab-iam/pull/120).
+
 Shared defines separate, unassigned native/workload runtime read vocabulary.
 CP supplies current scoped runtime evidence with exact composition references.
 IAM HTTPRuntimeAuthority implements the existing RuntimeBindingAuthority with
