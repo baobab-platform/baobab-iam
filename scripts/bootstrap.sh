@@ -124,8 +124,9 @@ reconcile_step_up_flow() {
 #
 # LoA 3 must have exactly one security meaning, so the subflow is created
 # with only the Level-of-Authentication condition and the passwordless
-# WebAuthn authenticator, evaluated BEFORE "Baobab - Step-Up" (priority 35 <
-# 40) so a completed level 3 satisfies level 2 without a second factor.
+# WebAuthn authenticator, evaluated AFTER "Baobab - Step-Up" (priority 45 >
+# 40). Forced fresh authentication must finish at the strongest level because
+# native LoA callbacks replace the current level instead of retaining its max.
 # tests/integration/run.sh section 19b proves the result.
 #
 # Idempotent: skips the flow once "Baobab - Passkey Step-Up" is present; the
@@ -143,7 +144,7 @@ reconcile_passkey_step_up_flow() {
     PASSKEY_EXECUTION_JSON=$(kcadm get "authentication/flows/Baobab%20browser/executions" -r baobab \
       | jq -c '[.[] | select(.displayName == "Baobab - Passkey Step-Up")][0]')
     TMP_FILE=$(mktemp)
-    echo "$PASSKEY_EXECUTION_JSON" | jq '.requirement = "CONDITIONAL" | .priority = 35' > "$TMP_FILE"
+    echo "$PASSKEY_EXECUTION_JSON" | jq '.requirement = "CONDITIONAL" | .priority = 45' > "$TMP_FILE"
     kcadm update "authentication/flows/Baobab%20browser/executions" -r baobab -f "$TMP_FILE"
     rm -f "$TMP_FILE"
 

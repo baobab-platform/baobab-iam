@@ -33,7 +33,7 @@ def validate(realm):
     primary = by_alias['Baobab - Primary Authentication']
     passkey = by_alias['Baobab - Passkey Step-Up']
     otp = by_alias['Baobab - Step-Up']
-    if primary['requirement'] != 'CONDITIONAL' or not primary['priority'] < passkey['priority'] < otp['priority']:
+    if primary['requirement'] != 'CONDITIONAL' or not primary['priority'] < otp['priority'] < passkey['priority']:
         raise ValueError('identify the user before ordered assurance checks')
     if passkey['requirement'] != 'CONDITIONAL' or otp['requirement'] != 'CONDITIONAL':
         raise ValueError('assurance conditions must be retained')

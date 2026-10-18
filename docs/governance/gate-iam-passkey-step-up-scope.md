@@ -14,7 +14,7 @@
 
 ## What this change configures
 
-- Subflow **`Baobab - Passkey Step-Up`**, `CONDITIONAL` in `Baobab browser` at priority 35, ahead of `Baobab - Step-Up` (40). It contains only a `Condition - Level of Authentication` (level **3**, max age **300**) and the **passwordless WebAuthn** authenticator, both `REQUIRED`. There is no OTP-only, password-only or two-factor-WebAuthn alternative. Because it runs first, a completed level 3 satisfies level 2 without a second factor.
+- Subflow **`Baobab - Passkey Step-Up`**, `CONDITIONAL` in `Baobab browser` at priority 45, after `Baobab - Step-Up` (40). It contains only a `Condition - Level of Authentication` (level **3**, max age **300**) and the **passwordless WebAuthn** authenticator, both `REQUIRED`. There is no OTP-only, password-only or two-factor-WebAuthn alternative. With forced fresh authentication, Keycloak runs both levels and each completion replaces the current LoA. Running the strongest level last prevents OTP from overwriting a genuine passkey proof with LoA 2.
 - Realm passwordless WebAuthn policy: user verification **required**, resident (discoverable) credential required, ES256/RS256.
 - `scripts/bootstrap.sh` reconciles both into an already-existing realm (idempotent), as it does for the OTP step-up.
 - `acr.loa.map` is unchanged: Keycloak treats a numeric `acr_values` as the LoA directly, so clients request `acr_values=3`.
@@ -26,7 +26,7 @@ Run against a real Keycloak in CI, the suite proves the configuration cannot emi
 - the passkey subflow is the LoA predicate, native configured-user guard and passwordless WebAuthn factor, all `REQUIRED`, with no OTP/password/two-factor alternative; the 17 October repair adds the guard so an unenrolled essential LoA-3 request gets the native unmet-ACR HTTP 400 denial rather than a server error, while enrolled users still must prove WebAuthn;
 - **exactly one** flow in the realm sets LoA 3, and it is the passkey subflow (any other flow able to set 3 would change what `acr=3` means);
 - the condition is level 3 with a 300-second maximum age;
-- the subflow is `CONDITIONAL` and evaluated before the OTP step-up;
+- the subflow is `CONDITIONAL` and evaluated after the OTP step-up;
 - the passwordless WebAuthn policy requires user verification;
 - a password-only authentication does not yield `acr=3`;
 - whether the native `oidc-amr-mapper` exists is reported (INFO), never asserted.

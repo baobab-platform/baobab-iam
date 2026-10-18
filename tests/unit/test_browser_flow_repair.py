@@ -20,6 +20,7 @@ def state_for(legacy=True):
     flows = realm['authenticationFlows']
     if legacy:
         browser = next(f for f in flows if f['alias'] == 'Baobab browser')
+        next(e for e in browser['authenticationExecutions'] if e.get('flowAlias')=='Baobab - Passkey Step-Up')['priority']=35
         primary = next(f for f in flows if f['alias'] == 'Baobab - Primary Authentication')
         browser['authenticationExecutions'] = [e for e in primary['authenticationExecutions'] if e['requirement']=='ALTERNATIVE'] + browser['authenticationExecutions'][1:]
         flows.remove(primary)
@@ -74,7 +75,9 @@ class BrowserRepairTests(unittest.TestCase):
             expected = copy.deepcopy(old[model['id']])
             if expected['parentFlow'] == root_id and expected['requirement'] == 'ALTERNATIVE':
                 expected['requirement'] = 'DISABLED'
-            self.assertEqual(model, expected)  # OTP/passkey/configuration identities untouched.
+            if expected['parentFlow'] == root_id and expected.get('priority') == 35:
+                expected['priority'] = 45
+            self.assertEqual(model, expected)  # IDs and factor/configuration policy stay intact.
         self.assertEqual(len(after['flows']), len(before['flows'])+1)
         self.assertEqual(len(after['executions']), len(before['executions'])+6)
 
@@ -106,6 +109,28 @@ class BrowserRepairTests(unittest.TestCase):
         result, after = self.invoke(state)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(state, after)
+
+    def test_old_assurance_order_migrates_only_the_existing_execution_priority(self):
+        before=state_for(legacy=False)
+        passkey_id=next(f['id'] for f in before['flows'] if f['alias']=='Baobab - Passkey Step-Up')
+        entry=next(e for e in before['executions'] if e.get('flowId')==passkey_id)
+        entry['priority']=35
+        expected=copy.deepcopy(before)
+        next(e for e in expected['executions'] if e['id']==entry['id'])['priority']=45
+        result,after=self.invoke(before)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(after,expected)
+        result,again=self.invoke()
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(again,after)
+
+    def test_custom_assurance_order_is_refused_without_changes(self):
+        before=state_for(legacy=False)
+        passkey_id=next(f['id'] for f in before['flows'] if f['alias']=='Baobab - Passkey Step-Up')
+        next(e for e in before['executions'] if e.get('flowId')==passkey_id)['priority']=36
+        result,after=self.invoke(before)
+        self.assertNotEqual(result.returncode,0)
+        self.assertEqual(after,before)
 
     def test_custom_browser_binding_is_not_overridden(self):
         state = state_for()

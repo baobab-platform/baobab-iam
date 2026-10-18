@@ -19,7 +19,7 @@ The fresh realm now has:
 - CONDITIONAL `Baobab - Primary Authentication` at priority 5, containing a
   REQUIRED native LoA-1 predicate at priority 0, followed by the unchanged
   cookie, federation redirect and forms alternatives;
-- CONDITIONAL passkey step-up at 35, then CONDITIONAL OTP step-up at 40;
+- CONDITIONAL OTP step-up at 40, then CONDITIONAL passkey step-up at 45;
 - unchanged REQUIRED username/password and conditional privileged role/OTP
   inside `Baobab forms`, with all existing role composites and assurance
   configuration retained.

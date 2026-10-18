@@ -1097,15 +1097,15 @@ if [ -n "$PASSKEY_CONFIG_ID" ] && [ "$LOA3_UNIQUE" = "1" ] && [ "$(echo $LOA3_CO
 else
   fail "LoA 3 must be set by exactly one configuration, the one in '$PASSKEY_FLOW_ALIAS' (found $LOA3_UNIQUE unique: $LOA3_CONFIG_IDS; passkey: '$PASSKEY_CONFIG_ID')"
 fi
-# The passkey flow is part of the browser flow and is evaluated before the OTP
-# step-up (priority lower), so a completed level 3 satisfies level 2.
+# The strongest flow must run last: forced reauthentication executes both
+# native levels, and a later LoA-2 callback would overwrite a completed LoA 3.
 BROWSER_TOP=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/authentication/flows/Baobab%20browser/executions" || echo "[]")
 PASSKEY_PRIORITY=$(echo "$BROWSER_TOP" | jq -r '[.[] | select(.displayName == "Baobab - Passkey Step-Up")][0].priority // empty')
 OTP_PRIORITY=$(echo "$BROWSER_TOP" | jq -r '[.[] | select(.displayName == "Baobab - Step-Up")][0].priority // empty')
-if [ -n "$PASSKEY_PRIORITY" ] && [ -n "$OTP_PRIORITY" ] && [ "$PASSKEY_PRIORITY" -lt "$OTP_PRIORITY" ]; then
-  pass "'Baobab browser' evaluates the passkey step-up (priority $PASSKEY_PRIORITY) before the OTP step-up (priority $OTP_PRIORITY)"
+if [ -n "$PASSKEY_PRIORITY" ] && [ -n "$OTP_PRIORITY" ] && [ "$PASSKEY_PRIORITY" -gt "$OTP_PRIORITY" ]; then
+  pass "'Baobab browser' evaluates the passkey step-up (priority $PASSKEY_PRIORITY) after the OTP step-up (priority $OTP_PRIORITY)"
 else
-  fail "the passkey step-up must precede the OTP step-up in 'Baobab browser' (passkey: '$PASSKEY_PRIORITY', otp: '$OTP_PRIORITY')"
+  fail "the passkey step-up must follow the OTP step-up in 'Baobab browser' (passkey: '$PASSKEY_PRIORITY', otp: '$OTP_PRIORITY')"
 fi
 if [ "$(echo "$BROWSER_TOP" | jq -r '[.[] | select(.displayName == "Baobab - Passkey Step-Up")][0].requirement // empty')" = "CONDITIONAL" ]; then
   pass "the passkey step-up is CONDITIONAL: ordinary logins never enter it"

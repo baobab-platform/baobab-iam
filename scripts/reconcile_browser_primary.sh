@@ -47,7 +47,8 @@ reconcile_browser_primary() {
   # Both assurance branches must remain present, conditional and ordered.
   jq -e '[.[]|select((.level // 0)==0 and (.displayName=="Baobab - Step-Up" or .displayName=="Baobab - Passkey Step-Up"))] as $s |
     ($s|length)==2 and all($s[];.requirement=="CONDITIONAL" and .priority>5) and
-    ([$s[]|select(.displayName=="Baobab - Passkey Step-Up")][0].priority < [$s[]|select(.displayName=="Baobab - Step-Up")][0].priority)' <<< "$root_entries" >/dev/null
+    ([$s[]|select(.displayName=="Baobab - Step-Up")][0].priority==40) and
+    ([$s[]|select(.displayName=="Baobab - Passkey Step-Up")][0].priority as $p | $p==35 or $p==45)' <<< "$root_entries" >/dev/null
   legacy=$(jq -c '[.[]|select((.level // 0)==0 and (.providerId=="auth-cookie" or .providerId=="identity-provider-redirector" or .displayName=="Baobab forms"))]' <<< "$root_entries")
   if [ "$(jq 'length' <<< "$attached")" = 0 ]; then
     # A previously disabled/customised identification branch is operator
@@ -113,6 +114,7 @@ reconcile_browser_primary() {
   unset BROWSER_REPAIR_DIR
   reconcile_browser_primary_loa
   reconcile_passkey_enrollment_guard
+  reconcile_assurance_order
   echo 'Browser primary identity and current-request LoA 1 verified; MFA and step-up retained.'
 }
 
@@ -194,5 +196,28 @@ reconcile_passkey_enrollment_guard() {
     unset BROWSER_REPAIR_DIR
   else
     jq -e '.[0].requirement=="REQUIRED" and .[0].priority==15' <<< "$guard" >/dev/null
+  fi
+}
+
+# Keycloak 26.7.5 forcibly reauthenticates EVERY requested LoA for max_age=0.
+# onParentFlowSuccess replaces (not maximizes) current LoA. Run 1 -> 2 -> 3;
+# the former 3 -> 2 ordering downgraded a genuine passkey assertion to MFA.
+# Migrate only the exact published priorities; custom ordering requires review.
+reconcile_assurance_order() {
+  local root branch entries model config
+  root=$(kcadm get authentication/flows/Baobab%20browser/executions -r baobab)
+  branch=$(jq -ce '[.[]|select((.level // 0)==0 and .displayName=="Baobab - Passkey Step-Up")]|select(length==1)|.[0]|
+    select(.requirement=="CONDITIONAL" and (.priority==35 or .priority==45))' <<< "$root")
+  jq -e '[.[]|select((.level // 0)==0 and .displayName=="Baobab - Step-Up")]|length==1 and .[0].requirement=="CONDITIONAL" and .[0].priority==40' <<< "$root" >/dev/null
+  entries=$(kcadm get authentication/flows/Baobab%20-%20Step-Up/executions -r baobab)
+  model=$(kcadm get "authentication/executions/$(jq -er '[.[]|select((.level // 0)==0 and .providerId=="conditional-level-of-authentication")]|select(length==1)|.[0].id' <<< "$entries")" -r baobab)
+  config=$(kcadm get "authentication/config/$(jq -er '.authenticatorConfig' <<< "$model")" -r baobab)
+  jq -e 'del(.id)=={alias:"baobab-step-up-loa-gold",config:{"loa-condition-level":"2","loa-max-age":"300"}}' <<< "$config" >/dev/null
+  if [ "$(jq -r '.priority' <<< "$branch")" = 35 ]; then
+    BROWSER_REPAIR_DIR=$(mktemp -d)
+    jq '.priority=45' <<< "$branch" > "$BROWSER_REPAIR_DIR/document.json"
+    kcadm update authentication/flows/Baobab%20browser/executions -r baobab -f "$BROWSER_REPAIR_DIR/document.json" >/dev/null
+    rm -rf -- "$BROWSER_REPAIR_DIR"
+    unset BROWSER_REPAIR_DIR
   fi
 }
