@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {checkIds,receipt,publish,observation} from './evidence.mjs';
-import {loopbackOrigin, opaque, configuration, begin, exchange, freshPasskey, totp} from './protocol.mjs';
+import {loopbackOrigin, opaque, configuration, begin, exchange, freshPasskey, totpSequence} from './protocol.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');
 const checks=Object.fromEntries(checkIds.map(x=>[x,false]));
@@ -23,6 +23,7 @@ async function run(){
  const issuer=origin+'/realms/baobab', redirectUri='http://localhost:3003/passkey-qualification';
  const clientId='passkey-qualification-'+opaque().slice(0,16), userName='passkey-'+opaque().slice(0,16);
  const userPassword=opaque();
+ const nextOTP=totpSequence();
  let userId,clientUuid,browser,context,page,authenticatorId,cdp,otpSecret,callback;
  let added=0,asserted=0,wrongRP=false;
  async function admin(endpoint,body,method='GET',absent=false){
@@ -70,7 +71,11 @@ async function run(){
   await page.route('**/*',async route=>{
    const u=new URL(route.request().url());
    if(u.origin+u.pathname===redirectUri){callback=u.href;diagnostic.phase='CALLBACK';await route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><title>Synthetic callback</title>'});}
-   else if(u.origin===origin)await route.continue();else await route.abort();
+   else if(u.origin===origin)await route.continue();else {
+    diagnostic.blocked_request=u.origin===new URL(redirectUri).origin?'CALLBACK_PATH':
+     ['localhost','127.0.0.1','[::1]'].includes(u.hostname)?'LOCAL_ORIGIN':'REMOTE_ORIGIN';
+    await route.abort();
+   }
   });
   page.on('dialog',dialog=>{void dialog.accept('Synthetic CI passkey').catch(()=>{});});
   cdp=await context.newCDPSession(page);await cdp.send('WebAuthn.enable');
@@ -102,12 +107,12 @@ async function run(){
     }
     if(await page.locator('#totpSecret').count()){ 
      diagnostic.phase='PAGE_TOTP';diagnostic.last_action='TOTP_SETUP';
-     otpSecret=await page.locator('#totpSecret').inputValue();await page.locator('#totp').fill(totp(otpSecret));
+     otpSecret=await page.locator('#totpSecret').inputValue();await page.locator('#totp').fill(await nextOTP(otpSecret));
      await page.locator('#userLabel').fill('Synthetic CI TOTP');await navigate(()=>page.locator('#saveTOTPBtn').click());continue;
     }
     if(await page.locator('#otp').isVisible().catch(()=>false)){
      diagnostic.phase='PAGE_TOTP';diagnostic.last_action='TOTP';
-     requireProof(otpSecret);await page.locator('#otp').fill(totp(otpSecret));await navigate(()=>page.locator('#kc-login').click());continue;
+     requireProof(otpSecret);await page.locator('#otp').fill(await nextOTP(otpSecret));await navigate(()=>page.locator('#kc-login').click());continue;
     }
     if(await page.locator('#registerWebAuthn').isVisible().catch(()=>false)){
      diagnostic.phase='PAGE_REGISTER';diagnostic.last_action='PASSKEY_REGISTER';
@@ -153,11 +158,14 @@ async function run(){
   requireProof(revoked.denied&&revoked.status===400&&revoked.nativeACR&&!callback);checks.revoked_credential_denied=true;
  }catch(error){
   diagnostic.registration_events=Math.min(99,added);diagnostic.assertion_events=Math.min(99,asserted);
-  diagnostic.error=error.message?.includes('net::ERR_ABORTED')?'NAVIGATION_ABORTED':
+  diagnostic.error=error.message?.includes('net::ERR_BLOCKED_BY_CLIENT')?'ROUTE_BLOCKED':error.message?.includes('net::ERR_ABORTED')?'NAVIGATION_ABORTED':
    error.message?.includes('interrupted by another navigation')?'NAVIGATION_INTERRUPTED':
    error.message?.includes('Execution context was destroyed')?'DOCUMENT_CHANGED':
    error.message?.includes('Download is starting')?'DOWNLOAD':
-   error.message?.includes('Target page, context or browser has been closed')?'PAGE_CLOSED':error.name==='TimeoutError'?'TIMEOUT':error.code==='ERR_JWT_CLAIM_VALIDATION_FAILED'?'CLAIM':
+   error.message?.includes('Target page, context or browser has been closed')?'PAGE_CLOSED':
+   error.message?.includes('net::ERR_')?'NETWORK':error.message?.startsWith('page.waitForNavigation:')?'NAVIGATION':
+   error.message?.startsWith('locator.click:')?'BROWSER_ACTION':error.message?.startsWith('locator.')?'BROWSER_LOCATOR':
+   error.name==='TypeError'?'TYPE_ERROR':error.name==='TimeoutError'?'TIMEOUT':error.code==='ERR_JWT_CLAIM_VALIDATION_FAILED'?'CLAIM':
    ['ClientError','OperationProcessingError'].includes(error.name)?'OIDC':error.message==='proof'?'PROOF':error.message==='unsupported_page'?'UNSUPPORTED_PAGE':'OTHER';
   diagnostic.claim=['acr','auth_time','nonce','iss','aud','iat','exp'].includes(error.claim)?error.claim:'NONE';
   if(page)try{
