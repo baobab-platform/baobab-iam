@@ -56,8 +56,6 @@ func qualifyNative(ctx context.Context,c liveConfig,client *http.Client,tlsConfi
  if os.Getenv("BAOBAB_C403_DISPOSABLE")!="1"{return checks,errors.New("disposable native fixture not approved")}
  session,e:=protectedToken(ctx,c.NativeSessionFile);if e!=nil{return checks,errors.New("synthetic native credential unavailable")}
  // Identity equality is a mandatory safeguard before the destructive revoke.
- status,_,body,e:=requestJSON(ctx,client,"GET",strings.TrimRight(c.KratosPublic,"/")+"/sessions/whoami","",nil)
- _=status;_=body;_=e // Kratos requires X-Session-Token; checked below with its own request.
  sessionRequest,e:=http.NewRequestWithContext(ctx,"GET",strings.TrimRight(c.KratosPublic,"/")+"/sessions/whoami",nil)
  if e!=nil{return checks,errors.New("Kratos whoami request invalid")}
  sessionRequest.Header.Set("X-Session-Token",session)
@@ -112,7 +110,7 @@ func qualifyNative(ctx context.Context,c liveConfig,client *http.Client,tlsConfi
  canonical,e:=humanauth.ProjectOAuthResponse(raw)
  if e!=nil||canonical.IDToken==""{return checks,errors.New("invalid canonical OIDC envelope")}
  verifierOIDC:=oidc.NewVerifier(c.HydraIssuer,
-  oidc.NewRemoteKeySet(ctx,strings.TrimRight(c.HydraIssuer,"/")+"/.well-known/jwks.json"),
+  oidc.NewRemoteKeySet(oidc.ClientContext(ctx,client),strings.TrimRight(c.HydraIssuer,"/")+"/.well-known/jwks.json"),
   &oidc.Config{ClientID:c.NativeClientID,SupportedSigningAlgs:[]string{"RS256"}})
  signed,e:=verifierOIDC.Verify(ctx,canonical.IDToken)
  if e!=nil||signed.Subject!=c.NativeIdentityID||signed.Nonce!=nonce{return checks,errors.New("invalid signed identity binding")}
