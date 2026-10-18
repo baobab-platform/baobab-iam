@@ -788,6 +788,11 @@ else
   fail "live passkey browser qualification failed or did not complete"
 fi
 
+# The real browser cases span several single-use OTP windows. Refresh via the
+# owning fixture API before subsequent lifecycle tests; the earlier admin
+# bearer can legitimately expire while those ceremonies run.
+ADMIN_TOKEN=$(get_admin_token)
+
 echo "== 16. Identity lifecycle: kill switch and admin audit (Gate IAM-12, ADR-0016 §32,§139,§158-159) =="
 # admin-cli is Keycloak's own built-in client, present in every realm by
 # default with direct grants enabled -- used here (not a Baobab-created
