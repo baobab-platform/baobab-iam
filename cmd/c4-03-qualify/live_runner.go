@@ -27,7 +27,7 @@ const fullSchema="baobab-c4-03-registered-integration/v1"
 var fullRequired=[]string{
  "real_hydra_workload_issuance","signed_scoped_audience_token","current_cp_runtime_after_issuance",
  "kratos_synthetic_session_verified","governed_login_consent","signed_nonce_bound_oidc",
- "code_replay_denied","synthetic_session_revoked","protected_cp_resource_accepted",
+ "code_replay_denied","synthetic_session_revoked","protected_cp_resource_accepted", "foreign_owned_context_accepted",
  "foreign_tenant_context_denied","tampered_subject_token_denied",
  "real_cp_withdrawal_denied_unexpired_token","evidence_closed",
 }
@@ -108,8 +108,11 @@ func qualifyFull(parent context.Context,c liveConfig,caFile,sha,artifactDir stri
  if e!=nil{return r}
  issuerForeign,e:=issuedJWT(ctx,client,c,c.Foreign,"baobab-control-plane","context:resolve")
  if e!=nil{return r}
+ resourceForeign,e:=issuedJWT(ctx,client,c,c.Foreign,c.ResourceAudience,c.ResourceScope)
+ if e!=nil{return r}
  r.Checks["real_hydra_workload_issuance"]=true
  r.Checks["signed_scoped_audience_token"]=resourcePrimary.claims.ActorType=="workload"
+ if !r.Checks["signed_scoped_audience_token"] {return r}
  if checkCurrent(ctx,dispatch)!=nil{return r}
  r.Checks["current_cp_runtime_after_issuance"]=true
  // The CP subject's context is minted by the running CP for its verified
@@ -121,6 +124,13 @@ func qualifyFull(parent context.Context,c liveConfig,caFile,sha,artifactDir stri
  if e!=nil||accepted.status!=200||accepted.value.TenantID!=c.Primary.TenantID||
   accepted.value.OrganisationID!=c.Primary.OrganisationID{return r}
  r.Checks["protected_cp_resource_accepted"]=true
+ // Prove the foreign context really exists and belongs to its different
+ // registered principal. Otherwise a fabricated unknown ID also returns 404.
+ legitimateForeign,e:=validateCP(ctx,client,c,validator,resourceForeign.raw,foreign)
+ if e!=nil||legitimateForeign.status!=200||
+  legitimateForeign.value.TenantID!=c.Foreign.TenantID||
+  legitimateForeign.value.OrganisationID!=c.Foreign.OrganisationID{return r}
+ r.Checks["foreign_owned_context_accepted"]=true
  foreignDecision,e:=validateCP(ctx,client,c,validator,resourcePrimary.raw,foreign)
  if e!=nil||requireDecision(foreignDecision,404,"CONTEXT_NOT_FOUND")!=nil{return r}
  r.Checks["foreign_tenant_context_denied"]=true
