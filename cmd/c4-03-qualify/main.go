@@ -123,7 +123,7 @@ func qualify(parent context.Context, c federation.RuntimeComposition, tlsConfig 
 	if err == nil {
 		call, stop = context.WithTimeout(ctx, 8*time.Second)
 		_, err = bad.AcquireRuntimeContext(call, c.ContextTarget, time.Now)
-		r.Checks["invalid_caller_credential_denied"] = err != nil
+		r.Checks["invalid_caller_credential_denied"] = errors.Is(err, federation.ErrDenied)
 		stop()
 	}
 	// Transport-outage simulation uses an unreachable loopback TLS endpoint;
@@ -132,7 +132,7 @@ func qualify(parent context.Context, c federation.RuntimeComposition, tlsConfig 
 	if err == nil {
 		call, stop = context.WithTimeout(ctx, 5*time.Second)
 		_, err = down.AcquireRuntimeContext(call, c.ContextTarget, time.Now)
-		r.Checks["unavailable_cp_denied"] = err != nil
+		r.Checks["unavailable_cp_denied"] = errors.Is(err, federation.ErrUnavailable)
 		stop()
 	}
 	// A future observation clock must refuse today's current CP evidence.
@@ -149,7 +149,7 @@ func qualify(parent context.Context, c federation.RuntimeComposition, tlsConfig 
 	if err == nil {
 		call, stop = context.WithTimeout(ctx, 8*time.Second)
 		_, err = old.RuntimeBinding(call, c.ProviderID, c.EngineInstanceID, scope, target.RuntimeCapability)
-		r.Checks["expired_evidence_denied"] = err != nil
+		r.Checks["expired_evidence_denied"] = errors.Is(err, federation.ErrUnverified)
 		stop()
 	}
 	cancel()
