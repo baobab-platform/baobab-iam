@@ -54,6 +54,28 @@ type runtimeBindingWire struct {
 	SecurityDomainReference string `json:"security_domain_reference"`
 }
 
+// runtimeSnapshotWire is the versioned private runtime response.
+// Keep explicit tags: internal Go model names are not an HTTP wire contract.
+type runtimeSnapshotWire struct {
+	ProviderID       string `json:"provider_id"`
+	EngineInstanceID string `json:"engine_instance_id"`
+	Scope            struct {
+		OrganisationID string `json:"organisation_id"`
+		EstateID       string `json:"estate_id"`
+	} `json:"scope"`
+	ProviderStatus          string    `json:"provider_status"`
+	InstanceStatus          string    `json:"instance_status"`
+	BindingStatus           string    `json:"binding_status"`
+	RuntimeCapability       string    `json:"runtime_capability"`
+	SupportStatus           string    `json:"support_status"`
+	ArtifactDigest          string    `json:"artifact_digest"`
+	DeployedArtifactDigest  string    `json:"deployed_artifact_digest"`
+	ProfileRevision         uint64    `json:"profile_revision"`
+	EvidenceExpiresAt       time.Time `json:"evidence_expires_at"`
+	ConfigurationReference  string    `json:"configuration_reference"`
+	SecurityDomainReference string    `json:"security_domain_reference"`
+}
+
 func (a *HTTPRuntimeAuthority) RuntimeBinding(ctx context.Context, providerID, instanceID string, scope Scope, facet string) (PlatformSnapshot, error) {
 	if a == nil || a.now == nil || a.transport == nil || ctx == nil {
 		return PlatformSnapshot{}, ErrInvalid
@@ -66,13 +88,24 @@ func (a *HTTPRuntimeAuthority) RuntimeBinding(ctx context.Context, providerID, i
 	if started.IsZero() {
 		return PlatformSnapshot{}, ErrInvalid
 	}
-	var out PlatformSnapshot
+	var wire runtimeSnapshotWire
 	err := a.transport.call(ctx, "/internal/identity-runtime/v1/binding", runtimeBindingWire{
 		t.ProviderID, t.EngineInstanceID, t.Scope.OrganisationID, t.Scope.EstateID,
 		t.RuntimeCapability, t.ConfigurationReference, t.SecurityDomainReference,
-	}, &out)
+	}, &wire)
 	if err != nil {
 		return PlatformSnapshot{}, err
+	}
+	if wire.ConfigurationReference != t.ConfigurationReference || wire.SecurityDomainReference != t.SecurityDomainReference {
+		return PlatformSnapshot{}, ErrUnverified
+	}
+	out := PlatformSnapshot{
+		ProviderID: wire.ProviderID, EngineInstanceID: wire.EngineInstanceID,
+		Scope:          Scope{OrganisationID: wire.Scope.OrganisationID, EstateID: wire.Scope.EstateID},
+		ProviderStatus: wire.ProviderStatus, InstanceStatus: wire.InstanceStatus, BindingStatus: wire.BindingStatus,
+		RuntimeCapability: wire.RuntimeCapability, SupportStatus: wire.SupportStatus,
+		ArtifactDigest: wire.ArtifactDigest, DeployedArtifactDigest: wire.DeployedArtifactDigest,
+		ProfileRevision: wire.ProfileRevision, EvidenceExpiresAt: wire.EvidenceExpiresAt,
 	}
 	finished := a.now().UTC()
 	if ctx.Err() != nil || finished.Before(started) || out.ProviderID != t.ProviderID || out.EngineInstanceID != t.EngineInstanceID ||

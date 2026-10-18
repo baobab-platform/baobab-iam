@@ -13,4 +13,17 @@ if set(manifest['files']) != expected:
 for name, digest in manifest['files'].items():
     if hashlib.sha256((root / name).read_bytes()).hexdigest() != digest:
         raise SystemExit(f'Consumer snapshot changed: {name}')
-print('Pinned unchanged CP verifier and dependency locks verified')
+# The verifier remains upstream source. Only the reviewed vulnerable indirect
+# module is overridden; reversing that exact change must recover upstream locks.
+if set(manifest['dependency_overrides']) != {'golang.org/x/text'}:
+    raise SystemExit('Unexpected additional consumer dependency override')
+override = manifest['dependency_overrides']['golang.org/x/text']
+if override['upstream'] != 'v0.39.0' or override['selected'] != 'v0.42.0' or override['advisory'] != 'GO-2026-6629':
+    raise SystemExit('Unexpected consumer dependency override')
+original_mod = (root/'go.mod').read_bytes().replace(b'golang.org/x/text v0.42.0', b'golang.org/x/text v0.39.0')
+original_sum = b''.join(line for line in (root/'go.sum').read_bytes().splitlines(keepends=True)
+                        if not line.startswith(b'golang.org/x/text v0.42.0'))
+for data, key in ((original_mod, 'upstream_go_mod_sha256'), (original_sum, 'upstream_go_sum_sha256')):
+    if hashlib.sha256(data).hexdigest() != override[key]:
+        raise SystemExit('Unreviewed consumer dependency changes')
+print('Unchanged CP verifier and exact reviewed security dependency override verified')

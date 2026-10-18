@@ -26,6 +26,15 @@ func runtimeTarget(p PlatformSnapshot) RuntimeAuthorityTarget {
 		Scope: p.Scope, RuntimeCapability: p.RuntimeCapability,
 		ConfigurationReference: "ref_nativeconfig", SecurityDomainReference: "ref_securitydomain"}
 }
+func runtimeReply(p PlatformSnapshot, target RuntimeAuthorityTarget) runtimeSnapshotWire {
+	w := runtimeSnapshotWire{ProviderID: p.ProviderID, EngineInstanceID: p.EngineInstanceID,
+		ProviderStatus: p.ProviderStatus, InstanceStatus: p.InstanceStatus, BindingStatus: p.BindingStatus,
+		RuntimeCapability: p.RuntimeCapability, SupportStatus: p.SupportStatus, ArtifactDigest: p.ArtifactDigest,
+		DeployedArtifactDigest: p.DeployedArtifactDigest, ProfileRevision: p.ProfileRevision, EvidenceExpiresAt: p.EvidenceExpiresAt,
+		ConfigurationReference: target.ConfigurationReference, SecurityDomainReference: target.SecurityDomainReference}
+	w.Scope.OrganisationID, w.Scope.EstateID = p.Scope.OrganisationID, p.Scope.EstateID
+	return w
+}
 func runtimeHTTP(t *testing.T, target RuntimeAuthorityTarget, now func() time.Time, h http.HandlerFunc) (*HTTPRuntimeAuthority, *runtimeTokens) {
 	t.Helper()
 	server := httptest.NewTLSServer(h)
@@ -69,7 +78,7 @@ func TestHTTPRuntimeAuthorityComposesFreshDispatch(t *testing.T) {
 					w.WriteHeader(http.StatusConflict)
 					return
 				}
-				_ = json.NewEncoder(w).Encode(p.value)
+				_ = json.NewEncoder(w).Encode(runtimeReply(p.value, target))
 			})
 			d.config.Platform = a
 			if err := d.Check(context.Background()); err != nil {
@@ -116,7 +125,7 @@ func TestHTTPRuntimeAuthorityRejectsUnsafeEvidence(t *testing.T) {
 			mutate(&out)
 			a, _ := runtimeHTTP(t, runtimeTarget(p.value), d.config.Now, func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				_ = json.NewEncoder(w).Encode(out)
+				_ = json.NewEncoder(w).Encode(runtimeReply(out, runtimeTarget(p.value)))
 			})
 			got, err := a.RuntimeBinding(context.Background(), p.value.ProviderID, p.value.EngineInstanceID, p.value.Scope, p.value.RuntimeCapability)
 			if !errors.Is(err, ErrUnverified) || got.ProviderID != "" {
@@ -139,9 +148,10 @@ func TestHTTPRuntimeAuthorityStrictTransportAndConfiguration(t *testing.T) {
 		{"redirect", 302, "private", ErrUnavailable},
 		{"missing", 404, "private", ErrDenied},
 		{"conflict", 409, "private", ErrUnverified},
+		{"Go names are not wire", 200, `{"ProviderID":"provider_example"}`, ErrInvalid},
 		{"unknown", 200, `{"secret":true}`, ErrInvalid},
-		{"duplicate", 200, `{"ProviderID":"a","ProviderID":"b"}`, ErrInvalid},
-		{"null", 200, `{"ProviderID":null}`, ErrInvalid},
+		{"duplicate", 200, `{"provider_id":"a","provider_id":"b"}`, ErrInvalid},
+		{"null", 200, `{"provider_id":null}`, ErrInvalid},
 		{"trailing", 200, `{}{}`, ErrInvalid},
 		{"missing fields", 200, `{}`, ErrUnverified},
 	} {
@@ -176,5 +186,37 @@ func TestHTTPRuntimeAuthorityStrictTransportAndConfiguration(t *testing.T) {
 	}
 	if _, err := NewHTTPRuntimeAuthority("https://cp.invalid", &runtimeTokens{}, &tls.Config{InsecureSkipVerify: true}, target, d.config.Now); err == nil {
 		t.Fatal("unverified TLS accepted")
+	}
+}
+
+// Literal CP JSON keeps the protocol test independent of Go response encoders.
+func TestHTTPRuntimeAuthorityLiteralCPWire(t *testing.T) {
+	d, _, p, _ := runtimeSetup(t, "identity.authentication.perform")
+	target := runtimeTarget(p.value)
+	body := fmt.Sprintf(`{"provider_id":%q,"engine_instance_id":%q,"scope":{"organisation_id":%q,"estate_id":%q},"provider_status":"ACTIVE","instance_status":"ACTIVE","binding_status":"ACTIVE","runtime_capability":"HUMAN_AUTHENTICATION","support_status":"VERIFIED","artifact_digest":%q,"deployed_artifact_digest":%q,"profile_revision":1,"evidence_expires_at":%q,"configuration_reference":"ref_nativeconfig","security_domain_reference":"ref_securitydomain"}`,
+		target.ProviderID, target.EngineInstanceID, target.Scope.OrganisationID, target.Scope.EstateID,
+		p.value.ArtifactDigest, p.value.DeployedArtifactDigest, p.value.EvidenceExpiresAt.Format(time.RFC3339Nano))
+	for _, tc := range []struct {
+		name, body string
+		valid      bool
+	}{
+		{"exact", body, true},
+		{"configuration substitution", strings.Replace(body, "ref_nativeconfig", "ref_foreignconfig", 1), false},
+		{"security domain substitution", strings.Replace(body, "ref_securitydomain", "ref_foreigndomain", 1), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a, _ := runtimeHTTP(t, target, d.config.Now, func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprint(w, tc.body)
+			})
+			out, err := a.RuntimeBinding(context.Background(), target.ProviderID, target.EngineInstanceID, target.Scope, target.RuntimeCapability)
+			if tc.valid {
+				if err != nil || out.ProviderID != target.ProviderID {
+					t.Fatal(out, err)
+				}
+			} else if !errors.Is(err, ErrUnverified) || out.ProviderID != "" {
+				t.Fatal("foreign composition accepted", out, err)
+			}
+		})
 	}
 }
