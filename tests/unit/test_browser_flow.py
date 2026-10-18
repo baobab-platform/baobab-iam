@@ -41,6 +41,14 @@ class BrowserFlowTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'missing child'):
             module.validate(self.realm)
 
+    def test_forced_fresh_authentication_cannot_finish_with_a_weaker_level(self):
+        # The former 3 -> 2 order overwrites a successful passkey LoA during
+        # max_age=0 reauthentication; configuration must require 1 -> 2 -> 3.
+        root = self.flow('Baobab browser')['authenticationExecutions']
+        next(e for e in root if e.get('flowAlias')=='Baobab - Passkey Step-Up')['priority']=35
+        with self.assertRaises(ValueError):
+            module.validate(self.realm)
+
 
 
 class BaselineAssuranceTests(unittest.TestCase):
