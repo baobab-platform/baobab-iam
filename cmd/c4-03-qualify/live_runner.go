@@ -270,7 +270,11 @@ func qualifyFull(parent context.Context, c liveConfig, caFile, sha, artifactDir 
 		return r
 	}
 	// Must be the same cryptographically sound bearer while still unexpired.
-	if resourcePrimary.claims.Expires <= time.Now().Unix()+10 {
+	// Both the signed bearer AND the previously accepted CP context must
+	// still be current. Otherwise an ordinary context timeout could be
+	// misreported as an independently observed CP withdrawal.
+	if resourcePrimary.claims.Expires <= time.Now().Unix()+10 ||
+		!time.Now().Before(accepted.value.ExpiresAt) {
 		return r
 	}
 	after, e := validateCP(ctx, client, c, validator, resourcePrimary.raw, own)
