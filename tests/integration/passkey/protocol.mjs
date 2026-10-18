@@ -86,7 +86,7 @@ export function totp(secret, seconds = Math.floor(Date.now()/1000)) {
 // passkey ceremony, must advance past the last OTP window used for this user.
 export function totpSequence({now=Date.now,wait=delay}={}) {
   let previous=-1;
-  return async secret=>{
+  const ready=async()=>{
     let milliseconds=now(),window=Math.floor(milliseconds/30000);
     if(window<=previous){
       const remaining=(previous+1)*30000-milliseconds;
@@ -95,7 +95,14 @@ export function totpSequence({now=Date.now,wait=delay}={}) {
       milliseconds=now();window=Math.floor(milliseconds/30000);
       if(window<=previous)throw Error('otp_clock');
     }
-    previous=window;
+    return milliseconds;
+  };
+  const next=async secret=>{
+    const milliseconds=await ready();
+    previous=Math.floor(milliseconds/30000);
     return totp(secret,Math.floor(milliseconds/1000));
   };
+  // Readiness does not consume a code; generate it only at the actual form.
+  next.ready=async()=>{await ready();};
+  return next;
 }

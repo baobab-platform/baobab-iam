@@ -59,7 +59,7 @@ async function run(){
   redirectUri=receiver.redirectUri;
   clientUuid=await create('clients',{clientId,enabled:true,protocol:'openid-connect',publicClient:true,standardFlowEnabled:true,
    directAccessGrantsEnabled:false,implicitFlowEnabled:false,serviceAccountsEnabled:false,fullScopeAllowed:false,
-   defaultClientScopes:['acr'],optionalClientScopes:[],redirectUris:[redirectUri],
+   defaultClientScopes:['basic','acr'],optionalClientScopes:[],redirectUris:[redirectUri],
    attributes:{'pkce.code.challenge.method':'S256'}});
   const clients=await admin('clients?'+new URLSearchParams({clientId}));requireProof(clients.length===1);requireProof(clientUuid===clients[0].id);
   userId=await create('users',{username:userName,enabled:true,email:userName+'@example.invalid',emailVerified:true,
@@ -90,7 +90,10 @@ async function run(){
   cdp.on('WebAuthn.credentialAsserted',()=>{asserted++;});
 
   async function authorize(level,fresh=false){
-   callback=undefined;diagnostic.phase='AUTH_BEGIN';const ceremony=await begin(protocol.config,redirectUri,level,fresh);
+   callback=undefined;
+   // Wait before authentication: max_age=0 must not age while waiting for a new OTP window.
+   if(fresh)await nextOTP.ready();
+   diagnostic.phase='AUTH_BEGIN';const ceremony=await begin(protocol.config,redirectUri,level,fresh);
    diagnostic.phase='PAGE_GOTO';let response=await page.goto(ceremony.url.href,{waitUntil:'domcontentloaded'});diagnostic.last_status=response?.status()??0;
    async function navigate(action){[response]=await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),action()]);diagnostic.last_status=response?.status()??0;}
    for(let step=0;step<12;step++){
@@ -170,7 +173,8 @@ async function run(){
    error.message?.startsWith('locator.click:')?'BROWSER_ACTION':error.message?.startsWith('locator.')?'BROWSER_LOCATOR':
    error.name==='TypeError'?'TYPE_ERROR':error.name==='TimeoutError'?'TIMEOUT':error.code==='ERR_JWT_CLAIM_VALIDATION_FAILED'?'CLAIM':
    ['ClientError','OperationProcessingError'].includes(error.name)?'OIDC':error.message==='proof'?'PROOF':error.message==='unsupported_page'?'UNSUPPORTED_PAGE':'OTHER';
-  diagnostic.claim=['acr','auth_time','nonce','iss','aud','iat','exp'].includes(error.claim)?error.claim:'NONE';
+  const claim=error.claim??error.cause?.claim??error.cause?.cause?.claim;
+  diagnostic.claim=['acr','auth_time','nonce','iss','aud','iat','exp'].includes(claim)?claim:'NONE';
   if(page)try{
    const current=new URL(page.url());diagnostic.location=current.origin===origin?'ISSUER':current.origin+current.pathname===redirectUri?'CALLBACK':'OTHER';
    diagnostic.form=await page.evaluate(()=>{
