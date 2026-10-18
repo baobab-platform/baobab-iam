@@ -9,7 +9,6 @@ import (
  "encoding/base64"
  "crypto/rand"
  "crypto/sha256"
- "crypto/tls"
  "encoding/hex"
  "encoding/json"
  "errors"
