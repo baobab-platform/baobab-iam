@@ -35,3 +35,11 @@ func TestNativeRuntimeFactoryRejectsInsecureProviderTLSBeforeAuthority(t *testin
 		t.Fatal("unsafe TLS reached authority", err)
 	}
 }
+
+func TestNativeRuntimeFactoryRejectsTLSHostOverride(t *testing.T) {
+	c := NativeHumanConfig{KratosPublicURL: "https://kratos.invalid", HydraAdminURL: "https://hydra.invalid", Issuer: "https://issuer.invalid", Now: time.Now, Fence: openNativeTestFence(t), Client: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{ServerName: "foreign.invalid"}}}}
+	_, s, err := StartNativeHumanRuntime(context.Background(), c, federation.RuntimeComposition{}, federation.RuntimeComposition{}, nil)
+	if err == nil || !strings.Contains(err.Error(), "verified native provider TLS required") || s != nil {
+		t.Fatal("TLS hostname override reached authority", err)
+	}
+}

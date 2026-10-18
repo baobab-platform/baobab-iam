@@ -7,8 +7,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"flag"
-	"github.com/baobab-platform/baobab-iam/internal/federation"
-	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/baobab-platform/baobab-iam/internal/federation"
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
 	"github.com/baobab-platform/baobab-iam/internal/tokenprofile"
 )
@@ -62,7 +62,9 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/internal/ory/token-profile", hook)
 	server := &http.Server{Addr: *listen, Handler: mux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		shutdown, stop := context.WithTimeout(context.Background(), 10*time.Second)
 		defer stop()
@@ -72,6 +74,10 @@ func main() {
 		log.Print("token hook listener failed")
 		cancel()
 	}
+	// ListenAndServe returns when shutdown starts; wait for the request drain
+	// before main returns and the process terminates its remaining goroutines.
+	cancel()
+	<-shutdownDone
 }
 
 // configuredHook always requires current CP dispatch, in every environment.

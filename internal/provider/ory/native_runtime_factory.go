@@ -29,7 +29,7 @@ func StartNativeHumanRuntime(ctx context.Context, c NativeHumanConfig, human, is
 		transport = configured.Clone()
 		if transport.TLSClientConfig != nil {
 			tc := transport.TLSClientConfig.Clone()
-			if tc.InsecureSkipVerify || tc.KeyLogWriter != nil || tc.VerifyConnection != nil || tc.VerifyPeerCertificate != nil {
+			if tc.ServerName != "" || tc.InsecureSkipVerify || tc.KeyLogWriter != nil || tc.VerifyConnection != nil || tc.VerifyPeerCertificate != nil {
 				return nil, nil, fmt.Errorf("verified native provider TLS required")
 			}
 			if tc.MinVersion < tls.VersionTLS12 {
