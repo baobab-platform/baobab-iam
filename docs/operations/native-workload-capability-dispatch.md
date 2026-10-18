@@ -43,21 +43,19 @@ certify a composed Kratos/Hydra journey. This wrapper does not perform canonical
 mapping, grant membership, approve founding administrators or establish tenant
 readiness.
 
-## Remaining CP and executable integration
+## Remaining executable integration
 
-The new runtime authority port deliberately has no fixture-backed production
-adapter. The existing `/internal/federation/v1/binding` projection is
-federation-only: its SQL selects identity.authentication.perform and
-federation_configuration references. Do not pass fake trust/configuration
-references or reuse it for workload authorization.
+C4-01 supplies a production HTTP authority adapter and CP's separate native/
+workload runtime projection (Shared #348, CP #417, IAM #120). Federation keeps
+its original endpoint and trust/configuration rules. Native/workload authority
+does not reuse federation grants or fabricate trust-material references.
 
-Next: extend CP's authenticated current-runtime projection with approved native
-and workload reference semantics and capability-specific support/binding
-queries, then wire it into executable composition. The existing standalone
-production hook retains its earlier canonical admission behavior; it does not
-silently acquire this new authority. Deployment must not describe that command
-as C4-complete. Production default wiring and composed CP/provider revocation
-acceptance remain open.
+Next is C4-02: adopt the adapter in executable composition and supervise
+caller-owned context renewal. The standalone production hook retains canonical
+admission; it does not yet call the new runtime authority. Do not describe that
+command as C4-complete. Native composition must also prove the Hydra OAuth
+runtime alongside Kratos. C4-03 supplies actual CP/provider revocation and
+resource-consumption acceptance.
 
 Authority checks are read-time fences, not a cross-service atomic transaction.
 Subsequent protected resource operations must independently enforce current CP
@@ -70,3 +68,26 @@ repository construction, positive selection, fresh rechecks and denials. They
 are not registration, deployed CP, staging or production evidence. Existing
 real-provider CI tests remain required. Governed publication still needs real
 allocated targets, reviewed support, artifacts and current scoped evidence.
+
+## C4-01 production HTTP runtime authority
+
+NewHTTPRuntimeAuthority now implements RuntimeBindingAuthority against CP's
+separate /internal/identity-runtime/v1/binding projection. Each adapter binds
+one reviewed provider, instance, organisation/estate, native/workload facet,
+configuration reference and security-domain reference. Requests cannot retarget
+it. Verified TLS, fixed destination, fresh credentials per call, strict bounded
+JSON and no redirect/retry/proxy-env behavior reuse NewHTTPAuthority. Responses
+must match the target, ACTIVE lifecycle, VERIFIED support, revision, exact
+deployed artifact and current expiry; failure returns no proof.
+
+CP requires the distinct identity-runtime:read scope and scoped
+security.identity-runtime.view permission; neither is allocated here.
+Reviewed configuration approval remains an independent composition input.
+Reference existence is not approval. No fabricated FederationTrust is needed.
+RuntimeDispatch still independently repeats caller-owned CP resolution.
+
+C4-02 must
+adopt this adapter in executable factories, supervise context renewal and prove
+composed Kratos/Hydra coverage. C4-03 must qualify the actual composition and
+resource consumption. Provider declarations remain PARTIAL; INT-02's named
+Pulse proof-bootstrap exception grants no IAM authority.

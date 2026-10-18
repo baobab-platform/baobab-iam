@@ -7,7 +7,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED_PIN = "892d09c64ca6490c46c2f54c37bd366fcc36c3e5"  # Shared #305 preserves Pulse scope allocation while repairing token-request syntax
+SHARED_PIN = "c33d0bebd2ce8a5962ca6b3637409212239f4933"  # Shared #348 adds unassigned runtime read vocabulary; existing Pulse authority stays unchanged
 PULSE_SCOPES = {
     "intelligence:evidence:search",
     "intelligence:research-mission:manage",

@@ -343,8 +343,28 @@ else
   # Keycloak clients exist for client_credentials workloads only. A federated_workload_token workload (ADR-IAM-0033: Hydra owns workload
   # issuance) holds no static secret, so it has no Keycloak client and must not acquire one: it is governed through the Hydra trust
   # binding and the token-profile projection (scripts/build_workload_token_profiles.py), not through config/clients.
+  # Shared #346 names a disposable Infrastructure-only evidence producer.
+  # It must never acquire the deterministic product bootstrap credential.
+  # Only the exact closed registry row qualifies, with committed/live absence.
+  INT02_FIXTURE_ONLY=false
+  if echo "$REGISTRY_JSON" | jq '.workloads["baobab-int02-pulse-consumer"]' |
+      python3 scripts/check_int02_fixture_identity.py >/dev/null; then
+    INT02_LOCAL=$(for F in config/clients/*.json; do jq -r '.clientId // empty' "$F"; done)
+    INT02_LIVE=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/clients?clientId=baobab-int02-pulse-consumer" | jq 'length' || echo "unreadable")
+    if ! echo "$INT02_LOCAL" | grep -qx "baobab-int02-pulse-consumer" && [ "$INT02_LIVE" = "0" ]; then
+      INT02_FIXTURE_ONLY=true
+      pass "exact INT-02 proof identity has no committed or live product client"
+    else
+      fail "INT-02 proof identity must not have a product bootstrap client"
+    fi
+  else
+    fail "INT-02 named fixture identity differs from its approved closed boundary"
+  fi
   ACTIVE_WITHOUT_CLIENT=0
   for ID in $(echo "$REGISTRY_JSON" | jq -r '.workloads | to_entries[] | select(.value.status == "ACTIVE" and .value.credential_type == "client_credentials") | .key'); do
+    if [ "$ID" = "baobab-int02-pulse-consumer" ] && [ "$INT02_FIXTURE_ONLY" = "true" ]; then
+      continue
+    fi
     if ! echo "$LOCAL_CLIENT_IDS" | grep -qx "$ID"; then
       fail "workload registry lists ACTIVE workload '$ID' but no config/clients/*.json declares that clientId"
       ACTIVE_WITHOUT_CLIENT=1
