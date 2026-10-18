@@ -164,7 +164,7 @@ async function run(){
   requireProof(revoked.denied&&revoked.status===400&&revoked.nativeACR&&!callback);checks.revoked_credential_denied=true;
  }catch(error){
   diagnostic.registration_events=Math.min(99,added);diagnostic.assertion_events=Math.min(99,asserted);
-  diagnostic.error=error.message?.includes('net::ERR_BLOCKED_BY_CLIENT')?'ROUTE_BLOCKED':error.message?.includes('net::ERR_ABORTED')?'NAVIGATION_ABORTED':
+  diagnostic.error=error.message==='otp_clock'?'OTP_CLOCK':error.message?.includes('net::ERR_BLOCKED_BY_CLIENT')?'ROUTE_BLOCKED':error.message?.includes('net::ERR_ABORTED')?'NAVIGATION_ABORTED':
    error.message?.includes('interrupted by another navigation')?'NAVIGATION_INTERRUPTED':
    error.message?.includes('Execution context was destroyed')?'DOCUMENT_CHANGED':
    error.message?.includes('Download is starting')?'DOWNLOAD':

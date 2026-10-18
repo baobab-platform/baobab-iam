@@ -88,12 +88,13 @@ export function totpSequence({now=Date.now,wait=delay}={}) {
   let previous=-1;
   const ready=async()=>{
     let milliseconds=now(),window=Math.floor(milliseconds/30000);
-    if(window<=previous){
+    for(let attempt=0;window<=previous;attempt++){
       const remaining=(previous+1)*30000-milliseconds;
-      if(remaining<1||remaining>30000)throw Error('otp_clock');
-      await wait(remaining);
+      if(attempt>=3||remaining<1||remaining>30000)throw Error('otp_clock');
+      // Timers can wake just before the wall-clock boundary. Leave a small
+      // margin and recheck, with bounded retries for a stalled/backward clock.
+      await wait(remaining+25);
       milliseconds=now();window=Math.floor(milliseconds/30000);
-      if(window<=previous)throw Error('otp_clock');
     }
     return milliseconds;
   };
