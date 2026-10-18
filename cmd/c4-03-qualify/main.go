@@ -227,6 +227,7 @@ func main() {
 	caPath := flag.String("cp-ca-file", "", "optional CP TLS root PEM")
 	evidenceDir := flag.String("evidence-dir", "", "private sanitized receipt directory")
 	source := flag.String("source-commit", "", "exact checkout SHA")
+	fullFile := flag.String("full-config", "", "protected C4-03B–E registered live fixture configuration; optional")
 	flag.Parse()
 	if *configPath == "" || *evidenceDir == "" {
 		fmt.Fprintln(os.Stderr, "FAIL C4-03 missing configuration or output")
@@ -257,5 +258,23 @@ func main() {
 	fmt.Println(r.Result, "C4-03 read-only CP authority qualification; sanitized evidence retained")
 	if r.Result != "PASS" {
 		os.Exit(1)
+	}
+	if *fullFile != "" {
+		// The full-run input MUST match the already accepted C4-03A workload
+		// composition. A second config must not silently change CP authority.
+		var live liveConfig
+		if federation.LoadServiceDocument(*fullFile, &live) != nil || live.Workload != cfg {
+			fmt.Fprintln(os.Stderr, "FAIL C4-03B–E protected fixture mismatch")
+			os.Exit(2)
+		}
+		fullCtx, stop := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer stop()
+		full := qualifyFull(fullCtx, live, *caPath, *source, *evidenceDir, os.Stdin, os.Stdout)
+		if err := publishFull(filepath.Join(*evidenceDir, "full"), full); err != nil {
+			fmt.Fprintln(os.Stderr, "FAIL C4-03B–E evidence publication")
+			os.Exit(1)
+		}
+		fmt.Println(full.Result, "C4-03B–E registered-provider/CP qualification; sanitized evidence retained")
+		if full.Result != "PASS" {os.Exit(1)}
 	}
 }
