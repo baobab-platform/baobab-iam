@@ -55,3 +55,18 @@ All provider declarations remain PARTIAL until those full proofs exist.
 
 The Hydra integration follows Ory's documented
 [login and consent flow](https://www.ory.com/docs/oauth2-oidc/custom-login-consent/flow).
+
+
+## Governed service-host construction (C4-02)
+
+Production hosts call `ory.StartNativeHumanRuntime` with reviewed Kratos and
+Hydra runtime compositions, verified CP TLS and the persistent challenge fence.
+It supplies current CP authority to the handoff and its final acceptance check.
+Both providers share the IAM-owned supervised context; Hydra's separate OAuth
+observation must match its workload profile/artifact. Missing composition denies
+construction; `AllowLoopbackHTTP` is rejected. The host owns the cancellation
+context and must join `supervisor.Done()` during shutdown.
+
+This does not create a browser API or relax the existing OIDC-only scope and
+empty resource-audience profile. Full composed live qualification remains C4-03.
+See [runtime operations](native-workload-capability-dispatch.md).
