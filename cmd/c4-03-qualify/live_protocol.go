@@ -18,6 +18,7 @@ import (
  "fmt"
  "io"
  "math/big"
+ "os"
  "net/http"
  "net/url"
  "strings"
@@ -99,17 +100,12 @@ func verifiedClient(caPath string)(*http.Client,*tls.Config,error) {
  return &http.Client{Timeout:10*time.Second,Transport:&http.Transport{TLSClientConfig:tc,Proxy:nil},
   CheckRedirect:func(*http.Request,[]*http.Request)error{return http.ErrUseLastResponse}},tc,nil
 }
-func readTrustRoots(path string)([]byte,error){return io.ReadAll(io.LimitReader(mustOpenTrust(path),1<<20))}
-// mustOpenTrust is replaced below with explicit error propagation; no fail-open.
-func mustOpenTrust(path string)io.Reader{
- f,e:=openPrivateTrust(path);if e!=nil{return bytes.NewReader(nil)}
- defer f.Close()
- raw,_:=io.ReadAll(io.LimitReader(f,1<<20))
- return bytes.NewReader(raw)
+// Trust-root files are deployment-owned; no fallback to an empty trust bundle.
+func readTrustRoots(path string)([]byte,error){
+ info,e:=os.Lstat(path)
+ if e!=nil||!info.Mode().IsRegular()||info.Mode().Perm()&0022!=0||info.Size()>1<<20{return nil,errors.New("unsafe trust-root file")}
+ return os.ReadFile(path)
 }
-func openPrivateTrust(path string)(io.ReadCloser,error){return newTrustFile(path)}
-func newTrustFile(path string)(io.ReadCloser,error){return openRootFile(path)}
-func openRootFile(path string)(io.ReadCloser,error){return nil,errors.New("override with protected trust loader")}
 func requestJSON(ctx context.Context,client *http.Client,method,target,bearer string,body any)(int,http.Header,[]byte,error) {
  var input io.Reader
  if body!=nil {raw,e:=json.Marshal(body);if e!=nil{return 0,nil,nil,e};input=bytes.NewReader(raw)}
