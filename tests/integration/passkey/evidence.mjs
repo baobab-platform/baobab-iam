@@ -9,13 +9,21 @@ export const checkIds=Object.freeze(['browser_registration','enrollment_is_not_s
  'missing_uv_denied','missing_presence_denied','revoked_credential_denied']);
 const stages=new Set(['configuration','synthetic_setup','registration','ordinary_sso','totp','passkey','code_replay',
  'bad_signature_denied','missing_uv_denied','missing_presence_denied','credential_revocation']);
-export function receipt(checks,failed,teardown,source,stage){
+export const observation=()=>({form:'NONE',location:'NONE',error:'NONE',claim:'NONE',last_action:'NONE',last_status:0,registration_events:0,assertion_events:0});
+const forms=new Set(['NONE','USERNAME_PASSWORD','PASSWORD','TOTP_SETUP','TOTP','PASSKEY_REGISTER','PASSKEY_AUTH','ERROR','OTHER']);
+const errors=new Set(['NONE','TIMEOUT','CLAIM','OIDC','PROOF','UNSUPPORTED_PAGE','OTHER']);
+const claims=new Set(['NONE','acr','auth_time','nonce','iss','aud','iat','exp','OTHER']);
+export function receipt(checks,failed,teardown,source,stage,diagnostic=observation()){
  if(!/^[a-f0-9]{40}$/.test(source)||!stages.has(stage)||typeof failed!=='boolean'||typeof teardown!=='boolean'||
   Object.keys(checks).length!==checkIds.length||!checkIds.every(id=>typeof checks[id]==='boolean'))throw Error('evidence');
+ if(Object.keys(diagnostic).length!==8||!forms.has(diagnostic.form)||!forms.has(diagnostic.last_action)||
+  !['NONE','ISSUER','CALLBACK','OTHER'].includes(diagnostic.location)||!errors.has(diagnostic.error)||!claims.has(diagnostic.claim)||
+  !Number.isInteger(diagnostic.last_status)||diagnostic.last_status<0||diagnostic.last_status>599||
+  !['registration_events','assertion_events'].every(k=>Number.isInteger(diagnostic[k])&&diagnostic[k]>=0&&diagnostic[k]<=99))throw Error('diagnostic');
  const results=Object.fromEntries(checkIds.map(id=>[id,checks[id]]));
  return {schema:'baobab-passkey-browser-qualification/v1',result:!failed&&teardown&&Object.values(results).every(Boolean)?'PASS':'FAIL',
   source_commit:source,virtual_authenticator:true,physical_authenticator_qualified:false,critical_grant_accepted:false,
-  checks:results,teardown,failure_stage:failed?stage:null};
+  checks:results,teardown,failure_stage:failed?stage:null,observation:{...diagnostic}};
 }
 export async function publish(output,result,operations=fs){
  await operations.mkdir(output,{recursive:true,mode:0o700});

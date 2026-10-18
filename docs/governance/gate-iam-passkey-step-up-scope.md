@@ -1,6 +1,6 @@
 # Gate IAM: phishing-resistant passkey step-up (raw LoA 3)
 
-**Status:** configuration implemented; **not yet proven on a live passkey login**. CRITICAL AdministrativeGrant enforcement in the Control Plane stays PROHIBITED until the live chain is proven (architecture-owner ruling, 2026-10-02).
+**Status:** configuration and synthetic-browser qualification harness implemented; a complete current-run PASS receipt is required for the bounded browser claim. CRITICAL AdministrativeGrant enforcement in the Control Plane stays PROHIBITED until the live chain is proven (architecture-owner ruling, 2026-10-02).
 
 ## Decision (architecture owner, 2026-10-02)
 

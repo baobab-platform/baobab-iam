@@ -33,3 +33,11 @@ test('digest-write failure cannot leave a published PASS behind',async()=>{
   assert.equal((await fs.readdir(dir)).filter(name=>name.startsWith('run-')).length,0);
  }finally{await fs.rm(dir,{recursive:true,force:true});}
 });
+
+test('diagnostics reject arbitrary page, exception and secret-bearing content',async()=>{
+ const {observation}=await import('./evidence.mjs');
+ for(const [field,value] of [['form','private HTML'],['error','exception with code'],['claim','private claim'],['last_action','https://issuer.invalid/?code=private']]){
+  assert.throws(()=>receipt(checks(),true,true,'a'.repeat(40),'registration',{...observation(),[field]:value}));
+ }
+ assert.throws(()=>receipt(checks(),true,true,'a'.repeat(40),'registration',{...observation(),token:'private'}));
+});
