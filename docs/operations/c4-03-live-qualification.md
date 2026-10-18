@@ -1,6 +1,6 @@
 # C4-03 — live Kratos/Hydra–CP qualification programme
 
-**Status: IN PROGRESS (C4-03A only).** This branch is stacked on IAM #122
+**Status: C4-03A–E source qualification implemented, live B–E acceptance pending protected provider/CP evidence.** This branch is stacked on IAM #122
 (`feat/live-passkey-step-up`), not `main`. ADR-IAM-0033 and the accepted
 assurance/identity-proofing boundaries remain authoritative. This increment
 creates **no** workload client, access token, tenant, grant, context, privilege,
@@ -66,3 +66,137 @@ These are additional mandatory live gates, **not** satisfied by a passing
 C4-03A receipt or by older wire fixtures. Provider support declarations stay
 PARTIAL; no CRITICAL AdministrativeGrant restriction is lifted by either this
 branch or the stacked passkey PR.
+
+## C4-03B–E registered live qualification
+
+The executable now supports `-full-config`, deliberately **without** a mock
+fallback, bootstrap identity provisioning or producer-only issuer assertion.
+Source CI compiles and tests the executable; source CI does not prove live
+provider admission. The full runner refuses to start unless
+`BAOBAB_C403_DISPOSABLE=1` is explicitly set in a dedicated, approved,
+isolated, pre-provisioned qualification environment.
+
+The `full-config` JSON is loaded through the existing protected service
+document loader. It contains no secrets, only absolute **private files**
+holding pre-provisioned credentials:
+
+```json
+{
+  "workload_runtime": {
+    "cp_origin": "https://cp.integration.example.invalid",
+    "resolution_token_file": "/run/secrets/c403-resolution",
+    "runtime_token_file": "/run/secrets/c403-runtime",
+    "context_target": {
+      "tenant_id": "tn-approved-fixture",
+      "organisation_id": "org-approved-fixture",
+      "country_code": "ZA"
+    },
+    "provider_id": "ory-hydra-approved",
+    "engine_instance_id": "hydra-approved-instance",
+    "estate_id": "estate-approved",
+    "service_reference": "service-approved",
+    "configuration_reference": "ref-approved",
+    "security_domain_reference": "ref-approved-domain"
+  },
+  "human_runtime": {},
+  "native_issuer_runtime": {},
+  "hydra_issuer": "https://hydra.integration.example.invalid",
+  "hydra_admin": "https://hydra-admin.integration.example.invalid",
+  "kratos_public": "https://kratos.integration.example.invalid",
+  "kratos_admin": "https://kratos-admin.integration.example.invalid",
+  "primary": {
+    "client_id": "c403-primary-approved",
+    "client_secret_file": "/run/secrets/c403-primary-secret",
+    "tenant_id": "tn-primary-fixture",
+    "organisation_id": "org-primary-fixture",
+    "country_code": "ZA"
+  },
+  "foreign": {
+    "client_id": "c403-foreign-approved",
+    "client_secret_file": "/run/secrets/c403-foreign-secret",
+    "tenant_id": "tn-foreign-fixture",
+    "organisation_id": "org-foreign-fixture",
+    "country_code": "UG"
+  },
+  "resource_audience": "baobab-erp",
+  "resource_scope": "context:resolve",
+  "validator_token_file": "/run/secrets/c403-validator",
+  "native_session_file": "/run/secrets/c403-kratos-session",
+  "native_identity_id": "approved-synthetic-kratos-uuid",
+  "native_client_id": "approved-oidc-client-id",
+  "native_callback": "https://callback.integration.example.invalid/oidc"
+}
+```
+
+This is an **illustrative schema**, not a deployable config: identifiers must be
+real approved CP canonical identifiers and provider references. Both native
+composition objects must include full approved values using the exact
+`RuntimeComposition` format. `workload_runtime` must equal the separate A
+`-runtime-config` document, byte-equivalent at the parsed model boundary.
+Never use the example's names to fabricate an ACTIVE entitlement.
+
+```bash
+BAOBAB_C403_DISPOSABLE=1 go run ./cmd/c4-03-qualify \
+  -runtime-config /run/secrets/c403-runtime.json \
+  -full-config /run/secrets/c403-live.json \
+  -cp-ca-file /run/secrets/c403-roots.pem \
+  -source-commit "$(git rev-parse HEAD)" \
+  -evidence-dir /run/c403-evidence
+```
+
+The protected live deployment must have: an Ory Hydra issuer with actual
+`client_credentials` issuance through the governed C4-02 hook; a synthetic
+primary and a different-tenant synthetic foreign workload, each with exact
+registered OAuth audiences/scopes and current CP external identity mappings;
+an **independently registered** validator granted `context:validate` and
+`validates_audiences` for the subject's resource audience; the actual CP
+context resolution/validation routes; and an approved Kratos synthetic session
+plus an approved OIDC client and exact CP native/Hydra runtime bindings.
+Provide HTTPS with validated server identities and CA roots. CP origin and
+runtime secrets must not be selected from browser input.
+
+The harness requires these real proofs:
+
+- **B:** C4-02 current CP dispatch both before and after actual Hydra token
+  exchange; RS256/JWKS signature, issuer, exact audience, client/actor, scope
+  and bounded token lifetime.
+- **C:** CP-governed Kratos/Hydra runtime composition, existing synthetic
+  Kratos session validation, Hydra login and consent challenges, S256
+  authorization-code exchange, signed ID token nonce and subject, code replay
+  denial, and revocation of that **exact synthetic Kratos identity's** session.
+- **D:** Real `POST /v1/platform-context/resolve` on the primary and foreign
+  principal; authenticated real protected CP
+  `POST /v1/platform-context/validate` success; 404 cross-owner/foreign
+  context denial; 401 tampered still-issued subject signature denial; and
+  post-withdrawal CP denial of the **same unexpired bearer**.
+- **E:** A fresh complete closed-schema private receipt plus SHA-256 digest,
+  where *every* case is true and the CP withdrawal is actually observed.
+  Every missing, skipped, uncertain or failed case yields FAIL.
+
+### Approval and intervention
+
+To prove *real* CP withdrawal instead of a fake or simulated expiry, this
+runner reaches a short, controlled operator checkpoint **after** the signed
+token has passed the running CP. An authorised operator must suspend or
+withdraw **only** the pre-approved synthetic tenant or principal in CP
+according to its existing governance flow and then enter `REVOKED` on stdin.
+This input is merely a synchronization signal: it **never** counts as proof.
+The runner must still observe a `TENANT_NOT_ACTIVE` (403) or
+`CONTEXT_NOT_FOUND` (404) denial for the unchanged, independently verified,
+still-unexpired bearer. If the operator has not completed the action, if the
+token has expired, if CP is unavailable, or if an unexpected 401/500 occurs,
+the gate fails. Restore the controlled fixture using the authorised CP
+reconciliation process after collecting evidence. Never point this procedure
+at production companies, real employees or shared staging tenants.
+
+### Claims explicitly NOT made
+
+A complete C4-03B–E integration PASS is **not** production activation,
+physical passkey acceptance, release of CRITICAL grants, an approved legal
+mandate, or tenant-onboarding certification. The receipt always states
+`production_ready=false` and `physical_passkey_qualified=false`.
+The parent IAM #122 browser passkey qualification remains independently
+gated. Live registration credentials/CP state are external prerequisites;
+the repository contains no magic substitute and never promotes PARTIAL
+provider support on the strength of executable source.
+
