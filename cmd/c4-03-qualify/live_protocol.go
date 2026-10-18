@@ -159,13 +159,15 @@ func verifyHydraJWT(ctx context.Context,client *http.Client,issuer,raw,expectedC
  sig,e:=base64.RawURLEncoding.DecodeString(parts[2]);if e!=nil{return out,errors.New("invalid JWT signature encoding")}
  digest:=sha256.Sum256([]byte(parts[0]+"."+parts[1]))
  if rsa.VerifyPKCS1v15(public,crypto.SHA256,digest[:],sig)!=nil{return out,errors.New("invalid JWT signature")}
- var claims struct{Issuer string `json:"iss"`;Subject string `json:"sub"`;ClientID string `json:"client_id"`;AZP string `json:"azp"`;Actor string `json:"actor_type"`;AUD any `json:"aud"`;Scope string `json:"scope"`;IssuedAt int64 `json:"iat"`;Expires int64 `json:"exp"`}
+ var claims struct{Issuer string `json:"iss"`;Subject string `json:"sub"`;ClientID string `json:"client_id"`;AZP string `json:"azp"`;Actor string `json:"actor_type"`;AUD any `json:"aud"`;Scope string `json:"scope"`;IssuedAt int64 `json:"iat"`;Expires int64 `json:"exp"`;NotBefore int64 `json:"nbf"`;JWTID string `json:"jti"`}
  if decode(parts[1],&claims)!=nil{return out,errors.New("invalid signed claims")}
  aud:=[]string{}
  switch v:=claims.AUD.(type){case string:aud=append(aud,v);case []any:for _,a:=range v{s,ok:=a.(string);if !ok{return out,errors.New("invalid signed audience")};aud=append(aud,s)}}
- matched:=false;for _,a:=range aud{if a==audience{matched=true}}
  now:=time.Now().Unix()
- if !matched||claims.Issuer!=issuer&&claims.Issuer!=issuer+"/"||claims.ClientID!=expectedClient||claims.AZP!=expectedClient||
+ // A valid signature alone is insufficient: require one exact audience, a
+ // bounded identifier and a presently valid workload session profile.
+ if len(aud)!=1||aud[0]!=audience||claims.JWTID==""||len(claims.JWTID)>255||claims.NotBefore>now+5||
+  claims.Issuer!=issuer&&claims.Issuer!=issuer+"/"||claims.ClientID!=expectedClient||claims.AZP!=expectedClient||
   claims.Subject!=expectedClient||claims.Actor!="workload"||claims.Scope!=scope||claims.IssuedAt>now+5||
   claims.Expires<=now+120||claims.Expires-claims.IssuedAt>900||claims.Expires<=claims.IssuedAt{
   return out,errors.New("signed workload claims not eligible for live qualification")
