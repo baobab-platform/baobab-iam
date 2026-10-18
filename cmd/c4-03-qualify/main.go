@@ -5,12 +5,8 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -165,61 +161,11 @@ func qualify(parent context.Context, c federation.RuntimeComposition, tlsConfig 
 // Publish JSON and SHA-256 together through one fsynced directory rename. No
 // exception, context handle, token, CP response or identity enters the files.
 func publish(directory string, r Evidence) error {
-	if directory == "" || r.Schema != evidenceSchema || !shaPattern.MatchString(r.SourceCommit) {
+	if directory == "" || r.Schema != evidenceSchema || !shaPattern.MatchString(r.SourceCommit) || !closedChecks(r.Checks, requiredChecks) {
 		return errors.New("invalid evidence input")
 	}
 	r.close()
-	if err := os.MkdirAll(directory, 0700); err != nil {
-		return err
-	}
-	pending, err := os.MkdirTemp(directory, ".pending-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(pending)
-	data, err := json.MarshalIndent(r, "", "  ")
-	if err != nil {
-		return err
-	}
-	data = append(data, '\n')
-	write := func(name string, data []byte) error {
-		f, err := os.OpenFile(filepath.Join(pending, name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-		if err != nil {
-			return err
-		}
-		if _, err = f.Write(data); err != nil {
-			f.Close()
-			return err
-		}
-		if err = f.Sync(); err != nil {
-			f.Close()
-			return err
-		}
-		return f.Close()
-	}
-	if err = write("receipt.json", data); err != nil {
-		return err
-	}
-	digest := sha256.Sum256(data)
-	if err = write("receipt.sha256", []byte(hex.EncodeToString(digest[:])+"  receipt.json\n")); err != nil {
-		return err
-	}
-	d, err := os.Open(pending)
-	if err != nil {
-		return err
-	}
-	if err = d.Sync(); err != nil {
-		d.Close()
-		return err
-	}
-	if err = d.Close(); err != nil {
-		return err
-	}
-	nonce := make([]byte, 12)
-	if _, err = rand.Read(nonce); err != nil {
-		return err
-	}
-	return os.Rename(pending, filepath.Join(directory, "run-"+hex.EncodeToString(nonce)))
+	return publishBundle(directory, r)
 }
 
 func main() {

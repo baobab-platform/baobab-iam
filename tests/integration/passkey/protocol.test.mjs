@@ -46,4 +46,8 @@ test('passkey challenge requests Keycloak native raw LoA 3 and freshness',async(
  assert.equal(c.url.searchParams.get('code_challenge_method'),'S256');
  assert.equal(c.url.searchParams.has('claims'),false);
  assert.ok(c.transaction.verifier);
+ assert.equal(c.transaction.fresh,true);
+ const baseline=await begin(config,'http://localhost:3003/passkey-qualification');
+ assert.equal(baseline.transaction.fresh,false);
+ assert.equal(baseline.url.searchParams.has('max_age'),false);
 });

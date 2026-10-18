@@ -54,7 +54,8 @@ async function run(){
  try{
   stage='synthetic_setup';diagnostic.phase='BOOTSTRAP';
   clientUuid=await create('clients',{clientId,enabled:true,protocol:'openid-connect',publicClient:true,standardFlowEnabled:true,
-   directAccessGrantsEnabled:false,implicitFlowEnabled:false,serviceAccountsEnabled:false,redirectUris:[redirectUri],
+   directAccessGrantsEnabled:false,implicitFlowEnabled:false,serviceAccountsEnabled:false,fullScopeAllowed:false,
+   defaultClientScopes:['acr'],optionalClientScopes:[],redirectUris:[redirectUri],
    attributes:{'pkce.code.challenge.method':'S256'}});
   const clients=await admin('clients?'+new URLSearchParams({clientId}));requireProof(clients.length===1);requireProof(clientUuid===clients[0].id);
   userId=await create('users',{username:userName,enabled:true,email:userName+'@example.invalid',emailVerified:true,
@@ -68,7 +69,7 @@ async function run(){
   // Callback query/authorization codes stay in memory, with no callback server.
   await page.route('**/*',async route=>{
    const u=new URL(route.request().url());
-   if(u.origin+u.pathname===redirectUri){callback=u.href;diagnostic.phase='CALLBACK';await route.fulfill({status:200,body:'Synthetic callback received'});}
+   if(u.origin+u.pathname===redirectUri){callback=u.href;diagnostic.phase='CALLBACK';await route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><title>Synthetic callback</title>'});}
    else if(u.origin===origin)await route.continue();else await route.abort();
   });
   page.on('dialog',dialog=>{void dialog.accept('Synthetic CI passkey').catch(()=>{});});
@@ -152,7 +153,11 @@ async function run(){
   requireProof(revoked.denied&&revoked.status===400&&revoked.nativeACR&&!callback);checks.revoked_credential_denied=true;
  }catch(error){
   diagnostic.registration_events=Math.min(99,added);diagnostic.assertion_events=Math.min(99,asserted);
-  diagnostic.error=error.name==='TimeoutError'?'TIMEOUT':error.code==='ERR_JWT_CLAIM_VALIDATION_FAILED'?'CLAIM':
+  diagnostic.error=error.message?.includes('net::ERR_ABORTED')?'NAVIGATION_ABORTED':
+   error.message?.includes('interrupted by another navigation')?'NAVIGATION_INTERRUPTED':
+   error.message?.includes('Execution context was destroyed')?'DOCUMENT_CHANGED':
+   error.message?.includes('Download is starting')?'DOWNLOAD':
+   error.message?.includes('Target page, context or browser has been closed')?'PAGE_CLOSED':error.name==='TimeoutError'?'TIMEOUT':error.code==='ERR_JWT_CLAIM_VALIDATION_FAILED'?'CLAIM':
    ['ClientError','OperationProcessingError'].includes(error.name)?'OIDC':error.message==='proof'?'PROOF':error.message==='unsupported_page'?'UNSUPPORTED_PAGE':'OTHER';
   diagnostic.claim=['acr','auth_time','nonce','iss','aud','iat','exp'].includes(error.claim)?error.claim:'NONE';
   if(page)try{

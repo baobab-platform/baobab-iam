@@ -6,11 +6,7 @@ package main
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -71,61 +67,11 @@ func (r *fullEvidence) close() {
 // then atomically exposes the complete bundle; no token, session or CP
 // document is ever retained.
 func publishFull(dir string, r fullEvidence) error {
-	if dir == "" || r.Schema != fullSchema || !shaPattern.MatchString(r.SourceCommit) {
+	if dir == "" || r.Schema != fullSchema || !shaPattern.MatchString(r.SourceCommit) || !closedChecks(r.Checks, fullRequired) {
 		return errors.New("invalid full evidence")
 	}
 	r.close()
-	if e := os.MkdirAll(dir, 0700); e != nil {
-		return e
-	}
-	pending, e := os.MkdirTemp(dir, ".pending-")
-	if e != nil {
-		return e
-	}
-	defer os.RemoveAll(pending)
-	data, e := json.MarshalIndent(r, "", "  ")
-	if e != nil {
-		return e
-	}
-	data = append(data, '\n')
-	write := func(name string, b []byte) error {
-		f, e := os.OpenFile(filepath.Join(pending, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if e != nil {
-			return e
-		}
-		if _, e = f.Write(b); e != nil {
-			f.Close()
-			return e
-		}
-		if e = f.Sync(); e != nil {
-			f.Close()
-			return e
-		}
-		return f.Close()
-	}
-	if e = write("receipt.json", data); e != nil {
-		return e
-	}
-	sum := sha256.Sum256(data)
-	if e = write("receipt.sha256", []byte(hex.EncodeToString(sum[:])+"  receipt.json\n")); e != nil {
-		return e
-	}
-	fd, e := os.Open(pending)
-	if e != nil {
-		return e
-	}
-	if e = fd.Sync(); e != nil {
-		fd.Close()
-		return e
-	}
-	if e = fd.Close(); e != nil {
-		return e
-	}
-	nonce := make([]byte, 12)
-	if _, e = rand.Read(nonce); e != nil {
-		return e
-	}
-	return os.Rename(pending, filepath.Join(dir, "run-"+hex.EncodeToString(nonce)))
+	return publishBundle(dir, r)
 }
 
 // Operator confirmation is intentionally NOT considered withdrawal evidence.
@@ -281,7 +227,7 @@ func qualifyFull(parent context.Context, c liveConfig, caFile, sha, artifactDir 
 	if e != nil {
 		return r
 	}
-	if after.status == 403 && after.code == "TENANT_NOT_ACTIVE" || after.status == 404 && after.code == "CONTEXT_NOT_FOUND" {
+	if withdrawalObserved(after, resourcePrimary.claims.Expires, accepted.value.ExpiresAt, time.Now()) {
 		r.Checks["real_cp_withdrawal_denied_unexpired_token"] = true
 		r.CPGrantWithdrawalObserved = true
 	}
@@ -290,4 +236,11 @@ func qualifyFull(parent context.Context, c liveConfig, caFile, sha, artifactDir 
 	r.Checks["evidence_closed"] = true
 	r.close()
 	return r
+}
+
+// Check after the network call as well: an expiry during the request must not
+// be recorded as independent CP withdrawal of a current authority.
+func withdrawalObserved(after cpDecision, bearerExpiry int64, contextExpiry, now time.Time) bool {
+	return bearerExpiry > now.Unix() && now.Before(contextExpiry) &&
+		(after.status == 403 && after.code == "TENANT_NOT_ACTIVE" || after.status == 404 && after.code == "CONTEXT_NOT_FOUND")
 }

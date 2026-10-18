@@ -73,25 +73,18 @@ func nativeCodeExchange(ctx context.Context, client *http.Client, c liveConfig, 
 	}
 	return resp.StatusCode, body, nil
 }
-func qualifyNative(ctx context.Context, c liveConfig, client *http.Client, tlsConfig *tls.Config, ledgerDir string) (map[string]bool, error) {
-	checks := map[string]bool{"kratos_synthetic_session_verified": false, "governed_login_consent": false,
-		"signed_nonce_bound_oidc": false, "code_replay_denied": false, "synthetic_session_revoked": false}
-	if os.Getenv("BAOBAB_C403_DISPOSABLE") != "1" {
-		return checks, errors.New("disposable native fixture not approved")
-	}
-	session, e := protectedToken(ctx, c.NativeSessionFile)
-	if e != nil {
-		return checks, errors.New("synthetic native credential unavailable")
-	}
-	// Identity equality is a mandatory safeguard before the destructive revoke.
+
+// Recheck the same provider-attested disposable session immediately before
+// revocation, so natural session expiry cannot satisfy the revocation gate.
+func syntheticSessionExpiry(ctx context.Context, client *http.Client, c liveConfig, session string) (time.Time, error) {
 	sessionRequest, e := http.NewRequestWithContext(ctx, "GET", strings.TrimRight(c.KratosPublic, "/")+"/sessions/whoami", nil)
 	if e != nil {
-		return checks, errors.New("Kratos whoami request invalid")
+		return time.Time{}, errors.New("Kratos whoami request invalid")
 	}
 	sessionRequest.Header.Set("X-Session-Token", session)
 	reply, e := client.Do(sessionRequest)
 	if e != nil {
-		return checks, errors.New("Kratos whoami unreachable")
+		return time.Time{}, errors.New("Kratos whoami unreachable")
 	}
 	var identity struct {
 		Active    bool      `json:"active"`
@@ -104,14 +97,30 @@ func qualifyNative(ctx context.Context, c liveConfig, client *http.Client, tlsCo
 	}
 	if reply.StatusCode != 200 || json.NewDecoder(io.LimitReader(reply.Body, 65536)).Decode(&identity) != nil {
 		reply.Body.Close()
-		return checks, errors.New("Kratos session not verified")
+		return time.Time{}, errors.New("Kratos session not verified")
 	}
 	reply.Body.Close()
 	// Revoke only a provider-marked disposable fixture, not a genuine human.
 	// This is checked on the live Kratos session's own identity document.
 	if !identity.Active || identity.Identity.ID != c.NativeIdentityID || identity.Identity.State != "active" ||
 		identity.Identity.MetadataPublic["c403_disposable_fixture"] != true || !time.Now().Before(identity.ExpiresAt) {
-		return checks, errors.New("synthetic identity not proven")
+		return time.Time{}, errors.New("synthetic identity not proven")
+	}
+	return identity.ExpiresAt, nil
+}
+
+func qualifyNative(ctx context.Context, c liveConfig, client *http.Client, tlsConfig *tls.Config, ledgerDir string) (map[string]bool, error) {
+	checks := map[string]bool{"kratos_synthetic_session_verified": false, "governed_login_consent": false,
+		"signed_nonce_bound_oidc": false, "code_replay_denied": false, "synthetic_session_revoked": false}
+	if os.Getenv("BAOBAB_C403_DISPOSABLE") != "1" {
+		return checks, errors.New("disposable native fixture not approved")
+	}
+	session, e := protectedToken(ctx, c.NativeSessionFile)
+	if e != nil {
+		return checks, errors.New("synthetic native credential unavailable")
+	}
+	if _, e = syntheticSessionExpiry(ctx, client, c, session); e != nil {
+		return checks, e
 	}
 	checks["kratos_synthetic_session_verified"] = true
 	if e = os.MkdirAll(ledgerDir, 0700); e != nil {
@@ -192,8 +201,8 @@ func qualifyNative(ctx context.Context, c liveConfig, client *http.Client, tlsCo
 		return checks, errors.New("invalid signed identity binding")
 	}
 	checks["signed_nonce_bound_oidc"] = true
-	status, _, e = nativeCodeExchange(ctx, client, c, code, verifier)
-	checks["code_replay_denied"] = e == nil && (status == 400 || status == 401)
+	status, raw, e = nativeCodeExchange(ctx, client, c, code, verifier)
+	checks["code_replay_denied"] = e == nil && codeReplayDenied(status, raw)
 	if !checks["code_replay_denied"] {
 		return checks, errors.New("authorization code replay accepted")
 	}
@@ -203,6 +212,10 @@ func qualifyNative(ctx context.Context, c liveConfig, client *http.Client, tlsCo
 		HydraAdminURL: c.HydraAdmin, PublicIssuer: c.HydraIssuer, HTTPClient: client})
 	if e != nil {
 		return checks, errors.New("Kratos revoker unavailable")
+	}
+	expiry, e := syntheticSessionExpiry(ctx, client, c, session)
+	if e != nil || !time.Now().Add(10*time.Second).Before(expiry) {
+		return checks, errors.New("synthetic session too near expiry to qualify revocation")
 	}
 	if e = providerAdapter.RevokeSessions(ctx, provider.ExternalSubject{Issuer: c.HydraIssuer, Subject: c.NativeIdentityID}); e != nil {
 		return checks, errors.New("synthetic Kratos session revocation failed")
@@ -219,9 +232,17 @@ func qualifyNative(ctx context.Context, c liveConfig, client *http.Client, tlsCo
 	}
 	io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
 	resp.Body.Close()
-	checks["synthetic_session_revoked"] = resp.StatusCode == 401
+	checks["synthetic_session_revoked"] = resp.StatusCode == 401 && time.Now().Before(expiry)
 	if !checks["synthetic_session_revoked"] {
 		return checks, errors.New("previously active Kratos session remains valid")
 	}
 	return checks, nil
+}
+
+// A generic 400/401 (for example invalid_client) does not prove code replay.
+func codeReplayDenied(status int, raw []byte) bool {
+	var problem struct {
+		Error string `json:"error"`
+	}
+	return status == http.StatusBadRequest && json.Unmarshal(raw, &problem) == nil && problem.Error == "invalid_grant"
 }
