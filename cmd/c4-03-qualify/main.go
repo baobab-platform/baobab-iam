@@ -275,6 +275,8 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println(full.Result, "C4-03B–E registered-provider/CP qualification; sanitized evidence retained")
-		if full.Result != "PASS" {os.Exit(1)}
+		if full.Result != "PASS" {
+			os.Exit(1)
+		}
 	}
 }
