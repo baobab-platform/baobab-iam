@@ -182,7 +182,7 @@
         {
           "authenticatorFlow": true,
           "requirement": "CONDITIONAL",
-          "priority": 35,
+          "priority": 45,
           "flowAlias": "Baobab - Passkey Step-Up",
           "userSetupAllowed": false
         },

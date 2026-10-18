@@ -14,6 +14,8 @@ realm = json.loads((ROOT/'config/realm/baobab-realm.json').read_text())
 flows = realm['authenticationFlows']
 browser = next(f for f in flows if f['alias'] == 'Baobab browser')
 primary = next(f for f in flows if f['alias'] == 'Baobab - Primary Authentication')
+# Exercise the historical descending assurance order as well as hierarchy repair.
+next(e for e in browser['authenticationExecutions'] if e.get('flowAlias')=='Baobab - Passkey Step-Up')['priority']=35
 variant = sys.argv[1] if len(sys.argv)>1 else 'legacy'
 if variant not in {'legacy', 'primary'}:
     raise SystemExit('Unknown historical browser fixture')
