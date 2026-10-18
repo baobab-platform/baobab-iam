@@ -13,7 +13,7 @@ const stages=new Set(['configuration','synthetic_setup','registration','ordinary
 // credential, URL, cookie or form body. Phase identifies the failing boundary.
 export const observation=()=>({form:'NONE',location:'NONE',error:'NONE',claim:'NONE',phase:'NONE',blocked_request:'NONE',last_action:'NONE',last_status:0,registration_events:0,assertion_events:0});
 const forms=new Set(['NONE','USERNAME_PASSWORD','PASSWORD','TOTP_SETUP','TOTP','PASSKEY_REGISTER','PASSKEY_AUTH','ERROR','OTHER']);
-const errors=new Set(['NONE','TIMEOUT','CLAIM','OIDC','PROOF','UNSUPPORTED_PAGE','NAVIGATION_ABORTED','NAVIGATION_INTERRUPTED','DOCUMENT_CHANGED','DOWNLOAD','PAGE_CLOSED','ROUTE_BLOCKED','NAVIGATION','BROWSER_ACTION','BROWSER_LOCATOR','TYPE_ERROR','NETWORK','OTHER']);
+const errors=new Set(['NONE','TIMEOUT','OTP_CLOCK','CLAIM','OIDC','PROOF','UNSUPPORTED_PAGE','NAVIGATION_ABORTED','NAVIGATION_INTERRUPTED','DOCUMENT_CHANGED','DOWNLOAD','PAGE_CLOSED','ROUTE_BLOCKED','NAVIGATION','BROWSER_ACTION','BROWSER_LOCATOR','TYPE_ERROR','NETWORK','OTHER']);
 const claims=new Set(['NONE','acr','auth_time','nonce','iss','aud','iat','exp','OTHER']);
 const phases=new Set(['NONE','BOOTSTRAP','AUTH_BEGIN','PAGE_GOTO','PAGE_LOGIN','PAGE_TOTP','PAGE_REGISTER','PAGE_PASSKEY','CALLBACK','EXCHANGE','PROOF','RESET']);
 export function receipt(checks,failed,teardown,source,stage,diagnostic=observation()){
