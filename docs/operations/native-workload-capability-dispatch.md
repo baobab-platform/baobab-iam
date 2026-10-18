@@ -70,3 +70,26 @@ repository construction, positive selection, fresh rechecks and denials. They
 are not registration, deployed CP, staging or production evidence. Existing
 real-provider CI tests remain required. Governed publication still needs real
 allocated targets, reviewed support, artifacts and current scoped evidence.
+
+## C4-01 production HTTP runtime authority
+
+NewHTTPRuntimeAuthority now implements RuntimeBindingAuthority against CP's
+separate /internal/identity-runtime/v1/binding projection. Each adapter binds
+one reviewed provider, instance, organisation/estate, native/workload facet,
+configuration reference and security-domain reference. Requests cannot retarget
+it. Verified TLS, fixed destination, fresh credentials per call, strict bounded
+JSON and no redirect/retry/proxy-env behavior reuse NewHTTPAuthority. Responses
+must match the target, ACTIVE lifecycle, VERIFIED support, revision, exact
+deployed artifact and current expiry; failure returns no proof.
+
+CP requires the distinct identity-runtime:read scope and scoped
+security.identity-runtime.view permission; neither is allocated here.
+Reviewed configuration approval remains an independent composition input.
+Reference existence is not approval. No fabricated FederationTrust is needed.
+RuntimeDispatch still independently repeats caller-owned CP resolution.
+
+The earlier "Remaining CP" section records the pre-C4-01 baseline. C4-02 must
+adopt this adapter in executable factories, supervise context renewal and prove
+composed Kratos/Hydra coverage. C4-03 must qualify the actual composition and
+resource consumption. Provider declarations remain PARTIAL; INT-02's named
+Pulse proof-bootstrap exception grants no IAM authority.

@@ -368,3 +368,14 @@ require independent evidence. See
 [operation boundaries and next integration](../operations/native-workload-capability-dispatch.md).
 MP4 remains PARTIAL; MP3 registration and MP0–MP20 staging/production acceptance
 are not upgraded by synthetic repository fixtures.
+
+### 18 October 2026 — C4-01 current runtime authority adapter
+
+Shared defines separate, unassigned native/workload runtime read vocabulary.
+CP supplies current scoped runtime evidence with exact composition references.
+IAM HTTPRuntimeAuthority implements the existing RuntimeBindingAuthority with
+hardened transport and immutable target binding. TLS construction tests exercise
+RuntimeDispatch's repeated reads, withdrawal, lifecycle/artifact/scope
+substitution and malformed responses. CP PostgreSQL verification is separate.
+No MP3/MP4 acceptance or provider promotion follows. C4-02 executable wiring
+and C4-03 live qualification remain open.
