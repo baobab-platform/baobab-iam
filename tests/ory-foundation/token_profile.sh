@@ -79,10 +79,9 @@ overlay = {'services': {'hydra': {'extra_hosts': ['host.docker.internal:host-gat
 (root / 'compose.yml').write_text(yaml.safe_dump(overlay))
 PY
 # Mechanics proofs exercise PROVISIONED registrations through a fixture-only launcher.
-# The production executable keeps canonical ACTIVE admission; its composition is tested separately.
+# Canonical-only acceptance is also a test launcher: production now requires live CP composition.
 go build -o "$task_dir/token-profile-hook" ./tests/ory-foundation/mechanics-hook
-go build -o "$task_dir/canonical-hook" ./cmd/ory-token-profile-hook
-"$task_dir/canonical-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" > "$task_dir/hook.log" 2>&1 &
+"$task_dir/token-profile-hook" -canonical-only -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" > "$task_dir/hook.log" 2>&1 &
 hook_pid=$!
 for attempt in $(seq 1 20); do
   # An unauthenticated health probe must be rejected, never treated as evidence.

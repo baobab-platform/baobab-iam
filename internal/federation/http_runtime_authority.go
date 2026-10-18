@@ -33,7 +33,7 @@ func NewHTTPRuntimeAuthority(origin string, tokens AuthorityTokens, tlsConfig *t
 	if !providerPattern.MatchString(target.ProviderID) || len(target.ProviderID) < 10 || len(target.ProviderID) > 63 ||
 		!instancePattern.MatchString(target.EngineInstanceID) || len(target.EngineInstanceID) < 6 || len(target.EngineInstanceID) > 63 ||
 		!validScope(target.Scope) || len(target.Scope.OrganisationID) < 3 ||
-		(target.RuntimeCapability != "HUMAN_AUTHENTICATION" && target.RuntimeCapability != "WORKLOAD_TOKEN_ISSUANCE") ||
+		(target.RuntimeCapability != "HUMAN_AUTHENTICATION" && target.RuntimeCapability != "WORKLOAD_TOKEN_ISSUANCE" && target.RuntimeCapability != "OAUTH_AUTHORIZATION_SERVER") ||
 		!validRef(target.ConfigurationReference) || !validRef(target.SecurityDomainReference) || now == nil {
 		return nil, ErrInvalid
 	}

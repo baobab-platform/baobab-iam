@@ -19,6 +19,7 @@ func main() {
 	listen := flag.String("listen", "127.0.0.1:4466", "private listener; expose only to Hydra")
 	profiles := flag.String("profiles", "", "governed pinned Shared JSON projection with runtime bindings")
 	keyFile := flag.String("key-file", "", "private hook authentication key file")
+	canonical := flag.Bool("canonical-only", false, "fixture-only ACTIVE admission without CP composition")
 	flag.Parse()
 	file, err := os.Open(*profiles)
 	if err != nil {
@@ -34,7 +35,12 @@ func main() {
 	if err != nil {
 		log.Fatal("cannot read token hook authentication key")
 	}
-	hook, err := ory.NewTokenProfileHook(config, strings.TrimSpace(string(key)))
+	var hook http.Handler
+	if *canonical {
+		hook, err = ory.NewCanonicalTokenProfileHook(config, strings.TrimSpace(string(key)))
+	} else {
+		hook, err = ory.NewTokenProfileHook(config, strings.TrimSpace(string(key)))
+	}
 	if err != nil {
 		log.Fatal("invalid token profile configuration or hook authentication key")
 	}

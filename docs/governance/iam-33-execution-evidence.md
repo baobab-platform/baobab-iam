@@ -383,3 +383,25 @@ RuntimeDispatch's repeated reads, withdrawal, lifecycle/artifact/scope
 substitution and malformed responses. CP PostgreSQL verification is separate.
 No MP3/MP4 acceptance or provider promotion follows. C4-02 executable wiring
 and C4-03 live qualification remain open.
+
+### 18 October 2026 — C4-02 executable composition and context renewal
+
+Shared #349 defines the narrow OAuth companion observation without assigning
+transport scope, permission or grants. CP extends the current-runtime projection
+with the same release, support, binding, artifact and observer fences. IAM's hook
+executable adopts governed canonical dispatch in every environment and requires
+protected runtime composition. Canonical-only/provider mechanics remain isolated
+in the test launcher.
+
+Production factories supply caller-owned context acquisition and supervised
+renewal, current credential reads, and composed Kratos/Hydra checks including
+Hydra's independent OAuth observation. The native service-host factory preserves
+browser intent, client, session, consent and durable replay-fence requirements;
+it does not introduce a public login API or a human CP/resource audience.
+
+Repository tests cover verified TLS factory construction, current dispatch,
+credential rotation, renewal failure/recovery, cancellation, clock rollback,
+component revocation, independent OAuth failure and cross-component substitution.
+These are source-composition proofs. C4-03 actual registered provider/resource
+qualification remains open; declarations remain PARTIAL, INT-03 and protected
+staging/production acceptance are not promoted.

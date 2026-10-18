@@ -50,12 +50,25 @@ workload runtime projection (Shared #348, CP #417, IAM #120). Federation keeps
 its original endpoint and trust/configuration rules. Native/workload authority
 does not reuse federation grants or fabricate trust-material references.
 
-Next is C4-02: adopt the adapter in executable composition and supervise
-caller-owned context renewal. The standalone production hook retains canonical
-admission; it does not yet call the new runtime authority. Do not describe that
-command as C4-complete. Native composition must also prove the Hydra OAuth
-runtime alongside Kratos. C4-03 supplies actual CP/provider revocation and
-resource-consumption acceptance.
+C4-02's production hook requires `-runtime-config` in every environment and
+calls `NewGovernedCanonicalTokenProfileHook`. There is no canonical-only or
+PROVISIONED fallback in the executable. Provider-only CI uses its separate
+`tests/ory-foundation/mechanics-hook` launcher. That launcher is not packaged
+as an application service and supplies no C4 acceptance evidence.
+
+`federation.StartRuntimeComposition` builds the C4-01 HTTP adapters, acquires a
+caller-owned CP context and supervises renewal. `ory.StartNativeHumanRuntime`
+is the native host factory: it composes Kratos human authentication, the current
+Hydra workload issuer and Hydra's separate OAuth authorization-server evidence.
+The native gate repeats both components and the OAuth observation before
+acceptance, including the mechanics' final pre-fence check. End users gain no
+workload scopes or resource audience. The host retains browser binding, approved
+client configuration and persistent challenge-fence responsibilities. No new
+public native-login endpoint is introduced.
+
+C4-03 still requires actual CP/provider revocation, composed provider execution
+and resource-consumption acceptance. Repository TLS wire fixtures are not that
+qualification. Provider declarations remain PARTIAL.
 
 Authority checks are read-time fences, not a cross-service atomic transaction.
 Subsequent protected resource operations must independently enforce current CP
@@ -86,8 +99,53 @@ Reviewed configuration approval remains an independent composition input.
 Reference existence is not approval. No fabricated FederationTrust is needed.
 RuntimeDispatch still independently repeats caller-owned CP resolution.
 
-C4-02 must
-adopt this adapter in executable factories, supervise context renewal and prove
-composed Kratos/Hydra coverage. C4-03 must qualify the actual composition and
-resource consumption. Provider declarations remain PARTIAL; INT-02's named
+C4-02 adopts these adapters in executable factories and supervises context
+renewal. C4-03 must qualify the actual composition and resource consumption. Provider declarations remain PARTIAL; INT-02's named
 Pulse proof-bootstrap exception grants no IAM authority.
+
+## Production hook deployment and context renewal
+
+The service accepts these protected, owner-controlled inputs:
+
+- `-profiles`: strict private token-profile JSON from the pinned Shared registry.
+- `-key-file`: a private regular file containing the Hydra hook authentication key.
+- `-runtime-config`: strict private JSON with `cp_origin`,
+  `resolution_token_file`, `runtime_token_file`, `context_target` (exact
+  `tenant_id`, `organisation_id`, `country_code`), `provider_id`,
+  `engine_instance_id`, `estate_id`, `service_reference`,
+  `configuration_reference`, and `security_domain_reference`.
+- `-cp-ca-file`: optional private-CA PEM; system roots apply when omitted.
+
+CP origins require verified HTTPS. Reviewed configuration references must identify
+exactly the deployed provider URLs/client configuration; references merely
+existing is insufficient approval. Files/directories must satisfy the existing
+protected-service-document rules. Do not substitute environment tokens, provider
+hints or estate request values. The private hook listener retains sender-key
+authentication and must only be reachable by Hydra on the protected deployment
+network. Shutdown drains requests and joins context supervision.
+
+The resolution credential needs separately allocated `context:resolve` transport scope and
+current canonical capability-resolution authority; runtime reads need `identity-runtime:read` plus
+current scoped `security.identity-runtime.view`. This change allocates none.
+Credentials are reread on every CP HTTP call. Deployment owns credential renewal;
+it must establish an independently authorised bootstrap/renewal path rather than
+requesting the very governed Hydra token whose issuance waits for this hook.
+No INT-02 proof identity or exception is reused.
+
+The supervisor calls `/v1/platform-context/resolve` using IAM's own credential.
+It rejects substituted tenant/organisation/market, absent/expired/unbounded or
+more-than-15-minute contexts. Every five seconds it checks the lease and renews
+with a 15-second margin; a request reaching that margin also renews synchronously.
+An initial acquisition failure prevents startup. A later uncertain renewal
+clears the handle, denies the operation and permits fresh acquisition after CP
+recovers. Cancellation, expiry and clock rollback deny use. No context is locally
+extended, no capability/profile result is cached and no readiness result grants
+issuance. Rotation during an operation may safely deny that operation; uncertain
+provider acceptance must start a new transaction, never be retried blindly.
+
+For native composition both components must share the exact CP origin,
+resolution credential source, context target, estate and security-domain
+reference, with distinct runtime instances. The Hydra OAuth and workload facets
+must have the same current profile revision and deployed artifact. Both existing
+canonical capabilities must be allocated to the IAM service caller. This is a
+conservative composition prerequisite, not a replacement for human authority.
