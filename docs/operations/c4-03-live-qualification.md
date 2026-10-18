@@ -151,7 +151,10 @@ registered OAuth audiences/scopes and current CP external identity mappings;
 an **independently registered** validator granted `context:validate` and
 `validates_audiences` for the subject's resource audience; the actual CP
 context resolution/validation routes; and an approved Kratos synthetic session
-plus an approved OIDC client and exact CP native/Hydra runtime bindings.
+plus an approved OIDC client and exact CP native/Hydra runtime bindings. The
+Kratos session identity must carry provider-owned
+`metadata_public.c403_disposable_fixture=true`; absence fails before any
+session revocation. Never mark a real employee identity as disposable.
 Provide HTTPS with validated server identities and CA roots. CP origin and
 runtime secrets must not be selected from browser input.
 
@@ -166,7 +169,8 @@ The harness requires these real proofs:
   denial, and revocation of that **exact synthetic Kratos identity's** session.
 - **D:** Real `POST /v1/platform-context/resolve` on the primary and foreign
   principal; authenticated real protected CP
-  `POST /v1/platform-context/validate` success; 404 cross-owner/foreign
+  `POST /v1/platform-context/validate` success **for both independently
+  registered principals and their own bounded contexts**; 404 cross-owner/foreign
   context denial; 401 tampered still-issued subject signature denial; and
   post-withdrawal CP denial of the **same unexpired bearer**.
 - **E:** A fresh complete closed-schema private receipt plus SHA-256 digest,
