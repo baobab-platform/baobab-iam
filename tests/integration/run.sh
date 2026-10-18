@@ -778,6 +778,16 @@ else
   fail "real browser assurance regression failed"
 fi
 
+# The browser fixture uses actual WebAuthn ceremonies and a virtual CTAP2
+# authenticator, not imported credentials or a decoded unsigned token. Every
+# matrix variant must provide a complete PASS receipt and verified teardown.
+if BAOBAB_ENVIRONMENT="${BAOBAB_ENVIRONMENT:-ci}" KC_URL="$KC_URL" \
+   node tests/integration/passkey/qualify.mjs; then
+  pass "real passkey step-up produces fresh signed LoA 3; weaker methods, invalid proofs, replay and revocation are denied"
+else
+  fail "live passkey browser qualification failed or did not complete"
+fi
+
 echo "== 16. Identity lifecycle: kill switch and admin audit (Gate IAM-12, ADR-0016 §32,§139,§158-159) =="
 # admin-cli is Keycloak's own built-in client, present in every realm by
 # default with direct grants enabled -- used here (not a Baobab-created

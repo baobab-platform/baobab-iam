@@ -33,7 +33,19 @@ Run against a real Keycloak in CI, the suite proves the configuration cannot emi
 
 ## What is not proven here
 
-A headless runner has no authenticator, so CI cannot drive a real passkey login (the same limitation as sections 15 and 19). Not yet proven, and each needed before the Control Plane's CRITICAL prohibition is lifted:
+A headless runner can exercise a virtual CTAP2 authenticator through Chromium's
+WebAuthn automation. `tests/integration/passkey` now requires actual browser
+registration and authentication against the disposable pinned Keycloak in every
+fresh/legacy/primary variant. It verifies RS256 signatures, issuer, audience,
+nonce, S256/state, fresh `auth_time` and raw LoA 3, and retains only sanitized
+per-case receipts. Enrollment, ordinary SSO and TOTP cannot substitute for the
+passkey proof. Bad signatures, absent UV/UP, code replay and revoked credentials
+must deny. Every case and teardown must pass; no SKIP can qualify a run.
+
+This is synthetic-browser/provider qualification, not physical-authenticator,
+production enrollment/recovery or CP CRITICAL-grant acceptance. The original
+CRITICAL prohibition remains. The following complete-chain requirements must
+still be independently satisfied before it can be lifted:
 
 1. a real WebAuthn/passkey step-up produces `acr=3` with a fresh `auth_time`;
 2. TOTP, ordinary MFA and SSO reuse do not produce 3;
@@ -41,3 +53,32 @@ A headless runner has no authenticator, so CI cannot drive a real passkey login 
 4. the whole chain: WebAuthn step-up, `acr`, freshness, Control Plane assurance evaluation, HIGH/CRITICAL grant, independent approval, authoritative decision.
 
 Administrators must also enrol a passkey; enrolment and recovery policy (ADR-IAM-0024, ADR-IAM-0025) are outside this change.
+
+
+## Browser qualification scope and operation
+
+The test launcher refuses non-loopback issuers and non-disposable environments.
+It creates one random synthetic user and one isolated public S256 client,
+enrolls TOTP and a discoverable UV-required passkey through real provider forms,
+and deletes/verifies absence of both resources even after failed assertions.
+Initial synthetic required actions are fixture bootstrap, not an approved
+production high-assurance binding/rebinding or notification procedure under
+ADR-IAM-0025. No existing user, realm policy, workload, business grant or
+AdministrativeGrant is changed.
+
+Dependencies are exact, locked Node 24+ Playwright/OIDC/JOSE versions already
+used by Infrastructure INT-02. Run `npm ci --prefix tests/integration/passkey`,
+install its Chromium runtime, then run the normal integration suite in the
+disposable Compose environment. CI runs all three browser configurations and
+uploads `passkey-browser-*` artifacts containing complete per-case receipts and
+SHA-256 digests only. Credentials, virtual private keys, assertions, tokens,
+HTML, cookies, screenshots and traces are excluded. Publication occurs only
+after both evidence files are written and synchronized. Physical hardware,
+production identity binding/recovery, full CP grant/independent approval and
+Ory-native passkey qualification remain separate acceptance work.
+
+References: [Chromium WebAuthn automation](https://chromedevtools.github.io/devtools-protocol/tot/WebAuthn/)
+and the pinned Keycloak 26.7.5 [registration](https://github.com/keycloak/keycloak/blob/26.7.5/themes/src/main/resources/theme/base/login/webauthn-register.ftl)
+and [authentication](https://github.com/keycloak/keycloak/blob/26.7.5/themes/src/main/resources/theme/base/login/webauthn-authenticate.ftl)
+forms. Current-run PASS evidence, rather than source presence, establishes the
+bounded browser result.
