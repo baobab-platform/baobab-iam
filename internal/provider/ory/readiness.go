@@ -85,16 +85,19 @@ func probeAdminReady(ctx context.Context, client *http.Client, baseURL, label st
 	}
 
 	var lastErr string
-	for _, url := range candidates {
+	for i, url := range candidates {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
-			lastErr = err.Error()
-			continue
+			lastErr = "invalid private health request"
+			break
 		}
 		resp, err := client.Do(req)
 		if err != nil {
-			lastErr = err.Error()
-			continue
+			// An outage, TLS failure or timeout is NOT an alternate-route hint.
+			// A different path cannot convert an unavailable admin plane into
+			// operational readiness.
+			lastErr = "private health transport unavailable"
+			break
 		}
 		// Drain and close body so keep-alive connections can be reused.
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
@@ -103,7 +106,13 @@ func probeAdminReady(ctx context.Context, client *http.Client, baseURL, label st
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return true, fmt.Sprintf("%s ready via %s", label, url)
 		}
-		lastErr = fmt.Sprintf("%s returned HTTP %d", url, resp.StatusCode)
+		lastErr = fmt.Sprintf("%s returned HTTP %d", label, resp.StatusCode)
+		// Only a first-path 404 means the reverse proxy may strip /admin.
+		// Never turn 401/403, redirects, throttling or 5xx into a success
+		// through a second, possibly weaker admin health endpoint.
+		if !(i == 0 && resp.StatusCode == http.StatusNotFound) {
+			break
+		}
 	}
 	return false, fmt.Sprintf("%s not ready: %s", label, lastErr)
 }

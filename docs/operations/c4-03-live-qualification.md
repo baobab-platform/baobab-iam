@@ -211,3 +211,26 @@ gated. Live registration credentials/CP state are external prerequisites;
 the repository contains no magic substitute and never promotes PARTIAL
 provider support on the strength of executable source.
 
+
+
+## Independent C4-03E receipt integrity verification
+
+After the **real protected C4-03B–E execution** has published its private
+`full/run-*/` bundle, the reviewer can verify its closed receipt, exact source
+SHA, SHA-256 digest, private file permissions and complete positive gate set:
+
+```bash
+go run ./cmd/c4-03-qualify \
+  -verify-bundle /run/c403-evidence/full/run-REVIEWED-ID \
+  -source-commit "$(git rev-parse HEAD)"
+```
+
+The result `INTEGRITY_VERIFIED_ONLY` means **only** that a locally presented
+bundle is structurally complete and internally digest-consistent. It is not
+cryptographic proof of who ran the fixture: a malicious party able to replace
+both JSON and checksum can fabricate an internally consistent bundle. An
+independent reviewer must still reconcile the GitHub/AWS protected execution
+identity, immutable source/image revision, approved synthetic fixture boundary,
+actual CP/issuer logs, authorised withdrawal and teardown before accepting
+live operational evidence. No registration, production support, CRITICAL grant
+or Nabhold Go-Live gate is promoted by this command.

@@ -174,7 +174,19 @@ func main() {
 	evidenceDir := flag.String("evidence-dir", "", "private sanitized receipt directory")
 	source := flag.String("source-commit", "", "exact checkout SHA")
 	fullFile := flag.String("full-config", "", "protected C4-03B–E registered live fixture configuration; optional")
+	verifyBundle := flag.String("verify-bundle", "", "read-only C4-03B–E receipt integrity check; no live acceptance")
 	flag.Parse()
+	if *verifyBundle != "" {
+		// Receipt integrity is not proof of a live CP deployment or of
+		// independent authorisation. The caller must supply an exact source
+		// revision and separately compare protected CI/issuer provenance.
+		if verifyFullReceipt(*verifyBundle, *source) != nil {
+			fmt.Fprintln(os.Stderr, "DENIED C4-03E receipt integrity")
+			os.Exit(1)
+		}
+		fmt.Println("INTEGRITY_VERIFIED_ONLY C4-03E; live authority not attested")
+		return
+	}
 	if *configPath == "" || *evidenceDir == "" {
 		fmt.Fprintln(os.Stderr, "FAIL C4-03 missing configuration or output")
 		os.Exit(2)

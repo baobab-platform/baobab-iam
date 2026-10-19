@@ -132,3 +132,45 @@ func TestCheckReady_KratosDownFailsClosed(t *testing.T) {
 		t.Fatalf("expected IsUnavailable, got %v", err)
 	}
 }
+
+// A 404 can mean the proxy strips /admin. A 401/403, redirect, throttling
+// response or actual outage cannot justify falling back to another, possibly
+// weaker health endpoint that responds 200.
+func TestC404ReadinessFallbackCannotMaskDeniedOrUnhealthyAdmin(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden,
+		http.StatusFound, http.StatusTooManyRequests, http.StatusServiceUnavailable} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			fallbackCalls := 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/admin/health/ready":
+					w.WriteHeader(status)
+				case "/health/ready":
+					fallbackCalls++
+					w.WriteHeader(http.StatusOK)
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+			// The production C4-04 client rejects redirects; reproduce that
+			// constraint instead of following Location to a foreign host.
+			client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			}}
+			adapter, err := ory.NewAdapter(ory.Config{
+				KratosAdminURL: srv.URL,
+				HydraAdminURL:  srv.URL,
+				PublicIssuer:   "https://issuer.example.invalid",
+				HTTPClient:     client,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := adapter.CheckReady(context.Background())
+			if err == nil || got.OK() || fallbackCalls != 0 {
+				t.Fatal("provider denial or outage was hidden by a fallback 200")
+			}
+		})
+	}
+}
