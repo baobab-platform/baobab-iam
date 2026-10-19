@@ -22,11 +22,11 @@ import (
 // Protected operational inputs have no passwords or inline bearer tokens.
 // IAM and CP service credentials remain in the two factory credential files.
 type readinessDocument struct {
-	Human       federation.RuntimeComposition `json:"human_runtime"`
-	Issuer      federation.RuntimeComposition `json:"issuer_runtime"`
-	KratosAdmin string                        `json:"kratos_admin_origin"`
-	HydraAdmin  string                        `json:"hydra_admin_origin"`
-	PublicIssuer string                       `json:"public_issuer"`
+	Human        federation.RuntimeComposition `json:"human_runtime"`
+	Issuer       federation.RuntimeComposition `json:"issuer_runtime"`
+	KratosAdmin  string                        `json:"kratos_admin_origin"`
+	HydraAdmin   string                        `json:"hydra_admin_origin"`
+	PublicIssuer string                        `json:"public_issuer"`
 }
 
 // Only reviewed HTTPS origins with no userinfo, paths, query or fragments may
@@ -86,9 +86,9 @@ func run(ctx context.Context, doc readinessDocument, tlsConfig *tls.Config) erro
 	}
 	adapter, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: doc.KratosAdmin,
-		HydraAdminURL: doc.HydraAdmin,
-		PublicIssuer: doc.PublicIssuer,
-		HTTPClient: client,
+		HydraAdminURL:  doc.HydraAdmin,
+		PublicIssuer:   doc.PublicIssuer,
+		HTTPClient:     client,
 	})
 	if err != nil {
 		return errors.New("invalid native health provider")
