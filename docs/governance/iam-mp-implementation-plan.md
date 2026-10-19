@@ -4,6 +4,20 @@
 Keycloak OIDC/SAML federation and PostgreSQL shared authority/recovery fencing
 are implemented. Enterprise CP-governed dispatch is merged in #80; broader MP3 support publication and native/workload MP4 dispatch remain open.
 
+2026-10-19 C4 continuity audit: IAM #122 (Keycloak virtual WebAuthn
+qualification) and IAM #123 (C4-03 source runner) are merged. C4-03's actual
+registered Kratos/Hydra → protected CP acceptance remains a separate open
+runtime evidence gate; isolated Ory mechanics and earlier INT-02 Keycloak/CP
+evidence do not satisfy it. C4-04A adds production-composed *observational*
+readiness with current CP-owned native/issuer/workload capabilities rechecked
+around the Kratos and Hydra admin health probes. C4-04B's independently approved
+Shared/CP support activation and C4-04C's running protected consumer,
+revocation and outage acceptance remain open. No local readiness observation
+may promote PARTIAL provider support, substitute for CP ownership or authorize
+a CRITICAL AdministrativeGrant. See
+[C4-03 live qualification](../operations/c4-03-live-qualification.md) and
+[C4-04 readiness and acceptance](../operations/c4-04-governed-runtime-readiness.md).
+
 2026-10-08: C3 declaration reconciliation #86 is merged. The registration
 publication preflight validates the immutable Shared pin and generates only
 canonical DRAFT documents for IMPLEMENTED support. All three provider
