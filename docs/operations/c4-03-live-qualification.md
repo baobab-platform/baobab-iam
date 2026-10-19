@@ -234,3 +234,14 @@ identity, immutable source/image revision, approved synthetic fixture boundary,
 actual CP/issuer logs, authorised withdrawal and teardown before accepting
 live operational evidence. No registration, production support, CRITICAL grant
 or Nabhold Go-Live gate is promoted by this command.
+
+
+### Receipt snapshot integrity
+
+The independent verifier reads receipt/checksum through the existing private
+service-file boundary (effective owner, 0600, one link, regular file, atomic
+no-follow open and bounded bytes). SHA-256 validation and strict JSON/semantic
+checks apply to **the same in-memory receipt snapshot**. It never reopens the
+receipt path after hashing it. A later owner rewrite is a new file version and
+cannot change the observation already checked. This remains integrity-only;
+no checksum supplies independent execution provenance or release acceptance.

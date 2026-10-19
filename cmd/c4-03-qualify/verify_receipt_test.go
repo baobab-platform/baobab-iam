@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,6 +65,47 @@ func TestC403IndependentReceiptVerifierRejectsIncompleteAndTamperedBundles(t *te
 	}
 	if verifyFullReceipt(bundle, sha) == nil {
 		t.Fatal("non-private evidence accepted")
+	}
+}
+
+func TestC403ReceiptSnapshotHashesAndDecodesExactlyTheSameBytes(t *testing.T) {
+	sha := strings.Repeat("d", 40)
+	receipt := newFullEvidence(sha)
+	receipt.ProviderAndCPActuallyContacted = true
+	receipt.CPGrantWithdrawalObserved = true
+	for _, key := range fullRequired {
+		receipt.Checks[key] = true
+	}
+	receipt.close()
+	raw, err := json.Marshal(receipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checksum := func(value []byte) []byte {
+		sum := sha256.Sum256(value)
+		return []byte(hex.EncodeToString(sum[:]) + "  receipt.json\n")
+	}
+	if verifyFullReceiptSnapshot(raw, checksum(raw), sha) != nil {
+		t.Fatal("complete source-bound snapshot denied")
+	}
+	// Model independent file versions: neither the old digest with new
+	// document nor a freshly digested forbidden document can become valid.
+	changed := []byte(strings.Replace(string(raw), `"production_ready":false`, `"production_ready":true`, 1))
+	if string(changed) == string(raw) {
+		t.Fatal("fixture did not change production flag")
+	}
+	if verifyFullReceiptSnapshot(changed, checksum(raw), sha) == nil ||
+		verifyFullReceiptSnapshot(changed, checksum(changed), sha) == nil {
+		t.Fatal("different or forbidden document accepted as checked snapshot")
+	}
+	for _, invalid := range [][]byte{
+		[]byte(strings.Replace(string(raw), `"schema":`, `"unknown":true,"schema":`, 1)),
+		[]byte(strings.Replace(string(raw), `"schema":`, `"schema":"duplicate","schema":`, 1)),
+		append(append([]byte{}, raw...), []byte(" {}")...),
+	} {
+		if verifyFullReceiptSnapshot(invalid, checksum(invalid), sha) == nil {
+			t.Fatal("strict service JSON rules lost in byte-snapshot decoding")
+		}
 	}
 }
 

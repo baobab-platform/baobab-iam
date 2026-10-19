@@ -40,7 +40,11 @@ silently fall back to Keycloak when Ory is unavailable.
 ## Protected read-only command
 
 `go run ./cmd/c4-04-readiness` takes a reviewed, owner-protected JSON document
-with no inline secrets and optional private CA trust roots. Example shape:
+with no inline secrets and optional private CA trust roots. Explicit CA files
+follow the existing Linux service-file contract: current effective-UID ownership,
+mode 0600, a single link, regular inode, no-follow open and at most 64 KiB.
+The file is read through that validated descriptor; a foreign-owned file or a
+symlink/path replacement must never select credential-bearing CP trust. Example shape:
 
 ```json
 {

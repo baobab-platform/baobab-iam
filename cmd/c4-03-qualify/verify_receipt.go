@@ -29,13 +29,7 @@ func verifyFullReceipt(bundle, expectedCommit string) error {
 		return denied
 	}
 	read := func(name string) ([]byte, error) {
-		p := filepath.Join(bundle, name)
-		info, err := os.Lstat(p)
-		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 ||
-			info.Size() > 65536 {
-			return nil, denied
-		}
-		return os.ReadFile(p)
+		return federation.ReadProtectedServiceFile(filepath.Join(bundle, name))
 	}
 	raw, err := read("receipt.json")
 	if err != nil {
@@ -45,14 +39,25 @@ func verifyFullReceipt(bundle, expectedCommit string) error {
 	if err != nil {
 		return denied
 	}
+	return verifyFullReceiptSnapshot(raw, checksum, expectedCommit)
+}
+
+// The checksum, strict decode and semantic checks all apply to one immutable
+// in-process snapshot. No path is reopened after verifying its digest; later
+// filesystem edits cannot change the document this observation describes.
+func verifyFullReceiptSnapshot(raw, checksum []byte, expectedCommit string) error {
+	denied := errors.New("untrusted C4-03 evidence bundle")
+	if !shaPattern.MatchString(expectedCommit) {
+		return denied
+	}
 	sum := sha256.Sum256(raw)
 	if string(checksum) != hex.EncodeToString(sum[:])+"  receipt.json\n" {
 		return denied
 	}
-	// The existing service document loader rejects duplicate/unknown JSON,
-	// symlinks, trailing documents, insecure permissions and oversized input.
+	// Preserve the service loader's duplicate/unknown/trailing JSON rejection.
+	// Inode custody was validated by the single-descriptor reads above.
 	var evidence fullEvidence
-	if federation.LoadServiceDocument(filepath.Join(bundle, "receipt.json"), &evidence) != nil ||
+	if federation.DecodeServiceDocument(raw, &evidence) != nil ||
 		evidence.Schema != fullSchema || evidence.SourceCommit != expectedCommit ||
 		evidence.Result != "PASS" || evidence.ProductionReady || evidence.PhysicalPasskey ||
 		!evidence.ProviderAndCPActuallyContacted || !evidence.CPGrantWithdrawalObserved ||
