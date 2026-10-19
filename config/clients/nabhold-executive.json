@@ -19,6 +19,7 @@
   "authenticationFlowBindingOverrides": {},
   "defaultClientScopes": [
     "openid",
+    "basic",
     "actor-type-human",
     "authority:self"
   ],

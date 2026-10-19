@@ -1368,10 +1368,19 @@ for client_file in config/clients/*.json; do
     # confers no business authority and CP authenticates the actual human.
     CLIENT_RECORD=$(admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID")
     NAB_DEFAULT=$(admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/default-client-scopes" | jq -r '[.[].name] | join(",")')
+    NAB_BASIC=$(admin_api "$KC_ADMIN_API/client-scopes" | jq -r '[.[] | select(.name == "basic")][0].id // empty')
+    # Test the real realm attachment, including persistent-realm reconciliation.
+    # This is a dormant profile check, not an issued-token or CP acceptance.
+    NAB_SUB_MAPPERS=0
+    if [ -n "$NAB_BASIC" ]; then
+      NAB_SUB_MAPPERS=$(admin_api "$KC_ADMIN_API/client-scopes/$NAB_BASIC/protocol-mappers/models" | jq '[.[] | select(.protocolMapper == "oidc-sub-mapper") ] | length')
+    fi
     NAB_OPTIONAL=$(admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/optional-client-scopes" | jq -r '[.[].name] | join(",")')
     if [ "$(echo "$CLIENT_RECORD" | jq -r '.enabled')" = "false" ] \
        && [ "$(echo "$CLIENT_RECORD" | jq -r '.publicClient')" = "false" ] \
        && [ "$(echo "$CLIENT_RECORD" | jq -r '.redirectUris | length')" = "0" ] \
+       && [ "$NAB_SUB_MAPPERS" = "1" ] \
+       && [ "$(printf '%s' "$NAB_DEFAULT" | tr ',' '\n' | sort | paste -sd, -)" = "actor-type-human,authority:self,basic,openid" ] \
        && [[ ",$NAB_DEFAULT," == *",authority:self,"* ]] \
        && [[ ",$NAB_OPTIONAL," != *",authority:self,"* ]] \
        && [[ ",$NAB_OPTIONAL," != *",administrator:"* ]]; then
