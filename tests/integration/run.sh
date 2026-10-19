@@ -1369,7 +1369,8 @@ for client_file in config/clients/*.json; do
     CLIENT_RECORD=$(admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID")
     NAB_DEFAULT=$(admin_api "$KC_ADMIN_API/clients/$CLIENT_UUID/default-client-scopes" | jq -r '[.[].name] | join(",")')
     NAB_BASIC=$(admin_api "$KC_ADMIN_API/client-scopes" | jq -r '[.[] | select(.name == "basic")][0].id // empty')
-    # Test the real realm attachment, including persistent-realm reconciliation.
+    # openid is an OIDC request meta-value, not a stored realm client-scope.
+    # Test the three real attachments, including persistent-realm repair.
     # This is a dormant profile check, not an issued-token or CP acceptance.
     NAB_SUB_MAPPERS=0
     if [ -n "$NAB_BASIC" ]; then
@@ -1380,7 +1381,7 @@ for client_file in config/clients/*.json; do
        && [ "$(echo "$CLIENT_RECORD" | jq -r '.publicClient')" = "false" ] \
        && [ "$(echo "$CLIENT_RECORD" | jq -r '.redirectUris | length')" = "0" ] \
        && [ "$NAB_SUB_MAPPERS" = "1" ] \
-       && [ "$(printf '%s' "$NAB_DEFAULT" | tr ',' '\n' | sort | paste -sd, -)" = "actor-type-human,authority:self,basic,openid" ] \
+       && [ "$(printf '%s' "$NAB_DEFAULT" | tr ',' '\n' | sort | paste -sd, -)" = "actor-type-human,authority:self,basic" ] \
        && [[ ",$NAB_DEFAULT," == *",authority:self,"* ]] \
        && [[ ",$NAB_OPTIONAL," != *",authority:self,"* ]] \
        && [[ ",$NAB_OPTIONAL," != *",administrator:"* ]]; then

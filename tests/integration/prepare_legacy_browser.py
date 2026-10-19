@@ -11,6 +11,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 realm = json.loads((ROOT/'config/realm/baobab-realm.json').read_text())
+# Reproduce an existing dormant Nabhold client from before the subject-scope
+# repair. A create-only import cannot fix it; the real product reconciliation
+# must attach basic without enabling the client or adding permissions.
+legacy_nabhold = json.loads((ROOT/'config/clients/nabhold-executive.json').read_text())
+legacy_nabhold['defaultClientScopes'] = ['openid']
+realm.setdefault('clients', []).append(legacy_nabhold)
 flows = realm['authenticationFlows']
 browser = next(f for f in flows if f['alias'] == 'Baobab browser')
 primary = next(f for f in flows if f['alias'] == 'Baobab - Primary Authentication')

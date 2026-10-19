@@ -22,9 +22,14 @@ BFF must pass CP a verifiable access-token subject as well as validate the
 separate ID token. Omitting `basic` from an explicit scope list can produce
 a login that cannot map to a CP Principal. No roles/profile/email or new
 resource scopes are added. The mandatory real-realm suite checks the exact
-four default scopes and native subject mapper, including persistent-realm
+three stored default scopes and native subject mapper, including persistent-realm
 reconciliation; this does not prove actual Nabhold browser execution.
-See [Keycloak’s basic-scope migration](https://github.com/keycloak/keycloak/blob/main/docs/documentation/upgrading/topics/changes/changes-25_0_0.adoc). It reads one's
+The source list additionally includes `openid`, an OIDC request meta-value
+rather than a stored realm client-scope. The legacy integration variants import
+an existing dormant client without `basic`; actual bootstrap must repair its
+attachment while retaining disabled/no-callback posture.
+See [Keycloak’s basic-scope migration](https://github.com/keycloak/keycloak/blob/main/docs/documentation/upgrading/topics/changes/changes-25_0_0.adoc).
+The CP self-read scope reads one's
 own effective administrative grants, but creates **no** executive role or
 domain/capability permission.
 
