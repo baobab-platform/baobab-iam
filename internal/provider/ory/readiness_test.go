@@ -133,7 +133,6 @@ func TestCheckReady_KratosDownFailsClosed(t *testing.T) {
 	}
 }
 
-
 // A 404 can mean the proxy strips /admin. A 401/403, redirect, throttling
 // response or actual outage cannot justify falling back to another, possibly
 // weaker health endpoint that responds 200.
