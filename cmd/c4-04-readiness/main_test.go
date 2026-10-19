@@ -29,8 +29,8 @@ func TestC404PrivateOriginsDoNotPermitRedirectRetargeting(t *testing.T) {
 
 func TestC404MissingCompositionNeverContactsProvider(t *testing.T) {
 	d := readinessDocument{
-		KratosAdmin: "https://kratos.internal.example",
-		HydraAdmin: "https://hydra.internal.example",
+		KratosAdmin:  "https://kratos.internal.example",
+		HydraAdmin:   "https://hydra.internal.example",
 		PublicIssuer: "https://issuer.internal.example",
 	}
 	// A syntactically valid origin is not registration or a CP grant.
@@ -40,14 +40,14 @@ func TestC404MissingCompositionNeverContactsProvider(t *testing.T) {
 	if err := run(context.Background(), d, &tls.Config{MinVersion: tls.VersionTLS12}); err == nil {
 		t.Fatal("unprovisioned native/workload runtime accepted")
 	}
-	for _, tc := range []struct{
+	for _, tc := range []struct {
 		name string
 		edit func(*readinessDocument)
 	}{
 		{"insecure issuer", func(d *readinessDocument) { d.PublicIssuer = "http://127.0.0.1:4444" }},
 		{"query credential", func(d *readinessDocument) { d.KratosAdmin += "?key=private" }},
 		{"absent Ory admin", func(d *readinessDocument) { d.HydraAdmin = "" }},
-	}{
+	} {
 		t.Run(tc.name, func(t *testing.T) {
 			copy := d
 			tc.edit(&copy)
