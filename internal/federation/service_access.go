@@ -57,6 +57,22 @@ func LoadServiceDocument(path string, out any) error {
 	return decodeAuthority(data, out)
 }
 
+// ReadProtectedServiceFile reads one bounded private inode using the service
+// admission policy: owner/effective UID, 0600, single link, regular file and
+// atomic no-follow open. Linux only; callers must protect parent directories.
+// Use this for trust/evidence inputs instead of separate path Stat/ReadFile
+// operations, which can inspect a different inode than the one actually read.
+func ReadProtectedServiceFile(path string) ([]byte, error) {
+	return privateDocument(path)
+}
+
+// DecodeServiceDocument applies strict service JSON rules to an already-read
+// snapshot. In particular, receipt consumers must decode exactly the bytes
+// whose digest was checked, rather than reopening a mutable path afterwards.
+func DecodeServiceDocument(data []byte, out any) error {
+	return decodeAuthority(data, out)
+}
+
 func (a *ServiceAccess) AuthorizeAuthorityRequest(ctx context.Context, r *http.Request, action string, want ReferenceExpectation) (context.Context, error) {
 	if ctx == nil || ctx.Err() != nil || r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 {
 		return nil, ErrDenied

@@ -49,12 +49,9 @@ func trustedTransport(caFile string) (*tls.Config, error) {
 	if caFile == "" {
 		return config, nil
 	}
-	info, err := os.Lstat(caFile)
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 ||
-		info.Size() > 1<<20 {
-		return nil, errors.New("invalid protected CA file")
-	}
-	pem, err := os.ReadFile(caFile)
+	// The same opened, owner-validated private inode supplies all trust bytes.
+	// A foreign 0600/0644 owner or a path replacement cannot select our roots.
+	pem, err := federation.ReadProtectedServiceFile(caFile)
 	if err != nil {
 		return nil, errors.New("invalid protected CA file")
 	}
