@@ -317,11 +317,22 @@ reconcile_client_scopes_and_roles() {
     [ -n "$client_uuid" ] || continue
     # Default scopes: only Baobab vocabulary (a scope defined under config/scopes/), only ever added. This is how a scope
     # newly declared for an existing client (e.g. context:validate on baobab-erp-workload) reaches a deployment
-    # bootstrapped before it existed; Keycloak's own built-in default scopes are left alone.
+    # bootstrapped before it existed. The one reviewed built-in exception is
+    # Nabhold's dormant human basic scope: modern Keycloak needs its subject
+    # mapper for CP access-token identity, including already-imported clients.
+    # No other client's built-in scopes or authority are changed here.
     for scope_name in $(jq -r '.defaultClientScopes // [] | .[]' "$client_file"); do
-      [ -f "/opt/keycloak/config/scopes/$(echo "$scope_name" | tr ':' '-').json" ] || continue
+      if [ ! -f "/opt/keycloak/config/scopes/$(echo "$scope_name" | tr ':' '-').json" ]; then
+        [ "$client_id" = "nabhold-executive" ] && [ "$scope_name" = "basic" ] || continue
+      fi
       scope_uuid=$(kcadm get client-scopes -r baobab --fields id,name | jq -r --arg n "$scope_name" '[.[] | select(.name == $n)][0].id // empty')
-      [ -n "$scope_uuid" ] || continue
+      if [ -z "$scope_uuid" ]; then
+        if [ "$client_id" = "nabhold-executive" ] && [ "$scope_name" = "basic" ]; then
+          echo "Required Nabhold built-in subject scope is unavailable." >&2
+          exit 1
+        fi
+        continue
+      fi
       kcadm update "clients/$client_uuid/default-client-scopes/$scope_uuid" -r baobab -n
     done
     for scope_name in $(jq -r '.optionalClientScopes // [] | .[]' "$client_file"); do

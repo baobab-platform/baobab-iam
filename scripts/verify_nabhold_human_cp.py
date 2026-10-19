@@ -49,7 +49,7 @@ def check_template(value):
     require(all(value.get(k) is False for k in ("directAccessGrantsEnabled", "implicitFlowEnabled", "serviceAccountsEnabled")))
     require(value.get("protocol") == "openid-connect" and value.get("redirectUris") == []
             and value.get("webOrigins") == [] and value.get("optionalClientScopes") == [])
-    require(value.get("defaultClientScopes") == ["openid", "actor-type-human", SCOPE])
+    require(value.get("defaultClientScopes") == ["openid", "basic", "actor-type-human", SCOPE])
     require(value.get("attributes", {}).get("pkce.code.challenge.method") == "S256")
     require("secret" not in value and "authorizationServicesEnabled" not in value)
     return True

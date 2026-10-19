@@ -22,6 +22,20 @@ class NabholdHumanProfile(unittest.TestCase):
         self.assertEqual(scope["protocolMappers"][0]["config"]["id.token.claim"], "false")
         self.assertEqual(scope["protocolMappers"][0]["config"]["access.token.claim"], "true")
 
+    def test_subject_mapper_is_compulsory_without_widening_authority(self):
+        # Modern Keycloak supplies access-token sub/auth_time through basic.
+        # A valid ID token alone cannot satisfy CP's verified (issuer, sub)
+        # mapping of the separate access token used by the BFF.
+        self.assertEqual(self.template["defaultClientScopes"],
+                         ["openid", "basic", "actor-type-human", "authority:self"])
+        missing = {**self.template, "defaultClientScopes":
+                   [s for s in self.template["defaultClientScopes"] if s != "basic"]}
+        with self.assertRaises(mod.Denied):
+            mod.check_template(missing)
+        self.assertFalse(self.template["enabled"])
+        self.assertEqual(self.template["redirectUris"], [])
+        self.assertEqual(self.template["optionalClientScopes"], [])
+
     def test_source_cannot_be_activated_by_accidental_edit(self):
         for key, value in (("enabled", True), ("publicClient", True),
                            ("directAccessGrantsEnabled", True), ("serviceAccountsEnabled", True),
