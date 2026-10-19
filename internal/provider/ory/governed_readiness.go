@@ -3,6 +3,7 @@ package ory
 import (
 	"context"
 	"errors"
+	"reflect"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
@@ -76,5 +77,11 @@ func absentHealth(h NativeWorkloadHealth) bool {
 	if h == nil {
 		return true
 	}
-	return nilHealth(h)
+	v := reflect.ValueOf(h)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
 }
