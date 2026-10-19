@@ -22,6 +22,9 @@ C4-04A adds `ory.CheckGovernedNativeWorkloadReadiness` and
   with fresh CP context, exact capability resolution, current grant/binding and
   runtime profile/artifact proof.
 - The actual existing Kratos **and** Hydra administrative health endpoints.
+  The optional `/health/ready` fallback is permitted only after the initial
+  `/admin/health/ready` returns 404. A 401/403, redirect, rate-limit,
+  transport error or 5xx always denies; alternate paths cannot conceal them.
 - Fresh authority checks **after** provider health. Withdrawal, stale support,
   artifact drift, wrong provider instance, incompatible contract, shutdown,
   expired context, either admin-plane outage or caller revocation denies.
