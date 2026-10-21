@@ -89,13 +89,24 @@ two positive answers are sufficient:
 
 - the full realm representation (relative path `''`) with
   `adminPermissionsEnabled` exactly `false`. Only a view-realm/manage-realm
-  reader receives the full representation, and `false` selects FGAP v1, where
-  admin roles are checked first and per-resource permissions only add
-  visibility;
-- `default-default-client-scopes`, which under v1 answers only a reader with
-  global view-clients/manage-clients.
+  reader receives the full representation. False disables realm FGAP v2
+  policies; it does not choose the server's v1/v2 evaluator;
+- `default-default-client-scopes` proves global client visibility. The v1
+  evaluator requires global view-clients/manage-clients. The v2 evaluator
+  permits those same roles or a policy, but policy evaluation denies when
+  the proved realm flag is false. Either evaluator therefore proves the
+  global client visibility required to see every client's role mappings.
 
 Group membership uses the unfiltered `users/<UUID>/groups/count`, which must be
 exactly `{"count": 0}`. The federated-identity listing has no permission filter.
 The orchestrator should read with the disposable realm's full administrator; a
 narrower credential, or a realm with admin permissions v2 enabled, denies.
+
+
+Pinned-source review references (Keycloak 26.7.5):
+[realm representation](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/RealmAdminResource.java),
+[global and per-client visibility](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/fgap/ClientPermissions.java),
+[v2 visibility](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/fgap/ClientPermissionsV2.java),
+[v2 policy refusal](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/fgap/FineGrainedAdminPermissionEvaluator.java),
+[realm flag and feature conjunction](https://github.com/keycloak/keycloak/blob/26.7.5/server-spi-private/src/main/java/org/keycloak/authorization/fgap/AdminPermissionsSchema.java),
+and [unfiltered group count](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/UserResource.java).

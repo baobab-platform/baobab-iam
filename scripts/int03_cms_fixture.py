@@ -134,12 +134,13 @@ def reader_sees_all_authority(read):
 
     - The full realm representation, with `adminPermissionsEnabled` exactly
       false. Only a view-realm/manage-realm reader receives it (others get a
-      partial representation without the field), and false selects FGAP v1,
-      where role-based checks come first and per-resource permissions can
-      only add visibility. Realm roles are then fully visible.
-    - `default-default-client-scopes`, which under v1 answers only a reader
-      holding view-clients/manage-clients globally, so every client's role
-      mappings are visible.
+      partial representation without the field). False disables realm FGAP
+      v2 policies, not the server's choice of v1/v2 evaluator. Realm-role
+      visibility therefore follows the proved realm administration permission.
+    - `default-default-client-scopes` proves global client visibility: v1
+      requires view-clients/manage-clients; v2 also admits policies, but its
+      policy evaluator denies while the above realm flag is false. Thus either
+      evaluator requires global roles and can view every client's mappings.
 
     Group membership is read through the unfiltered count endpoint instead.
     """
