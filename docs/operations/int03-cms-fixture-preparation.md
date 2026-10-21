@@ -56,3 +56,24 @@ Go 1.27.2 standard library. Module minimum and federation builder now use
 registry and independently SHA-256 checked against its response header. No
 vulnerability exclusion was added. This does not rehash the earlier identity
 run artifact, whose digest remains GitHub-reported only.
+
+## Service-account read-back dependency
+
+`verify_runtime_readback` adds the mandatory service-account boundary to client
+and separately retrieved secret checks. The disposable orchestrator must obtain
+all five actual issuer responses independently: client, secret, service-account
+user, direct role-mappings and groups. The account must be enabled, belong to the
+exact named proof client, and have a distinct valid issuer UUID. Realm roles,
+client roles, group memberships and federated identity links all deny. Unknown
+mapping categories and malformed/absent endpoint responses deny. This excludes
+offline_access, administrative roles and group/composite-role inheritance; none
+is needed for the narrow CMS proof scopes.
+
+This is source validation, not network provenance. A producer cannot turn copied
+JSON into qualification evidence by calling the function. The future runtime
+must use this combined checker, capture real endpoint provenance, independently
+verify tokens, enforce the fixed deadline/early-close lifecycle and tear down all
+issuer trust and accepting services. Ten fixture tests plus two INT-02 tests pass
+locally. The canonical registry/pin remain unchanged; no client is provisioned.
+
+The client association follows Keycloak's [UserRepresentation contract](https://github.com/keycloak/keycloak/blob/main/core/src/main/java/org/keycloak/representations/idm/UserRepresentation.java): `serviceAccountClientId` is the public clientId, not the database UUID. Embedded role/group fields and external federation links must also be empty.

@@ -87,6 +87,34 @@ class FixtureTests(unittest.TestCase):
             self.assertFalse(m.verify_readback(tampered, tampered, secret))
         self.assertFalse(m.verify_readback(None, {}, {}))
 
+    def test_runtime_readback_rejects_inherited_and_extra_authority(self):
+        for expected in self.clients().values():
+            observed = dict(expected, id='00000000-0000-4000-8000-000000000001')
+            account = {'id': '00000000-0000-4000-8000-000000000002', 'enabled': True,
+                       'username': 'service-account-' + expected['clientId'],
+                       'serviceAccountClientId': expected['clientId']}
+            secret = {'type': 'secret', 'value': expected['secret']}
+            def check(acct=account, mappings=None, groups=None, client=observed):
+                return m.verify_runtime_readback(expected, client, secret, acct,
+                                                {} if mappings is None else mappings,
+                                                [] if groups is None else groups)
+            self.assertTrue(check())
+            self.assertTrue(check(mappings={'realmMappings': [], 'clientMappings': {}}))
+            for mappings in ({'realmMappings': [{'name': 'offline_access'}]},
+                             {'clientMappings': {'realm-management': {'mappings': [{'name': 'realm-admin'}]}}},
+                             {'realmMappings': None}, {'clientMappings': []}, {'unreviewed': []}):
+                self.assertFalse(check(mappings=mappings))
+            self.assertFalse(check(groups=[{'id': 'inherited-admin-group'}]))
+            for key, value in (('id', observed['id']), ('id', 'not-a-uuid'), ('enabled', False),
+                               ('enabled', 1), ('username', 'service-account-unrelated'),
+                               ('serviceAccountClientId', 'unrelated'), ('federatedIdentities', [{'identityProvider': 'external'}]),
+                               ('realmRoles', ['offline_access']), ('clientRoles', {'realm-management': ['realm-admin']}),
+                               ('groups', ['admin']), ('federationLink', 'external-store')):
+                self.assertFalse(check(acct=dict(account, **{key: value})), key)
+            self.assertFalse(check(client=dict(observed, id='not-a-uuid')))
+            for acct, mappings, groups in ((None, {}, []), (account, None, []), (account, {}, None)):
+                self.assertFalse(m.verify_runtime_readback(expected, observed, secret, acct, mappings, groups))
+
     def test_duplicate_json_fields_refused(self):
         with self.assertRaises(ValueError):
             json.loads('{"status":"ACTIVE","status":"REVOKED"}', object_pairs_hook=m.unique)

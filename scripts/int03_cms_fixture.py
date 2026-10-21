@@ -13,6 +13,7 @@ from pathlib import Path
 import secrets
 import sys
 import subprocess
+import uuid
 
 CALLER = 'baobab-int03-cms-consumer'
 VALIDATOR = 'baobab-int03-cms-validator'
@@ -92,7 +93,7 @@ def verify_readback(expected, observed, secret_response):
     exact scope set, absence of extra protocol mappers and separately read-back
     secret must agree. The orchestrator owns the actual source/protocol evidence.
     """
-    if not isinstance(expected, dict) or expected.get('clientId') not in EXPECTED or not isinstance(observed, dict) or not isinstance(secret_response, dict):
+    if not isinstance(expected, dict) or not isinstance(expected.get('clientId'), str) or expected.get('clientId') not in EXPECTED or not isinstance(observed, dict) or not isinstance(secret_response, dict):
         return False
     credential = expected.get('secret')
     if not isinstance(credential, str) or len(credential) < 32 or expected != client_document(expected['clientId'], credential):
@@ -121,6 +122,44 @@ def verify_readback(expected, observed, secret_response):
     return (secret_response.get('type') == 'secret' and isinstance(actual_secret, str)
             and actual_secret.isascii() and credential.isascii()
             and secrets.compare_digest(actual_secret, credential))
+
+
+def verify_runtime_readback(expected, observed, secret_response, account, mappings, groups):
+    """Require all issuer read-backs before using a disposable service account.
+
+    Client configuration alone cannot exclude authority inherited from a user
+    role or group. The orchestrator must obtain these responses independently
+    from this client's service-account endpoint, its role-mappings endpoint and
+    its groups endpoint; this function cannot attest their network provenance.
+    A CMS proof identity needs no realm/client role or group membership.
+    """
+    if not verify_readback(expected, observed, secret_response):
+        return False
+    if not isinstance(account, dict) or not isinstance(mappings, dict) or not isinstance(groups, list):
+        return False
+    def valid_uuid(value):
+        try:
+            return isinstance(value, str) and str(uuid.UUID(value)) == value
+        except (ValueError, AttributeError):
+            return False
+    if (not valid_uuid(observed.get('id')) or not valid_uuid(account.get('id'))
+            or observed['id'] == account['id'] or account.get('enabled') is not True
+            or account.get('username') != 'service-account-' + expected['clientId']
+            # Keycloak UserRepresentation defines this as clientId, not DB ID.
+            or account.get('serviceAccountClientId') != expected['clientId']):
+        return False
+    # Refuse additional mapping categories rather than silently assuming a new
+    # provider representation is equivalent to an empty role set. Empty groups
+    # rule out group/composite-role inheritance outside direct mappings.
+    if set(mappings) - {'realmMappings', 'clientMappings'}:
+        return False
+    if mappings.get('realmMappings', []) != [] or mappings.get('clientMappings', {}) != {} or groups:
+        return False
+    if (account.get('federatedIdentities', []) != [] or account.get('realmRoles', []) != []
+            or account.get('clientRoles', {}) != {} or account.get('groups', []) != []
+            or account.get('federationLink') not in (None, '')):
+        return False
+    return True
 
 
 def load_registry(checkout, repository=None):
