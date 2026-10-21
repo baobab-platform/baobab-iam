@@ -47,3 +47,10 @@ Actual CMS provider qualification, independent maker/checker certification,
 current CP context/release/health/binding, full INT-03 and retained normative L4
 matrix, protected Kratos/Hydra IAM↔CP proof, executive authority, staging,
 production and R0–R3 remain open. Keep PARTIAL support and Nabhold non-trading.
+
+CI prerequisite: the image scanner reported CVE-2026-111943 in the existing
+Go 1.27.2 standard library. Module minimum and federation builder now use
+1.27.3. The Docker multi-platform index digest was downloaded from the official
+registry and independently SHA-256 checked against its response header. No
+vulnerability exclusion was added. This does not rehash the earlier identity
+run artifact, whose digest remains GitHub-reported only.
