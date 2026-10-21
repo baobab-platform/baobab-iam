@@ -360,9 +360,38 @@ else
   else
     fail "INT-02 named fixture identity differs from its approved closed boundary"
   fi
+  # Shared #354's two independent development identities are fixture-only.
+  # Old exact pins have neither row. Once either is present, require the full
+  # accepted pair, exact closed ceilings, and committed/live product absence.
+  # This exclusion never provisions a client or declares provider acceptance.
+  INT03_FIXTURE_ONLY=false
+  INT03_PRESENT=$(echo "$REGISTRY_JSON" | jq '[.workloads["baobab-int03-cms-consumer"], .workloads["baobab-int03-cms-validator"]] | map(select(. != null)) | length')
+  if [ "$INT03_PRESENT" != "0" ]; then
+    INT03_VALID=true
+    INT03_LOCAL=$(for F in config/clients/*.json; do jq -r '.clientId // empty' "$F"; done)
+    for ID in baobab-int03-cms-consumer baobab-int03-cms-validator; do
+      if ! echo "$REGISTRY_JSON" | jq --arg id "$ID" '.workloads[$id]' |
+          python3 scripts/int03_cms_fixture.py check "$ID" >/dev/null; then
+        INT03_VALID=false
+      fi
+      INT03_LIVE=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN" "$KC_URL/admin/realms/$REALM/clients?clientId=$ID" | jq 'length' || echo "unreadable")
+      if echo "$INT03_LOCAL" | grep -qx "$ID" || [ "$INT03_LIVE" != "0" ]; then
+        INT03_VALID=false
+      fi
+    done
+    if [ "$INT03_PRESENT" = "2" ] && [ "$INT03_VALID" = "true" ]; then
+      INT03_FIXTURE_ONLY=true
+      pass "exact independent CMS proof identities have no committed or live product clients"
+    else
+      fail "CMS proof identity pair differs from its approved fixture-only boundary"
+    fi
+  fi
   ACTIVE_WITHOUT_CLIENT=0
   for ID in $(echo "$REGISTRY_JSON" | jq -r '.workloads | to_entries[] | select(.value.status == "ACTIVE" and .value.credential_type == "client_credentials") | .key'); do
     if [ "$ID" = "baobab-int02-pulse-consumer" ] && [ "$INT02_FIXTURE_ONLY" = "true" ]; then
+      continue
+    fi
+    if { [ "$ID" = "baobab-int03-cms-consumer" ] || [ "$ID" = "baobab-int03-cms-validator" ]; } && [ "$INT03_FIXTURE_ONLY" = "true" ]; then
       continue
     fi
     if ! echo "$LOCAL_CLIENT_IDS" | grep -qx "$ID"; then
