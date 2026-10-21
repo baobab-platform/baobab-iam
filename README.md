@@ -80,7 +80,10 @@ read token in `GH_TOKEN`. CI may supply `SHARED_READ_TOKEN` for cross-repository
   (Zuribeans B2B, ADR-0010) phase 1 (Keycloak Organizations enabled, verified end-to-end
   against a real Keycloak instance) is complete — see
   [Gate IAM-6 scope](./docs/governance/gate-iam-6-zuribeans-b2b-scope.md) for phases 2+
-  (`baobab-cp` canonical-entity wiring, cross-buyer isolation against real tokens). Gate
+  (`baobab-cp` canonical-entity wiring, cross-buyer isolation against real tokens). ADR-0010
+  was reconciled on 2026-10-21 with Accepted ADR-IAM-0021/0023/0026/0033 (its section 0): that
+  Keycloak Organizations work is retained for federation and transition only, and the ZuriBeans
+  target is a confidential BFF on Kratos authentication and Hydra tokens. Gate
   IAM-7 (Thamani B2C, ADR-0011) is **scoped, not yet implemented** — discovery found two
   genuine architectural forks (where the customer OIDC redirect terminates; how a guest
   order's claim proof is delivered) that need their own decisions before code — see

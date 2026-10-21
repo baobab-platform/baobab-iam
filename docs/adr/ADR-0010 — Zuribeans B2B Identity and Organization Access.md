@@ -19,6 +19,45 @@
 - ADR-0007 — Workload Identity and Service-to-Service Authentication  
 - ADR-0008 — Platform Authorization Architecture  
 - ADR-0009 — Workforce SSO and Privileged Access  
+- ADR-IAM-0021 — Ory Kratos and Hydra Deployment, Persistence and Runtime Architecture (Accepted)  
+- ADR-IAM-0023 — Digital Estate Authentication UX, Browser Session and BFF Security Boundary (Accepted)  
+- ADR-IAM-0026 — Enterprise Federation, B2B SSO, Organization Trust and Identity Lifecycle Federation (Accepted)  
+- ADR-IAM-0033 — Multi-Provider Identity Runtime, Enterprise SSO and Federation Provider Architecture (Accepted)  
+
+**Reconciled:** 2026-10-21, against the Accepted ADRs above (section 0). ADR-0002 is retained only for its unsuperseded Keycloak federation scope.  
+
+---
+
+# 0. Reconciliation with Accepted ADR-IAM-0021, 0023, 0026 and 0033
+
+Recorded 2026-10-21 on the platform owner's ruling for ZuriBeans gate ZB-G03. This section governs. Where a later section of this ADR conflicts with it or with an Accepted ADR it names, the Accepted ADR prevails, and that section is read as amended below. This ADR remains **Proposed**; reconciliation is not acceptance.
+
+## 0.1 Provider allocation for ZuriBeans
+
+| Concern | Runtime | Authority |
+|---|---|---|
+| Buyer authentication, native credentials, passkeys/MFA, recovery and human sessions | Ory Kratos | IAM authentication boundary (ADR-IAM-0033 §10) |
+| OAuth 2.x / OIDC, authorization code with PKCE, token issuance, audience and scope | Ory Hydra | IAM protocol boundary (ADR-IAM-0033 §11) |
+| Enterprise buyer federation (OIDC/SAML brokering) and legacy compatibility | Keycloak | IAM federation boundary only (ADR-IAM-0033 §12, ADR-IAM-0026) |
+| Canonical Principal, Organisation, Tenant, market and context | `baobab-cp` | Sole platform authority |
+| Buyer membership, purchasing roles and transaction authorisation | `baobab-trade` | Domain authority |
+| Commerce customer session | Medusa (inside Trade) | Trade-local; never platform identity or Organisation authority |
+
+Kratos and Hydra are the first implementation target. Keycloak remains a supported federation and transition provider; no new Keycloak-specific requirement is normative for ZuriBeans. Provider choice is resolved by IAM, never by the estate (ADR-IAM-0033 §40).
+
+## 0.2 Session custody (ADR-IAM-0023)
+
+The ZuriBeans server is a confidential BFF. The browser holds only an opaque, HttpOnly estate session cookie. The authorization code is exchanged server-side; access, refresh and ID tokens stay server-side. The BFF transports authenticated evidence and mediates requests; it creates no identity, context or authority.
+
+A Trade buyer operation requires an IAM access token issued for the Trade audience, presented by the BFF to Trade server-to-server, and validated by Trade itself (issuer, audience, scope, actor type, authorized party, expiry). A Medusa customer token alone authorises no commerce operation. Each downstream audience is requested explicitly (ADR-IAM-0023 §43–45); delegated identity uses standards-based token exchange only if separately adopted.
+
+## 0.3 Organisation evidence
+
+IAM, Keycloak or any provider organisation membership, group or claim is provider-local and is never Trade buyer-membership evidence (ADR-IAM-0033 §33–34). Trade binds the buyer's canonical Organisation, resolved by CP, to an active Trade buyer membership and checks that membership independently on every operation. Membership is never inferred from email, email domain, an organisation claim or a selected-organisation header. The CP-resolved PRIMARY Organisation of the ZuriBeans tenant is not the buyer's Organisation.
+
+## 0.4 Amended sections
+
+Sections 5, 6, 16, 26, 27, 28, 56, 82, 86, 109, 115, 116, 117 and the summary are amended in place below. Where they previously named Keycloak Organizations as the identity-side membership or invitation model, that role is provider-local, optional and non-authoritative. Buyer invitations and memberships are Trade-owned; identity registration and recovery are Kratos flows.
 
 ---
 
@@ -149,7 +188,7 @@ Conceptually:
 Buyer Company
     │
     ├── CanonicalEntity
-    ├── IAM Organization
+    ├── provider-local federation organisation (optional, section 0.3)
     └── Trade Buyer Organization
 ```
 
@@ -159,15 +198,12 @@ These representations SHALL be linked explicitly.
 
 # 6. IAM Organization Role
 
-Keycloak Organization MAY be used for:
+*Amended by section 0.* A provider organisation construct (for example a Keycloak Organization used for enterprise federation routing) MAY be used only as provider-local IAM configuration:
 
-- identity-side company membership;
-- invitation workflows;
-- B2B login experience;
-- organisation-specific federation;
-- representative onboarding.
+- organisation-specific enterprise federation and login routing (ADR-IAM-0033 §33);
+- federation lifecycle management.
 
-It SHALL NOT own:
+It is not identity-side company membership evidence, and it does not drive invitations or representative onboarding, which are Trade-owned (section 28). It SHALL NOT own:
 
 - purchase authority;
 - approval limits;
@@ -361,7 +397,7 @@ The exact business process may evolve.
 It SHALL NOT be represented simply as:
 
 ```text
-Keycloak Organization exists
+an IAM or provider organisation exists
 ```
 
 ---
@@ -544,16 +580,16 @@ BuyerOrganization
 
 # 26. IAM Membership
 
-An IAM Organization membership MAY also exist:
+*Amended by section 0.* A provider-local organisation membership MAY exist for federation routing:
 
 ```text
 CanonicalIdentity
       │
       ▼
-IAM Organization membership
+provider-local organisation membership (federation only)
 ```
 
-It is identity-side evidence, not final purchasing authority.
+It is not evidence of buyer membership or purchasing authority, and Trade SHALL NOT consume it.
 
 ---
 
@@ -563,7 +599,7 @@ Zuribeans SHALL distinguish:
 
 | Membership | Authority |
 |---|---|
-| IAM Organization membership | Baobab IAM |
+| provider-local organisation membership (federation only; not buyer evidence) | Baobab IAM |
 | platform context membership | `baobab-cp` |
 | buyer organization membership | `baobab-trade` |
 
@@ -584,10 +620,10 @@ Buyer Admin
 Invite email
     │
     ▼
-Recipient authenticates/registers
+Recipient authenticates/registers (Kratos)
     │
     ▼
-IAM organization relationship
+CP resolves the canonical Principal
     │
     ▼
 Trade buyer membership
@@ -959,7 +995,7 @@ Conceptually:
 Enterprise IdP
       │
       ▼
-Baobab IAM Organization
+Baobab IAM federation (Keycloak, ADR-IAM-0026/0033)
       │
       ▼
 CanonicalIdentity
@@ -1308,7 +1344,7 @@ Buyer approval in one market SHALL not automatically imply eligibility in every 
 Buyer mapping MAY conceptually be:
 
 ```text
-Keycloak Organization ID
+CP-attested canonical Organisation (never a provider organisation ID)
        │
        ▼
 CanonicalEntity ID
@@ -1364,7 +1400,7 @@ Buyer onboarding SHALL be idempotent.
 Repeated callbacks or retries SHALL not create duplicate:
 
 - Canonical Entities;
-- IAM Organizations;
+- provider-local federation organisations, where used;
 - Trade buyer organizations.
 
 ---
@@ -1660,7 +1696,7 @@ Every human action SHALL be attributable to an individual.
 
 ---
 
-# 109. Rejected Alternative — Keycloak Organization as Commerce Authority
+# 109. Rejected Alternative — Provider Organization (e.g. Keycloak) as Commerce Authority
 
 ### Advantages
 
@@ -1787,7 +1823,7 @@ These costs are accepted.
 | Concern | Owner |
 |---|---|
 | Human authentication | `baobab-iam` |
-| IAM Organizations | `baobab-iam` |
+| Provider-local federation organisations | `baobab-iam` |
 | Canonical identity | `baobab-cp` |
 | Canonical business entity | `baobab-cp` |
 | Tenant/market/estate context | `baobab-cp` |
@@ -1805,6 +1841,7 @@ These costs are accepted.
 `baobab-platform/shared` SHOULD define or extend versioned contracts for:
 
 ```text
+buyer identity handoff (section 0.2: Trade-audience token profile and BFF request)
 organization identity reference
 buyer onboarding identity reference
 membership lifecycle
@@ -1822,7 +1859,8 @@ Business-specific Trade contracts SHOULD remain within Trade where appropriate.
 
 Zuribeans B2B identity SHALL not be considered production-ready until:
 
-- individual user login uses Baobab IAM;
+- individual user login uses Baobab IAM (Kratos authentication, Hydra tokens) through the confidential BFF;
+- no commerce operation proceeds on a Medusa customer token alone;
 - no shared buyer credentials are required;
 - canonical identity mapping works;
 - company applications are independently verified;
@@ -2014,7 +2052,7 @@ Baobab Trade
 
 The buyer company and its representatives SHALL remain separate identities.
 
-Keycloak Organizations MAY support invitations, B2B login and identity-side membership, but they SHALL not become the commerce authorization model.
+Provider organisation constructs MAY support enterprise federation routing only; they SHALL not support buyer invitations or membership, and they SHALL not become the commerce authorization model (section 0).
 
 The governing principle is:
 
