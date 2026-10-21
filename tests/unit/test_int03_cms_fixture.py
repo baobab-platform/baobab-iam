@@ -87,33 +87,50 @@ class FixtureTests(unittest.TestCase):
             self.assertFalse(m.verify_readback(tampered, tampered, secret))
         self.assertFalse(m.verify_readback(None, {}, {}))
 
-    def test_runtime_readback_rejects_inherited_and_extra_authority(self):
+    def test_runtime_readback_reads_actual_endpoint_shapes_and_denies_extra_authority(self):
         for expected in self.clients().values():
-            observed = dict(expected, id='00000000-0000-4000-8000-000000000001')
-            account = {'id': '00000000-0000-4000-8000-000000000002', 'enabled': True,
-                       'username': 'service-account-' + expected['clientId'],
-                       'serviceAccountClientId': expected['clientId']}
-            secret = {'type': 'secret', 'value': expected['secret']}
-            def check(acct=account, mappings=None, groups=None, client=observed):
-                return m.verify_runtime_readback(expected, client, secret, acct,
-                                                {} if mappings is None else mappings,
-                                                [] if groups is None else groups)
-            self.assertTrue(check())
-            self.assertTrue(check(mappings={'realmMappings': [], 'clientMappings': {}}))
-            for mappings in ({'realmMappings': [{'name': 'offline_access'}]},
-                             {'clientMappings': {'realm-management': {'mappings': [{'name': 'realm-admin'}]}}},
-                             {'realmMappings': None}, {'clientMappings': []}, {'unreviewed': []}):
-                self.assertFalse(check(mappings=mappings))
-            self.assertFalse(check(groups=[{'id': 'inherited-admin-group'}]))
-            for key, value in (('id', observed['id']), ('id', 'not-a-uuid'), ('enabled', False),
-                               ('enabled', 1), ('username', 'service-account-unrelated'),
-                               ('serviceAccountClientId', 'unrelated'), ('federatedIdentities', [{'identityProvider': 'external'}]),
+            client_id = '00000000-0000-4000-8000-000000000001'
+            user_id = '00000000-0000-4000-8000-000000000002'
+            client_path = 'clients/' + client_id
+            user_path = 'users/' + user_id
+            # Actual service-account endpoint omits serviceAccountClientId.
+            account = {'id': user_id, 'enabled': True, 'username': 'service-account-' + expected['clientId']}
+            responses = {client_path: dict(expected, id=client_id),
+                         client_path + '/client-secret': {'type': 'secret', 'value': expected['secret']},
+                         client_path + '/service-account-user': account,
+                         user_path + '/role-mappings': {}, user_path + '/groups?first=0&max=1': [],
+                         user_path + '/federated-identity': []}
+            calls = []
+            def read(path):
+                calls.append(path)
+                return responses[path]
+            self.assertTrue(m.verify_runtime_readback(expected, client_id, read))
+            self.assertEqual(calls, list(responses))
+            for field, values in {
+                '/role-mappings': [{'realmMappings': [{'name': 'offline_access'}]},
+                                  {'clientMappings': {'realm-management': {'mappings': [{'name': 'realm-admin'}]}}},
+                                  {'realmMappings': None}, {'clientMappings': []}, {'unreviewed': []}, None],
+                '/groups?first=0&max=1': [[{'id': 'admin-group'}], None],
+                '/federated-identity': [[{'identityProvider': 'broker'}], None],
+            }.items():
+                for value in values:
+                    original = responses[user_path + field]
+                    responses[user_path + field] = value
+                    self.assertFalse(m.verify_runtime_readback(expected, client_id, read), field)
+                    responses[user_path + field] = original
+            for key, value in (('id', client_id), ('id', 'not-a-uuid'), ('enabled', False), ('enabled', 1),
+                               ('username', 'service-account-unrelated'), ('serviceAccountClientId', 'unrelated'),
                                ('realmRoles', ['offline_access']), ('clientRoles', {'realm-management': ['realm-admin']}),
                                ('groups', ['admin']), ('federationLink', 'external-store')):
-                self.assertFalse(check(acct=dict(account, **{key: value})), key)
-            self.assertFalse(check(client=dict(observed, id='not-a-uuid')))
-            for acct, mappings, groups in ((None, {}, []), (account, None, []), (account, {}, None)):
-                self.assertFalse(m.verify_runtime_readback(expected, observed, secret, acct, mappings, groups))
+                responses[client_path + '/service-account-user'] = dict(account, **{key: value})
+                self.assertFalse(m.verify_runtime_readback(expected, client_id, read), key)
+            responses[client_path + '/service-account-user'] = account
+            responses[client_path]['id'] = user_id
+            self.assertFalse(m.verify_runtime_readback(expected, client_id, read))
+            self.assertFalse(m.verify_runtime_readback(expected, '../clients/other', read))
+            def failed_read(_path):
+                raise OSError('private peer failure')
+            self.assertFalse(m.verify_runtime_readback(expected, client_id, failed_read))
 
     def test_duplicate_json_fields_refused(self):
         with self.assertRaises(ValueError):

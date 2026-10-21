@@ -124,42 +124,57 @@ def verify_readback(expected, observed, secret_response):
             and secrets.compare_digest(actual_secret, credential))
 
 
-def verify_runtime_readback(expected, observed, secret_response, account, mappings, groups):
-    """Require all issuer read-backs before using a disposable service account.
+def verify_runtime_readback(expected, client_uuid, read):
+    """Read exact issuer endpoints through an orchestrator-owned transport.
 
-    Client configuration alone cannot exclude authority inherited from a user
-    role or group. The orchestrator must obtain these responses independently
-    from this client's service-account endpoint, its role-mappings endpoint and
-    its groups endpoint; this function cannot attest their network provenance.
-    A CMS proof identity needs no realm/client role or group membership.
+    Construct the client/service-account association here: Keycloak's live
+    service-account UserRepresentation omits serviceAccountClientId. Empty
+    embedded fields likewise cannot prove absence of group or broker links.
+    The caller owns authenticated bounded I/O and actual endpoint provenance;
+    a synthetic transport is only a unit test, never qualification evidence.
     """
-    if not verify_readback(expected, observed, secret_response):
-        return False
-    if not isinstance(account, dict) or not isinstance(mappings, dict) or not isinstance(groups, list):
-        return False
     def valid_uuid(value):
         try:
             return isinstance(value, str) and str(uuid.UUID(value)) == value
         except (ValueError, AttributeError):
             return False
-    if (not valid_uuid(observed.get('id')) or not valid_uuid(account.get('id'))
-            or observed['id'] == account['id'] or account.get('enabled') is not True
-            or account.get('username') != 'service-account-' + expected['clientId']
-            # Keycloak UserRepresentation defines this as clientId, not DB ID.
-            or account.get('serviceAccountClientId') != expected['clientId']):
+    try:
+        if not valid_uuid(client_uuid) or not callable(read):
+            return False
+        client_path = 'clients/' + client_uuid
+        observed = read(client_path)
+        secret_response = read(client_path + '/client-secret')
+        if not verify_readback(expected, observed, secret_response) or observed.get('id') != client_uuid:
+            return False
+        # Only this client-specific endpoint establishes which service account
+        # belongs to the client. Do not search by a caller-selected username.
+        account = read(client_path + '/service-account-user')
+        if (not isinstance(account, dict) or not valid_uuid(account.get('id'))
+                or account['id'] == client_uuid or account.get('enabled') is not True
+                or account.get('username') != 'service-account-' + expected['clientId']
+                or account.get('serviceAccountClientId') not in (None, expected['clientId'])):
+            return False
+        user_path = 'users/' + account['id']
+        mappings = read(user_path + '/role-mappings')
+        # One result is sufficient to deny, but a later/selected page cannot
+        # establish absence. Always read from the first page, never a hint.
+        groups = read(user_path + '/groups?first=0&max=1')
+        federated = read(user_path + '/federated-identity')
+        if not isinstance(mappings, dict) or not isinstance(groups, list) or not isinstance(federated, list):
+            return False
+        if set(mappings) - {'realmMappings', 'clientMappings'}:
+            return False
+        if mappings.get('realmMappings', []) != [] or mappings.get('clientMappings', {}) != {} or groups or federated:
+            return False
+        if (account.get('federatedIdentities', []) not in (None, []) or account.get('realmRoles', []) not in (None, [])
+                or account.get('clientRoles', {}) not in (None, {}) or account.get('groups', []) not in (None, [])
+                or account.get('federationLink') not in (None, '')):
+            return False
+        return True
+    except Exception:
+        # Missing/malformed response or a failed administration read denies.
+        # Never copy response bodies, paths or credential-bearing exceptions.
         return False
-    # Refuse additional mapping categories rather than silently assuming a new
-    # provider representation is equivalent to an empty role set. Empty groups
-    # rule out group/composite-role inheritance outside direct mappings.
-    if set(mappings) - {'realmMappings', 'clientMappings'}:
-        return False
-    if mappings.get('realmMappings', []) != [] or mappings.get('clientMappings', {}) != {} or groups:
-        return False
-    if (account.get('federatedIdentities', []) != [] or account.get('realmRoles', []) != []
-            or account.get('clientRoles', {}) != {} or account.get('groups', []) != []
-            or account.get('federationLink') not in (None, '')):
-        return False
-    return True
 
 
 def load_registry(checkout, repository=None):

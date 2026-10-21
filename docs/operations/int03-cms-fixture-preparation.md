@@ -61,9 +61,9 @@ run artifact, whose digest remains GitHub-reported only.
 
 `verify_runtime_readback` adds the mandatory service-account boundary to client
 and separately retrieved secret checks. The disposable orchestrator must obtain
-all five actual issuer responses independently: client, secret, service-account
-user, direct role-mappings and groups. The account must be enabled, belong to the
-exact named proof client, and have a distinct valid issuer UUID. Realm roles,
+all six actual issuer responses independently: client, secret, service-account
+user, direct role-mappings, first-page groups and dedicated federated identities. The account must be enabled, come from the exact client-specific service-account
+endpoint, and have a distinct valid issuer UUID. Realm roles,
 client roles, group memberships and federated identity links all deny. Unknown
 mapping categories and malformed/absent endpoint responses deny. This excludes
 offline_access, administrative roles and group/composite-role inheritance; none
@@ -76,4 +76,4 @@ verify tokens, enforce the fixed deadline/early-close lifecycle and tear down al
 issuer trust and accepting services. Ten fixture tests plus two INT-02 tests pass
 locally. The canonical registry/pin remain unchanged; no client is provisioned.
 
-The client association follows Keycloak's [UserRepresentation contract](https://github.com/keycloak/keycloak/blob/main/core/src/main/java/org/keycloak/representations/idm/UserRepresentation.java): `serviceAccountClientId` is the public clientId, not the database UUID. Embedded role/group fields and external federation links must also be empty.
+The function constructs and reads `clients/<issuer UUID>/service-account-user`; it does not depend on `serviceAccountClientId`, which the pinned Keycloak endpoint does not populate. Federated identities require the dedicated `users/<UUID>/federated-identity` response; absent embedded fields prove no absence. The orchestrator supplies authenticated, bounded relative-path I/O. Embedded role/group fields and external federation links must also be empty.
