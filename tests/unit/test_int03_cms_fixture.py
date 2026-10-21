@@ -95,10 +95,13 @@ class FixtureTests(unittest.TestCase):
             user_path = 'users/' + user_id
             # Actual service-account endpoint omits serviceAccountClientId.
             account = {'id': user_id, 'enabled': True, 'username': 'service-account-' + expected['clientId']}
+            # Realm and client-scope reads prove the reader's view is unfiltered.
             responses = {client_path: dict(expected, id=client_id),
                          client_path + '/client-secret': {'type': 'secret', 'value': expected['secret']},
+                         '': {'realm': 'baobab', 'adminPermissionsEnabled': False},
+                         'default-default-client-scopes': [{'name': 'basic'}],
                          client_path + '/service-account-user': account,
-                         user_path + '/role-mappings': {}, user_path + '/groups?first=0&max=1': [],
+                         user_path + '/role-mappings': {}, user_path + '/groups/count': {'count': 0},
                          user_path + '/federated-identity': []}
             calls = []
             def read(path):
@@ -110,7 +113,7 @@ class FixtureTests(unittest.TestCase):
                 '/role-mappings': [{'realmMappings': [{'name': 'offline_access'}]},
                                   {'clientMappings': {'realm-management': {'mappings': [{'name': 'realm-admin'}]}}},
                                   {'realmMappings': None}, {'clientMappings': []}, {'unreviewed': []}, None],
-                '/groups?first=0&max=1': [[{'id': 'admin-group'}], None],
+                '/groups/count': [{'count': 1}, {'count': True}, {'count': '0'}, {'count': 0, 'extra': 0}, [], None],
                 '/federated-identity': [[{'identityProvider': 'broker'}], None],
             }.items():
                 for value in values:
@@ -125,6 +128,20 @@ class FixtureTests(unittest.TestCase):
                 responses[client_path + '/service-account-user'] = dict(account, **{key: value})
                 self.assertFalse(m.verify_runtime_readback(expected, client_id, read), key)
             responses[client_path + '/service-account-user'] = account
+            # A fine-grained admin sees filtered mappings: without proof of an
+            # unfiltered view, empty reads must not pass.
+            for path, value in (('', {'realm': 'baobab'}), ('', {'realm': 'baobab', 'adminPermissionsEnabled': True}),
+                                ('', {'realm': 'baobab', 'adminPermissionsEnabled': None}), ('', None),
+                                ('default-default-client-scopes', None), ('default-default-client-scopes', {})):
+                original = responses[path]
+                responses[path] = value
+                self.assertFalse(m.verify_runtime_readback(expected, client_id, read), (path, value))
+                responses[path] = original
+            def forbidden(path):
+                if path == 'default-default-client-scopes':
+                    raise PermissionError('403')
+                return read(path)
+            self.assertFalse(m.verify_runtime_readback(expected, client_id, forbidden))
             responses[client_path]['id'] = user_id
             self.assertFalse(m.verify_runtime_readback(expected, client_id, read))
             self.assertFalse(m.verify_runtime_readback(expected, '../clients/other', read))

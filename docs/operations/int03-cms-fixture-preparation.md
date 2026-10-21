@@ -77,3 +77,25 @@ issuer trust and accepting services. Ten fixture tests plus two INT-02 tests pas
 locally. The canonical registry/pin remain unchanged; no client is provisioned.
 
 The function constructs and reads `clients/<issuer UUID>/service-account-user`; it does not depend on `serviceAccountClientId`, which the pinned Keycloak endpoint does not populate. Federated identities require the dedicated `users/<UUID>/federated-identity` response; absent embedded fields prove no absence. The orchestrator supplies authenticated, bounded relative-path I/O. Embedded role/group fields and external federation links must also be empty.
+
+## Reader visibility (fine-grained admin)
+
+Keycloak 26.7.5 filters the combined `role-mappings` response through the
+reader's role visibility, and the group list through group visibility. A
+fine-grained admin credential therefore receives `{}`/`[]` for authority it
+cannot see, without a 403. Empty reads are accepted only after the reader
+proves an unfiltered view. Filtering hides entries but never invents them, so
+two positive answers are sufficient:
+
+- the full realm representation (relative path `''`) with
+  `adminPermissionsEnabled` exactly `false`. Only a view-realm/manage-realm
+  reader receives the full representation, and `false` selects FGAP v1, where
+  admin roles are checked first and per-resource permissions only add
+  visibility;
+- `default-default-client-scopes`, which under v1 answers only a reader with
+  global view-clients/manage-clients.
+
+Group membership uses the unfiltered `users/<UUID>/groups/count`, which must be
+exactly `{"count": 0}`. The federated-identity listing has no permission filter.
+The orchestrator should read with the disposable realm's full administrator; a
+narrower credential, or a realm with admin permissions v2 enabled, denies.
