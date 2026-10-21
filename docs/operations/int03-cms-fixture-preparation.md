@@ -1,7 +1,7 @@
 # INT-03 CMS fixture preparation (source only)
 
 21 October 2026. Shared #354 is treated as Accepted. Registry activation remains
-on hold; Shared #356 is unmerged preparation. This change does not advance
+on hold; Shared #356 was closed unmerged to preserve that hold. This change does not advance
 `contracts.lock.yaml`, add either identity to committed clients, provision an
 issuer client, issue a token, establish a tenant grant, or qualify a provider.
 
@@ -36,10 +36,12 @@ early closure by revocation or destruction of all issuer trust and accepting
 runtimes, with unconditional teardown. Do not use these documents independently
 as a live fixture until that lifecycle is implemented and reviewed.
 
-Eight unit tests exercise exact rows, absent/half pairs, immutable deadlines,
+Nine unit tests exercise exact rows, absent/half pairs, immutable deadlines,
 independent secrets/scopes, strict read-back, duplicate JSON fields, private
 exclusive files, refusal before writes, and cleanup after a partial write.
-Existing pinned Shared verification is reused. Shell syntax and focused tests
+Existing pinned Shared verification is reused, the IAM working lock must equal
+its immutable committed blob, and the registry is read from the pinned Shared
+commit rather than the working tree. Shell syntax and focused tests
 are checked locally; issuer integration runs in mandatory CI. No connected
 CMS/PostgreSQL run is claimed by these tests.
 

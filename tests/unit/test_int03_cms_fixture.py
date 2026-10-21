@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import sys
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -98,11 +99,11 @@ class FixtureTests(unittest.TestCase):
             registry.parent.mkdir(parents=True)
             registry.write_text(yaml.safe_dump(self.registry))
             output = Path(temp) / 'private'
-            with patch('provider_publication.load_shared', side_effect=ValueError('pin refusal')):
+            with patch.object(m, 'load_registry', side_effect=ValueError('pin refusal')):
                 with self.assertRaises(ValueError):
                     m.prepare(checkout, output, self.deadline)
             self.assertFalse(output.exists())
-            with patch('provider_publication.load_shared') as authority:
+            with patch.object(m, 'load_registry', return_value=self.registry) as authority:
                 documents = m.prepare(checkout, output, self.deadline)
                 authority.assert_called_once_with(checkout)
                 self.assertEqual(output.stat().st_mode & 0o777, 0o700)
@@ -112,6 +113,31 @@ class FixtureTests(unittest.TestCase):
                     self.assertEqual(json.loads(file.read_text()), document)
                 with self.assertRaises(FileExistsError):
                     m.prepare(checkout, output, self.deadline)
+
+    def test_local_lock_edit_cannot_authorize_proposed_registry(self):
+        import yaml
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            def git(*args):
+                return subprocess.check_output(['git', '-C', str(repo), *args], stderr=subprocess.DEVNULL)
+            git('init', '-q')
+            git('config', 'user.name', 'Fixture Test')
+            git('config', 'user.email', 'fixture@example.invalid')
+            lock = repo / 'contracts.lock.yaml'
+            source = {'source': {'repository': 'baobab-platform/shared', 'commit': 'original'}}
+            lock.write_text(yaml.safe_dump(source))
+            git('add', 'contracts.lock.yaml')
+            git('commit', '-qm', 'Committed authority')
+            source['source']['commit'] = 'proposed'
+            lock.write_text(yaml.safe_dump(source))
+            with patch('provider_publication.load_shared') as verify:
+                with self.assertRaisesRegex(ValueError, 'committed authority'):
+                    m.load_registry(repo, repository=repo)
+                verify.assert_not_called()
+            git('checkout', '--', 'contracts.lock.yaml')
+            with patch('provider_publication.load_shared', return_value=(None, 'proposed')):
+                with self.assertRaisesRegex(ValueError, 'committed IAM lock'):
+                    m.load_registry(repo, repository=repo)
 
     def test_partial_write_is_cleaned(self):
         import yaml
@@ -129,7 +155,7 @@ class FixtureTests(unittest.TestCase):
                 if count == 2:
                     raise OSError('simulated disk failure')
                 return original(*args)
-            with patch('provider_publication.load_shared'), patch.object(m.os, 'open', side_effect=fail_second):
+            with patch.object(m, 'load_registry', return_value=self.registry), patch.object(m.os, 'open', side_effect=fail_second):
                 with self.assertRaises(OSError):
                     m.prepare(checkout, output, self.deadline)
             self.assertFalse(output.exists())

@@ -123,13 +123,27 @@ def verify_readback(expected, observed, secret_response):
             and secrets.compare_digest(actual_secret, credential))
 
 
-def prepare(checkout, output, deadline):
-    # Reuse IAM's existing exact clean Shared-pin verification; a local edited
-    # registry or arbitrary caller-provided SHA cannot become fixture authority.
+def load_registry(checkout, repository=None):
+    """Require the committed IAM lock and immutable Shared registry blob."""
     from provider_publication import load_shared
     import yaml
-    load_shared(checkout)
-    registry = yaml.safe_load((checkout / 'contracts/identity/v1/workload-registry.yaml').read_text())
+    repository = repository or Path(__file__).resolve().parents[1]
+    iam_head = subprocess.check_output(['git', '-C', str(repository), 'rev-parse', 'HEAD'], text=True).strip()
+    committed_lock = subprocess.check_output(['git', '-C', str(repository), 'show', iam_head + ':contracts.lock.yaml'])
+    if (repository / 'contracts.lock.yaml').read_bytes() != committed_lock:
+        raise ValueError('IAM lock differs from committed authority')
+    source = yaml.safe_load(committed_lock)['source']
+    if source['repository'] != 'baobab-platform/shared':
+        raise ValueError('unapproved Shared authority')
+    _, shared_head = load_shared(checkout, repository=repository)
+    if shared_head != source['commit']:
+        raise ValueError('Shared verification differs from committed IAM lock')
+    blob = subprocess.check_output(['git', '-C', str(checkout), 'show', shared_head + ':contracts/identity/v1/workload-registry.yaml'])
+    return yaml.safe_load(blob)
+
+
+def prepare(checkout, output, deadline):
+    registry = load_registry(checkout)
     clients = build_clients(registry, deadline)
     output.mkdir(mode=0o700)  # exclusive: never overwrite an existing handoff
     created = []
