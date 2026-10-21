@@ -13,6 +13,7 @@ from pathlib import Path
 import secrets
 import sys
 import subprocess
+import uuid
 
 CALLER = 'baobab-int03-cms-consumer'
 VALIDATOR = 'baobab-int03-cms-validator'
@@ -92,7 +93,7 @@ def verify_readback(expected, observed, secret_response):
     exact scope set, absence of extra protocol mappers and separately read-back
     secret must agree. The orchestrator owns the actual source/protocol evidence.
     """
-    if not isinstance(expected, dict) or expected.get('clientId') not in EXPECTED or not isinstance(observed, dict) or not isinstance(secret_response, dict):
+    if not isinstance(expected, dict) or not isinstance(expected.get('clientId'), str) or expected.get('clientId') not in EXPECTED or not isinstance(observed, dict) or not isinstance(secret_response, dict):
         return False
     credential = expected.get('secret')
     if not isinstance(credential, str) or len(credential) < 32 or expected != client_document(expected['clientId'], credential):
@@ -121,6 +122,92 @@ def verify_readback(expected, observed, secret_response):
     return (secret_response.get('type') == 'secret' and isinstance(actual_secret, str)
             and actual_secret.isascii() and credential.isascii()
             and secrets.compare_digest(actual_secret, credential))
+
+
+def reader_sees_all_authority(read):
+    """Prove the admin reader's view is unfiltered before trusting empty reads.
+
+    Keycloak 26.7.5 silently drops role mappings the reader cannot view
+    (RoleMapperResource filters through auth.roles().canView), so `{}` from a
+    fine-grained admin proves nothing. Filtering only hides, never invents, so
+    two positive answers close it:
+
+    - The full realm representation, with `adminPermissionsEnabled` exactly
+      false. Only a view-realm/manage-realm reader receives it (others get a
+      partial representation without the field). False disables realm FGAP
+      v2 policies, not the server's choice of v1/v2 evaluator. Realm-role
+      visibility therefore follows the proved realm administration permission.
+    - `default-default-client-scopes` proves global client visibility: v1
+      requires view-clients/manage-clients; v2 also admits policies, but its
+      policy evaluator denies while the above realm flag is false. Thus either
+      evaluator requires global roles and can view every client's mappings.
+
+    Group membership is read through the unfiltered count endpoint instead.
+    """
+    realm = read('')
+    if not isinstance(realm, dict) or realm.get('adminPermissionsEnabled') is not False:
+        return False
+    return isinstance(read('default-default-client-scopes'), list)
+
+
+def verify_runtime_readback(expected, client_uuid, read):
+    """Read exact issuer endpoints through an orchestrator-owned transport.
+
+    Construct the client/service-account association here: Keycloak's live
+    service-account UserRepresentation omits serviceAccountClientId. Empty
+    embedded fields likewise cannot prove absence of group or broker links,
+    and empty filtered reads prove nothing unless the reader's own view is
+    shown to be unfiltered (reader_sees_all_authority). Paths are relative to
+    the realm's admin base; '' is the realm itself. The caller owns
+    authenticated bounded I/O and actual endpoint provenance; a synthetic
+    transport is only a unit test, never qualification evidence.
+    """
+    def valid_uuid(value):
+        try:
+            return isinstance(value, str) and str(uuid.UUID(value)) == value
+        except (ValueError, AttributeError):
+            return False
+    try:
+        if not valid_uuid(client_uuid) or not callable(read):
+            return False
+        client_path = 'clients/' + client_uuid
+        observed = read(client_path)
+        secret_response = read(client_path + '/client-secret')
+        if not verify_readback(expected, observed, secret_response) or observed.get('id') != client_uuid:
+            return False
+        if not reader_sees_all_authority(read):
+            return False
+        # Only this client-specific endpoint establishes which service account
+        # belongs to the client. Do not search by a caller-selected username.
+        account = read(client_path + '/service-account-user')
+        if (not isinstance(account, dict) or not valid_uuid(account.get('id'))
+                or account['id'] == client_uuid or account.get('enabled') is not True
+                or account.get('username') != 'service-account-' + expected['clientId']
+                or account.get('serviceAccountClientId') not in (None, expected['clientId'])):
+            return False
+        user_path = 'users/' + account['id']
+        mappings = read(user_path + '/role-mappings')
+        # The group list pages and then filters by group visibility; the
+        # count endpoint does neither, so a hidden membership still counts.
+        groups = read(user_path + '/groups/count')
+        federated = read(user_path + '/federated-identity')
+        if not isinstance(mappings, dict) or not isinstance(groups, dict) or not isinstance(federated, list):
+            return False
+        if set(mappings) - {'realmMappings', 'clientMappings'}:
+            return False
+        if set(groups) != {'count'} or type(groups['count']) is not int or groups['count'] != 0:
+            return False
+        if mappings.get('realmMappings', []) != [] or mappings.get('clientMappings', {}) != {} or federated:
+            return False
+        if (account.get('federatedIdentities', []) not in (None, []) or account.get('realmRoles', []) not in (None, [])
+                or account.get('clientRoles', {}) not in (None, {}) or account.get('groups', []) not in (None, [])
+                or account.get('federationLink') not in (None, '')):
+            return False
+        return True
+    except Exception:
+        # Missing/malformed response or a failed administration read denies.
+        # Never copy response bodies, paths or credential-bearing exceptions.
+        return False
 
 
 def load_registry(checkout, repository=None):

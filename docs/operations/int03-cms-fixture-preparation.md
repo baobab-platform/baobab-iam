@@ -56,3 +56,57 @@ Go 1.27.2 standard library. Module minimum and federation builder now use
 registry and independently SHA-256 checked against its response header. No
 vulnerability exclusion was added. This does not rehash the earlier identity
 run artifact, whose digest remains GitHub-reported only.
+
+## Service-account read-back dependency
+
+`verify_runtime_readback` adds the mandatory service-account boundary to client
+and separately retrieved secret checks. The disposable orchestrator must obtain
+all six actual issuer responses independently: client, secret, service-account
+user, direct role-mappings, first-page groups and dedicated federated identities. The account must be enabled, come from the exact client-specific service-account
+endpoint, and have a distinct valid issuer UUID. Realm roles,
+client roles, group memberships and federated identity links all deny. Unknown
+mapping categories and malformed/absent endpoint responses deny. This excludes
+offline_access, administrative roles and group/composite-role inheritance; none
+is needed for the narrow CMS proof scopes.
+
+This is source validation, not network provenance. A producer cannot turn copied
+JSON into qualification evidence by calling the function. The future runtime
+must use this combined checker, capture real endpoint provenance, independently
+verify tokens, enforce the fixed deadline/early-close lifecycle and tear down all
+issuer trust and accepting services. Ten fixture tests plus two INT-02 tests pass
+locally. The canonical registry/pin remain unchanged; no client is provisioned.
+
+The function constructs and reads `clients/<issuer UUID>/service-account-user`; it does not depend on `serviceAccountClientId`, which the pinned Keycloak endpoint does not populate. Federated identities require the dedicated `users/<UUID>/federated-identity` response; absent embedded fields prove no absence. The orchestrator supplies authenticated, bounded relative-path I/O. Embedded role/group fields and external federation links must also be empty.
+
+## Reader visibility (fine-grained admin)
+
+Keycloak 26.7.5 filters the combined `role-mappings` response through the
+reader's role visibility, and the group list through group visibility. A
+fine-grained admin credential therefore receives `{}`/`[]` for authority it
+cannot see, without a 403. Empty reads are accepted only after the reader
+proves an unfiltered view. Filtering hides entries but never invents them, so
+two positive answers are sufficient:
+
+- the full realm representation (relative path `''`) with
+  `adminPermissionsEnabled` exactly `false`. Only a view-realm/manage-realm
+  reader receives the full representation. False disables realm FGAP v2
+  policies; it does not choose the server's v1/v2 evaluator;
+- `default-default-client-scopes` proves global client visibility. The v1
+  evaluator requires global view-clients/manage-clients. The v2 evaluator
+  permits those same roles or a policy, but policy evaluation denies when
+  the proved realm flag is false. Either evaluator therefore proves the
+  global client visibility required to see every client's role mappings.
+
+Group membership uses the unfiltered `users/<UUID>/groups/count`, which must be
+exactly `{"count": 0}`. The federated-identity listing has no permission filter.
+The orchestrator should read with the disposable realm's full administrator; a
+narrower credential, or a realm with admin permissions v2 enabled, denies.
+
+
+Pinned-source review references (Keycloak 26.7.5):
+[realm representation](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/RealmAdminResource.java),
+[global and per-client visibility](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/fgap/ClientPermissions.java),
+[v2 visibility](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/fgap/ClientPermissionsV2.java),
+[v2 policy refusal](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/fgap/FineGrainedAdminPermissionEvaluator.java),
+[realm flag and feature conjunction](https://github.com/keycloak/keycloak/blob/26.7.5/server-spi-private/src/main/java/org/keycloak/authorization/fgap/AdminPermissionsSchema.java),
+and [unfiltered group count](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/UserResource.java).
