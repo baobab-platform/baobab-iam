@@ -61,8 +61,9 @@ run artifact, whose digest remains GitHub-reported only.
 
 `verify_runtime_readback` adds the mandatory service-account boundary to client
 and separately retrieved secret checks. The disposable orchestrator must obtain
-all six actual issuer responses independently: client, secret, service-account
-user, direct role-mappings, first-page groups and dedicated federated identities. The account must be enabled, come from the exact client-specific service-account
+all eight actual issuer responses independently: client, secret, full realm,
+global default client scopes, service-account user, direct role-mappings,
+unfiltered group count and dedicated federated identities. The account must be enabled, come from the exact client-specific service-account
 endpoint, and have a distinct valid issuer UUID. Realm roles,
 client roles, group memberships and federated identity links all deny. Unknown
 mapping categories and malformed/absent endpoint responses deny. This excludes
@@ -110,3 +111,39 @@ Pinned-source review references (Keycloak 26.7.5):
 [v2 policy refusal](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/fgap/FineGrainedAdminPermissionEvaluator.java),
 [realm flag and feature conjunction](https://github.com/keycloak/keycloak/blob/26.7.5/server-spi-private/src/main/java/org/keycloak/authorization/fgap/AdminPermissionsSchema.java),
 and [unfiltered group count](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/UserResource.java).
+
+## Native Hydra short token lifetime port
+
+The maintained `provider.WorkloadProvisioningSpec` now accepts an optional
+`AccessTokenTTLSeconds` of 1–300 seconds. Zero preserves the provider default or
+existing client configuration; it does not invent a short lifetime. Hydra uses
+its supported `client_credentials_grant_access_token_lifespan` field. An explicit
+request requires an independent GET after POST/PUT, with matching client and
+equivalent retained duration. A create response echo is insufficient. Missing,
+malformed, ignored or widened read-back denies. Rotation, disable and updates
+without an override preserve an existing client lifetime instead of dropping it
+from a full replacement document.
+
+The existing isolated native client-credentials regression requests 60 seconds
+and checks actual response/JWT lifetime and preservation across rotation. Its
+ordinary fixture remains a provider-mechanics test, never the named CMS caller
+or connected NAB-03 qualification. No extra runtime identity is introduced by
+these tests. Fourteen protocol cases separately exercise the administrative
+read-back and invalid-input boundaries without an issuer.
+
+The ordinary `provision-workload` command refuses both exact INT-03 CMS names
+before any provider access, including create/rotate/disable. They belong only
+to the separately reviewed, registry-gated disposable lifecycle; a future ACTIVE
+row does not make them ordinary product clients. The maintained Hydra provisioner
+selects `client_secret_post`; the separately named Nabhold caller and CMS validator
+must use that same method, not broaden audiences for compatibility.
+
+A short token lifetime is not the immutable 90-minute client/run deadline or
+revocation. The future orchestrator still must compute the deadline at creation,
+refuse out-of-window issuance responses, and destroy issuer trust and every
+accepting runtime on early closure. A failed read-back may follow an accepted
+POST, so the disposable owner must recover/destroy that run, never infer absence
+or blindly retry it as a new fixture. No client is created by this source change;
+canonical activation, full lifecycle orchestration, current independent CP
+certification/health/binding, connected NAB-03 and protected production gates
+remain outstanding.
