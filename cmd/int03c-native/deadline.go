@@ -63,12 +63,10 @@ func writeLease(file string, lease deadlineLease) error {
 	}
 	defer os.Remove(tmp)
 	if _, err = f.Write(raw); err != nil {
-		f.Close()
-		return errors.New("supervisor lease write failure")
+		return errors.Join(errors.New("supervisor lease write failure"), f.Close())
 	}
 	if err = f.Sync(); err != nil {
-		f.Close()
-		return errors.New("supervisor lease fsync failure")
+		return errors.Join(errors.New("supervisor lease fsync failure"), f.Close())
 	}
 	if err = f.Close(); err != nil {
 		return errors.New("supervisor lease close failure")
