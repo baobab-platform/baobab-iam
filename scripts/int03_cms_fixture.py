@@ -9,6 +9,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import sys
@@ -63,6 +64,14 @@ def client_document(name, credential):
     }
 
 
+def require_pair(registry):
+    rows = registry.get('workloads', {}) if isinstance(registry, dict) else {}
+    if not isinstance(rows, dict):
+        raise ValueError('invalid registry document')
+    if any(not fixture_only(name, rows.get(name)) for name in EXPECTED):
+        raise ValueError('unapproved development registry boundary')
+
+
 def build_clients(registry, deadline, now=None):
     """Copy only accepted ceilings, with independent per-run random secrets.
 
@@ -73,11 +82,7 @@ def build_clients(registry, deadline, now=None):
     now = now or datetime.now(timezone.utc)
     if not isinstance(deadline, datetime) or not isinstance(now, datetime) or deadline.tzinfo is None or now.tzinfo is None or not 60 < (deadline - now).total_seconds() <= 5400:
         raise ValueError('invalid immutable proof deadline')
-    rows = registry.get('workloads', {}) if isinstance(registry, dict) else {}
-    if not isinstance(rows, dict):
-        raise ValueError('invalid registry document')
-    if any(not fixture_only(name, rows.get(name)) for name in EXPECTED):
-        raise ValueError('unapproved development registry boundary')
+    require_pair(registry)
     clients = {}
     for name, row in EXPECTED.items():
         clients[name] = client_document(name, secrets.token_urlsafe(48))
@@ -210,7 +215,7 @@ def verify_runtime_readback(expected, client_uuid, read):
         return False
 
 
-def load_registry(checkout, repository=None):
+def load_registry(checkout, repository=None, *, with_commit=False):
     """Require the committed IAM lock and immutable Shared registry blob."""
     from provider_publication import load_shared
     import yaml
@@ -226,7 +231,8 @@ def load_registry(checkout, repository=None):
     if shared_head != source['commit']:
         raise ValueError('Shared verification differs from committed IAM lock')
     blob = subprocess.check_output(['git', '-C', str(checkout), 'show', shared_head + ':contracts/identity/v1/workload-registry.yaml'])
-    return yaml.safe_load(blob)
+    registry = yaml.safe_load(blob)
+    return (registry, shared_head) if with_commit else registry
 
 
 def prepare(checkout, output, deadline):
@@ -250,6 +256,50 @@ def prepare(checkout, output, deadline):
         raise
 
 
+def build_native_plan(registry, shared_commit):
+    """Secret-free inputs to the maintained native ports, never provisioning.
+
+    Reuse IAM's canonical token-hook projection. Local metadata cannot widen
+    either registry row; PROVISIONED describes a provider object, not Shared
+    activation or a CP grant. A supervised absolute-deadline owner is still
+    required before these inputs may be used against an actual issuer.
+    """
+    from build_workload_token_profiles import build
+    require_pair(registry)
+    if not isinstance(shared_commit, str) or not re.fullmatch(r'[0-9a-f]{40}', shared_commit):
+        raise ValueError('immutable Shared commit required')
+    profiles = build(shared_commit, registry, list(EXPECTED), {}, 'development')
+    specs = []
+    for name in EXPECTED:
+        row = registry['workloads'][name]
+        specs.append({
+            'logical_client_id': name, 'allowed_scopes': list(row['allowed_scopes']),
+            'audiences': list(row['allowed_audiences']), 'auth_method': 'client_secret',
+            'lifecycle_status': 'PROVISIONED', 'access_token_ttl_seconds': 60,
+            'require_new': True, 'metadata': {'environment': 'development', 'owner': row['owner']},
+        })
+    return {'schema': 'iam.int03.cms.native-plan.v1', 'state': 'PREPARED_NOT_PROVISIONED',
+            'identities_created': False, 'qualified': False,
+            'token_profiles': profiles, 'provisioning_specs': specs}
+
+
+def prepare_native_plan(checkout, output):
+    registry, commit = load_registry(checkout, with_commit=True)
+    plan = build_native_plan(registry, commit)
+    output.mkdir(mode=0o700)  # exclusive even though the plan contains no secrets
+    target = output / 'native-plan.json'
+    try:
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as handle:
+            json.dump(plan, handle, indent=2)
+            handle.write('\n')
+        return plan
+    except BaseException:
+        target.unlink(missing_ok=True)
+        output.rmdir()
+        raise
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='action', required=True)
@@ -259,12 +309,18 @@ def main():
     make.add_argument('--shared-checkout', type=Path, required=True)
     make.add_argument('--output', type=Path, required=True)
     make.add_argument('--deadline', required=True)
+    native = commands.add_parser('native-plan')
+    native.add_argument('--shared-checkout', type=Path, required=True)
+    native.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.action == 'check':
             if not fixture_only(args.client_id, json.load(sys.stdin, object_pairs_hook=unique)):
                 raise ValueError('unapproved fixture identity')
             print('Exact development CMS fixture identity verified')
+        elif args.action == 'native-plan':
+            prepare_native_plan(args.shared_checkout, args.output)
+            print('Private native fixture plan prepared; no identity provisioned or qualification claimed')
         else:
             deadline = datetime.fromisoformat(args.deadline.replace('Z', '+00:00'))
             prepare(args.shared_checkout, args.output, deadline)

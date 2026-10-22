@@ -147,3 +147,34 @@ or blindly retry it as a new fixture. No client is created by this source change
 canonical activation, full lifecycle orchestration, current independent CP
 certification/health/binding, connected NAB-03 and protected production gates
 remain outstanding.
+
+## Native fixture inputs and fresh-only provisioning — 22 October 2026
+
+`native-plan --shared-checkout PATH --output NEW_PRIVATE_DIRECTORY` prepares a
+secret-free native plan only after the same committed IAM lock and immutable
+Shared blob verify both complete exact development rows. The current pin
+refuses before writing anything. The plan reuses the maintained workload-token
+profile builder, preserving separate audience/scope ceilings and owners. It
+requests 60-second token lifetimes and `RequireNew` on the existing provider
+interface. It does not provision, activate, mint a credential/token, or install
+the hook configuration. Provider `PROVISIONED` is not canonical activation.
+
+Hydra's fresh-only mode refuses an existing client before mutation. A new
+client uses the maintained OS-random secret generator and requires an independent
+GET checking the exact client, lifetime, client-credentials grant, token endpoint
+method, scopes, audiences and owner metadata. Redirects, response types, logout
+redirects, CORS origins and key material must be empty. The pinned Hydra source
+stores the explicit empty response-type list; its `GetResponseTypes()` fallback
+does not grant `authorization_code`, which remains absent from `grant_types`.
+The existing native provider-mechanics regression exercises this mode without
+adding a named CMS identity or widening a profile. Cleanup is registered before
+creation because failed read-back does not imply that POST failed.
+
+A native plan is an input, not an independently verified issuance receipt or a
+supervised lifecycle. The remaining runtime owner must enforce the immutable
+90-minute maximum from creation, validate every actual token and current CP
+context, refuse out-of-window responses, and close all issuer trust and accepting
+runtimes even on interruption. Neither this CLI nor `RequireNew` enforces that
+absolute deadline or revokes existing JWTs. Do not use the plan independently
+until that lifecycle is implemented and reviewed. Ordinary provisioning still
+refuses both named CMS identities; canonical activation remains held.

@@ -159,6 +159,11 @@ type WorkloadProvisioningSpec struct {
 	// the disposable owner still enforces closure and destroys accepting trust.
 	AccessTokenTTLSeconds int `json:"access_token_ttl_seconds,omitempty"`
 
+	// RequireNew refuses an existing client before any update. A successful
+	// client-secret create additionally requires independent security read-back.
+	// Disposable proof identities must never inherit credentials or authority.
+	RequireNew bool `json:"require_new,omitempty"`
+
 	// AuthMethod for the client.
 	AuthMethod WorkloadAuthenticationMethod `json:"auth_method"`
 

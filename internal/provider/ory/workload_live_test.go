@@ -142,12 +142,14 @@ func TestLiveWorkloadClientCredentials(t *testing.T) {
 	f := newWorkloadFixture(t)
 	const id = "baobab-trade-workload"
 	p := f.profile(t, id, "client_credentials")
+	// Register cleanup before POST: a failed independent read-back may follow
+	// a successful create. This remains the existing provider-mechanics fixture.
+	f.cleanup(t, "/admin/clients/"+url.PathEscape(id))
 	// These IDs exist only inside the disposable issuer. No registry is changed.
-	w, err := f.adapter.ProvisionWorkload(f.ctx, provider.WorkloadProvisioningSpec{LogicalClientID: id, AllowedScopes: p.Scopes, Audiences: p.Audiences, AuthMethod: provider.WorkloadAuthClientSecret, AccessTokenTTLSeconds: 60})
+	w, err := f.adapter.ProvisionWorkload(f.ctx, provider.WorkloadProvisioningSpec{LogicalClientID: id, AllowedScopes: p.Scopes, Audiences: p.Audiences, AuthMethod: provider.WorkloadAuthClientSecret, AccessTokenTTLSeconds: 60, RequireNew: true})
 	if err != nil {
 		t.Fatal("provision client-credentials fixture")
 	}
-	f.cleanup(t, "/admin/clients/"+url.PathEscape(id))
 	if w.ClientSecret == "" || w.AuthMethod != provider.WorkloadAuthClientSecret || w.LifecycleStatus != provider.WorkloadStatusProvisioned {
 		t.Fatal("incorrect provider workload result")
 	}

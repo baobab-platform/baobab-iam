@@ -201,6 +201,66 @@ class FixtureTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'committed IAM lock'):
                     m.load_registry(repo, repository=repo)
 
+    def test_native_plan_exact_profiles_and_no_secrets(self):
+        from build_workload_token_profiles import build
+        commit = 'a' * 40
+        plan = m.build_native_plan(self.registry, commit)
+        self.assertEqual(plan['token_profiles'], build(commit, self.registry, list(m.EXPECTED), {}, 'development'))
+        self.assertFalse(plan['identities_created'])
+        self.assertFalse(plan['qualified'])
+        def assert_secret_free(value):
+            if isinstance(value, dict):
+                self.assertTrue(set(value).isdisjoint({"client_secret", "secret", "access_token", "refresh_token"}))
+                for child in value.values():
+                    assert_secret_free(child)
+            elif isinstance(value, list):
+                for child in value:
+                    assert_secret_free(child)
+        assert_secret_free(plan)
+        self.assertEqual(len(plan['provisioning_specs']), 2)
+        for spec in plan['provisioning_specs']:
+            row = m.EXPECTED[spec['logical_client_id']]
+            self.assertEqual(spec['allowed_scopes'], row['allowed_scopes'])
+            self.assertEqual(spec['audiences'], row['allowed_audiences'])
+            self.assertEqual(spec['metadata']['owner'], row['owner'])
+            self.assertTrue(spec['require_new'])
+            self.assertEqual(spec['access_token_ttl_seconds'], 60)
+        for invalid in (None, '', 'proposed', 'A' * 40, 'a' * 41):
+            with self.assertRaises(ValueError):
+                m.build_native_plan(self.registry, invalid)
+        for name in m.EXPECTED:
+            changed = copy.deepcopy(self.registry)
+            del changed['workloads'][name]
+            with self.assertRaises(ValueError):
+                m.build_native_plan(changed, commit)
+            changed = copy.deepcopy(self.registry)
+            changed['workloads'][name]['allowed_scopes'].append('admin:*')
+            with self.assertRaises(ValueError):
+                m.build_native_plan(changed, commit)
+
+    def test_native_plan_exclusive_private_and_pin_refusal_before_writes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            checkout, output = Path(temp) / 'shared', Path(temp) / 'native'
+            with patch.object(m, 'load_registry', side_effect=ValueError('held')):
+                with self.assertRaises(ValueError):
+                    m.prepare_native_plan(checkout, output)
+            self.assertFalse(output.exists())
+            with patch.object(m, 'load_registry', return_value=(self.registry, 'a' * 40)) as authority:
+                plan = m.prepare_native_plan(checkout, output)
+                authority.assert_called_once_with(checkout, with_commit=True)
+                self.assertEqual(output.stat().st_mode & 0o777, 0o700)
+                file = output / 'native-plan.json'
+                self.assertEqual(file.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(json.loads(file.read_text()), plan)
+                with self.assertRaises(FileExistsError):
+                    m.prepare_native_plan(checkout, output)
+                self.assertEqual(json.loads(file.read_text()), plan)
+            output2 = Path(temp) / 'failed'
+            with patch.object(m, 'load_registry', return_value=(self.registry, 'a' * 40)), patch.object(m.json, 'dump', side_effect=OSError('disk full')):
+                with self.assertRaises(OSError):
+                    m.prepare_native_plan(checkout, output2)
+            self.assertFalse(output2.exists())
+
     def test_partial_write_is_cleaned(self):
         import yaml
         with tempfile.TemporaryDirectory() as temp:

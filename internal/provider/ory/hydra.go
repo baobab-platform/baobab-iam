@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
@@ -79,6 +80,9 @@ func (c *hydraClient) provisionClient(
 	if getErr != nil && !provider.IsNotFound(getErr) {
 		return nil, getErr
 	}
+	if spec.RequireNew && existing != nil {
+		return nil, &provider.ProviderError{Kind: provider.ErrAlreadyExists, Provider: "ory", Message: "fresh workload provisioning refuses an existing client"}
+	}
 
 	var (
 		secret string
@@ -116,7 +120,7 @@ func (c *hydraClient) provisionClient(
 		if err != nil {
 			return nil, err
 		}
-		if err := c.verifyWorkloadTokenTTL(ctx, clientID, spec.AccessTokenTTLSeconds); err != nil {
+		if err := c.verifyWorkloadConfiguration(ctx, spec); err != nil {
 			return nil, err
 		}
 		if created.ClientID == "" {
@@ -155,7 +159,7 @@ func (c *hydraClient) provisionClient(
 	if err := c.putClient(ctx, clientID, *existing); err != nil {
 		return nil, err
 	}
-	if err := c.verifyWorkloadTokenTTL(ctx, clientID, spec.AccessTokenTTLSeconds); err != nil {
+	if err := c.verifyWorkloadConfiguration(ctx, spec); err != nil {
 		return nil, err
 	}
 	now := time.Now().UTC()
@@ -578,7 +582,12 @@ type hydraOAuth2Client struct {
 	ClientName                                string         `json:"client_name,omitempty"`
 	ClientSecret                              string         `json:"client_secret,omitempty"`
 	GrantTypes                                []string       `json:"grant_types"`
-	ResponseTypes                             []string       `json:"response_types,omitempty"`
+	ResponseTypes                             []string       `json:"response_types"`
+	RedirectURIs                              []string       `json:"redirect_uris,omitempty"`
+	PostLogoutRedirectURIs                    []string       `json:"post_logout_redirect_uris,omitempty"`
+	AllowedCORSOrigins                        []string       `json:"allowed_cors_origins,omitempty"`
+	JWKSURI                                   string         `json:"jwks_uri,omitempty"`
+	JWKS                                      map[string]any `json:"jwks,omitempty"`
 	Scope                                     string         `json:"scope,omitempty"`
 	Audience                                  []string       `json:"audience,omitempty"`
 	TokenEndpointAuthMethod                   string         `json:"token_endpoint_auth_method,omitempty"`
@@ -589,17 +598,37 @@ type hydraOAuth2Client struct {
 // Read independently after POST/PUT: an accepted request or echoed create
 // document cannot establish that the issuer retained its requested ceiling.
 // Existing scopes, lifecycle and absolute run deadlines remain separate gates.
-func (c *hydraClient) verifyWorkloadTokenTTL(ctx context.Context, clientID string, seconds int) error {
-	if seconds == 0 {
+func (c *hydraClient) verifyWorkloadConfiguration(ctx context.Context, spec provider.WorkloadProvisioningSpec) error {
+	if spec.AccessTokenTTLSeconds == 0 && !spec.RequireNew {
 		return nil
 	}
-	observed, err := c.getClient(ctx, clientID)
+	observed, err := c.getClient(ctx, spec.LogicalClientID)
 	if err != nil {
 		return err
 	}
-	lifetime, err := time.ParseDuration(observed.ClientCredentialsGrantAccessTokenLifespan)
-	if err != nil || observed.ClientID != clientID || lifetime != time.Duration(seconds)*time.Second {
-		return &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "issuer did not retain requested workload token lifetime"}
+	if observed.ClientID != spec.LogicalClientID {
+		return &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "issuer workload identity read-back differs"}
+	}
+	if spec.AccessTokenTTLSeconds > 0 {
+		lifetime, err := time.ParseDuration(observed.ClientCredentialsGrantAccessTokenLifespan)
+		if err != nil || lifetime != time.Duration(spec.AccessTokenTTLSeconds)*time.Second {
+			return &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "issuer did not retain requested workload token lifetime"}
+		}
+	}
+	if spec.RequireNew {
+		method := "client_secret_post"
+		if !equalStringSet(observed.GrantTypes, []string{"client_credentials"}) || len(observed.ResponseTypes) != 0 ||
+			!equalStringSet(strings.Fields(observed.Scope), spec.AllowedScopes) || !equalStringSet(observed.Audience, spec.Audiences) ||
+			observed.TokenEndpointAuthMethod != method || len(observed.RedirectURIs) != 0 || len(observed.PostLogoutRedirectURIs) != 0 ||
+			len(observed.AllowedCORSOrigins) != 0 || observed.JWKSURI != "" || len(observed.JWKS) != 0 ||
+			len(observed.Metadata) != len(spec.Metadata) {
+			return &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "issuer workload security configuration read-back differs"}
+		}
+		for key, expected := range spec.Metadata {
+			if observed.Metadata[key] != expected {
+				return &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "issuer workload ownership read-back differs"}
+			}
+		}
 	}
 	return nil
 }
