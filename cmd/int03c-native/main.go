@@ -88,17 +88,17 @@ func exactSet(a, b []string) bool {
 	return true
 }
 func requiredSpec(s provider.WorkloadProvisioningSpec) bool {
- if s.LogicalClientID != consumer && s.LogicalClientID != validator {
-  return false
- }
- return s.AuthMethod == provider.WorkloadAuthClientSecret &&
-  s.LifecycleStatus == provider.WorkloadStatusProvisioned &&
-  s.RequireNew && s.AccessTokenTTLSeconds == 60 &&
-  len(s.Metadata) == 2 &&
-  s.Metadata["environment"] == "development" &&
-  s.Metadata["owner"] == "baobab-platform/infrastructure" &&
-  exactSet(s.AllowedScopes, []string{"context:resolve"}) &&
-  exactSet(s.Audiences, []string{"baobab-control-plane"})
+	if s.LogicalClientID != consumer && s.LogicalClientID != validator {
+		return false
+	}
+	return s.AuthMethod == provider.WorkloadAuthClientSecret &&
+		s.LifecycleStatus == provider.WorkloadStatusProvisioned &&
+		s.RequireNew && s.AccessTokenTTLSeconds == 60 &&
+		len(s.Metadata) == 2 &&
+		s.Metadata["environment"] == "development" &&
+		s.Metadata["owner"] == "baobab-platform/infrastructure" &&
+		exactSet(s.AllowedScopes, []string{"context:resolve"}) &&
+		exactSet(s.Audiences, []string{"baobab-control-plane"})
 }
 
 // loadCanonicalPlan delegates governance to IAM's existing fixture preparer,
