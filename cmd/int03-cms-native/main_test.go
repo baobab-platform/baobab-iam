@@ -26,20 +26,25 @@ func fixtureIssuer(t *testing.T) (*native,*fakeIssuer,func()) {
  state:=&fakeIssuer{clients:map[string]map[string]any{}}
  srv:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
   const prefix="/admin/clients/"
+  state.mu.Lock();defer state.mu.Unlock()
+  if r.Method=="POST" && r.URL.Path=="/admin/clients" {
+   var row map[string]any
+   if err:=json.NewDecoder(r.Body).Decode(&row);err!=nil {w.WriteHeader(400);return}
+   id,_:=row["client_id"].(string)
+   if id=="" {w.WriteHeader(400);return}
+   if _,ok:=state.clients[id];ok {w.WriteHeader(http.StatusConflict);return}
+   state.clients[id]=row
+   state.writes++
+   w.WriteHeader(http.StatusCreated)
+   json.NewEncoder(w).Encode(row)
+   return
+  }
   if len(r.URL.Path)<=len(prefix) ||r.URL.Path[:len(prefix)]!=prefix {http.NotFound(w,r);return}
   id:=r.URL.Path[len(prefix):]
-  state.mu.Lock();defer state.mu.Unlock()
   row,ok:=state.clients[id]
   switch r.Method {
   case "GET":
    if !ok {http.NotFound(w,r);return}
-   json.NewEncoder(w).Encode(row)
-  case "POST":
-   if ok {w.WriteHeader(http.StatusConflict);return}
-   if err:=json.NewDecoder(r.Body).Decode(&row);err!=nil {w.WriteHeader(400);return}
-   state.clients[id]=row
-   state.writes++
-   w.WriteHeader(http.StatusCreated)
    json.NewEncoder(w).Encode(row)
   case "PUT":
    if !ok {http.NotFound(w,r);return}
