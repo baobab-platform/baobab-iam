@@ -68,3 +68,18 @@ func TestPersistGeneratedSecretNoopWhenUnchanged(t *testing.T) {
 		t.Fatalf("path=%q", path)
 	}
 }
+
+func TestNamedCMSFixturesCannotUseOrdinaryProvisioning(t *testing.T) {
+	for _, id := range []string{"baobab-int03-cms-consumer", "baobab-int03-cms-validator"} {
+		// A nil adapter proves refusal occurs before provider access.
+		if !isINT03CMSFixture(id) {
+			t.Fatal("named fixture boundary missing")
+		}
+		if err := provisionOne(context.Background(), nil, id, []string{"context:resolve"}, ""); err == nil {
+			t.Fatal("ordinary command admitted a held fixture identity")
+		}
+	}
+	if isINT03CMSFixture("baobab-cms-workload") {
+		t.Fatal("production identity was reclassified as a fixture")
+	}
+}

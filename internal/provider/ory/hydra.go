@@ -106,11 +106,17 @@ func (c *hydraClient) provisionClient(
 			TokenEndpointAuthMethod: tokenEndpointAuthMethod,
 			Metadata:                toAnyMap(spec.Metadata),
 		}
+		if spec.AccessTokenTTLSeconds > 0 {
+			body.ClientCredentialsGrantAccessTokenLifespan = fmt.Sprintf("%ds", spec.AccessTokenTTLSeconds)
+		}
 		if secret != "" {
 			body.ClientSecret = secret
 		}
 		created, err := c.postClient(ctx, body)
 		if err != nil {
+			return nil, err
+		}
+		if err := c.verifyWorkloadTokenTTL(ctx, clientID, spec.AccessTokenTTLSeconds); err != nil {
 			return nil, err
 		}
 		if created.ClientID == "" {
@@ -142,8 +148,14 @@ func (c *hydraClient) provisionClient(
 	existing.Audience = spec.Audiences
 	existing.TokenEndpointAuthMethod = tokenEndpointAuthMethod
 	existing.Metadata = toAnyMap(spec.Metadata)
+	if spec.AccessTokenTTLSeconds > 0 {
+		existing.ClientCredentialsGrantAccessTokenLifespan = fmt.Sprintf("%ds", spec.AccessTokenTTLSeconds)
+	}
 	existing.ClientSecret = "" // omit so Hydra keeps current secret
 	if err := c.putClient(ctx, clientID, *existing); err != nil {
+		return nil, err
+	}
+	if err := c.verifyWorkloadTokenTTL(ctx, clientID, spec.AccessTokenTTLSeconds); err != nil {
 		return nil, err
 	}
 	now := time.Now().UTC()
@@ -562,15 +574,34 @@ type hydraTrustedJWTGrantKey struct {
 }
 
 type hydraOAuth2Client struct {
-	ClientID                string         `json:"client_id,omitempty"`
-	ClientName              string         `json:"client_name,omitempty"`
-	ClientSecret            string         `json:"client_secret,omitempty"`
-	GrantTypes              []string       `json:"grant_types"`
-	ResponseTypes           []string       `json:"response_types,omitempty"`
-	Scope                   string         `json:"scope,omitempty"`
-	Audience                []string       `json:"audience,omitempty"`
-	TokenEndpointAuthMethod string         `json:"token_endpoint_auth_method,omitempty"`
-	Metadata                map[string]any `json:"metadata,omitempty"`
+	ClientID                                  string         `json:"client_id,omitempty"`
+	ClientName                                string         `json:"client_name,omitempty"`
+	ClientSecret                              string         `json:"client_secret,omitempty"`
+	GrantTypes                                []string       `json:"grant_types"`
+	ResponseTypes                             []string       `json:"response_types,omitempty"`
+	Scope                                     string         `json:"scope,omitempty"`
+	Audience                                  []string       `json:"audience,omitempty"`
+	TokenEndpointAuthMethod                   string         `json:"token_endpoint_auth_method,omitempty"`
+	Metadata                                  map[string]any `json:"metadata,omitempty"`
+	ClientCredentialsGrantAccessTokenLifespan string         `json:"client_credentials_grant_access_token_lifespan,omitempty"`
+}
+
+// Read independently after POST/PUT: an accepted request or echoed create
+// document cannot establish that the issuer retained its requested ceiling.
+// Existing scopes, lifecycle and absolute run deadlines remain separate gates.
+func (c *hydraClient) verifyWorkloadTokenTTL(ctx context.Context, clientID string, seconds int) error {
+	if seconds == 0 {
+		return nil
+	}
+	observed, err := c.getClient(ctx, clientID)
+	if err != nil {
+		return err
+	}
+	lifetime, err := time.ParseDuration(observed.ClientCredentialsGrantAccessTokenLifespan)
+	if err != nil || observed.ClientID != clientID || lifetime != time.Duration(seconds)*time.Second {
+		return &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "issuer did not retain requested workload token lifetime"}
+	}
+	return nil
 }
 
 func joinScopes(scopes []string) string {

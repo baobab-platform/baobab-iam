@@ -79,6 +79,10 @@ func main() {
 	issuer := envOr("ORY_PUBLIC_ISSUER", "http://127.0.0.1:4444")
 	logicalID := envOr("ORY_LOGICAL_CLIENT_ID", "baobab-trade-workload")
 	secretOutputDir := os.Getenv("ORY_SECRET_OUTPUT_DIR")
+	if isINT03CMSFixture(logicalID) {
+		fmt.Fprintln(os.Stderr, "provision-workload: named INT-03 CMS identities require the registry-gated disposable lifecycle")
+		os.Exit(2)
+	}
 
 	// Shared's workload registry is authoritative for authorization scopes.
 	// The operator must extract the selected workload's allowed_scopes and pass
@@ -144,6 +148,9 @@ func main() {
 }
 
 func provisionOne(ctx context.Context, adapter *ory.Adapter, logicalID string, scopes []string, secretOutputDir string) error {
+	if isINT03CMSFixture(logicalID) {
+		return fmt.Errorf("named INT-03 CMS identities require the registry-gated disposable lifecycle")
+	}
 	if _, federated := federatedNoSecretWorkloads[logicalID]; federated {
 		return fmt.Errorf("%s is credential_type=federated_workload_token in Shared; client-secret provisioning is forbidden until the projected-token/RFC7523 path is live-proven", logicalID)
 	}
@@ -174,6 +181,13 @@ func provisionOne(ctx context.Context, adapter *ory.Adapter, logicalID string, s
 	fmt.Printf("provider=%s logical_client_id=%s provider_client_id=%s issuer=%s auth_method=%s secret_output=%s\n",
 		w.Provider, w.LogicalClientID, w.ProviderClientID, w.Issuer, w.AuthMethod, secretPath)
 	return nil
+}
+
+// The accepted proof exception never makes these ordinary product clients.
+// Their exact registry, independent secrets and absolute closure belong to the
+// separately reviewed disposable lifecycle, including after future activation.
+func isINT03CMSFixture(id string) bool {
+	return id == "baobab-int03-cms-consumer" || id == "baobab-int03-cms-validator"
 }
 
 func envOr(k, fallback string) string {

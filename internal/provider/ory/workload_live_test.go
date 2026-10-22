@@ -143,7 +143,7 @@ func TestLiveWorkloadClientCredentials(t *testing.T) {
 	const id = "baobab-trade-workload"
 	p := f.profile(t, id, "client_credentials")
 	// These IDs exist only inside the disposable issuer. No registry is changed.
-	w, err := f.adapter.ProvisionWorkload(f.ctx, provider.WorkloadProvisioningSpec{LogicalClientID: id, AllowedScopes: p.Scopes, Audiences: p.Audiences, AuthMethod: provider.WorkloadAuthClientSecret})
+	w, err := f.adapter.ProvisionWorkload(f.ctx, provider.WorkloadProvisioningSpec{LogicalClientID: id, AllowedScopes: p.Scopes, Audiences: p.Audiences, AuthMethod: provider.WorkloadAuthClientSecret, AccessTokenTTLSeconds: 60})
 	if err != nil {
 		t.Fatal("provision client-credentials fixture")
 	}
@@ -161,7 +161,15 @@ func TestLiveWorkloadClientCredentials(t *testing.T) {
 	}
 	t.Run("signed-token-and-shared-scopes", func(t *testing.T) {
 		token := f.exchange(t, form(w.ClientSecret, strings.Join(p.Scopes, " ")), false)
+		if token.ExpiresIn > 60 {
+			t.Fatal("issuer did not enforce requested short token lifetime")
+		}
 		claims := f.verify(t, token, p.Scopes, id)
+		exp, expOK := claims["exp"].(float64)
+		iat, iatOK := claims["iat"].(float64)
+		if !expOK || !iatOK || exp <= iat || exp-iat > 60 {
+			t.Fatal("signed token exceeds requested lifetime")
+		}
 		if claims["sub"] != id {
 			t.Fatal("client-credentials subject is not stable client ID")
 		}
@@ -196,7 +204,11 @@ func TestLiveWorkloadClientCredentials(t *testing.T) {
 			t.Fatal("rotate workload credential")
 		}
 		f.exchange(t, form(w.ClientSecret, p.Scopes[0]), true)
-		f.verify(t, f.exchange(t, form(rotated.ClientSecret, p.Scopes[0]), false), []string{p.Scopes[0]}, id)
+		token := f.exchange(t, form(rotated.ClientSecret, p.Scopes[0]), false)
+		if token.ExpiresIn > 60 {
+			t.Fatal("rotation lost the requested short token lifetime")
+		}
+		f.verify(t, token, []string{p.Scopes[0]}, id)
 		w = rotated
 	})
 	t.Run("suspend-denies-future-issuance", func(t *testing.T) {

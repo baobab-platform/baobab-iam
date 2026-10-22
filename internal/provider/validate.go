@@ -50,6 +50,9 @@ func (s WorkloadProvisioningSpec) Validate() error {
 	if err := requireNonEmptyTrimmed("LogicalClientID", s.LogicalClientID); err != nil {
 		return err
 	}
+	if s.AccessTokenTTLSeconds < 0 || s.AccessTokenTTLSeconds > 300 {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "AccessTokenTTLSeconds must be zero or 1..300"}
+	}
 	if err := requireCanonicalEnum("AuthMethod", string(s.AuthMethod)); err != nil {
 		return err
 	}

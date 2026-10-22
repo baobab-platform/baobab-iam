@@ -153,6 +153,12 @@ type WorkloadProvisioningSpec struct {
 	// Audiences / resource indicators if required by the token profile.
 	Audiences []string `json:"audiences,omitempty"`
 
+	// AccessTokenTTLSeconds optionally requests a short-lived client-credentials
+	// token ceiling (1..300 seconds). Zero preserves provider configuration.
+	// This is not an absolute proof deadline, registry activation or revocation;
+	// the disposable owner still enforces closure and destroys accepting trust.
+	AccessTokenTTLSeconds int `json:"access_token_ttl_seconds,omitempty"`
+
 	// AuthMethod for the client.
 	AuthMethod WorkloadAuthenticationMethod `json:"auth_method"`
 
