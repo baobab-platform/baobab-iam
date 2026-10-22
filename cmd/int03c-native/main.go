@@ -405,7 +405,7 @@ func main() {
         if *name != consumer || *deadline == "" || *leaseFile == "" {
             fail()
         }
-        if err := superviseDeadline(ctx, n, *leaseFile, *deadline); err != nil {
+        if err := superviseDeadline(context.Background(), n, *leaseFile, *deadline); err != nil {
             fail()
         }
         fmt.Println("INT03C_DEADLINE_SUPERVISED_DESTROY_READBACK_VERIFIED")
