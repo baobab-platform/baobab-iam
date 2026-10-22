@@ -215,25 +215,32 @@ func (n *native) destroy(ctx context.Context,name string) error {
  if err!=nil||status!=404||c!=nil{return errors.New("issuer trust destruction not independently observed")}
  return nil
 }
-func makeNative(admin,kratos,issuer,ca,runID string) (*native,error) {
- if !runPattern.MatchString(runID) {return nil,errors.New("run ID is not a private 128-bit nonce")}
+func validateOrigins(admin,kratos,issuer string) error {
  u,err:=url.Parse(admin)
- if err!=nil ||u.Scheme!="https" ||u.Hostname()!="hydra.int03.test"||u.Port()!=""&&u.Port()!="4445"||u.User!=nil||u.RawQuery!=""||u.Fragment!=""||u.Path!=""&&u.Path!="/" {return nil,errors.New("issuer admin origin not the disposable TLS private endpoint")}
- for _,v:=range []string{kratos,issuer} {if v=="" {return nil,errors.New("native identity runtime missing")}}
+ if err!=nil ||u.Scheme!="https" ||u.Hostname()!="hydra.int03.test"||u.Port()!=""&&u.Port()!="4445"||u.User!=nil||u.RawQuery!=""||u.Fragment!=""||u.Path!=""&&u.Path!="/" {
+  return errors.New("issuer admin origin not the disposable TLS private endpoint")
+ }
+ for _,v:=range []string{kratos,issuer} {if v=="" {return errors.New("native identity runtime missing")}}
  // Never let disposable client metadata claim a protected or arbitrary issuer.
- // Kratos is a required adapter companion but is not used in these workload
- // operations; nevertheless it must remain inside this disposable network.
+ // Kratos is required by the Ory adapter but is only a private companion here.
  origin,err:=url.Parse(issuer)
  if err!=nil||origin.Scheme!="https"||origin.Hostname()!="hydra.int03.test"||
     origin.User!=nil||origin.RawQuery!=""||origin.Fragment!=""||
-    origin.Path!=""&&origin.Path!="/" {return nil,errors.New("disposable issuer origin refused")}
+    origin.Path!=""&&origin.Path!="/" {
+  return errors.New("disposable issuer origin refused")
+ }
  identity,err:=url.Parse(kratos)
  if err!=nil||identity.User!=nil||identity.RawQuery!=""||identity.Fragment!=""||
     identity.Path!=""&&identity.Path!="/"||
     !((identity.Scheme=="http"&&identity.Hostname()=="kratos")||
       (identity.Scheme=="https"&&identity.Hostname()=="kratos.int03.test")) {
-  return nil,errors.New("disposable Kratos companion origin refused")
+  return errors.New("disposable Kratos companion origin refused")
  }
+ return nil
+}
+func makeNative(admin,kratos,issuer,ca,runID string) (*native,error) {
+ if !runPattern.MatchString(runID) {return nil,errors.New("run ID is not a private 128-bit nonce")}
+ if err:=validateOrigins(admin,kratos,issuer);err!=nil{return nil,err}
  root,err:=os.ReadFile(ca)
  if err!=nil ||len(root)>65536 {return nil,errors.New("disposable issuer CA unavailable")}
  pool:=x509.NewCertPool()
