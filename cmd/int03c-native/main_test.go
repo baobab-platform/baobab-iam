@@ -94,14 +94,14 @@ func fixtureIssuer(t *testing.T) (*native, *fakeIssuer, func()) {
 	return &native{adapter: a, client: srv.Client(), admin: srv.URL, runID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, state, srv.Close
 }
 func spec(name string) provider.WorkloadProvisioningSpec {
- return provider.WorkloadProvisioningSpec{
-  LogicalClientID:name,AllowedScopes:[]string{"context:resolve"},
-  Audiences:[]string{"baobab-control-plane"},
-  AccessTokenTTLSeconds:60,RequireNew:true,
-  AuthMethod:provider.WorkloadAuthClientSecret,
-  LifecycleStatus:provider.WorkloadStatusProvisioned,
-  Metadata:map[string]string{"environment":"development","owner":"baobab-platform/infrastructure"},
- }
+	return provider.WorkloadProvisioningSpec{
+		LogicalClientID: name, AllowedScopes: []string{"context:resolve"},
+		Audiences:             []string{"baobab-control-plane"},
+		AccessTokenTTLSeconds: 60, RequireNew: true,
+		AuthMethod:      provider.WorkloadAuthClientSecret,
+		LifecycleStatus: provider.WorkloadStatusProvisioned,
+		Metadata:        map[string]string{"environment": "development", "owner": "baobab-platform/infrastructure"},
+	}
 }
 
 func TestExactNativeBoundary(t *testing.T) {
