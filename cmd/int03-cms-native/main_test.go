@@ -130,6 +130,9 @@ func TestPrivateNativeOriginsOnly(t *testing.T) {
  goodIssuer:="https://hydra.int03.test"
  goodKratos:="http://kratos:4434"
  nonce:="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+ if err:=validateOrigins(goodAdmin,goodKratos,goodIssuer);err!=nil {
+  t.Fatal("valid private issuer/companion origins refused",err)
+ }
  for _,tc:=range []struct{admin,kratos,issuer,run string}{
   {"https://real.example.org",goodKratos,goodIssuer,nonce},
   {"http://hydra.int03.test",goodKratos,goodIssuer,nonce},
@@ -137,8 +140,11 @@ func TestPrivateNativeOriginsOnly(t *testing.T) {
   {goodAdmin,"https://foreign.example.org",goodIssuer,nonce},
   {goodAdmin,goodKratos,goodIssuer,"short"},
  } {
+  if err:=validateOrigins(tc.admin,tc.kratos,tc.issuer);err==nil && tc.run==nonce {
+   t.Fatal("non-disposable IAM origin accepted")
+  }
   if _,err:=makeNative(tc.admin,tc.kratos,tc.issuer,"/no-disposable-ca.pem",tc.run);err==nil {
-   t.Fatal("non-disposable IAM origin or run nonce accepted")
+   t.Fatal("untrusted native provisioning accepted")
   }
  }
 }
