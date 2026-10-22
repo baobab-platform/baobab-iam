@@ -107,7 +107,7 @@ func verifyLiveLease(file, runID, deadline string, now time.Time) error {
 	heartbeat, err2 := time.Parse(time.RFC3339Nano, lease.Heartbeat)
 	if lease.Schema != deadlineLeaseSchema || lease.RunID != runID ||
 		lease.Deadline != deadline || lease.Qualified || err1 != nil || err2 != nil ||
-		time.Until(exp) <= 60*time.Second || exp.Sub(now) > 90*time.Minute ||
+		exp.Sub(now) <= 60*time.Second || exp.Sub(now) > 90*time.Minute ||
 		now.Sub(heartbeat) < 0 || now.Sub(heartbeat) > 12*time.Second ||
 		lease.PID <= 1 || lease.PID == os.Getpid() {
 		return errors.New("independent supervisor lease stale, incorrect or expired")
