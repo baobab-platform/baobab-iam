@@ -182,7 +182,7 @@ func privateSecret(dir,name,secret string) error {
  f,err:=os.OpenFile(dest,os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600)
  if err!=nil{return errors.New("exclusive secret handoff refused")}
  ok:=false
- defer func(){f.Close();if !ok {os.Remove(dest)}}()
+ defer func(){if !ok { _ = f.Close(); _ = os.Remove(dest)}}()
  if _,err:=f.WriteString(secret+"\n");err!=nil{return errors.New("private credential write failed")}
  if err:=f.Sync();err!=nil{return errors.New("private credential fsync failed")}
  if err:=f.Close();err!=nil{return errors.New("private credential close failed")}
