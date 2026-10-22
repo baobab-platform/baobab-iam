@@ -18,7 +18,7 @@ func TestTokenProfileHookAuthenticatedAndGoverned(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := `{"session":{"client_id":"trade","id_token":{"subject":"trade"},"extra":{"actor_type":"human","tenant_id":"forged"}},"request":{"client_id":"trade","grant_types":["client_credentials"],"requested_scopes":["context:resolve"],"granted_scopes":["context:resolve"],"granted_audience":["baobab-control-plane"],"payload":{"actor_type":["human"],"azp":["forged"],"tenant_id":["forged"]}}}`
+	body := `{"session":{"client_id":"trade","id_token":{"subject":"trade","id_token_claims":{"auth_time":"0001-01-01T00:00:00Z","acr":"","amr":null}},"extra":{"actor_type":"human","tenant_id":"forged"}},"request":{"client_id":"trade","grant_types":["client_credentials"],"requested_scopes":["context:resolve"],"granted_scopes":["context:resolve"],"granted_audience":["baobab-control-plane"],"payload":{"actor_type":["human"],"azp":["forged"],"tenant_id":["forged"]}}}`
 	for _, name := range []string{"authenticated", "missing-auth", "wrong-auth", "wrong-client", "wrong-audience", "trailing-json", "oversized"} {
 		t.Run(name, func(t *testing.T) {
 			payload := body
@@ -149,7 +149,7 @@ func TestTokenProfileHookHumanGrant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := `{"session":{"client_id":"estate-bff","id_token":{"subject":"kratos-identity-0001","id_token_claims":{"acr":"aal2","amr":["pwd","otp","mfa"],"auth_time":1792670400}},"extra":{"actor_type":"workload","tenant_id":"forged"}},"request":{"client_id":"estate-bff","grant_types":["authorization_code"],"requested_scopes":["openid","trade:buy"],"granted_scopes":["openid","trade:buy"],"granted_audience":["baobab-trade"],"payload":{}}}`
+	body := `{"session":{"client_id":"estate-bff","id_token":{"subject":"kratos-identity-0001","id_token_claims":{"acr":"aal2","amr":["pwd","otp","mfa"],"auth_time":"2026-10-22T12:00:00Z"}},"extra":{"actor_type":"workload","tenant_id":"forged"}},"request":{"client_id":"estate-bff","grant_types":["authorization_code"],"requested_scopes":["openid","trade:buy"],"granted_scopes":["openid","trade:buy"],"granted_audience":["baobab-trade"],"payload":{}}}`
 	cases := map[string]struct {
 		payload string
 		status  int
