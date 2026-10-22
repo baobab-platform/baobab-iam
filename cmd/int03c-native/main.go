@@ -372,7 +372,7 @@ func makeNative(admin, kratos, issuer, ca, runID string) (*native, error) {
 	return &native{adapter: adapter, client: clientHTTP, admin: strings.TrimSuffix(admin, "/"), runID: runID}, nil
 }
 func main() {
-	action := flag.String("action", "", "create|revoke|destroy")
+	action := flag.String("action", "", "create|revoke|destroy|supervise")
 	name := flag.String("name", "", "one exact INT-03C proof identity")
 	runID := flag.String("run-id", "", "disposable 128-bit run marker")
 	admin := flag.String("hydra-admin", "", "private TLS Hydra admin URL")
@@ -382,6 +382,7 @@ func main() {
 	checkout := flag.String("shared-checkout", "", "clean committed Shared checkout")
 	secretDir := flag.String("secrets-dir", "", "existing private 0700 directory")
 	deadline := flag.String("deadline", "", "immutable RFC3339 run deadline")
+	leaseFile := flag.String("lease-file", "", "independent watchdog heartbeat in owner-private run directory")
 	flag.Parse()
 	fail := func() { fmt.Fprintln(os.Stderr, "INT03C_NATIVE_OPERATION_REFUSED"); os.Exit(1) }
 	if os.Getenv("BAOBAB_INT03C_NATIVE_DISPOSABLE") != "1" {
@@ -390,7 +391,7 @@ func main() {
 	if _, ok := names[*name]; !ok {
 		fail()
 	}
-	if *action != "create" && *action != "revoke" && *action != "destroy" {
+	if *action != "create" && *action != "revoke" && *action != "destroy" && *action != "supervise" {
 		fail()
 	}
 	n, err := makeNative(*admin, *kratos, *issuer, *ca, *runID)
@@ -400,7 +401,22 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	switch *action {
+    case "supervise":
+        if *name != consumer || *deadline == "" || *leaseFile == "" {
+            fail()
+        }
+        if err := superviseDeadline(ctx, n, *leaseFile, *deadline); err != nil {
+            fail()
+        }
+        fmt.Println("INT03C_DEADLINE_SUPERVISED_DESTROY_READBACK_VERIFIED")
 	case "create":
+        // Issuance may only start while the independent watchdog is
+        // demonstrably alive and bound to this exact run and deadline.
+        // The daemon is launched by a separately supervised disposable
+        // runtime, not by the issuer-creating process itself.
+        if err := verifyLiveLease(*leaseFile, *runID, *deadline, time.Now().UTC()); err != nil {
+            fail()
+        }
 		until, err := time.Parse(time.RFC3339, *deadline)
 		if err != nil || time.Until(until) <= 60*time.Second || time.Until(until) > 90*time.Minute {
 			fail()
