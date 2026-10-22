@@ -401,22 +401,22 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	switch *action {
-    case "supervise":
-        if *name != consumer || *deadline == "" || *leaseFile == "" {
-            fail()
-        }
-        if err := superviseDeadline(context.Background(), n, *leaseFile, *deadline); err != nil {
-            fail()
-        }
-        fmt.Println("INT03C_DEADLINE_SUPERVISED_DESTROY_READBACK_VERIFIED")
+	case "supervise":
+		if *name != consumer || *deadline == "" || *leaseFile == "" {
+			fail()
+		}
+		if err := superviseDeadline(context.Background(), n, *leaseFile, *deadline); err != nil {
+			fail()
+		}
+		fmt.Println("INT03C_DEADLINE_SUPERVISED_DESTROY_READBACK_VERIFIED")
 	case "create":
-        // Issuance may only start while the independent watchdog is
-        // demonstrably alive and bound to this exact run and deadline.
-        // The daemon is launched by a separately supervised disposable
-        // runtime, not by the issuer-creating process itself.
-        if err := verifyLiveLease(*leaseFile, *runID, *deadline, time.Now().UTC()); err != nil {
-            fail()
-        }
+		// Issuance may only start while the independent watchdog is
+		// demonstrably alive and bound to this exact run and deadline.
+		// The daemon is launched by a separately supervised disposable
+		// runtime, not by the issuer-creating process itself.
+		if err := verifyLiveLease(*leaseFile, *runID, *deadline, time.Now().UTC()); err != nil {
+			fail()
+		}
 		until, err := time.Parse(time.RFC3339, *deadline)
 		if err != nil || time.Until(until) <= 60*time.Second || time.Until(until) > 90*time.Minute {
 			fail()
