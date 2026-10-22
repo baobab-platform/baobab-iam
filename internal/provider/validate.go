@@ -75,6 +75,9 @@ func (s WorkloadProvisioningSpec) Validate() error {
 			Message: fmt.Sprintf("unknown AuthMethod %q", s.AuthMethod),
 		}
 	}
+	if s.RequireNew && s.AuthMethod != WorkloadAuthClientSecret {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "RequireNew currently supports client-secret workloads only"}
+	}
 	if err := s.LifecycleStatus.ValidateForProvision(); err != nil {
 		return err
 	}
