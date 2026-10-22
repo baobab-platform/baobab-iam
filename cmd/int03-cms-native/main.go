@@ -39,7 +39,6 @@ const (
  markerKey = "int03_run_id"
 )
 var runPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
-var shaPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 var names = map[string]struct{}{consumer:{}, validator:{}}
 
 type nativePlan struct {
