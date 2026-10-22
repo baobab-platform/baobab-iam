@@ -178,3 +178,46 @@ runtimes even on interruption. Neither this CLI nor `RequireNew` enforces that
 absolute deadline or revokes existing JWTs. Do not use the plan independently
 until that lifecycle is implemented and reviewed. Ordinary provisioning still
 refuses both named CMS identities; canonical activation remains held.
+
+
+## Supervised native CMS bridge — development only
+
+`cmd/int03-cms-native` is a separately opt-in, disposable admin entrypoint.
+Ordinary `provision-workload` continues to refuse both exact proof identities.
+The bridge's **create** action invokes IAM's original
+`int03_cms_fixture.py native-plan` against the immutable committed Shared
+pin, rejects partial/widened registry rows and creates only one exact named
+client through the maintained Ory WorkloadProvisioner with `RequireNew=true`.
+It independently reads the real Hydra admin client, verifies exact grants,
+scopes, audiences, method, token lifetime, absence of redirect/JWKS/CORS
+authority, provider ownership and a random 128-bit run ownership marker.
+Only after read-back does it exclusively persist a per-client secret in an
+existing private directory. No credential is printed.
+
+**Revoke** uses IAM's `RevokeWorkload` port and separately confirms that
+Hydra reports zero client grant types. This stops *future issuance only*.
+**Destroy** performs that revocation, independently rechecks that the client
+still carries the exact run nonce, deletes the specific Hydra admin client,
+and independently proves a subsequent GET returns 404. Missing clients are
+idempotent success. A different run's client is never mutated or deleted.
+The external Infrastructure owner *must* stop and verify all accepting
+resource servers before destroy: neither disabled grants nor deleting Hydra
+makes an existing signed JWT cryptographically invalid. Runtime expiry,
+cross-tenant denial and all 14 NAB-03 scenarios remain separate.
+
+Infrastructure writes a durable private recovery journal before first POST,
+then calls this bridge using exact pinned source and a per-call bounded
+deadline. An interrupted or timed-out POST may have succeeded; the journal
+survives and a separate `recover` process attempts both deletes in reverse
+creation order, retaining recovery state if either client cannot be safely
+verified. Recovery is permitted if the canonical registry later goes HELD;
+**new creation is not**. No password, token, private URL, exception text or
+secret is put into the public receipt.
+
+The bridge only accepts an explicitly disposable invocation, the exact two
+client names, HTTPS administrative origin `hydra.int03.test` secured by the
+disposable CA and development-only native specifications. The run executor
+must enforce private-network isolation, independent cleanup of CP topology,
+outage recovery, and current capability certification. At this source stage
+neither client has been provisioned; the registry hold, protected C4,
+connected NAB-03, staging and production all remain unqualified.
