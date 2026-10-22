@@ -16,18 +16,23 @@ import (
 
 	"github.com/baobab-platform/baobab-iam/internal/humanauth"
 	"github.com/baobab-platform/baobab-iam/internal/provider"
+	"github.com/baobab-platform/baobab-iam/internal/tokenprofile"
 )
 
 // NativeHumanHandoff implements provider mechanics only. An estate/BFF must
 // retain the intent in its browser-bound, CSRF-protected transaction and obtain
 // current CP routing authority before calling it. It never resolves a tenant,
-// maps an identity, grants business scopes or publishes provider support.
+// maps an identity or publishes provider support. It grants business scopes
+// only inside governed composition (GovernedNativeHumanHandoff) with pinned
+// token profiles: governed buyer consent (buyerConsent).
 type NativeHumanHandoff struct {
 	kratos, hydra, issuer *url.URL
 	client                *http.Client
 	now                   func() time.Time
 	fence                 NativeChallengeFence
 	authority             DispatchAuthority
+	buyer                 *tokenprofile.Config
+	sealKey               []byte
 }
 
 // NativeChallengeFence must atomically consume each key exactly once across
@@ -46,11 +51,27 @@ type NativeHumanConfig struct {
 	Client                                 *http.Client
 	Now                                    func() time.Time
 	Fence                                  NativeChallengeFence
+	// TokenProfiles is the pinned Shared token-profile projection the token
+	// hook also serves. Only governed composition accepts it; with it, an
+	// ACTIVE estate BFF's human_token_profile scopes become consentable
+	// (ADR-SHARED-042 CAA-03). Without it, no business scope is ever granted.
+	TokenProfiles *tokenprofile.Config
+	// ConsentSealKey seals each buyer consent decision for the token hook
+	// (tokenprofile.HumanConsentSeal). Required with TokenProfiles; the hook
+	// holds the same IAM key, never its authentication key.
+	ConsentSealKey []byte
 	// Disposable test providers only. Production constructors must leave false.
 	AllowLoopbackHTTP bool
 }
 
 func NewNativeHumanHandoff(c NativeHumanConfig) (*NativeHumanHandoff, error) {
+	if c.TokenProfiles != nil || c.ConsentSealKey != nil {
+		return nil, fmt.Errorf("buyer consent requires governed composition")
+	}
+	return newNativeHumanHandoff(c)
+}
+
+func newNativeHumanHandoff(c NativeHumanConfig) (*NativeHumanHandoff, error) {
 	parse := func(raw string) (*url.URL, error) {
 		u, err := url.Parse(raw)
 		if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" && u.Path != "/" {
@@ -81,7 +102,28 @@ func NewNativeHumanHandoff(c NativeHumanConfig) (*NativeHumanHandoff, error) {
 	if c.Client != nil {
 		client.Transport = c.Client.Transport
 	}
-	return &NativeHumanHandoff{k, h, i, client, c.Now, c.Fence, nil}, nil
+	var buyer *tokenprofile.Config
+	if (c.TokenProfiles == nil) != (c.ConsentSealKey == nil) {
+		return nil, fmt.Errorf("buyer consent needs both token profiles and the consent seal key")
+	}
+	if c.TokenProfiles != nil {
+		if len(c.ConsentSealKey) < tokenprofile.MinConsentSealKeyBytes {
+			return nil, fmt.Errorf("buyer consent seal key must contain at least %d bytes", tokenprofile.MinConsentSealKeyBytes)
+		}
+		if err := c.TokenProfiles.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid buyer consent token profiles: %w", err)
+		}
+		// A deep copy, so later mutation of the caller's maps cannot widen consent.
+		encoded, err := json.Marshal(c.TokenProfiles)
+		if err != nil {
+			return nil, fmt.Errorf("invalid buyer consent token profiles")
+		}
+		buyer = &tokenprofile.Config{}
+		if err := json.Unmarshal(encoded, buyer); err != nil {
+			return nil, fmt.Errorf("invalid buyer consent token profiles")
+		}
+	}
+	return &NativeHumanHandoff{k, h, i, client, c.Now, c.Fence, nil, buyer, slices.Clone(c.ConsentSealKey)}, nil
 }
 
 func (h *NativeHumanHandoff) call(ctx context.Context, method, endpoint string, credential NativeSessionCredential, body, out any) error {
@@ -185,22 +227,27 @@ func (h *NativeHumanHandoff) session(ctx context.Context, credential NativeSessi
 }
 
 type nativeChallenge struct {
-	Challenge  string   `json:"challenge"`
-	Subject    string   `json:"subject"`
-	RequestURL string   `json:"request_url"`
-	Scopes     []string `json:"requested_scope"`
-	Audience   []string `json:"requested_access_token_audience"`
-	Client     struct {
+	// grantAudience is IAM's governed decision, never provider input.
+	grantAudience []string
+	Challenge     string `json:"challenge"`
+	// ConsentRequestID is the short identifier Hydra records on the session
+	// (consent_challenge, seen by the token hook); the challenge itself is an
+	// encrypted flow token. Governed buyer consent seals this identifier.
+	ConsentRequestID string   `json:"consent_request_id"`
+	Subject          string   `json:"subject"`
+	RequestURL       string   `json:"request_url"`
+	Scopes           []string `json:"requested_scope"`
+	Audience         []string `json:"requested_access_token_audience"`
+	Client           struct {
 		ID string `json:"client_id"`
 	} `json:"client"`
 }
 
 func (h *NativeHumanHandoff) challenge(ctx context.Context, kind, id string, intent humanauth.Request) (nativeChallenge, error) {
 	var c nativeChallenge
-	for _, scope := range strings.Fields(intent.Scope) {
-		if !slices.Contains([]string{"openid", "profile", "email"}, scope) {
-			return c, fmt.Errorf("native authentication cannot grant business scopes")
-		}
+	audience, err := h.buyerConsent(intent)
+	if err != nil {
+		return c, err
 	}
 	if intent.Validate() != nil || intent.ClientID == "" || intent.RedirectURI == "" || intent.State == "" || intent.Nonce == "" || !slices.Contains(strings.Fields(intent.Scope), "openid") || intent.ACRValues != "" || id == "" || len(id) > 16384 || strings.TrimSpace(id) != id {
 		return c, fmt.Errorf("incomplete or unsupported native intent")
@@ -231,7 +278,35 @@ func (h *NativeHumanHandoff) challenge(ctx context.Context, kind, id string, int
 	if !slices.Equal(c.Scopes, strings.Fields(intent.Scope)) {
 		return nativeChallenge{}, fmt.Errorf("native challenge scope mismatch")
 	}
+	c.grantAudience = audience
 	return c, nil
+}
+
+// buyerConsent decides what a retained intent may be granted. OIDC-only
+// intents grant no audience, as before. A business scope is consentable only
+// under governed composition with pinned token profiles, for an ACTIVE estate
+// BFF whose Shared human_token_profile names it (tokenprofile.HumanConsent);
+// the audience is the Shared scope registry's for the granted scopes, never
+// the requester's. Anything else refuses before any provider or session read.
+func (h *NativeHumanHandoff) buyerConsent(intent humanauth.Request) ([]string, error) {
+	scopes := strings.Fields(intent.Scope)
+	business := false
+	for _, scope := range scopes {
+		if !slices.Contains([]string{"openid", "profile", "email"}, scope) {
+			business = true
+		}
+	}
+	if !business {
+		return []string{}, nil
+	}
+	if h.buyer == nil || h.authority == nil {
+		return nil, fmt.Errorf("native authentication cannot grant business scopes")
+	}
+	audience, err := h.buyer.HumanConsent(intent.ClientID, scopes)
+	if err != nil {
+		return nil, fmt.Errorf("business scopes outside the registered estate BFF profile")
+	}
+	return audience, nil
 }
 
 // AcceptLogin never treats Hydra's skip hint as authentication: it verifies a
@@ -269,7 +344,17 @@ func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id string, creden
 		body["amr"] = amr
 	}
 	if kind == "consent" {
-		body = map[string]any{"grant_scope": c.Scopes, "grant_access_token_audience": []string{}, "remember": false, "session": map[string]any{"access_token": map[string]any{"actor_type": "human"}}}
+		accessToken := map[string]any{"actor_type": "human"}
+		if len(c.grantAudience) > 0 {
+			// Governed buyer consent: seal exactly what is granted, for this
+			// consent request, client and verified subject, for the token hook.
+			seal, err := tokenprofile.SealHumanConsent(h.sealKey, c.ConsentRequestID, c.Client.ID, s.Identity.ID, c.Scopes, c.grantAudience)
+			if err != nil {
+				return "", fmt.Errorf("cannot seal buyer consent")
+			}
+			accessToken[tokenprofile.ConsentSealClaim] = seal
+		}
+		body = map[string]any{"grant_scope": c.Scopes, "grant_access_token_audience": c.grantAudience, "remember": false, "session": map[string]any{"access_token": accessToken}}
 	}
 	// Revocation during challenge processing must not result in acceptance.
 	current, err := h.session(ctx, credential)

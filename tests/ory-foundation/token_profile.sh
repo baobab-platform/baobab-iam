@@ -20,6 +20,9 @@ root = Path(sys.argv[1])
 key = secrets.token_hex(32)
 (root / 'key').write_text(key)
 (root / 'key').chmod(0o600)
+# A separate disposable secret: governed buyer consent seals with it and the hook verifies it (ADR-SHARED-042 CAA-03).
+(root / 'consent-seal-key').write_text(secrets.token_hex(32))
+(root / 'consent-seal-key').chmod(0o600)
 profiles = json.loads(Path('ory-foundation-evidence/workload-profiles.json').read_text())
 # This hook serves one environment. The staging evidence provisioner is proven by the hookless stack (run.sh); it is never
 # projected into a production hook, which is itself part of the environment boundary.
@@ -54,6 +57,15 @@ if name in profiles['workloads']:
     raise SystemExit('Canonical ACTIVE fixture collides with allocation')
 profiles['workloads'][name] = {'environment': 'production', 'credential_type': 'client_credentials',
     'status': 'ACTIVE', 'allowed_scopes': ['context:resolve'], 'allowed_audiences': ['baobab-control-plane']}
+# ADR-SHARED-042 CAA-03: a CI-only ACTIVE estate BFF proves governed buyer consent and human issuance
+# (TestLiveGovernedBuyerConsent). No Shared workload holds a human_token_profile; this is not an allocation.
+name = 'm4-ci-estate-bff'
+if name in profiles['workloads']:
+    raise SystemExit('Buyer consent fixture collides with allocation')
+profiles['workloads'][name] = {'environment': 'production', 'credential_type': 'client_credentials',
+    'status': 'ACTIVE', 'allowed_scopes': ['trade:buyer-handoff'], 'allowed_audiences': ['baobab-trade'],
+    'human_token_profile': {'purpose': 'ESTATE_BFF_BUYER', 'audiences': ['baobab-trade'], 'scopes': ['trade:buy']},
+    'human_scope_audiences': {'trade:buy': ['baobab-trade']}}
 (root / 'profiles.json').write_text(json.dumps(profiles))
 (root / 'profiles.json').chmod(0o600)
 config = yaml.safe_load(Path('config/ory/hydra/hydra.yml').read_text())
@@ -64,7 +76,9 @@ if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1':
 # often as the request straddles a second boundary and the verifier then rejects a valid token.
 config['ttl'] = {'access_token': '10m'}
 config['strategies']['jwt'] = {'scope_claim': 'string'}
-config['oauth2'].update({'allowed_top_level_claims': ['actor_type', 'azp', 'scope'],
+# acr, amr and auth_time are the human assurance evidence the hook returns for a buyer token (ADR-SHARED-042 CAA-03); the
+# Shared handoff contract reads them at the top level, never under ext.
+config['oauth2'].update({'allowed_top_level_claims': ['actor_type', 'azp', 'scope', 'acr', 'amr', 'auth_time'],
                        'mirror_top_level_claims': False,
                        'token_hook': {'url': 'http://host.docker.internal:4466/internal/ory/token-profile',
                                       'auth': {'type': 'api_key', 'config': {'in': 'header',
@@ -81,7 +95,7 @@ PY
 # Mechanics proofs exercise PROVISIONED registrations through a fixture-only launcher.
 # Canonical-only acceptance is also a test launcher: production now requires live CP composition.
 go build -o "$task_dir/token-profile-hook" ./tests/ory-foundation/mechanics-hook
-"$task_dir/token-profile-hook" -canonical-only -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" > "$task_dir/hook.log" 2>&1 &
+"$task_dir/token-profile-hook" -canonical-only -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/hook.log" 2>&1 &
 hook_pid=$!
 for attempt in $(seq 1 20); do
   # An unauthenticated health probe must be rejected, never treated as evidence.
@@ -111,20 +125,32 @@ export ORY_WORKLOAD=1 ORY_TOKEN_PROFILE=1
 export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434 ORY_HYDRA_ADMIN_URL=http://127.0.0.1:4445 ORY_PUBLIC_ISSUER=http://127.0.0.1:4444
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence/token-profile"
+export ORY_BUYER_PROFILES_FILE="$task_dir/profiles.json" ORY_BUYER_CONSENT_SEAL_KEY_FILE="$task_dir/consent-seal-key"
 # Prove ACTIVE admission and PROVISIONED denial through isolated CI identities and real Hydra.
-go test -json ./internal/provider/ory -run '^TestLiveCanonical(ProvisionedDenied|ActiveFixture|CPContextRoute)$' -count=1 | tee ory-foundation-evidence/token-profile/canonical-denial.jsonl
+go test -json ./internal/provider/ory -run '^(TestLiveCanonical(ProvisionedDenied|ActiveFixture|CPContextRoute)|TestLiveGovernedBuyerConsent)$' -count=1 | tee ory-foundation-evidence/token-profile/canonical-denial.jsonl
 python3 - <<'PY'
 import json
 from pathlib import Path
 events = [json.loads(line) for line in Path('ory-foundation-evidence/token-profile/canonical-denial.jsonl').read_text().splitlines()]
 for name in ('TestLiveCanonicalProvisionedDenied', 'TestLiveCanonicalActiveFixture',
-             'TestLiveCanonicalCPContextRoute'):
+             'TestLiveCanonicalCPContextRoute', 'TestLiveGovernedBuyerConsent',
+             'TestLiveGovernedBuyerConsent/governed-consent-issues-the-registry-audience',
+             'TestLiveGovernedBuyerConsent/business-scope-outside-the-profile-refused',
+             'TestLiveGovernedBuyerConsent/ungoverned-consent-refused-at-issuance',
+             'TestLiveGovernedBuyerConsent/unregistered-audience-refused-at-issuance'):
     if not any(event.get('Test') == name and event.get('Action') == 'pass' for event in events):
         raise SystemExit(f'{name}: missing canonical composed PASS evidence')
+buyer = json.loads(Path('ory-foundation-evidence/token-profile/buyer-consent.json').read_text())
+if (not buyer['fixture_only'] or not buyer['logical_audience_matches'] or not buyer['assurance_claims_top_level']
+        or not buyer['outside_scope_refused'] or not buyer['ungoverned_consent_refused_at_issuance']
+        or not buyer['unregistered_audience_refused_at_issuance'] or not buyer['seal_absent_from_token']
+        or buyer['registry_allocated'] or buyer['canonical_activation_proven'] or buyer['acr_values_approved']
+        or buyer['connected_trade_tested']):
+    raise SystemExit('Buyer consent proof is incomplete or claims allocation, activation or approval')
 PY
 kill "$hook_pid"
 wait "$hook_pid" 2>/dev/null || true
-"$task_dir/token-profile-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" > "$task_dir/mechanics-hook.log" 2>&1 &
+"$task_dir/token-profile-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/mechanics-hook.log" 2>&1 &
 hook_pid=$!
 for attempt in $(seq 1 20); do
   if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi

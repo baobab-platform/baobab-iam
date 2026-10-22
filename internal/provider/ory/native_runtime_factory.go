@@ -45,8 +45,9 @@ func StartNativeHumanRuntime(ctx context.Context, c NativeHumanConfig, human, is
 	}
 	transport.Proxy = nil
 	c.Client = &http.Client{Transport: transport}
-	// Validate mechanics first: a bad issuer/URL/fence must not start renewal.
-	if _, err := NewNativeHumanHandoff(c); err != nil {
+	// Validate mechanics first: a bad issuer/URL/fence or token-profile
+	// projection must not start renewal.
+	if _, err := newNativeHumanHandoff(c); err != nil {
 		return nil, nil, err
 	}
 	authority, supervisor, err := federation.StartNativeRuntimeComposition(ctx, human, issuer, tlsConfig)
