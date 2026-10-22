@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/tokenprofile"
 )
@@ -79,6 +80,16 @@ func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool,
 				ClientID string `json:"client_id"`
 				Identity struct {
 					Subject string `json:"subject"`
+					// The claims the login accepted from a verified Kratos
+					// session (human_handoff.go): the only human assurance
+					// evidence a human token may carry.
+					// Hydra serialises these as fosite IDTokenClaims, whose
+					// auth_time is an RFC 3339 time (zero when absent).
+					Claims struct {
+						ACR      string    `json:"acr"`
+						AMR      []string  `json:"amr"`
+						AuthTime time.Time `json:"auth_time"`
+					} `json:"id_token_claims"`
 				} `json:"id_token"`
 			} `json:"session"`
 			Request struct {
@@ -97,6 +108,26 @@ func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool,
 		}
 		if len(body.Request.Grants) != 1 || body.Request.ClientID == "" || body.Session.ClientID != body.Request.ClientID {
 			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		// ADR-SHARED-042 section 14: a human grant is admitted only for an
+		// ACTIVE estate BFF's human token profile, with the assurance its
+		// login accepted. It never reaches the workload path.
+		if grant := body.Request.Grants[0]; grant == "authorization_code" || grant == "refresh_token" {
+			var authTime int64
+			if at := body.Session.Identity.Claims.AuthTime; !at.IsZero() {
+				authTime = at.Unix()
+			}
+			claims, err := snapshot.HumanClaims(tokenprofile.HumanEvidence{ClientID: body.Request.ClientID,
+				Subject: body.Session.Identity.Subject, Grant: grant, GrantedScopes: body.Request.GrantedScopes,
+				GrantedAudiences: body.Request.GrantedAudience, ACR: body.Session.Identity.Claims.ACR,
+				AMR: body.Session.Identity.Claims.AMR, AuthTime: authTime})
+			if err != nil || authority != nil && authority.CheckCapability(r.Context(), provider.CapabilityHumanAuthentication) != nil {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"session": map[string]any{"access_token": claims}})
 			return
 		}
 		e := tokenprofile.Evidence{ClientID: body.Request.ClientID, Subject: body.Session.Identity.Subject, Grant: body.Request.Grants[0], RequestedScopes: body.Request.RequestedScopes, GrantedScopes: body.Request.GrantedScopes, GrantedAudiences: body.Request.GrantedAudience}

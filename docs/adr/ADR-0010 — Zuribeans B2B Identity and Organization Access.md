@@ -59,6 +59,30 @@ IAM, Keycloak or any provider organisation membership, group or claim is provide
 
 Sections 5, 6, 16, 26, 27, 28, 56, 82, 86, 109, 115, 116, 117 and the summary are amended in place below. Where they previously named Keycloak Organizations as the identity-side membership or invitation model, that role is provider-local, optional and non-authoritative. Buyer invitations and memberships are Trade-owned; identity registration and recovery are Kratos flows.
 
+
+## 0.5 Buyer token issuance and assurance evidence (ADR-SHARED-042 CAA-03, ruling of 2026-10-22)
+
+**Rules for a human buyer token.** IAM issues one to an estate BFF only within the BFF's pinned Shared `human_token_profile`. The rules (`internal/tokenprofile/human.go`):
+
+- **Grant and client.** Only an authorization-code or refresh grant, and only for an **ACTIVE** registration in this issuer's environment. PROVISIONED mechanics never issue a human token.
+- **Audiences and scopes.** Every granted audience must be in the profile, and never `baobab-control-plane`. Every granted scope must be a profile scope or an OIDC scope, and at least one profile scope must be granted.
+- **Paired credential.** The client must be confidential (`client_credentials`) and hold `trade:buyer-handoff`, so it can authenticate to Trade as itself (Shared handoff v1.1).
+
+**Claims.** The token's claims are `actor_type: human`, `azp`, `scope`, and the assurance evidence the login accepted:
+
+- `acr`: the Kratos authenticator assurance level of the verified session (`aal1` or `aal2`);
+- `amr`: RFC 8176 names derived from the methods Kratos completed. An unrecognised method is omitted, and `mfa` is added only for two or more distinct factor kinds;
+- `auth_time`.
+
+**What the hook trusts.** The private token hook takes the evidence only from the ID-token claims Hydra authenticated at login, never from the requester, the session extra or the request payload. The native login now passes `amr` with `acr`.
+
+**What this does not do.** Assurance evidence is not authority: the resource server's assurance policy decides what it is worth (Shared `identity/v1/assurance-policy`). IAM publishes no APPROVED assurance values; approving them is a security decision outside this increment.
+
+**Outstanding before a buyer token can be issued:**
+- **Governed buyer consent.** The native handoff is provider mechanics only and still grants no business scope or resource audience. A separately governed buyer consent that grants the profile's scopes and audience is the next increment.
+- **Registry allocation.** The ZuriBeans BFF needs its `human_token_profile` and `trade:buyer-handoff` through the reviewed Shared registry process. The activation hold stays.
+- **Assurance approval.** Security approval of the `acr` values for Trade's interim allowlist.
+- **IAM's Shared pin.** Moving it to a commit that carries `human_token_profile` (Shared #363).
 ---
 
 # 1. Context
