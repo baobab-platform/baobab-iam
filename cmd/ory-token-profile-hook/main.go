@@ -27,15 +27,16 @@ func main() {
 	keyFile := flag.String("key-file", "", "private hook authentication key file")
 	runtimeFile := flag.String("runtime-config", "", "private reviewed C4 runtime composition JSON; required")
 	caFile := flag.String("cp-ca-file", "", "optional CP TLS root PEM")
+	sealFile := flag.String("human-consent-seal-key-file", "", "optional private IAM key governed buyer consent seals with; without it no human token is issued")
 	flag.Parse()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	if err := runHook(ctx, *listen, *profiles, *keyFile, *runtimeFile, *caFile); err != nil {
+	if err := runHook(ctx, *listen, *profiles, *keyFile, *runtimeFile, *caFile, *sealFile); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func runHook(parent context.Context, listen, profiles, keyFile, runtimeFile, caFile string) error {
+func runHook(parent context.Context, listen, profiles, keyFile, runtimeFile, caFile, sealFile string) error {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	var config tokenprofile.Config
@@ -64,7 +65,15 @@ func runHook(parent context.Context, listen, profiles, keyFile, runtimeFile, caF
 	if err != nil {
 		return errors.New("cannot read protected token hook authentication key")
 	}
-	hook, err := configuredHook(config, key, dispatch)
+	var sealKey []byte
+	if sealFile != "" {
+		seal, err := (federation.FileAuthorityTokens{Path: sealFile}).Token(ctx)
+		if err != nil {
+			return errors.New("cannot read protected human consent seal key")
+		}
+		sealKey = []byte(seal)
+	}
+	hook, err := configuredHook(config, key, dispatch, sealKey)
 	if err != nil {
 		return errors.New("invalid token profile configuration or hook authentication key")
 	}
@@ -127,6 +136,10 @@ func serveHookListener(ctx context.Context, server *http.Server, listener net.Li
 
 // configuredHook always requires current CP dispatch, in every environment.
 // Provider-only CI mechanics live in tests/ and are never a command fallback.
-func configuredHook(config tokenprofile.Config, key string, authority ory.DispatchAuthority) (http.Handler, error) {
-	return ory.NewGovernedCanonicalTokenProfileHook(config, key, authority)
+// Human buyer issuance is enabled only with the consent seal key.
+func configuredHook(config tokenprofile.Config, key string, authority ory.DispatchAuthority, sealKey []byte) (http.Handler, error) {
+	if sealKey == nil {
+		return ory.NewGovernedCanonicalTokenProfileHook(config, key, authority)
+	}
+	return ory.NewGovernedCanonicalTokenProfileHook(config, key, authority, ory.WithHumanConsentSealKey(sealKey))
 }

@@ -32,15 +32,15 @@ func TestExecutableRequiresGovernedDispatchInEveryEnvironment(t *testing.T) {
 		t.Run(environment, func(t *testing.T) {
 			config := tokenprofile.Config{Environment: environment, SharedCommit: strings.Repeat("a", 40), Workloads: map[string]tokenprofile.Workload{"worker": {Environment: environment, CredentialType: "client_credentials", Status: "ACTIVE", Scopes: []string{"context:resolve"}, Audiences: []string{"baobab-cp"}}}}
 			key := strings.Repeat("k", 32)
-			if _, err := configuredHook(config, key, nil); err == nil {
+			if _, err := configuredHook(config, key, nil, nil); err == nil {
 				t.Fatal("missing authority accepted")
 			}
 			var typedNil *hookAuthority
-			if _, err := configuredHook(config, key, typedNil); err == nil {
+			if _, err := configuredHook(config, key, typedNil, nil); err == nil {
 				t.Fatal("typed nil accepted")
 			}
 			a := &hookAuthority{}
-			hook, err := configuredHook(config, key, a)
+			hook, err := configuredHook(config, key, a, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -65,12 +65,29 @@ func TestExecutableRequiresGovernedDispatchInEveryEnvironment(t *testing.T) {
 				t.Fatal("withdrawn authority accepted")
 			}
 			config.Workloads["worker"] = tokenprofile.Workload{Environment: environment, CredentialType: "client_credentials", Status: "PROVISIONED", Scopes: []string{"context:resolve"}, Audiences: []string{"baobab-cp"}}
-			hook, err = configuredHook(config, key, a)
+			hook, err = configuredHook(config, key, a, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if call(true) != http.StatusForbidden || a.calls != 2 {
 				t.Fatal("PROVISIONED admission reached CP")
+			}
+		})
+	}
+}
+
+// Human buyer issuance is opt-in through the separate consent seal key, which
+// may never be the hook authentication key (ADR-0010 section 0.6).
+func TestExecutableConsentSealKeyIsSeparateAndBounded(t *testing.T) {
+	config := tokenprofile.Config{Environment: "staging", SharedCommit: strings.Repeat("a", 40), Workloads: map[string]tokenprofile.Workload{"worker": {Environment: "staging", CredentialType: "client_credentials", Status: "ACTIVE", Scopes: []string{"context:resolve"}, Audiences: []string{"baobab-cp"}}}}
+	key := strings.Repeat("k", 32)
+	if _, err := configuredHook(config, key, &hookAuthority{}, []byte(strings.Repeat("s", tokenprofile.MinConsentSealKeyBytes))); err != nil {
+		t.Fatal(err)
+	}
+	for name, seal := range map[string][]byte{"hook key reused": []byte(key), "short": []byte("short"), "empty": {}} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := configuredHook(config, key, &hookAuthority{}, seal); err == nil {
+				t.Fatal("accepted")
 			}
 		})
 	}

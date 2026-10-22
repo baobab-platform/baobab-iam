@@ -23,6 +23,10 @@ type Workload struct {
 	// HumanTokenProfile is the pinned Shared human_token_profile of an estate
 	// BFF (human.go). Absent for every other workload.
 	HumanTokenProfile *HumanTokenProfile `json:"human_token_profile,omitempty"`
+	// HumanScopeAudiences maps each human_token_profile scope to the audience
+	// the pinned Shared scope registry issues it for (human.go). It is
+	// projected with the profile and absent for every other workload.
+	HumanScopeAudiences map[string][]string `json:"human_scope_audiences,omitempty"`
 }
 
 // Binding is governed runtime configuration, reconciled with provider trust.
@@ -91,6 +95,8 @@ func (c Config) Validate() error {
 			}
 		} else if slices.Contains(p.Scopes, buyerHandoffScope) {
 			return fmt.Errorf("workload %q holds %s but has no human token profile", id, buyerHandoffScope)
+		} else if p.HumanScopeAudiences != nil {
+			return fmt.Errorf("workload %q has human scope audiences but no human token profile", id)
 		}
 	}
 	seenBindings := map[Binding]bool{}

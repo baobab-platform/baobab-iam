@@ -10,7 +10,9 @@ import (
 // GovernedNativeHumanHandoff consumes current CP routing before EACH login and
 // consent acceptance. It retains all native session and replay fences. The
 // authority must cover the composed Kratos/Hydra runtime; this wrapper grants
-// neither tenant membership nor canonical identity mapping.
+// neither tenant membership nor canonical identity mapping. Only this
+// composition accepts NativeHumanConfig.TokenProfiles, so governed buyer
+// consent always runs under current CP dispatch authority.
 type GovernedNativeHumanHandoff struct {
 	mechanics *NativeHumanHandoff
 	authority DispatchAuthority
@@ -20,7 +22,7 @@ func NewGovernedNativeHumanHandoff(c NativeHumanConfig, authority DispatchAuthor
 	if absentDispatchAuthority(authority) {
 		return nil, fmt.Errorf("current CP dispatch authority required")
 	}
-	h, err := NewNativeHumanHandoff(c)
+	h, err := newNativeHumanHandoff(c)
 	if err != nil {
 		return nil, err
 	}

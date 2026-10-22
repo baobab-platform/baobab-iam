@@ -151,12 +151,40 @@ class WorkloadProjectionTests(unittest.TestCase):
         self.registry['workloads']['bff'] = {'environment': 'production', 'credential_type': 'client_credentials',
                                              'status': 'PROVISIONED', 'allowed_scopes': ['trade:buyer-handoff'],
                                              'allowed_audiences': ['baobab-trade'], 'human_token_profile': profile}
-        config = module.build('a' * 40, self.registry, ['bff'], {}, 'production')
+        config = module.build('a' * 40, self.registry, ['bff'], {}, 'production', self.scopes())
         self.assertEqual(config['workloads']['bff']['human_token_profile'], profile)
-        self.assertNotIn('human_token_profile', module.build('a' * 40, self.registry, ['trade'], {}, 'production')['workloads']['trade'])
+        self.assertEqual(config['workloads']['bff']['human_scope_audiences'], {'trade:buy': ['baobab-trade']})
+        plain = module.build('a' * 40, self.registry, ['trade'], {}, 'production')['workloads']['trade']
+        self.assertNotIn('human_token_profile', plain)
+        self.assertNotIn('human_scope_audiences', plain)
         self.registry['workloads']['cp']['human_token_profile'] = profile
         with self.assertRaisesRegex(ValueError, 'client-credentials estate BFF'):
-            module.build('a' * 40, self.registry, ['cp'], self.binding, 'production')
+            module.build('a' * 40, self.registry, ['cp'], self.binding, 'production', self.scopes())
+
+    @staticmethod
+    def scopes(**trade_buy):
+        entry = {'name': 'trade:buy', 'audience': ['baobab-trade'], 'allowed_actors': ['human'], **trade_buy}
+        return {'scopes': [{'name': 'openid'}, entry]}
+
+    def test_human_scope_audiences_come_only_from_the_pinned_scope_registry(self):
+        # ADR-SHARED-042 CAA-03: governed buyer consent grants the registry's
+        # audience for each granted scope, so the projection copies it exactly
+        # and refuses any disagreement instead of repairing it.
+        profile = {'purpose': 'ESTATE_BFF_BUYER', 'audiences': ['baobab-trade'], 'scopes': ['trade:buy']}
+        self.registry['workloads']['bff'] = {'environment': 'production', 'credential_type': 'client_credentials',
+                                             'status': 'ACTIVE', 'allowed_scopes': ['trade:buyer-handoff'],
+                                             'allowed_audiences': ['baobab-trade'], 'human_token_profile': profile}
+        refusals = {
+            'needs the pinned scope registry': None,
+            'not a registered human-only scope': {'scopes': [{'name': 'openid'}]},
+            'not a registered human-only scope ': self.scopes(allowed_actors=['human', 'workload']),
+            'not issued for the human token profile audiences': self.scopes(audience=['baobab-erp']),
+            'not issued for the human token profile audiences ': self.scopes(audience=[]),
+            'Duplicate scope registry entry': {'scopes': [self.scopes()['scopes'][1], self.scopes()['scopes'][1]]},
+        }
+        for reason, scopes in refusals.items():
+            with self.subTest(reason=reason), self.assertRaisesRegex(ValueError, reason.strip()):
+                module.build('a' * 40, self.registry, ['bff'], {}, 'production', scopes)
 
 
 if __name__ == '__main__':

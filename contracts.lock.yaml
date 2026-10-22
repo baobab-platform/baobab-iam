@@ -36,6 +36,11 @@
 # documentary:restriction-assess scope with only the PROVISIONED ERP/Payments
 # staging assessor profile ceilings. Keycloak's OIDC scope definition here is
 # NOT client allocation, IAM admission, canonical ACTIVE status or CP grant.
+# ADR-SHARED-042 CAA-03 (2026-10-22): 2229fee -> b5cf361 (shared#357-#363). Adds the buyer
+# identity handoff, delegated Principal resolution, estate client binding, assurance policy and the
+# workload-registry human_token_profile, plus the unallocated trade:buy, trade:buyer-handoff and
+# estate:client-binding:resolve scopes. No existing scope, workload or federation entry changes, and no
+# workload holds a human_token_profile, so this pin grants nothing by itself.
 # Every scope this repository issues must exist in the scope registry at this
 # exact commit: scripts/check-issued-scopes.sh, run in CI and in
 # tests/integration/run.sh section 9b.
@@ -43,7 +48,7 @@ schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: 2229fee5c2f12a93935c88877aee21e0a5d73e51
+  commit: b5cf361bcd47e899fb5398a2ab233976e9d80b55
 contracts:
   - contracts/capability/v1/resolution.schema.json
   - contracts/identity/v1/federation-authority-policy.yaml

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,15 +22,35 @@ import (
 // token endpoint or resource-server verifier. Its authenticated sender is Hydra,
 // after Hydra has verified the client or assertion. It never trusts body claims
 // from an unauthenticated caller and never logs the credential-bearing payload.
-func NewTokenProfileHook(config tokenprofile.Config, key string) (http.Handler, error) {
-	return newTokenProfileHook(config, key, false, nil)
+func NewTokenProfileHook(config tokenprofile.Config, key string, options ...HookOption) (http.Handler, error) {
+	return newTokenProfileHook(config, key, false, nil, options)
+}
+
+// HookOption configures optional token hook capabilities.
+type HookOption func(*hookOptions) error
+
+type hookOptions struct{ consentSealKey []byte }
+
+// WithHumanConsentSealKey enables human buyer issuance (ADR-SHARED-042
+// CAA-03): the hook issues a human token only for a grant governed consent
+// sealed with this IAM-held key (tokenprofile.HumanConsentSeal). It is a
+// separate secret from the hook authentication key. Without it, every human
+// grant is refused.
+func WithHumanConsentSealKey(key []byte) HookOption {
+	return func(o *hookOptions) error {
+		if len(key) < tokenprofile.MinConsentSealKeyBytes {
+			return fmt.Errorf("human consent seal key must contain at least %d bytes", tokenprofile.MinConsentSealKeyBytes)
+		}
+		o.consentSealKey = slices.Clone(key)
+		return nil
+	}
 }
 
 // NewCanonicalTokenProfileHook admits the canonical intent reconstructed from
 // Hydra's authenticated callback fields. It requires ACTIVE registration
 // and exact one-resource intent; mechanics-only PROVISIONED admission is absent.
-func NewCanonicalTokenProfileHook(config tokenprofile.Config, key string) (http.Handler, error) {
-	return newTokenProfileHook(config, key, true, nil)
+func NewCanonicalTokenProfileHook(config tokenprofile.Config, key string, options ...HookOption) (http.Handler, error) {
+	return newTokenProfileHook(config, key, true, nil, options)
 }
 
 // DispatchAuthority must check current CP selection inside the authenticated
@@ -40,16 +61,25 @@ type DispatchAuthority interface {
 
 // NewGovernedCanonicalTokenProfileHook adds current CP admission to the existing
 // exact audience/scope and ACTIVE workload checks. No permissive fallback exists.
-func NewGovernedCanonicalTokenProfileHook(config tokenprofile.Config, key string, authority DispatchAuthority) (http.Handler, error) {
+func NewGovernedCanonicalTokenProfileHook(config tokenprofile.Config, key string, authority DispatchAuthority, options ...HookOption) (http.Handler, error) {
 	if absentDispatchAuthority(authority) {
 		return nil, fmt.Errorf("current CP dispatch authority required")
 	}
-	return newTokenProfileHook(config, key, true, authority)
+	return newTokenProfileHook(config, key, true, authority, options)
 }
 
-func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool, authority DispatchAuthority) (http.Handler, error) {
+func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool, authority DispatchAuthority, options []HookOption) (http.Handler, error) {
 	if len(key) < 32 {
 		return nil, fmt.Errorf("token hook authentication key must contain at least 32 bytes")
+	}
+	var opts hookOptions
+	for _, option := range options {
+		if option == nil || option(&opts) != nil {
+			return nil, fmt.Errorf("invalid token hook option")
+		}
+	}
+	if opts.consentSealKey != nil && subtle.ConstantTimeCompare(opts.consentSealKey, []byte(key)) == 1 {
+		return nil, fmt.Errorf("human consent seal key must differ from the hook authentication key")
 	}
 	if err := config.Validate(); err != nil {
 		return nil, err
@@ -77,7 +107,13 @@ func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool,
 		}
 		var body struct {
 			Session struct {
-				ClientID string `json:"client_id"`
+				ClientID         string `json:"client_id"`
+				ConsentRequestID string `json:"consent_challenge"`
+				// Governed buyer consent's seal (tokenprofile.HumanConsentSeal):
+				// verified, never copied into a token.
+				Extra struct {
+					Consent *tokenprofile.HumanConsentSeal `json:"baobab_human_consent"`
+				} `json:"extra"`
 				Identity struct {
 					Subject string `json:"subject"`
 					// The claims the login accepted from a verified Kratos
@@ -119,9 +155,10 @@ func newTokenProfileHook(config tokenprofile.Config, key string, canonical bool,
 				authTime = at.Unix()
 			}
 			claims, err := snapshot.HumanClaims(tokenprofile.HumanEvidence{ClientID: body.Request.ClientID,
-				Subject: body.Session.Identity.Subject, Grant: grant, GrantedScopes: body.Request.GrantedScopes,
+				Subject: body.Session.Identity.Subject, Grant: grant, ConsentRequestID: body.Session.ConsentRequestID,
+				Consent: body.Session.Extra.Consent, RequestedScopes: body.Request.RequestedScopes, GrantedScopes: body.Request.GrantedScopes,
 				GrantedAudiences: body.Request.GrantedAudience, ACR: body.Session.Identity.Claims.ACR,
-				AMR: body.Session.Identity.Claims.AMR, AuthTime: authTime})
+				AMR: body.Session.Identity.Claims.AMR, AuthTime: authTime}, opts.consentSealKey)
 			if err != nil || authority != nil && authority.CheckCapability(r.Context(), provider.CapabilityHumanAuthentication) != nil {
 				w.WriteHeader(http.StatusForbidden)
 				return

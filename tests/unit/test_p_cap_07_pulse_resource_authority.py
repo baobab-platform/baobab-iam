@@ -7,7 +7,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED_PIN = "2229fee5c2f12a93935c88877aee21e0a5d73e51"  # Shared #349 adds bounded OAuth companion evidence; existing Pulse authority stays unchanged
+SHARED_PIN = "b5cf361bcd47e899fb5398a2ab233976e9d80b55"  # Shared #357-#363 add buyer identity contracts; existing Pulse authority stays unchanged
 PULSE_SCOPES = {
     "intelligence:evidence:search",
     "intelligence:research-mission:manage",

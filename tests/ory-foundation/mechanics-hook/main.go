@@ -20,6 +20,7 @@ func main() {
 	profiles := flag.String("profiles", "", "governed pinned Shared JSON projection with runtime bindings")
 	keyFile := flag.String("key-file", "", "private hook authentication key file")
 	canonical := flag.Bool("canonical-only", false, "fixture-only ACTIVE admission without CP composition")
+	sealFile := flag.String("human-consent-seal-key-file", "", "fixture-only governed buyer consent seal key")
 	flag.Parse()
 	file, err := os.Open(*profiles)
 	if err != nil {
@@ -35,11 +36,19 @@ func main() {
 	if err != nil {
 		log.Fatal("cannot read token hook authentication key")
 	}
+	var options []ory.HookOption
+	if *sealFile != "" {
+		seal, err := os.ReadFile(*sealFile)
+		if err != nil {
+			log.Fatal("cannot read human consent seal key")
+		}
+		options = append(options, ory.WithHumanConsentSealKey([]byte(strings.TrimSpace(string(seal)))))
+	}
 	var hook http.Handler
 	if *canonical {
-		hook, err = ory.NewCanonicalTokenProfileHook(config, strings.TrimSpace(string(key)))
+		hook, err = ory.NewCanonicalTokenProfileHook(config, strings.TrimSpace(string(key)), options...)
 	} else {
-		hook, err = ory.NewTokenProfileHook(config, strings.TrimSpace(string(key)))
+		hook, err = ory.NewTokenProfileHook(config, strings.TrimSpace(string(key)), options...)
 	}
 	if err != nil {
 		log.Fatal("invalid token profile configuration or hook authentication key")

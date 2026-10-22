@@ -142,24 +142,48 @@ func TestTokenProfileHookHumanGrant(t *testing.T) {
 	config := tokenprofile.Config{Environment: "staging", SharedCommit: strings.Repeat("a", 40), Workloads: map[string]tokenprofile.Workload{
 		"estate-bff": {Environment: "staging", CredentialType: "client_credentials", Status: "ACTIVE",
 			Scopes: []string{"trade:buyer-handoff"}, Audiences: []string{"baobab-trade"},
-			HumanTokenProfile: &tokenprofile.HumanTokenProfile{Purpose: "ESTATE_BFF_BUYER", Audiences: []string{"baobab-trade"}, Scopes: []string{"trade:buy"}}},
+			HumanTokenProfile:   &tokenprofile.HumanTokenProfile{Purpose: "ESTATE_BFF_BUYER", Audiences: []string{"baobab-trade"}, Scopes: []string{"trade:buy"}},
+			HumanScopeAudiences: map[string][]string{"trade:buy": {"baobab-trade"}}},
 	}}
 	key := strings.Repeat("k", 32)
-	hook, err := NewTokenProfileHook(config, key)
+	sealKey := []byte(strings.Repeat("s", tokenprofile.MinConsentSealKeyBytes))
+	hook, err := NewTokenProfileHook(config, key, WithHumanConsentSealKey(sealKey))
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := `{"session":{"client_id":"estate-bff","id_token":{"subject":"kratos-identity-0001","id_token_claims":{"acr":"aal2","amr":["pwd","otp","mfa"],"auth_time":"2026-10-22T12:00:00Z"}},"extra":{"actor_type":"workload","tenant_id":"forged"}},"request":{"client_id":"estate-bff","grant_types":["authorization_code"],"requested_scopes":["openid","trade:buy"],"granted_scopes":["openid","trade:buy"],"granted_audience":["baobab-trade"],"payload":{}}}`
+	seal, err := tokenprofile.SealHumanConsent(sealKey, "consent-challenge-0001", "estate-bff", "kratos-identity-0001", []string{"openid", "trade:buy"}, []string{"baobab-trade"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sealJSON, _ := json.Marshal(seal)
+	forged, _ := json.Marshal(tokenprofile.HumanConsentSeal{Audience: []string{"baobab-trade"}, Seal: "forged"})
+	body := `{"session":{"client_id":"estate-bff","consent_challenge":"consent-challenge-0001","id_token":{"subject":"kratos-identity-0001","id_token_claims":{"acr":"aal2","amr":["pwd","otp","mfa"],"auth_time":"2026-10-22T12:00:00Z"}},"extra":{"actor_type":"workload","tenant_id":"forged","baobab_human_consent":` + string(sealJSON) + `}},"request":{"client_id":"estate-bff","grant_types":["authorization_code"],"requested_scopes":["openid","trade:buy"],"granted_scopes":["openid","trade:buy"],"granted_audience":["baobab-trade"],"payload":{}}}`
 	cases := map[string]struct {
 		payload string
 		status  int
 	}{
-		"authorization code":     {body, http.StatusOK},
+		"authorization code": {body, http.StatusOK},
+		// The shape real Hydra sends on a code exchange: the consent grant is
+		// not yet on the request, so the requested scopes are the ceiling.
+		"code exchange before grant copy": {strings.Replace(body, `"granted_scopes":["openid","trade:buy"],"granted_audience":["baobab-trade"]`, `"granted_scopes":[],"granted_audience":[]`, 1), http.StatusOK},
+		"code exchange outside profile": {strings.Replace(strings.Replace(body, `"granted_scopes":["openid","trade:buy"],"granted_audience":["baobab-trade"]`, `"granted_scopes":[],"granted_audience":[]`, 1),
+			`"requested_scopes":["openid","trade:buy"]`, `"requested_scopes":["openid","trade:buy","context:resolve"]`, 1), http.StatusForbidden},
+		"code exchange audience without scopes": {strings.Replace(body, `"granted_scopes":["openid","trade:buy"]`, `"granted_scopes":[]`, 1), http.StatusForbidden},
+		"refresh without grant": {strings.Replace(strings.Replace(body, `"authorization_code"`, `"refresh_token"`, 1),
+			`"granted_scopes":["openid","trade:buy"],"granted_audience":["baobab-trade"]`, `"granted_scopes":[],"granted_audience":[]`, 1), http.StatusForbidden},
+		"refresh without audience": {strings.Replace(strings.Replace(body, `"authorization_code"`, `"refresh_token"`, 1),
+			`"granted_audience":["baobab-trade"]`, `"granted_audience":[]`, 1), http.StatusForbidden},
 		"refresh":                {strings.Replace(body, `"authorization_code"`, `"refresh_token"`, 1), http.StatusOK},
 		"no assurance evidence":  {strings.Replace(body, `"acr":"aal2",`, ``, 1), http.StatusForbidden},
 		"workload scope":         {strings.ReplaceAll(body, `"openid","trade:buy"`, `"trade:buy","context:resolve"`), http.StatusForbidden},
 		"control plane audience": {strings.Replace(body, `"granted_audience":["baobab-trade"]`, `"granted_audience":["baobab-control-plane"]`, 1), http.StatusForbidden},
 		"unregistered client":    {strings.ReplaceAll(body, `"estate-bff"`, `"rogue-bff"`), http.StatusForbidden},
+		// A grant governed consent did not seal is refused, however exact.
+		"unsealed":      {strings.Replace(body, `,"baobab_human_consent":`+string(sealJSON), ``, 1), http.StatusForbidden},
+		"forged seal":   {strings.Replace(body, string(sealJSON), string(forged), 1), http.StatusForbidden},
+		"replayed seal": {strings.Replace(body, `"consent_challenge":"consent-challenge-0001"`, `"consent_challenge":"consent-challenge-0002"`, 1), http.StatusForbidden},
+		"no challenge":  {strings.Replace(body, `"consent_challenge":"consent-challenge-0001",`, ``, 1), http.StatusForbidden},
+		"other human":   {strings.Replace(body, `"subject":"kratos-identity-0001"`, `"subject":"kratos-identity-0002"`, 1), http.StatusForbidden},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -182,10 +206,49 @@ func TestTokenProfileHookHumanGrant(t *testing.T) {
 				t.Fatal("invalid hook response")
 			}
 			claims := result.Session.Claims
-			// Session extra and request payload never reach the token.
+			// Session extra and request payload never reach the token, and the
+			// hook never states scope: Hydra's own scope claim is the grant.
 			if claims["actor_type"] != "human" || claims["azp"] != "estate-bff" || claims["acr"] != "aal2" ||
-				claims["tenant_id"] != nil || claims["scope"] != "openid trade:buy" {
+				claims["tenant_id"] != nil || claims["scope"] != nil || claims[tokenprofile.ConsentSealClaim] != nil {
 				t.Fatalf("claims = %#v", claims)
+			}
+		})
+	}
+}
+
+// Without the consent seal key the hook issues no human token at all, and the
+// seal key can never double as the hook authentication key.
+func TestTokenProfileHookHumanIssuanceNeedsTheSealKey(t *testing.T) {
+	config := tokenprofile.Config{Environment: "staging", SharedCommit: strings.Repeat("a", 40), Workloads: map[string]tokenprofile.Workload{
+		"estate-bff": {Environment: "staging", CredentialType: "client_credentials", Status: "ACTIVE",
+			Scopes: []string{"trade:buyer-handoff"}, Audiences: []string{"baobab-trade"},
+			HumanTokenProfile:   &tokenprofile.HumanTokenProfile{Purpose: "ESTATE_BFF_BUYER", Audiences: []string{"baobab-trade"}, Scopes: []string{"trade:buy"}},
+			HumanScopeAudiences: map[string][]string{"trade:buy": {"baobab-trade"}}},
+	}}
+	key := strings.Repeat("k", 32)
+	sealKey := []byte(strings.Repeat("s", tokenprofile.MinConsentSealKeyBytes))
+	seal, _ := tokenprofile.SealHumanConsent(sealKey, "consent-challenge-0001", "estate-bff", "kratos-identity-0001", []string{"openid", "trade:buy"}, []string{"baobab-trade"})
+	sealJSON, _ := json.Marshal(seal)
+	body := `{"session":{"client_id":"estate-bff","consent_challenge":"consent-challenge-0001","id_token":{"subject":"kratos-identity-0001","id_token_claims":{"acr":"aal2","auth_time":"2026-10-22T12:00:00Z"}},"extra":{"baobab_human_consent":` + string(sealJSON) + `}},"request":{"client_id":"estate-bff","grant_types":["authorization_code"],"requested_scopes":["openid","trade:buy"],"granted_scopes":[],"granted_audience":[],"payload":{}}}`
+	hook, err := NewTokenProfileHook(config, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/internal/ory/token-profile", strings.NewReader(body))
+	req.Header.Set("X-Baobab-Token-Hook-Key", key)
+	response := httptest.NewRecorder()
+	hook.ServeHTTP(response, req)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("hook without a seal key issued a human token: %d", response.Code)
+	}
+	for name, option := range map[string]HookOption{
+		"short seal key":       WithHumanConsentSealKey([]byte("short")),
+		"seal key is hook key": WithHumanConsentSealKey([]byte(key)),
+		"nil option":           nil,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := NewTokenProfileHook(config, key, option); err == nil {
+				t.Fatal("accepted")
 			}
 		})
 	}

@@ -66,17 +66,107 @@ func (p HumanTokenProfile) validate(workload Workload) error {
 			return fmt.Errorf("a human token profile names resource scopes only")
 		}
 	}
+	// The projected scope audiences are the Shared scope registry's own: each
+	// profile scope has a nonempty audience inside the profile, there is no
+	// entry for any other scope, and every profile audience is reached by some
+	// scope (the Shared validator's rule, rechecked so a hand-built projection
+	// cannot widen it).
+	if len(workload.HumanScopeAudiences) != len(p.Scopes) {
+		return fmt.Errorf("every human token profile scope needs its registry audience")
+	}
+	reached := map[string]bool{}
+	for _, scope := range p.Scopes {
+		audiences, ok := workload.HumanScopeAudiences[scope]
+		if !ok || len(audiences) == 0 || !subset(audiences, p.Audiences) {
+			return fmt.Errorf("human scope %q audience must be a nonempty subset of the profile", scope)
+		}
+		for _, audience := range audiences {
+			reached[audience] = true
+		}
+	}
+	if len(reached) != len(p.Audiences) {
+		return fmt.Errorf("every human token profile audience needs a profile scope")
+	}
 	return nil
 }
 
+// consentScopes are the OIDC scopes the native handoff may grant alongside
+// profile scopes. offline_access is deliberately absent: native consent has
+// never granted it and buyer consent does not widen that.
+var consentScopes = []string{"openid", "profile", "email"}
+
+// HumanConsent decides governed buyer consent for an estate BFF
+// (ADR-SHARED-042 section 14, CAA-03). The canonical human authentication
+// request carries no audience, so IAM never takes one from the requester:
+// it returns the audience the pinned Shared scope registry issues the granted
+// profile scopes for, in profile order. Only an ACTIVE registration in this
+// issuer's environment qualifies, openid is required, at least one profile
+// scope must be requested, and anything outside the profile and the OIDC
+// scopes refuses the whole consent. It grants no tenant, organisation,
+// membership or purchasing authority: Trade decides that per operation.
+func (c Config) HumanConsent(clientID string, requestedScopes []string) ([]string, error) {
+	p, ok := c.Workloads[clientID]
+	if !ok || p.Status != "ACTIVE" || p.HumanTokenProfile == nil || p.Environment == "" || p.Environment != c.Environment {
+		return nil, fmt.Errorf("buyer consent denied")
+	}
+	if !slices.Contains(requestedScopes, "openid") {
+		return nil, fmt.Errorf("buyer consent requires openid")
+	}
+	granted := []string{}
+	seen := map[string]bool{}
+	for _, scope := range requestedScopes {
+		if seen[scope] {
+			return nil, fmt.Errorf("buyer consent scope mismatch")
+		}
+		seen[scope] = true
+		switch {
+		case slices.Contains(p.HumanTokenProfile.Scopes, scope):
+			granted = append(granted, scope)
+		case slices.Contains(consentScopes, scope):
+		default:
+			return nil, fmt.Errorf("buyer consent scope mismatch")
+		}
+	}
+	if len(granted) == 0 {
+		return nil, fmt.Errorf("buyer consent requires a profile scope")
+	}
+	return p.humanAudience(granted), nil
+}
+
+// humanAudience is the profile-ordered union of the registry audiences of the
+// granted profile scopes.
+func (p Workload) humanAudience(profileScopes []string) []string {
+	audiences := []string{}
+	for _, audience := range p.HumanTokenProfile.Audiences {
+		for _, scope := range profileScopes {
+			if slices.Contains(p.HumanScopeAudiences[scope], audience) {
+				audiences = append(audiences, audience)
+				break
+			}
+		}
+	}
+	return audiences
+}
+
 // HumanEvidence is Hydra's authenticated description of one human token
-// grant: the client it authenticated, the grant, the scopes and audiences it
-// granted after consent, and the assurance the login accepted from a verified
-// Kratos session (the ID token claims). None of it comes from the requester.
+// grant: the client it authenticated, the grant, the scopes requested and
+// granted, the audience granted, and the assurance the login accepted from a
+// verified Kratos session (the ID token claims). None of it comes from the
+// requester.
+//
+// Hydra (v26.2.0, observed live) calls the token hook for an authorization
+// code exchange before it copies the consent grant onto the request:
+// granted_scopes and granted_audience are then empty, and only the requested
+// scopes are known. On a refresh they are populated. The consent request ID
+// Hydra records on the session and the seal governed consent attached to it
+// (HumanConsentSeal) carry the audience that consent decided.
 type HumanEvidence struct {
 	ClientID         string
 	Subject          string
 	Grant            string
+	ConsentRequestID string
+	Consent          *HumanConsentSeal
+	RequestedScopes  []string
 	GrantedScopes    []string
 	GrantedAudiences []string
 	ACR              string
@@ -86,12 +176,22 @@ type HumanEvidence struct {
 
 // HumanClaims evaluates a human authorization-code or refresh grant for an
 // estate BFF. Only an ACTIVE registration in this issuer's environment
-// qualifies: PROVISIONED mechanics never issue human tokens. Every granted
-// audience must be in the profile, every granted scope in the profile or an
-// OIDC scope, at least one profile scope must be granted, and the assurance
-// must be evidence IAM's own login emits. The claims carry that evidence to
-// the resource server, which still decides what it is worth.
-func (c Config) HumanClaims(e HumanEvidence) (map[string]any, error) {
+// qualifies: PROVISIONED mechanics never issue human tokens. Every scope must
+// be a profile or OIDC scope with at least one profile scope, and the
+// assurance must be evidence IAM's own login emits. The claims carry that
+// evidence to the resource server, which still decides what it is worth.
+//
+// Scope is checked on the strongest evidence Hydra supplies: on a code
+// exchange the requested scopes, a ceiling for what consent can grant; on a
+// refresh the grant itself. The audience must be the registry audience of the
+// profile scopes, as governed consent sealed it (HumanConsentSeal) under
+// sealKey: a grant accepted any other way is refused. Wherever Hydra does
+// supply the granted audience it must match too. The hook never states scope
+// itself: Hydra's own scope claim is the actual grant.
+func (c Config) HumanClaims(e HumanEvidence, sealKey []byte) (map[string]any, error) {
+	if len(sealKey) < MinConsentSealKeyBytes {
+		return nil, fmt.Errorf("human issuance requires the consent seal key")
+	}
 	p, ok := c.Workloads[e.ClientID]
 	if !ok || p.Status != "ACTIVE" || p.HumanTokenProfile == nil || p.Environment == "" || p.Environment != c.Environment {
 		return nil, fmt.Errorf("human issuance denied")
@@ -102,27 +202,41 @@ func (c Config) HumanClaims(e HumanEvidence) (map[string]any, error) {
 	if e.Subject == "" || strings.TrimSpace(e.Subject) != e.Subject || e.Subject == e.ClientID {
 		return nil, fmt.Errorf("human subject required")
 	}
-	profile := *p.HumanTokenProfile
-	if len(e.GrantedAudiences) == 0 || !subset(e.GrantedAudiences, profile.Audiences) {
-		return nil, fmt.Errorf("human audience mismatch")
+	scopes, codeExchange := e.GrantedScopes, false
+	if len(scopes) == 0 && e.Grant == "authorization_code" {
+		scopes, codeExchange = e.RequestedScopes, true
+		if len(e.GrantedAudiences) != 0 {
+			return nil, fmt.Errorf("human audience without granted scopes")
+		}
 	}
-	resource := 0
+	profile := *p.HumanTokenProfile
+	resource := []string{}
 	seen := map[string]bool{}
-	for _, scope := range e.GrantedScopes {
+	for _, scope := range scopes {
 		if seen[scope] {
 			return nil, fmt.Errorf("human scope mismatch")
 		}
 		seen[scope] = true
 		switch {
 		case slices.Contains(profile.Scopes, scope):
-			resource++
+			resource = append(resource, scope)
 		case slices.Contains(oidcScopes, scope):
 		default:
 			return nil, fmt.Errorf("human scope mismatch")
 		}
 	}
-	if resource == 0 {
+	if len(resource) == 0 {
 		return nil, fmt.Errorf("human scope mismatch")
+	}
+	// The audience is exactly what governed consent derives from the scopes,
+	// never a profile audience no granted scope is issued for, and only a
+	// sealed governed decision establishes it.
+	audience := p.humanAudience(resource)
+	if !verifyHumanConsent(sealKey, e.Consent, e.ConsentRequestID, e.ClientID, e.Subject, scopes, audience) {
+		return nil, fmt.Errorf("human consent not governed")
+	}
+	if !codeExchange && !sameSet(e.GrantedAudiences, audience) {
+		return nil, fmt.Errorf("human audience mismatch")
 	}
 	if !slices.Contains(issuedACR, e.ACR) || e.AuthTime <= 0 {
 		return nil, fmt.Errorf("human assurance evidence missing")
@@ -134,8 +248,7 @@ func (c Config) HumanClaims(e HumanEvidence) (map[string]any, error) {
 		}
 		amrSeen[method] = true
 	}
-	claims := map[string]any{"actor_type": "human", "azp": e.ClientID, "scope": strings.Join(e.GrantedScopes, " "),
-		"acr": e.ACR, "auth_time": e.AuthTime}
+	claims := map[string]any{"actor_type": "human", "azp": e.ClientID, "acr": e.ACR, "auth_time": e.AuthTime}
 	if len(e.AMR) > 0 {
 		claims["amr"] = slices.Clone(e.AMR)
 	}

@@ -65,24 +65,52 @@ Sections 5, 6, 16, 26, 27, 28, 56, 82, 86, 109, 115, 116, 117 and the summary ar
 **Rules for a human buyer token.** IAM issues one to an estate BFF only within the BFF's pinned Shared `human_token_profile`. The rules (`internal/tokenprofile/human.go`):
 
 - **Grant and client.** Only an authorization-code or refresh grant, and only for an **ACTIVE** registration in this issuer's environment. PROVISIONED mechanics never issue a human token.
-- **Audiences and scopes.** Every granted audience must be in the profile, and never `baobab-control-plane`. Every granted scope must be a profile scope or an OIDC scope, and at least one profile scope must be granted.
+- **Audiences and scopes.** Every scope must be a profile scope or an OIDC scope, and at least one profile scope must be granted. The audience is exactly the Shared scope registry's audience for the granted profile scopes, as governed buyer consent sealed it (§0.6), and never `baobab-control-plane`.
 - **Paired credential.** The client must be confidential (`client_credentials`) and hold `trade:buyer-handoff`, so it can authenticate to Trade as itself (Shared handoff v1.1).
 
-**Claims.** The token's claims are `actor_type: human`, `azp`, `scope`, and the assurance evidence the login accepted:
+**Claims.** The hook adds `actor_type: human`, `azp` and the assurance evidence the login accepted. `scope` is Hydra's own claim, the actual grant (§0.6). The assurance evidence is:
 
 - `acr`: the Kratos authenticator assurance level of the verified session (`aal1` or `aal2`);
 - `amr`: RFC 8176 names derived from the methods Kratos completed. An unrecognised method is omitted, and `mfa` is added only for two or more distinct factor kinds;
 - `auth_time`.
 
-**What the hook trusts.** The private token hook takes the evidence only from the ID-token claims Hydra authenticated at login, never from the requester, the session extra or the request payload. The native login now passes `amr` with `acr`.
+**What the hook trusts.** The private token hook takes the assurance evidence only from the ID-token claims Hydra authenticated at login, never from the requester or the request payload. From the session extra it reads only governed consent's seal, which it verifies and never copies into a token (§0.6). The native login now passes `amr` with `acr`.
 
 **What this does not do.** Assurance evidence is not authority: the resource server's assurance policy decides what it is worth (Shared `identity/v1/assurance-policy`). IAM publishes no APPROVED assurance values; approving them is a security decision outside this increment.
 
+**Outstanding before a buyer token can be issued:** see §0.6.
+
+## 0.6 Governed buyer consent (ADR-SHARED-042 CAA-03)
+
+**What consent grants.** Only governed composition (`GovernedNativeHumanHandoff`, under current CP dispatch authority) with the pinned token profiles and a consent seal key can consent to a business scope. The plain native mechanics still grant none. Consent (`tokenprofile.HumanConsent`):
+
+- requires an **ACTIVE** estate BFF in this issuer's environment, whose Shared `human_token_profile` names every non-OIDC scope requested, with `openid` and at least one profile scope;
+- grants only `openid`, `profile` and `email` beside profile scopes. `offline_access` is not granted, so no refresh token is issued yet;
+- grants exactly the audience the pinned Shared **scope registry** issues the granted profile scopes for. The projection copies it (`human_scope_audiences`, `scripts/build_workload_token_profiles.py`) and refuses any disagreement. The canonical authentication request carries no audience, and a requested audience or any extra authorization parameter refuses the whole handoff;
+- refuses everything else before any provider or session read.
+
+**Two provider facts, observed live** (Hydra v26.2.0, `TestLiveGovernedBuyerConsent`):
+
+1. On an authorization-code exchange Hydra calls the token hook **before** it copies the consent grant onto the request: `granted_scopes` and `granted_audience` are empty and only `requested_scopes` is known. The §0.5 hook as first merged therefore refused every real buyer token. The hook now checks the requested scopes, which bound what consent can grant. It stops stating `scope` itself, so Hydra's own `scope` claim is the actual grant.
+2. Hydra does **not** bound a consent-granted audience by the client's registered audience. A consent accepted directly through the private admin API can grant any audience.
+
+**The consent seal.** Without the grant, the hook could not tell a governed decision from an admin-API one. Governed consent therefore attaches `tokenprofile.HumanConsentSeal` to the session: an HMAC-SHA256, under an IAM-held key, over the consent request ID (the identifier Hydra records on the session as `consent_challenge`), client, subject, scope set and audience.
+
+- **Verification.** The hook issues a human token only for a valid seal whose audience equals the registry derivation, and where Hydra supplies the granted audience it must match too. The seal never reaches a token.
+- **The key.** It is a separate secret from the hook authentication key, and the two may not be equal. Without it the hook issues no human token at all (`-human-consent-seal-key-file`), and governed composition refuses token profiles without it.
+
+**Token shape.** The live proof also fixes two details. Hydra promotes `acr`, `amr` and `auth_time` to the top level only when `oauth2.allowed_top_level_claims` lists them; otherwise they land under `ext`. Hydra re-encodes hook claims through float64, so `auth_time` arrives as a JSON NumericDate such as `1.792659083e+09`, which verifiers must read as a number.
+
+**Proof boundary.** Unit tests and a disposable CI fixture (`m4-ci-estate-bff`) only. The live receipt states `registry_allocated`, `canonical_activation_proven`, `acr_values_approved` and `connected_trade_tested` as false. This is not connected IAM acceptance.
+
 **Outstanding before a buyer token can be issued:**
-- **Governed buyer consent.** The native handoff is provider mechanics only and still grants no business scope or resource audience. A separately governed buyer consent that grants the profile's scopes and audience is the next increment.
 - **Registry allocation.** The ZuriBeans BFF needs its `human_token_profile` and `trade:buyer-handoff` through the reviewed Shared registry process. The activation hold stays.
+- **Seal key and Hydra claims in deployment.** Provisioning the consent seal key for both the native runtime and the hook, and the three top-level claims in the deployed Hydra configuration, is Infrastructure work.
+- **Production hook dispatch.** The production hook's current CP composition is established for workload token issuance; a human grant also requires current human-authentication dispatch, which that composition must be extended to cover before any buyer token is issued in a deployment.
 - **Assurance approval.** Security approval of the `acr` values for Trade's interim allowlist.
-- **IAM's Shared pin.** Moving it to a commit that carries `human_token_profile` (Shared #363).
+- **Refresh.** Granting `offline_access` to buyers is a separate decision; the refresh path already requires the seal and the exact grant.
+
+IAM's Shared pin is `b5cf361`, which carries `human_token_profile` (Shared #363).
 ---
 
 # 1. Context
