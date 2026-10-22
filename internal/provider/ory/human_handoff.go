@@ -158,7 +158,12 @@ type nativeSession struct {
 	ExpiresAt       time.Time `json:"expires_at"`
 	AuthenticatedAt time.Time `json:"authenticated_at"`
 	AAL             string    `json:"authenticator_assurance_level"`
-	Identity        struct {
+	// The methods Kratos completed for this session. They become the amr the
+	// login accepts; the BFF and browser never supply either.
+	Methods []struct {
+		Method string `json:"method"`
+	} `json:"authentication_methods"`
+	Identity struct {
 		ID    string `json:"id"`
 		State string `json:"state"`
 	} `json:"identity"`
@@ -260,12 +265,15 @@ func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id string, creden
 		return "", fmt.Errorf("native challenge subject mismatch")
 	}
 	body := map[string]any{"subject": s.Identity.ID, "remember": false, "acr": s.AAL}
+	if amr := nativeAMR(s); len(amr) > 0 {
+		body["amr"] = amr
+	}
 	if kind == "consent" {
 		body = map[string]any{"grant_scope": c.Scopes, "grant_access_token_audience": []string{}, "remember": false, "session": map[string]any{"access_token": map[string]any{"actor_type": "human"}}}
 	}
 	// Revocation during challenge processing must not result in acceptance.
 	current, err := h.session(ctx, credential)
-	if err != nil || current != s {
+	if err != nil || !sameNativeSession(current, s) {
 		return "", fmt.Errorf("native session changed during handoff")
 	}
 	// Governed composition rechecks CP after provider/session reads and before
@@ -290,4 +298,47 @@ func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id string, creden
 		return "", fmt.Errorf("unsafe native handoff redirect")
 	}
 	return result.Redirect, nil
+}
+
+// nativeAMR maps the methods Kratos completed for the verified session to RFC
+// 8176 authentication method references (ADR-SHARED-042 CAA-03; ADR-IAM-0024
+// section 13). An unrecognised method is omitted rather than guessed: absent
+// amr is never evidence of a stronger method. mfa is added only when two or
+// more distinct factor kinds completed.
+func nativeAMR(s nativeSession) []string {
+	var out []string
+	add := func(value string) {
+		if !slices.Contains(out, value) {
+			out = append(out, value)
+		}
+	}
+	for _, m := range s.Methods {
+		switch m.Method {
+		case "password":
+			add("pwd")
+		case "totp", "lookup_secret", "code":
+			add("otp")
+		case "webauthn", "passkey":
+			add("hwk")
+		}
+	}
+	if len(out) >= 2 {
+		add("mfa")
+	}
+	return out
+}
+
+// sameNativeSession reports whether two reads describe the identical session,
+// including the methods it completed, so a change during the handoff refuses.
+func sameNativeSession(a, b nativeSession) bool {
+	if a.ID != b.ID || a.Active != b.Active || !a.ExpiresAt.Equal(b.ExpiresAt) || !a.AuthenticatedAt.Equal(b.AuthenticatedAt) ||
+		a.AAL != b.AAL || a.Identity != b.Identity || len(a.Methods) != len(b.Methods) {
+		return false
+	}
+	for i := range a.Methods {
+		if a.Methods[i] != b.Methods[i] {
+			return false
+		}
+	}
+	return true
 }

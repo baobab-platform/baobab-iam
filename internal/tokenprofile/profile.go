@@ -5,6 +5,7 @@ package tokenprofile
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -19,6 +20,9 @@ type Workload struct {
 	Status         string   `json:"status"`
 	Scopes         []string `json:"allowed_scopes"`
 	Audiences      []string `json:"allowed_audiences"`
+	// HumanTokenProfile is the pinned Shared human_token_profile of an estate
+	// BFF (human.go). Absent for every other workload.
+	HumanTokenProfile *HumanTokenProfile `json:"human_token_profile,omitempty"`
 }
 
 // Binding is governed runtime configuration, reconciled with provider trust.
@@ -80,6 +84,13 @@ func (c Config) Validate() error {
 				}
 				seen[value] = true
 			}
+		}
+		if p.HumanTokenProfile != nil {
+			if err := p.HumanTokenProfile.validate(p); err != nil {
+				return err
+			}
+		} else if slices.Contains(p.Scopes, buyerHandoffScope) {
+			return fmt.Errorf("workload %q holds %s but has no human token profile", id, buyerHandoffScope)
 		}
 	}
 	seenBindings := map[Binding]bool{}

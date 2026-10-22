@@ -146,6 +146,18 @@ class WorkloadProjectionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.build('a' * 40, self.registry, [name], binding, 'production')
 
+    def test_estate_bff_human_token_profile_is_copied_exactly(self):
+        profile = {'purpose': 'ESTATE_BFF_BUYER', 'audiences': ['baobab-trade'], 'scopes': ['trade:buy']}
+        self.registry['workloads']['bff'] = {'environment': 'production', 'credential_type': 'client_credentials',
+                                             'status': 'PROVISIONED', 'allowed_scopes': ['trade:buyer-handoff'],
+                                             'allowed_audiences': ['baobab-trade'], 'human_token_profile': profile}
+        config = module.build('a' * 40, self.registry, ['bff'], {}, 'production')
+        self.assertEqual(config['workloads']['bff']['human_token_profile'], profile)
+        self.assertNotIn('human_token_profile', module.build('a' * 40, self.registry, ['trade'], {}, 'production')['workloads']['trade'])
+        self.registry['workloads']['cp']['human_token_profile'] = profile
+        with self.assertRaisesRegex(ValueError, 'client-credentials estate BFF'):
+            module.build('a' * 40, self.registry, ['cp'], self.binding, 'production')
+
 
 if __name__ == '__main__':
     unittest.main()

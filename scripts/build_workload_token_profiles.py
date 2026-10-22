@@ -24,6 +24,13 @@ def build(commit, registry, selected, bindings, environment):
         entry = registry['workloads'][name]
         profile = {key: entry[key] for key in
                    ('environment', 'credential_type', 'status', 'allowed_scopes', 'allowed_audiences')}
+        # ADR-SHARED-042 section 14: an estate BFF's human token profile is
+        # copied exactly from Shared, like every other ceiling, and only for a
+        # confidential client.
+        if 'human_token_profile' in entry:
+            if entry['credential_type'] != 'client_credentials':
+                raise ValueError('Only a client-credentials estate BFF may carry a human token profile')
+            profile['human_token_profile'] = entry['human_token_profile']
         if profile['environment'] != environment:
             raise ValueError(f'{name} belongs to environment {profile["environment"]}, not {environment}')
         if profile['credential_type'] == 'federated_workload_token':

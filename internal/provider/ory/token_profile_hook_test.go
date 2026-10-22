@@ -134,3 +134,59 @@ func TestTokenProfileHookFederatedBinding(t *testing.T) {
 		})
 	}
 }
+
+// ADR-SHARED-042 section 14: a human grant is admitted only for an ACTIVE
+// estate BFF's human token profile and carries only the assurance its login
+// accepted. Synthetic BFF only; not connected acceptance.
+func TestTokenProfileHookHumanGrant(t *testing.T) {
+	config := tokenprofile.Config{Environment: "staging", SharedCommit: strings.Repeat("a", 40), Workloads: map[string]tokenprofile.Workload{
+		"estate-bff": {Environment: "staging", CredentialType: "client_credentials", Status: "ACTIVE",
+			Scopes: []string{"trade:buyer-handoff"}, Audiences: []string{"baobab-trade"},
+			HumanTokenProfile: &tokenprofile.HumanTokenProfile{Purpose: "ESTATE_BFF_BUYER", Audiences: []string{"baobab-trade"}, Scopes: []string{"trade:buy"}}},
+	}}
+	key := strings.Repeat("k", 32)
+	hook, err := NewTokenProfileHook(config, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"session":{"client_id":"estate-bff","id_token":{"subject":"kratos-identity-0001","id_token_claims":{"acr":"aal2","amr":["pwd","otp","mfa"],"auth_time":1792670400}},"extra":{"actor_type":"workload","tenant_id":"forged"}},"request":{"client_id":"estate-bff","grant_types":["authorization_code"],"requested_scopes":["openid","trade:buy"],"granted_scopes":["openid","trade:buy"],"granted_audience":["baobab-trade"],"payload":{}}}`
+	cases := map[string]struct {
+		payload string
+		status  int
+	}{
+		"authorization code":     {body, http.StatusOK},
+		"refresh":                {strings.Replace(body, `"authorization_code"`, `"refresh_token"`, 1), http.StatusOK},
+		"no assurance evidence":  {strings.Replace(body, `"acr":"aal2",`, ``, 1), http.StatusForbidden},
+		"workload scope":         {strings.ReplaceAll(body, `"openid","trade:buy"`, `"trade:buy","context:resolve"`), http.StatusForbidden},
+		"control plane audience": {strings.Replace(body, `"granted_audience":["baobab-trade"]`, `"granted_audience":["baobab-control-plane"]`, 1), http.StatusForbidden},
+		"unregistered client":    {strings.ReplaceAll(body, `"estate-bff"`, `"rogue-bff"`), http.StatusForbidden},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/internal/ory/token-profile", strings.NewReader(tc.payload))
+			req.Header.Set("X-Baobab-Token-Hook-Key", key)
+			response := httptest.NewRecorder()
+			hook.ServeHTTP(response, req)
+			if response.Code != tc.status {
+				t.Fatalf("expected %d, got %d", tc.status, response.Code)
+			}
+			if tc.status != http.StatusOK {
+				return
+			}
+			var result struct {
+				Session struct {
+					Claims map[string]any `json:"access_token"`
+				} `json:"session"`
+			}
+			if json.Unmarshal(response.Body.Bytes(), &result) != nil {
+				t.Fatal("invalid hook response")
+			}
+			claims := result.Session.Claims
+			// Session extra and request payload never reach the token.
+			if claims["actor_type"] != "human" || claims["azp"] != "estate-bff" || claims["acr"] != "aal2" ||
+				claims["tenant_id"] != nil || claims["scope"] != "openid trade:buy" {
+				t.Fatalf("claims = %#v", claims)
+			}
+		})
+	}
+}
