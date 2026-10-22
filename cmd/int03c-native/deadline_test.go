@@ -33,9 +33,9 @@ func TestDeadlineLeaseRequiresIndependentCurrentSupervisor(t *testing.T) {
 		func(x *deadlineLease) { x.Qualified = true },
 		func(x *deadlineLease) { x.PID = os.Getpid() },
 		func(x *deadlineLease) { x.PID = 999999999 },
-		func(x *deadlineLease) { x.Heartbeat = now.Add(-25*time.Second).Format(time.RFC3339Nano) },
-		func(x *deadlineLease) { x.Deadline = now.Add(30*time.Second).Format(time.RFC3339Nano) },
-		func(x *deadlineLease) { x.Deadline = now.Add(100*time.Minute).Format(time.RFC3339Nano) },
+		func(x *deadlineLease) { x.Heartbeat = now.Add(-25 * time.Second).Format(time.RFC3339Nano) },
+		func(x *deadlineLease) { x.Deadline = now.Add(30 * time.Second).Format(time.RFC3339Nano) },
+		func(x *deadlineLease) { x.Deadline = now.Add(100 * time.Minute).Format(time.RFC3339Nano) },
 	} {
 		next := lease
 		mutation(&next)
