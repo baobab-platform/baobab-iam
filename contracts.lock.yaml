@@ -41,6 +41,11 @@
 # workload-registry human_token_profile, plus the unallocated trade:buy, trade:buyer-handoff and
 # estate:client-binding:resolve scopes. No existing scope, workload or federation entry changes, and no
 # workload holds a human_token_profile, so this pin grants nothing by itself.
+# ADR-SHARED-042 Decisions 6-9 (2026-10-23): b5cf361 -> 1517429 (shared#364-#370). Adds trade.order.create
+# coverage, buyer commitment valuation, the estate commerce profile, the governed estate resource assignment
+# and the unallocated estate:commerce-profile:resolve, estate:resource-assignment:resolve/:write/:approve and
+# trade:native-commitment:submit scopes (ADR-IAM-0034), plus the INT-03C development proof workloads. No
+# existing scope or federation entry changes and no workload holds a new scope, so this pin grants nothing.
 # Every scope this repository issues must exist in the scope registry at this
 # exact commit: scripts/check-issued-scopes.sh, run in CI and in
 # tests/integration/run.sh section 9b.
@@ -48,7 +53,7 @@ schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: b5cf361bcd47e899fb5398a2ab233976e9d80b55
+  commit: 1517429bcae601a1b0288ca0279e524ce48a3d77
 contracts:
   - contracts/capability/v1/resolution.schema.json
   - contracts/identity/v1/federation-authority-policy.yaml
@@ -82,6 +87,8 @@ contracts:
   - contracts/identity/v1/capabilities.yaml
   # Canonical workloads, credential types and allowed scopes (ADR-0007).
   - contracts/identity/v1/workload-registry.yaml
+  # ADR-IAM-0034: the workloadClientId grammar a native commitment submitter must satisfy.
+  - contracts/control-plane/v1/estate-resource-assignment.schema.json
 policy:
   updates: explicit_pull_request
   compatibility: validate_before_merge

@@ -7,7 +7,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED_PIN = "b5cf361bcd47e899fb5398a2ab233976e9d80b55"  # Shared #357-#363 add buyer identity contracts; existing Pulse authority stays unchanged
+SHARED_PIN = "1517429bcae601a1b0288ca0279e524ce48a3d77"  # Shared #364-#370 add estate commerce and resource-assignment contracts; existing Pulse authority stays unchanged
 PULSE_SCOPES = {
     "intelligence:evidence:search",
     "intelligence:research-mission:manage",
