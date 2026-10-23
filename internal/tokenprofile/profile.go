@@ -98,6 +98,9 @@ func (c Config) Validate() error {
 		} else if p.HumanScopeAudiences != nil {
 			return fmt.Errorf("workload %q has human scope audiences but no human token profile", id)
 		}
+		if err := validateNativeCommitmentSubmitter(id, p); err != nil {
+			return err
+		}
 	}
 	seenBindings := map[Binding]bool{}
 	for id, binding := range c.Bindings {
@@ -139,6 +142,9 @@ func (c Config) Claims(e Evidence) (map[string]any, error) {
 	}
 	if len(e.GrantedAudiences) == 0 || !subset(e.GrantedAudiences, p.Audiences) {
 		return nil, fmt.Errorf("workload audience mismatch")
+	}
+	if !nativeCommitmentTokenScoped(e) {
+		return nil, fmt.Errorf("a native commitment token is issued for Trade alone")
 	}
 	return map[string]any{"actor_type": "workload", "azp": e.ClientID, "scope": strings.Join(e.GrantedScopes, " ")}, nil
 }
