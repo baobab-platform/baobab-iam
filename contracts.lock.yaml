@@ -87,6 +87,8 @@ contracts:
   - contracts/identity/v1/capabilities.yaml
   # Canonical workloads, credential types and allowed scopes (ADR-0007).
   - contracts/identity/v1/workload-registry.yaml
+  # ADR-IAM-0034: the workloadClientId grammar a native commitment submitter must satisfy.
+  - contracts/control-plane/v1/estate-resource-assignment.schema.json
 policy:
   updates: explicit_pull_request
   compatibility: validate_before_merge

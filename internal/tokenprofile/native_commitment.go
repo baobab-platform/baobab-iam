@@ -35,6 +35,10 @@ const (
 var workloadClientID = regexp.MustCompile(`^[a-z][a-z0-9-]{2,62}$`)
 
 func validateNativeCommitmentSubmitter(id string, p Workload) error {
+	// The scope is for workloads only: a human token never carries it.
+	if p.HumanTokenProfile != nil && slices.Contains(p.HumanTokenProfile.Scopes, nativeCommitmentSubmitScope) {
+		return fmt.Errorf("workload %q issues %s in human tokens; it is a workload-only scope", id, nativeCommitmentSubmitScope)
+	}
 	if !slices.Contains(p.Scopes, nativeCommitmentSubmitScope) {
 		return nil
 	}

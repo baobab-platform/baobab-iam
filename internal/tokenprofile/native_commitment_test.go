@@ -40,6 +40,12 @@ func TestNativeCommitmentSubmitterIsANarrowServerWorkload(t *testing.T) {
 				Scopes: []string{"trade:buy"}}
 			w.HumanScopeAudiences = map[string][]string{"trade:buy": {"baobab-trade"}}
 		}, "estate BFF"},
+		"a BFF issuing it to humans": {func(w *Workload) {
+			w.Scopes = []string{buyerHandoffScope}
+			w.HumanTokenProfile = &HumanTokenProfile{Purpose: estateBFFBuyerPurpose, Audiences: []string{"baobab-trade"},
+				Scopes: []string{nativeCommitmentSubmitScope}}
+			w.HumanScopeAudiences = map[string][]string{nativeCommitmentSubmitScope: {"baobab-trade"}}
+		}, "workload-only"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			err := nativeCommitmentConfig(tc.change).Validate()

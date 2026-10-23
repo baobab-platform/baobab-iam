@@ -27,7 +27,7 @@ IAM issues `trade:native-commitment:submit` only to a narrow server workload (`i
 
 1. **Confidential workload.** The holder uses the `client_credentials` or `federated_workload_token` profile of its pinned Shared workload-registry entry. Humans and keys never qualify.
 2. **Canonical client id.** The workload id must match the Shared `workloadClientId` grammar (`^[a-z][a-z0-9-]{2,62}$`), which is what a WORKLOAD assignment names. A publishable key such as `pk_…` can never be one.
-3. **Never an estate BFF.** A workload that holds `trade:buyer-handoff` or a `human_token_profile` cannot also hold this scope. If one identity held both, the provenance of its commitments (binding or assignment) would be ambiguous.
+3. **Never an estate BFF, never human.** A workload that holds `trade:buyer-handoff` or a `human_token_profile` cannot also hold this scope, and no `human_token_profile` may issue it in human tokens. If one identity held both, the provenance of its commitments (binding or assignment) would be ambiguous.
 4. **Trade only.** The registry entry must allow the `baobab-trade` audience, and any token granting the scope must have `baobab-trade` as its only audience. The token cannot be replayed against CP or any other resource. CP checks the same audience and then introspects the token.
 
 IAM grants no authority with this scope. Estate, Tenant, Market and operation come only from CP's governed assignment. Buyer and seller authority stay with Trade.
@@ -35,12 +35,12 @@ IAM grants no authority with this scope. Estate, Tenant, Market and operation co
 ## Consequences
 
 - Allocating the scope to a real server application needs three separate approved steps: a Shared workload-registry change, an IAM client registration and a CP assignment. Activation needs connected evidence and the Platform Owner's approval. Nothing here allocates or activates.
-- `contracts.lock.yaml`, `internal/federation/consume.go` and the Pulse authority test move to Shared `1517429`. That revision adds unallocated scopes and the INT-03C development proof workloads. It changes no existing scope or federation entry.
+- `contracts.lock.yaml` (now also listing `estate-resource-assignment.schema.json`), `internal/federation/consume.go` and the Pulse authority test move to Shared `1517429`. That revision adds unallocated scopes and the two INT-03C development proof workloads, which `tests/integration/run.sh` admits as fixture-only (exact closed ceilings, no committed or live product client), like the INT-02 and INT-03 proof identities. It changes no existing scope or federation entry.
 
 ## Evidence
 
 `internal/tokenprofile/native_commitment_test.go` covers:
 - issuance to a narrow synthetic submitter;
-- refusal of a submitter without the Trade audience, of one that is an estate BFF, and of non-canonical client ids (including `pk_…`);
+- refusal of a submitter without the Trade audience, of one that is an estate BFF, of a human token profile issuing the scope, and of non-canonical client ids (including `pk_…`);
 - refusal of a token for a second audience or another resource;
 - the workload's other scopes continuing to work.
