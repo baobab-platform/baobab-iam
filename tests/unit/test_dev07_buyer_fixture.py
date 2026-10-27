@@ -33,3 +33,18 @@ class BuyerFixtureTests(unittest.TestCase):
             registry = self.registry(); registry['workloads'][name]['environment'] = 'production'
             with self.assertRaises(ValueError): f.build_clients(registry, 'a'*32, now+timedelta(minutes=10), secrets, now)
         with self.assertRaises(ValueError): f.build_clients(self.registry(), 'a'*32, now+timedelta(hours=2), secrets, now)
+
+    def test_http_callback_is_a_closed_opt_in_and_does_not_broaden_identity(self):
+        now = datetime.now(timezone.utc)
+        secrets = {f.BFF: 'a'*32, f.VALIDATOR: 'b'*32}
+        args = (self.registry(), 'a'*32, now+timedelta(minutes=10), secrets, now)
+        native = f.build_clients(*args)
+        http = f.build_clients(*args, bff_http=True)
+        self.assertEqual(native[f.BFF]['redirect_uris'], [f.CALLBACK])
+        self.assertEqual(http[f.BFF]['redirect_uris'], [f.BFF_HTTP_CALLBACK])
+        self.assertEqual(http[f.VALIDATOR], native[f.VALIDATOR])
+        expected = dict(native[f.BFF], redirect_uris=[f.BFF_HTTP_CALLBACK])
+        self.assertEqual(http[f.BFF], expected)
+        for value in ('true', 'https://attacker.example/callback', 1, None):
+            with self.assertRaises(ValueError):
+                f.build_clients(*args, bff_http=value)
