@@ -40,7 +40,8 @@ def build_clients(registry, run_id, deadline, secrets, now=None):
             'grant_types': ['authorization_code', 'client_credentials'] if human else ['client_credentials'],
             'response_types': ['code'] if human else [],
             'redirect_uris': [CALLBACK] if human else [],
-            'scope': 'trade:buy trade:buyer-handoff' if human else ' '.join(VALIDATOR_SCOPES),
+            # openid is OIDC protocol scope; business ceilings remain unchanged.
+            'scope': 'openid trade:buy trade:buyer-handoff' if human else ' '.join(VALIDATOR_SCOPES),
             'audience': ['baobab-trade'] if human else ['baobab-control-plane'],
             'token_endpoint_auth_method': 'client_secret_basic' if human else 'client_secret_post',
             'client_credentials_grant_access_token_lifespan': '55s',

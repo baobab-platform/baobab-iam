@@ -26,6 +26,7 @@ class BuyerFixtureTests(unittest.TestCase):
         now = datetime.now(timezone.utc); secrets = {f.BFF: 'a'*32, f.VALIDATOR: 'b'*32}
         clients = f.build_clients(self.registry(), 'a'*32, now+timedelta(minutes=10), secrets, now)
         self.assertEqual(clients[f.BFF]['audience'], ['baobab-trade'])
+        self.assertEqual(set(clients[f.BFF]['scope'].split()), {'openid', 'trade:buy', 'trade:buyer-handoff'})
         self.assertNotIn('refresh_token', clients[f.BFF]['grant_types'])
         self.assertNotIn('identity:principal:register-buyer', clients[f.VALIDATOR]['scope'])
         for name in (f.BFF, f.VALIDATOR):
