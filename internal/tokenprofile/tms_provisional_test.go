@@ -6,15 +6,15 @@ const tmsSharedPin = "ab7a473a1f69784f115ad353e36383faf9b95965"
 
 func tmsTestProfile() Config {
 	return Config{
-		Environment: "development",
+		Environment:  "development",
 		SharedCommit: tmsSharedPin,
 		Workloads: map[string]Workload{
 			"synthetic-other": {
-				Environment: "development",
+				Environment:    "development",
 				CredentialType: "client_credentials",
-				Status: "ACTIVE",
-				Scopes: []string{"context:resolve"},
-				Audiences: []string{"baobab-control-plane"},
+				Status:         "ACTIVE",
+				Scopes:         []string{"context:resolve"},
+				Audiences:      []string{"baobab-control-plane"},
 			},
 		},
 	}
@@ -22,8 +22,8 @@ func tmsTestProfile() Config {
 
 func TestProposedTMSValidatorCannotIssueBeforeSharedAcceptance(t *testing.T) {
 	for _, tc := range []struct {
-		id string
-		scopes []string
+		id        string
+		scopes    []string
 		audiences []string
 	}{
 		{"baobab-tms", []string{"context:validate"}, []string{"baobab-control-plane"}},
@@ -33,21 +33,21 @@ func TestProposedTMSValidatorCannotIssueBeforeSharedAcceptance(t *testing.T) {
 	} {
 		c := tmsTestProfile()
 		c.Workloads[tc.id] = Workload{
-			Environment: "development",
+			Environment:    "development",
 			CredentialType: "client_credentials",
-			Status: "ACTIVE",
-			Scopes: tc.scopes,
-			Audiences: tc.audiences,
+			Status:         "ACTIVE",
+			Scopes:         tc.scopes,
+			Audiences:      tc.audiences,
 		}
 		if err := c.Validate(); err == nil {
 			t.Fatalf("unaccepted TMS scope/validator accepted by Validate: %s", tc.id)
 		}
 		e := Evidence{
-			ClientID: tc.id,
-			Subject: tc.id,
-			Grant: "client_credentials",
-			RequestedScopes: tc.scopes,
-			GrantedScopes: tc.scopes,
+			ClientID:         tc.id,
+			Subject:          tc.id,
+			Grant:            "client_credentials",
+			RequestedScopes:  tc.scopes,
+			GrantedScopes:    tc.scopes,
 			GrantedAudiences: tc.audiences,
 		}
 		// Claims is independently guarded even on a hand-built Config
@@ -57,8 +57,8 @@ func TestProposedTMSValidatorCannotIssueBeforeSharedAcceptance(t *testing.T) {
 		}
 		if _, err := c.AdmitRequest(WorkloadTokenRequest{
 			WorkloadID: tc.id,
-			Audience: tc.audiences[0],
-			Scopes: tc.scopes,
+			Audience:   tc.audiences[0],
+			Scopes:     tc.scopes,
 		}, nil, e); err == nil {
 			t.Fatalf("unaccepted TMS profile passed canonical admission: %s", tc.id)
 		}
@@ -72,9 +72,9 @@ func TestUnrelatedActiveWorkloadUnaffectedByTMSHold(t *testing.T) {
 	}
 	e := Evidence{
 		ClientID: "synthetic-other", Subject: "synthetic-other",
-		Grant: "client_credentials",
-		RequestedScopes: []string{"context:resolve"},
-		GrantedScopes: []string{"context:resolve"},
+		Grant:            "client_credentials",
+		RequestedScopes:  []string{"context:resolve"},
+		GrantedScopes:    []string{"context:resolve"},
 		GrantedAudiences: []string{"baobab-control-plane"},
 	}
 	if _, err := c.Claims(e); err != nil {
