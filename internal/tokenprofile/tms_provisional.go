@@ -24,7 +24,7 @@ func tmsProposalHold(id string, p Workload) error {
 			return fmt.Errorf("TMS native operation scope is not accepted")
 		}
 	}
-	for _, scope := range p.HumanScopeAudiences {
+	for scope := range p.HumanScopeAudiences {
 		if strings.HasPrefix(scope, "tms:") {
 			return fmt.Errorf("TMS native operation scope cannot be a human token scope")
 		}
