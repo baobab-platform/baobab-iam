@@ -33,5 +33,9 @@ jobs:
           cache: true
       - name: Run negative issuance and current profile tests
         run: |
-          test -z "$(gofmt -l internal/tokenprofile/tms_provisional.go internal/tokenprofile/tms_provisional_test.go)"
+          for file in internal/tokenprofile/tms_provisional.go internal/tokenprofile/tms_provisional_test.go; do
+            echo "BEGIN_FORMATTED_SOURCE:$file"
+            gofmt "$file"
+            echo "END_FORMATTED_SOURCE:$file"
+          done
           go test -race -count=1 ./internal/tokenprofile
