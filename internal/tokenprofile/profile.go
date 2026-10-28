@@ -98,6 +98,9 @@ func (c Config) Validate() error {
 		} else if p.HumanScopeAudiences != nil {
 			return fmt.Errorf("workload %q has human scope audiences but no human token profile", id)
 		}
+		if err := rejectUnacceptedTMSProfile(id, p); err != nil {
+			return err
+		}
 		if err := validateNativeCommitmentSubmitter(id, p); err != nil {
 			return err
 		}
@@ -117,6 +120,9 @@ func (c Config) Validate() error {
 // provider mechanics only; it is never returned as canonical activation evidence.
 func (c Config) Claims(e Evidence) (map[string]any, error) {
 	p, ok := c.Workloads[e.ClientID]
+	if err := rejectUnacceptedTMSProfile(e.ClientID, p); err != nil || rejectUnacceptedTMSGrant(e) {
+		return nil, fmt.Errorf("TMS workload issuance held pending accepted Shared/IAM/CP authority")
+	}
 	if !ok || (p.Status != "ACTIVE" && p.Status != "PROVISIONED") {
 		return nil, fmt.Errorf("workload issuance denied")
 	}

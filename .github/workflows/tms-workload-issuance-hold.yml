@@ -1,0 +1,35 @@
+name: IAM TMS Native Workload Issuance Hold
+on:
+  pull_request:
+    paths:
+      - "internal/tokenprofile/profile.go"
+      - "internal/tokenprofile/tms_authority_hold.go"
+      - "internal/tokenprofile/tms_authority_hold_test.go"
+      - "docs/operations/tms-workload-issuance-hold.md"
+      - ".github/workflows/tms-workload-issuance-hold.yml"
+  push:
+    branches: [main]
+    paths:
+      - "internal/tokenprofile/profile.go"
+      - "internal/tokenprofile/tms_authority_hold.go"
+      - "internal/tokenprofile/tms_authority_hold_test.go"
+      - ".github/workflows/tms-workload-issuance-hold.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reject-unaccepted-tms:
+    name: IAM TMS audience/scope and direct Claims guard regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout IAM branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Go from module
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Verify tokenprofile TMS admission and non-regression
+        run: go test -count=1 ./internal/tokenprofile
