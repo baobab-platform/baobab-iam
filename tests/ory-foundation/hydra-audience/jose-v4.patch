@@ -1,0 +1,1060 @@
+diff --git a/client/client.go b/client/client.go
+index 4d04c89..1ff3159 100644
+--- a/client/client.go
++++ b/client/client.go
+@@ -8,7 +8,7 @@ import (
+ 	"strings"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/twmb/murmur3"
+ 
+diff --git a/client/manager_test_helpers.go b/client/manager_test_helpers.go
+index 88c7b2c..1fd0b4b 100644
+--- a/client/manager_test_helpers.go
++++ b/client/manager_test_helpers.go
+@@ -11,7 +11,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/go-faker/faker/v4"
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+diff --git a/client/validator_test.go b/client/validator_test.go
+index bd60978..8379bf0 100644
+--- a/client/validator_test.go
++++ b/client/validator_test.go
+@@ -12,7 +12,7 @@ import (
+ 	"strings"
+ 	"testing"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/hashicorp/go-retryablehttp"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+diff --git a/cmd/cli/handler_jwk.go b/cmd/cli/handler_jwk.go
+index aaecd43..57fb596 100644
+--- a/cmd/cli/handler_jwk.go
++++ b/cmd/cli/handler_jwk.go
+@@ -4,7 +4,7 @@
+ package cli
+ 
+ import (
+-	jose "github.com/go-jose/go-jose/v3"
++	jose "github.com/go-jose/go-jose/v4"
+ )
+ 
+ func ToSDKFriendlyJSONWebKey(key interface{}, kid, use string) jose.JSONWebKey {
+diff --git a/cmd/cmd_helper_test.go b/cmd/cmd_helper_test.go
+index 4b030b7..386df17 100644
+--- a/cmd/cmd_helper_test.go
++++ b/cmd/cmd_helper_test.go
+@@ -10,7 +10,7 @@ import (
+ 	"os"
+ 	"testing"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/spf13/cobra"
+ 	"github.com/stretchr/testify/require"
+diff --git a/cmd/server/helper_cert.go b/cmd/server/helper_cert.go
+index f5cdd49..9d4121a 100644
+--- a/cmd/server/helper_cert.go
++++ b/cmd/server/helper_cert.go
+@@ -12,7 +12,7 @@ import (
+ 	"encoding/pem"
+ 	"sync"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 
+ 	"github.com/ory/hydra/v2/driver"
+ 	"github.com/ory/hydra/v2/jwk"
+diff --git a/cmd/server/helper_cert_test.go b/cmd/server/helper_cert_test.go
+index 844cc0e..0f5fc89 100644
+--- a/cmd/server/helper_cert_test.go
++++ b/cmd/server/helper_cert_test.go
+@@ -12,7 +12,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/sirupsen/logrus/hooks/test"
+ 	"github.com/stretchr/testify/require"
+diff --git a/fosite/authorize_request_handler.go b/fosite/authorize_request_handler.go
+index c2c0a5c..3456c06 100644
+--- a/fosite/authorize_request_handler.go
++++ b/fosite/authorize_request_handler.go
+@@ -11,7 +11,7 @@ import (
+ 	"slices"
+ 	"strings"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/hashicorp/go-retryablehttp"
+ 	"github.com/pkg/errors"
+ 	"go.opentelemetry.io/otel/trace"
+diff --git a/fosite/authorize_request_handler_oidc_request_test.go b/fosite/authorize_request_handler_oidc_request_test.go
+index da85b91..c5b6a99 100644
+--- a/fosite/authorize_request_handler_oidc_request_test.go
++++ b/fosite/authorize_request_handler_oidc_request_test.go
+@@ -16,7 +16,7 @@ import (
+ 
+ 	"github.com/pkg/errors"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ 
+diff --git a/fosite/client.go b/fosite/client.go
+index b401496..d2cda9d 100644
+--- a/fosite/client.go
++++ b/fosite/client.go
+@@ -4,7 +4,7 @@
+ package fosite
+ 
+ import (
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ // Client represents a client or an app.
+diff --git a/fosite/client_authentication.go b/fosite/client_authentication.go
+index a98cd65..442eda7 100644
+--- a/fosite/client_authentication.go
++++ b/fosite/client_authentication.go
+@@ -16,7 +16,7 @@ import (
+ 
+ 	"github.com/ory/x/errorsx"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/pkg/errors"
+ 
+ 	"github.com/ory/hydra/v2/fosite/token/jwt"
+diff --git a/fosite/client_authentication_jwks_strategy.go b/fosite/client_authentication_jwks_strategy.go
+index f39d52f..4e8ce5c 100644
+--- a/fosite/client_authentication_jwks_strategy.go
++++ b/fosite/client_authentication_jwks_strategy.go
+@@ -13,7 +13,7 @@ import (
+ 
+ 	"github.com/ory/x/errorsx"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ const defaultJWKSFetcherStrategyCachePrefix = "github.com/ory/hydra/v2/fosite.DefaultJWKSFetcherStrategy:"
+diff --git a/fosite/client_authentication_jwks_strategy_test.go b/fosite/client_authentication_jwks_strategy_test.go
+index 5c79a9c..19ed2d9 100644
+--- a/fosite/client_authentication_jwks_strategy_test.go
++++ b/fosite/client_authentication_jwks_strategy_test.go
+@@ -17,7 +17,7 @@ import (
+ 
+ 	"github.com/ory/hydra/v2/fosite/internal/gen"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ )
+diff --git a/fosite/client_authentication_test.go b/fosite/client_authentication_test.go
+index 6a3b8ed..e036b62 100644
+--- a/fosite/client_authentication_test.go
++++ b/fosite/client_authentication_test.go
+@@ -20,7 +20,7 @@ import (
+ 
+ 	"github.com/ory/hydra/v2/fosite/internal/gen"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/pkg/errors"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+diff --git a/fosite/handler/rfc7523/handler.go b/fosite/handler/rfc7523/handler.go
+index be822d0..b20f784 100644
+--- a/fosite/handler/rfc7523/handler.go
++++ b/fosite/handler/rfc7523/handler.go
+@@ -12,8 +12,8 @@ import (
+ 	"github.com/ory/hydra/v2/fosite/handler/oauth2"
+ 	"github.com/ory/x/errorsx"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
+ // #nosec:gosec G101 - False Positive
+@@ -52,7 +52,7 @@ func (c *Handler) HandleTokenEndpointRequest(ctx context.Context, request fosite
+ 		return errorsx.WithStack(fosite.ErrInvalidRequest.WithHintf("The assertion request parameter must be set when using grant_type of '%s'.", grantTypeJWTBearer))
+ 	}
+ 
+-	token, err := jwt.ParseSigned(assertion)
++	token, err := jwt.ParseSigned(assertion, []jose.SignatureAlgorithm{jose.RS256, jose.RS384, jose.RS512, jose.PS256, jose.PS384, jose.PS512, jose.ES256, jose.ES384, jose.ES512, jose.EdDSA, jose.HS256, jose.HS384, jose.HS512})
+ 	if err != nil {
+ 		return errorsx.WithStack(fosite.ErrInvalidGrant.
+ 			WithHint("Unable to parse JSON Web Token passed in \"assertion\" request parameter.").
+diff --git a/fosite/handler/rfc7523/handler_test.go b/fosite/handler/rfc7523/handler_test.go
+index 9530524..b9914a4 100644
+--- a/fosite/handler/rfc7523/handler_test.go
++++ b/fosite/handler/rfc7523/handler_test.go
+@@ -18,8 +18,8 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ 	"github.com/stretchr/testify/suite"
+ 	"go.uber.org/mock/gomock"
+ 
+@@ -880,7 +880,7 @@ func (s *AuthorizeJWTGrantRequestHandlerTestSuite) createTestAssertion(cl jwt.Cl
+ 		s.FailNowf("failed to create test assertion", "failed to create signer: %s", err.Error())
+ 	}
+ 
+-	raw, err := jwt.Signed(sig).Claims(cl).CompactSerialize()
++	raw, err := jwt.Signed(sig).Claims(cl).Serialize()
+ 	if err != nil {
+ 		s.FailNowf("failed to create test assertion", "failed to sign assertion: %s", err.Error())
+ 	}
+diff --git a/fosite/handler/rfc7523/storage.go b/fosite/handler/rfc7523/storage.go
+index 378a551..3546566 100644
+--- a/fosite/handler/rfc7523/storage.go
++++ b/fosite/handler/rfc7523/storage.go
+@@ -7,7 +7,7 @@ import (
+ 	"context"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ // RFC7523KeyStorage holds information needed to validate jwt assertion in authorization grants.
+diff --git a/fosite/integration/authorize_jwt_bearer_required_iat_test.go b/fosite/integration/authorize_jwt_bearer_required_iat_test.go
+index 6704ced..927b399 100644
+--- a/fosite/integration/authorize_jwt_bearer_required_iat_test.go
++++ b/fosite/integration/authorize_jwt_bearer_required_iat_test.go
+@@ -11,7 +11,7 @@ import (
+ 
+ 	"github.com/stretchr/testify/require"
+ 
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4/jwt"
+ 	"github.com/google/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/suite"
+diff --git a/fosite/integration/authorize_jwt_bearer_required_jti_test.go b/fosite/integration/authorize_jwt_bearer_required_jti_test.go
+index 1f15797..7813f7e 100644
+--- a/fosite/integration/authorize_jwt_bearer_required_jti_test.go
++++ b/fosite/integration/authorize_jwt_bearer_required_jti_test.go
+@@ -9,7 +9,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4/jwt"
+ 	"github.com/google/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/suite"
+diff --git a/fosite/integration/authorize_jwt_bearer_test.go b/fosite/integration/authorize_jwt_bearer_test.go
+index d04aca7..7120544 100644
+--- a/fosite/integration/authorize_jwt_bearer_test.go
++++ b/fosite/integration/authorize_jwt_bearer_test.go
+@@ -12,7 +12,7 @@ import (
+ 
+ 	"github.com/stretchr/testify/require"
+ 
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4/jwt"
+ 	"github.com/google/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/suite"
+diff --git a/fosite/integration/clients/jwt_bearer.go b/fosite/integration/clients/jwt_bearer.go
+index 4436136..6c11f31 100644
+--- a/fosite/integration/clients/jwt_bearer.go
++++ b/fosite/integration/clients/jwt_bearer.go
+@@ -12,8 +12,8 @@ import (
+ 	"net/url"
+ 	"strings"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
+ // #nosec:gosec G101 - False Positive
+@@ -69,7 +69,7 @@ func (c *JWTBearer) GetToken(ctx context.Context, payloadData *JWTBearerPayload,
+ 		Claims(payloadData.Claims).
+ 		Claims(payloadData.PrivateClaims)
+ 
+-	assertion, err := builder.CompactSerialize()
++	assertion, err := builder.Serialize()
+ 	if err != nil {
+ 		return nil, err
+ 	}
+diff --git a/fosite/integration/helper_setup_test.go b/fosite/integration/helper_setup_test.go
+index 0820be8..714a3f6 100644
+--- a/fosite/integration/helper_setup_test.go
++++ b/fosite/integration/helper_setup_test.go
+@@ -13,7 +13,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	goauth "golang.org/x/oauth2"
+ 	"golang.org/x/oauth2/clientcredentials"
+ 
+diff --git a/fosite/integration/introspect_jwt_bearer_token_test.go b/fosite/integration/introspect_jwt_bearer_token_test.go
+index 6c16fe6..fe025c2 100644
+--- a/fosite/integration/introspect_jwt_bearer_token_test.go
++++ b/fosite/integration/introspect_jwt_bearer_token_test.go
+@@ -12,7 +12,7 @@ import (
+ 
+ 	"github.com/stretchr/testify/require"
+ 
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4/jwt"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/suite"
+ 
+diff --git a/fosite/internal/rfc7523_key_storage.go b/fosite/internal/rfc7523_key_storage.go
+index 15d4fad..f240620 100644
+--- a/fosite/internal/rfc7523_key_storage.go
++++ b/fosite/internal/rfc7523_key_storage.go
+@@ -17,7 +17,7 @@ import (
+ 	reflect "reflect"
+ 	time "time"
+ 
+-	jose "github.com/go-jose/go-jose/v3"
++	jose "github.com/go-jose/go-jose/v4"
+ 	gomock "go.uber.org/mock/gomock"
+ )
+ 
+diff --git a/fosite/storage/memory.go b/fosite/storage/memory.go
+index 4708262..d0f6e1f 100644
+--- a/fosite/storage/memory.go
++++ b/fosite/storage/memory.go
+@@ -9,7 +9,7 @@ import (
+ 	"sync"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/google/uuid"
+ 
+ 	"github.com/ory/hydra/v2/fosite"
+diff --git a/fosite/token/jwt/jwt.go b/fosite/token/jwt/jwt.go
+index 9c5aa57..c934e91 100644
+--- a/fosite/token/jwt/jwt.go
++++ b/fosite/token/jwt/jwt.go
+@@ -14,7 +14,7 @@ import (
+ 	"crypto/sha256"
+ 	"strings"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 
+ 	"github.com/ory/x/errorsx"
+ 
+diff --git a/fosite/token/jwt/jwt_test.go b/fosite/token/jwt/jwt_test.go
+index 84deed5..e4b8026 100644
+--- a/fosite/token/jwt/jwt_test.go
++++ b/fosite/token/jwt/jwt_test.go
+@@ -10,7 +10,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 
+ 	"github.com/ory/hydra/v2/fosite/internal/gen"
+ 
+diff --git a/fosite/token/jwt/map_claims.go b/fosite/token/jwt/map_claims.go
+index d4f7528..b7969ff 100644
+--- a/fosite/token/jwt/map_claims.go
++++ b/fosite/token/jwt/map_claims.go
+@@ -10,7 +10,7 @@ import (
+ 	"errors"
+ 	"time"
+ 
+-	jjson "github.com/go-jose/go-jose/v3/json"
++	jjson "github.com/go-jose/go-jose/v4/json"
+ 
+ 	"github.com/ory/x/errorsx"
+ )
+diff --git a/fosite/token/jwt/token.go b/fosite/token/jwt/token.go
+index 8ae3e65..d4d451a 100644
+--- a/fosite/token/jwt/token.go
++++ b/fosite/token/jwt/token.go
+@@ -9,8 +9,8 @@ import (
+ 	"fmt"
+ 	"reflect"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ 
+ 	"github.com/ory/x/errorsx"
+ )
+@@ -99,7 +99,7 @@ func (t *Token) SignedString(k interface{}) (rawToken string, err error) {
+ 	// go-jose CompactSerialize() only support explicit maps
+ 	// as claims or structs but not type aliases from maps.
+ 	claims := map[string]interface{}(t.Claims)
+-	rawToken, err = jwt.Signed(signer).Claims(claims).CompactSerialize()
++	rawToken, err = jwt.Signed(signer).Claims(claims).Serialize()
+ 	if err != nil {
+ 		err = &ValidationError{Errors: ValidationErrorClaimsInvalid, Inner: err}
+ 		return
+@@ -163,7 +163,7 @@ func Parse(tokenString string, keyFunc Keyfunc) (*Token, error) {
+ // If everything is kosher, err will be nil
+ func ParseWithClaims(rawToken string, claims MapClaims, keyFunc Keyfunc) (*Token, error) {
+ 	// Parse the token.
+-	parsedToken, err := jwt.ParseSigned(rawToken)
++	parsedToken, err := jwt.ParseSigned(rawToken, []jose.SignatureAlgorithm{jose.RS256, jose.RS384, jose.RS512, jose.PS256, jose.PS384, jose.PS512, jose.ES256, jose.ES384, jose.ES512, jose.EdDSA, jose.HS256, jose.HS384, jose.HS512, jose.SignatureAlgorithm("none")})
+ 	if err != nil {
+ 		return &Token{}, &ValidationError{Errors: ValidationErrorMalformed, text: err.Error()}
+ 	}
+diff --git a/fosite/token/jwt/token_test.go b/fosite/token/jwt/token_test.go
+index f9865f3..7239baf 100644
+--- a/fosite/token/jwt/token_test.go
++++ b/fosite/token/jwt/token_test.go
+@@ -15,8 +15,8 @@ import (
+ 
+ 	"github.com/ory/hydra/v2/fosite/internal/gen"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ )
+@@ -54,7 +54,7 @@ func TestUnsignedToken(t *testing.T) {
+ 			parts := strings.Split(rawToken, ".")
+ 			require.Len(t, parts, 3)
+ 			require.Empty(t, parts[2])
+-			tk, err := jwt.ParseSigned(rawToken)
++			tk, err := jwt.ParseSigned(rawToken, []jose.SignatureAlgorithm{jose.RS256, jose.RS384, jose.RS512, jose.PS256, jose.PS384, jose.PS512, jose.ES256, jose.ES384, jose.ES512, jose.EdDSA, jose.HS256, jose.HS384, jose.HS512, jose.SignatureAlgorithm("none")})
+ 			require.NoError(t, err)
+ 			require.Len(t, tk.Headers, 1)
+ 			require.Equal(t, tc.expectedType, tk.Headers[0].ExtraHeaders[jose.HeaderKey("typ")])
+@@ -82,7 +82,7 @@ func TestJWTHeaders(t *testing.T) {
+ 	for _, tc := range testCases {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			rawToken := makeSampleTokenWithCustomHeaders(nil, jose.RS256, tc.jwtHeaders, gen.MustRSAKey())
+-			tk, err := jwt.ParseSigned(rawToken)
++			tk, err := jwt.ParseSigned(rawToken, []jose.SignatureAlgorithm{jose.RS256, jose.RS384, jose.RS512, jose.PS256, jose.PS384, jose.PS512, jose.ES256, jose.ES384, jose.ES512, jose.EdDSA, jose.HS256, jose.HS384, jose.HS512, jose.SignatureAlgorithm("none")})
+ 			require.NoError(t, err)
+ 			require.Len(t, tk.Headers, 1)
+ 			require.Equal(t, tk.Headers[0].Algorithm, "RS256")
+diff --git a/go.mod b/go.mod
+index e49b056..43fd870 100644
+--- a/go.mod
++++ b/go.mod
+@@ -16,7 +16,7 @@ require (
+ 	github.com/dgraph-io/ristretto/v2 v2.2.0
+ 	github.com/fatih/structs v1.1.0
+ 	github.com/go-faker/faker/v4 v4.6.0
+-	github.com/go-jose/go-jose/v3 v3.0.5
++	github.com/go-jose/go-jose/v4 v4.1.6
+ 	github.com/gobwas/glob v0.2.3
+ 	github.com/gofrs/uuid v4.4.0+incompatible
+ 	github.com/golang-jwt/jwt/v5 v5.3.0
+diff --git a/go.sum b/go.sum
+index 0486d52..7613150 100644
+--- a/go.sum
++++ b/go.sum
+@@ -123,6 +123,8 @@ github.com/go-jose/go-jose/v3 v3.0.4 h1:Wp5HA7bLQcKnf6YYao/4kpRpVMp/yf6+pJKV8WFS
+ github.com/go-jose/go-jose/v3 v3.0.4/go.mod h1:5b+7YgP7ZICgJDBdfjZaIt+H/9L9T/YQrVfLAMboGkQ=
+ github.com/go-jose/go-jose/v3 v3.0.5 h1:BLLJWbC4nMZOfuPVxoZIxeYsn6Nl2r1fITaJ78UQlVQ=
+ github.com/go-jose/go-jose/v3 v3.0.5/go.mod h1:5b+7YgP7ZICgJDBdfjZaIt+H/9L9T/YQrVfLAMboGkQ=
++github.com/go-jose/go-jose/v4 v4.1.6 h1:sNRkftxFJxwsILiQukqp5z83QBSmntVwmgRY7AqBDO4=
++github.com/go-jose/go-jose/v4 v4.1.6/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
+ github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
+ github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
+ github.com/go-logr/logr v1.4.3/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
+@@ -321,6 +323,18 @@ github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+
+ github.com/laher/mergefs v0.1.1 h1:nV2bTS57vrmbMxeR6uvJpI8LyGl3QHj4bLBZO3aUV58=
+ github.com/laher/mergefs v0.1.1/go.mod h1:FSY1hYy94on4Tz60waRMGdO1awwS23BacqJlqf9lJ9Q=
+ github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80/go.mod h1:imJHygn/1yfhB7XSJJKlFZKl/J+dCPAknuiaGOshXAs=
++github.com/lestrrat-go/backoff/v2 v2.0.8 h1:oNb5E5isby2kiro9AgdHLv5N5tint1AnDVVf2E2un5A=
++github.com/lestrrat-go/backoff/v2 v2.0.8/go.mod h1:rHP/q/r9aT27n24JQLa7JhSQZCKBBOiM/uP402WwN8Y=
++github.com/lestrrat-go/blackmagic v1.0.4 h1:IwQibdnf8l2KoO+qC3uT4OaTWsW7tuRQXy9TRN9QanA=
++github.com/lestrrat-go/blackmagic v1.0.4/go.mod h1:6AWFyKNNj0zEXQYfTMPfZrAXUWUfTIZ5ECEUEJaijtw=
++github.com/lestrrat-go/httpcc v1.0.1 h1:ydWCStUeJLkpYyjLDHihupbn2tYmZ7m22BGkcvZZrIE=
++github.com/lestrrat-go/httpcc v1.0.1/go.mod h1:qiltp3Mt56+55GPVCbTdM9MlqhvzyuL6W/NMDA8vA5E=
++github.com/lestrrat-go/iter v1.0.2 h1:gMXo1q4c2pHmC3dn8LzRhJfP1ceCbgSiT9lUydIzltI=
++github.com/lestrrat-go/iter v1.0.2/go.mod h1:Momfcq3AnRlRjI5b5O8/G5/BvpzrhoFTZcn06fEOPt4=
++github.com/lestrrat-go/jwx v1.2.31 h1:/OM9oNl/fzyldpv5HKZ9m7bTywa7COUfg8gujd9nJ54=
++github.com/lestrrat-go/jwx v1.2.31/go.mod h1:eQJKoRwWcLg4PfD5CFA5gIZGxhPgoPYq9pZISdxLf0c=
++github.com/lestrrat-go/option v1.0.1 h1:oAzP2fvZGQKWkvHa1/SAcFolBEca1oN+mQ7eooNBEYU=
++github.com/lestrrat-go/option v1.0.1/go.mod h1:5ZHFbivi4xwXxhxY9XHDe2FHo6/Z7WWmtT7T5nBBp3I=
+ github.com/lib/pq v1.2.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
+ github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
+ github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
+diff --git a/hsm/manager_hsm.go b/hsm/manager_hsm.go
+index 41162fe..5e8a6fb 100644
+--- a/hsm/manager_hsm.go
++++ b/hsm/manager_hsm.go
+@@ -16,8 +16,8 @@ import (
+ 	"sync"
+ 
+ 	"github.com/ThalesGroup/crypto11"
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/cryptosigner"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/cryptosigner"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/miekg/pkcs11"
+ 	"github.com/pkg/errors"
+diff --git a/hsm/manager_hsm_test.go b/hsm/manager_hsm_test.go
+index 6e09d12..ab3da49 100644
+--- a/hsm/manager_hsm_test.go
++++ b/hsm/manager_hsm_test.go
+@@ -17,8 +17,8 @@ import (
+ 	"testing"
+ 
+ 	"github.com/ThalesGroup/crypto11"
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/cryptosigner"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/cryptosigner"
+ 	"github.com/miekg/pkcs11"
+ 	"github.com/pborman/uuid"
+ 	"github.com/pkg/errors"
+diff --git a/hsm/manager_nohsm.go b/hsm/manager_nohsm.go
+index 3839e59..e995e5e 100644
+--- a/hsm/manager_nohsm.go
++++ b/hsm/manager_nohsm.go
+@@ -16,7 +16,7 @@ import (
+ 
+ 	"github.com/ory/hydra/v2/jwk"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ type Context interface {
+diff --git a/internal/testhelpers/driver.go b/internal/testhelpers/driver.go
+index 5587795..3ecc030 100644
+--- a/internal/testhelpers/driver.go
++++ b/internal/testhelpers/driver.go
+@@ -11,7 +11,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+diff --git a/internal/testhelpers/janitor_test_helper.go b/internal/testhelpers/janitor_test_helper.go
+index add6b83..a1e4a7c 100644
+--- a/internal/testhelpers/janitor_test_helper.go
++++ b/internal/testhelpers/janitor_test_helper.go
+@@ -10,7 +10,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/stretchr/testify/require"
+ 
+diff --git a/jwk/cast.go b/jwk/cast.go
+index 1b41b40..22838eb 100644
+--- a/jwk/cast.go
++++ b/jwk/cast.go
+@@ -8,7 +8,7 @@ import (
+ 
+ 	"github.com/ory/x/josex"
+ 
+-	jose "github.com/go-jose/go-jose/v3"
++	jose "github.com/go-jose/go-jose/v4"
+ 	"github.com/pkg/errors"
+ )
+ 
+diff --git a/jwk/cast_test.go b/jwk/cast_test.go
+index 7f2b369..8519084 100644
+--- a/jwk/cast_test.go
++++ b/jwk/cast_test.go
+@@ -6,7 +6,7 @@ package jwk
+ import (
+ 	"testing"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/stretchr/testify/require"
+ 
+ 	"github.com/stretchr/testify/assert"
+diff --git a/jwk/generate.go b/jwk/generate.go
+index 1b65de3..53b248b 100644
+--- a/jwk/generate.go
++++ b/jwk/generate.go
+@@ -6,7 +6,7 @@ package jwk
+ import (
+ 	"crypto/x509"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/pkg/errors"
+ 
+diff --git a/jwk/generate_test.go b/jwk/generate_test.go
+index 76d83dd..4addb91 100644
+--- a/jwk/generate_test.go
++++ b/jwk/generate_test.go
+@@ -6,7 +6,7 @@ package jwk
+ import (
+ 	"testing"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ )
+diff --git a/jwk/generator.go b/jwk/generator.go
+index 99522fc..7ea115a 100644
+--- a/jwk/generator.go
++++ b/jwk/generator.go
+@@ -3,7 +3,7 @@
+ 
+ package jwk
+ 
+-import jose "github.com/go-jose/go-jose/v3"
++import jose "github.com/go-jose/go-jose/v4"
+ 
+ type KeyGenerator interface {
+ 	Generate(id, use string) (*jose.JSONWebKeySet, error)
+diff --git a/jwk/handler.go b/jwk/handler.go
+index dddb2a7..ac81dc0 100644
+--- a/jwk/handler.go
++++ b/jwk/handler.go
+@@ -9,7 +9,7 @@ import (
+ 	"net/url"
+ 	"sync/atomic"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/pkg/errors"
+ 	"golang.org/x/sync/errgroup"
+ 
+diff --git a/jwk/handler_test.go b/jwk/handler_test.go
+index 9dafa75..4f5f8fb 100644
+--- a/jwk/handler_test.go
++++ b/jwk/handler_test.go
+@@ -10,7 +10,7 @@ import (
+ 	"net/http/httptest"
+ 	"testing"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ 
+diff --git a/jwk/helper.go b/jwk/helper.go
+index cc0627b..6f4a394 100644
+--- a/jwk/helper.go
++++ b/jwk/helper.go
+@@ -15,7 +15,7 @@ import (
+ 	"sync"
+ 	"testing"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/pkg/errors"
+ 	"github.com/stretchr/testify/require"
+ 
+diff --git a/jwk/helper_test.go b/jwk/helper_test.go
+index f706c04..a7d6204 100644
+--- a/jwk/helper_test.go
++++ b/jwk/helper_test.go
+@@ -16,8 +16,8 @@ import (
+ 	"strings"
+ 	"testing"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/cryptosigner"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/cryptosigner"
+ 	"github.com/pborman/uuid"
+ 	"github.com/pkg/errors"
+ 	"github.com/stretchr/testify/assert"
+diff --git a/jwk/jwt_strategy.go b/jwk/jwt_strategy.go
+index bbcc67e..a1eb771 100644
+--- a/jwk/jwt_strategy.go
++++ b/jwk/jwt_strategy.go
+@@ -7,7 +7,7 @@ import (
+ 	"context"
+ 	"net"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/pkg/errors"
+ 
+ 	"github.com/ory/hydra/v2/fosite"
+diff --git a/jwk/manager.go b/jwk/manager.go
+index 37210ac..09cef09 100644
+--- a/jwk/manager.go
++++ b/jwk/manager.go
+@@ -9,7 +9,7 @@ import (
+ 	"net/http"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/pkg/errors"
+ 
+diff --git a/jwk/manager_mock_test.go b/jwk/manager_mock_test.go
+index 0753d09..eda1fb4 100644
+--- a/jwk/manager_mock_test.go
++++ b/jwk/manager_mock_test.go
+@@ -11,7 +11,7 @@ import (
+ 	context "context"
+ 	reflect "reflect"
+ 
+-	jose "github.com/go-jose/go-jose/v3"
++	jose "github.com/go-jose/go-jose/v4"
+ 	gomock "go.uber.org/mock/gomock"
+ )
+ 
+diff --git a/jwk/manager_strategy.go b/jwk/manager_strategy.go
+index 2519ba3..cd6e2bf 100644
+--- a/jwk/manager_strategy.go
++++ b/jwk/manager_strategy.go
+@@ -6,7 +6,7 @@ package jwk
+ import (
+ 	"context"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/pkg/errors"
+ 	"go.opentelemetry.io/otel"
+ 	"go.opentelemetry.io/otel/attribute"
+diff --git a/jwk/manager_strategy_test.go b/jwk/manager_strategy_test.go
+index 0fb9732..0332c96 100644
+--- a/jwk/manager_strategy_test.go
++++ b/jwk/manager_strategy_test.go
+@@ -7,7 +7,7 @@ import (
+ 	"context"
+ 	"testing"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/pkg/errors"
+ 	"github.com/stretchr/testify/assert"
+ 	"go.uber.org/mock/gomock"
+diff --git a/jwk/manager_test_helpers.go b/jwk/manager_test_helpers.go
+index 71b6225..c80f8e3 100644
+--- a/jwk/manager_test_helpers.go
++++ b/jwk/manager_test_helpers.go
+@@ -10,7 +10,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/pkg/errors"
+ 	"github.com/stretchr/testify/assert"
+diff --git a/oauth2/e2e_test.go b/oauth2/e2e_test.go
+index 912d621..7dba59d 100644
+--- a/oauth2/e2e_test.go
++++ b/oauth2/e2e_test.go
+@@ -11,7 +11,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ 	"github.com/tidwall/gjson"
+diff --git a/oauth2/fosite_store_helpers_test.go b/oauth2/fosite_store_helpers_test.go
+index 8278c8f..fef388b 100644
+--- a/oauth2/fosite_store_helpers_test.go
++++ b/oauth2/fosite_store_helpers_test.go
+@@ -11,7 +11,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/pkg/errors"
+ 	"github.com/stretchr/testify/assert"
+diff --git a/oauth2/oauth2_auth_code_bench_test.go b/oauth2/oauth2_auth_code_bench_test.go
+index e4e0c5d..46cac19 100644
+--- a/oauth2/oauth2_auth_code_bench_test.go
++++ b/oauth2/oauth2_auth_code_bench_test.go
+@@ -16,7 +16,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/pborman/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+diff --git a/oauth2/oauth2_auth_code_test.go b/oauth2/oauth2_auth_code_test.go
+index 1c8f51d..02bc277 100644
+--- a/oauth2/oauth2_auth_code_test.go
++++ b/oauth2/oauth2_auth_code_test.go
+@@ -21,7 +21,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/golang-jwt/jwt/v5"
+ 	"github.com/pborman/uuid"
+ 	"github.com/stretchr/testify/assert"
+diff --git a/oauth2/oauth2_jwt_bearer_test.go b/oauth2/oauth2_jwt_bearer_test.go
+index 846d063..1544d74 100644
+--- a/oauth2/oauth2_jwt_bearer_test.go
++++ b/oauth2/oauth2_jwt_bearer_test.go
+@@ -16,7 +16,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+diff --git a/oauth2/session.go b/oauth2/session.go
+index dda8ab9..56deb79 100644
+--- a/oauth2/session.go
++++ b/oauth2/session.go
+@@ -10,7 +10,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	jjson "github.com/go-jose/go-jose/v3/json"
++	jjson "github.com/go-jose/go-jose/v4/json"
+ 	"github.com/mohae/deepcopy"
+ 	"github.com/pkg/errors"
+ 	"github.com/tidwall/gjson"
+diff --git a/oauth2/trust/handler_test.go b/oauth2/trust/handler_test.go
+index 2a20730..a55d310 100644
+--- a/oauth2/trust/handler_test.go
++++ b/oauth2/trust/handler_test.go
+@@ -15,7 +15,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/suite"
+diff --git a/oauth2/trust/manager.go b/oauth2/trust/manager.go
+index f48aba3..22a2a46 100644
+--- a/oauth2/trust/manager.go
++++ b/oauth2/trust/manager.go
+@@ -7,7 +7,7 @@ import (
+ 	"context"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 
+ 	keysetpagination "github.com/ory/x/pagination/keysetpagination_v2"
+diff --git a/oauth2/trust/manager_test_helpers.go b/oauth2/trust/manager_test_helpers.go
+index 4ba6169..21da54b 100644
+--- a/oauth2/trust/manager_test_helpers.go
++++ b/oauth2/trust/manager_test_helpers.go
+@@ -8,7 +8,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+diff --git a/oauth2/trust/request.go b/oauth2/trust/request.go
+index 853b7e0..18c05e6 100644
+--- a/oauth2/trust/request.go
++++ b/oauth2/trust/request.go
+@@ -6,7 +6,7 @@ package trust
+ import (
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ type createGrantRequest struct {
+diff --git a/oauth2/trust/validator_test.go b/oauth2/trust/validator_test.go
+index 96ae73d..fdabc31 100644
+--- a/oauth2/trust/validator_test.go
++++ b/oauth2/trust/validator_test.go
+@@ -7,7 +7,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ 
+diff --git a/oryx/go.mod b/oryx/go.mod
+index 9bae17a..9404777 100644
+--- a/oryx/go.mod
++++ b/oryx/go.mod
+@@ -15,7 +15,7 @@ require (
+ 	github.com/evanphx/json-patch/v5 v5.9.11
+ 	github.com/fsnotify/fsnotify v1.9.0
+ 	github.com/ghodss/yaml v1.0.0
+-	github.com/go-jose/go-jose/v3 v3.0.4
++	github.com/go-jose/go-jose/v4 v4.1.6
+ 	github.com/go-openapi/jsonpointer v0.21.2
+ 	github.com/go-openapi/runtime v0.28.0
+ 	github.com/go-sql-driver/mysql v1.9.3
+diff --git a/oryx/josex/generate.go b/oryx/josex/generate.go
+index 055a4c5..274c83c 100644
+--- a/oryx/josex/generate.go
++++ b/oryx/josex/generate.go
+@@ -26,7 +26,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ // NewSigningKey generates a keypair for corresponding SignatureAlgorithm.
+diff --git a/oryx/josex/public.go b/oryx/josex/public.go
+index 667a2cb..b351182 100644
+--- a/oryx/josex/public.go
++++ b/oryx/josex/public.go
+@@ -3,7 +3,7 @@ package josex
+ import (
+ 	"crypto"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ // ToPublicKey returns the public key of the given private key.
+diff --git a/oryx/josex/utils.go b/oryx/josex/utils.go
+index 036f36a..ab3a64e 100644
+--- a/oryx/josex/utils.go
++++ b/oryx/josex/utils.go
+@@ -22,7 +22,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ // LoadJSONWebKey returns a *jose.JSONWebKey for a given JSON string.
+diff --git a/oryx/jwksx/fetcher.go b/oryx/jwksx/fetcher.go
+index 4b476a3..42c7fc3 100644
+--- a/oryx/jwksx/fetcher.go
++++ b/oryx/jwksx/fetcher.go
+@@ -8,7 +8,7 @@ import (
+ 	"net/http"
+ 	"sync"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/pkg/errors"
+ )
+ 
+diff --git a/oryx/jwksx/generator.go b/oryx/jwksx/generator.go
+index 7fabb11..0d4621e 100644
+--- a/oryx/jwksx/generator.go
++++ b/oryx/jwksx/generator.go
+@@ -12,7 +12,7 @@ import (
+ 	"crypto/x509"
+ 	"io"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/pkg/errors"
+ 	"golang.org/x/crypto/ed25519"
+diff --git a/persistence/sql/persister_grant_jwk.go b/persistence/sql/persister_grant_jwk.go
+index fa00cbf..98a1bc8 100644
+--- a/persistence/sql/persister_grant_jwk.go
++++ b/persistence/sql/persister_grant_jwk.go
+@@ -8,7 +8,7 @@ import (
+ 	"fmt"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/pkg/errors"
+ 
+diff --git a/persistence/sql/persister_jwk.go b/persistence/sql/persister_jwk.go
+index 7a679f0..14a8c87 100644
+--- a/persistence/sql/persister_jwk.go
++++ b/persistence/sql/persister_jwk.go
+@@ -7,7 +7,7 @@ import (
+ 	"context"
+ 	"encoding/json"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/pkg/errors"
+ 	"go.opentelemetry.io/otel/attribute"
+diff --git a/persistence/sql/persister_nid_test.go b/persistence/sql/persister_nid_test.go
+index 6122b0d..729f891 100644
+--- a/persistence/sql/persister_nid_test.go
++++ b/persistence/sql/persister_nid_test.go
+@@ -10,7 +10,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+diff --git a/persistence/sql/persister_test.go b/persistence/sql/persister_test.go
+index 7178971..4210c15 100644
+--- a/persistence/sql/persister_test.go
++++ b/persistence/sql/persister_test.go
+@@ -8,7 +8,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/gofrs/uuid"
+ 	"github.com/pkg/errors"
+ 	"github.com/stretchr/testify/assert"
+diff --git a/x/sqlx.go b/x/sqlx.go
+index 335ff02..eb29176 100644
+--- a/x/sqlx.go
++++ b/x/sqlx.go
+@@ -12,7 +12,7 @@ import (
+ 
+ 	"github.com/pkg/errors"
+ 
+-	jose "github.com/go-jose/go-jose/v3"
++	jose "github.com/go-jose/go-jose/v4"
+ )
+ 
+ // swagger:type JSONWebKeySet

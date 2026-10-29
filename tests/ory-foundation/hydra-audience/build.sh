@@ -50,20 +50,26 @@ cp "$root/tests/ory-foundation/hydra-audience/sqlstate_test.go.fixture" "$candid
 test_patch="$root/tests/ory-foundation/hydra-audience/oauth2-jwt-bearer-test.patch"
 git -C "$candidate_dir/source" apply --check "$test_patch"
 git -C "$candidate_dir/source" apply "$test_patch"
+# v3 has no fixed release for GHSA-mgcc-cww5-fp2q. Migrate every native
+# Hydra/Fosite/Oryx JOSE type together to the maintained fixed v4 release.
+jose_patch="$root/tests/ory-foundation/hydra-audience/jose-v4.patch"
+git -C "$candidate_dir/source" apply --check "$jose_patch"
+git -C "$candidate_dir/source" apply "$jose_patch"
 (
   cd "$candidate_dir/source"
   # The explicit test tag retains the original Docker helpers in upstream tests.
-  go test -race ./fosite/handler/rfc7523 ./driver/config ./internal/candidatesecurity
+  go test -race ./fosite/token/jwt ./fosite/handler/rfc7523 ./driver/config ./internal/candidatesecurity
+  go test -race github.com/go-jose/go-jose/v4 -run 'TestRsaKeyChecks|TestEmbeddedPrivateJWKRejected|TestPrivateEPKRejected' -count=1
   # Local replacements are nested modules; run via their module path.
   go test -race github.com/ory/pop/v6 -run '^Test_PostgreSQL_|^TestCandidateParser' -count=1
   runtime_modules=$(go list -mod=readonly -deps -f '{{if .Module}}{{.Module.Path}}{{end}}' .)
-  if printf '%s\n' "$runtime_modules" | grep -Eq '^github.com/(docker/docker|jackc/pgconn|jackc/pgproto3/v2)$'; then
+  if printf '%s\n' "$runtime_modules" | grep -Eq '^github.com/(docker/docker|jackc/pgconn|jackc/pgproto3/v2|go-jose/go-jose/v3)$'; then
     echo 'Forbidden legacy/test-only runtime dependency remains' >&2
     exit 1
   fi
   CGO_ENABLED=1 go test -tags sqlite,hydra_integration_tests ./oauth2 -run '^TestJWTBearer$' -count=1 -v | tee "$candidate_dir/jwtbearer.txt"
   grep -q -- '--- PASS: TestJWTBearer/case=omits_the_assertion_audience_when_omit_assertion_audience_is_enabled' "$candidate_dir/jwtbearer.txt"
-  CGO_ENABLED=0 go build -mod=readonly -buildvcs=false -ldflags="-X github.com/ory/hydra/v2/driver/config.Version=v26.2.0-baobab-audience.1" -o "$candidate_dir/hydra" .
+  CGO_ENABLED=0 go build -mod=readonly -buildvcs=false -ldflags="-X github.com/ory/hydra/v2/driver/config.Version=v26.2.0-baobab-audience.2-security" -o "$candidate_dir/hydra" .
 )
 mkdir -p ory-foundation-evidence
 python3 - "$candidate_dir" "$base" "$fix" "$test_patch" <<'PY'
@@ -74,7 +80,8 @@ receipt={'classification':'ISOLATED_BUILD_CANDIDATE','base_commit':sys.argv[2], 
          'patch_sha256':hashlib.sha256((p/'backport.patch').read_bytes()).hexdigest(),
          'test_patch_sha256':hashlib.sha256(Path(sys.argv[4]).read_bytes()).hexdigest(),
          'security_patch_sha256':hashlib.sha256(Path('tests/ory-foundation/hydra-audience/security.patch').read_bytes()).hexdigest(),
-         'go_mod_sha256':hashlib.sha256((p/'source/go.mod').read_bytes()).hexdigest(),
+         'jose_patch_sha256':hashlib.sha256(Path('tests/ory-foundation/hydra-audience/jose-v4.patch').read_bytes()).hexdigest(),
+         'jose_version':'github.com/go-jose/go-jose/v4@v4.1.6', 'go_mod_sha256':hashlib.sha256((p/'source/go.mod').read_bytes()).hexdigest(),
          'go_sum_sha256':hashlib.sha256((p/'source/go.sum').read_bytes()).hexdigest(),
          'binary_sha256':hashlib.sha256((p/'hydra').read_bytes()).hexdigest(), 'production_accepted':False}
 Path('ory-foundation-evidence/hydra-backport-build.json').write_text(json.dumps(receipt,indent=2)+'\n')
