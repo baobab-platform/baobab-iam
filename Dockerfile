@@ -28,7 +28,17 @@ RUN mkdir -p /mnt/rootfs && \
       jq \
     && dnf clean all --installroot /mnt/rootfs
 
-FROM quay.io/keycloak/keycloak:26.8.1@sha256:a78d6b79572168cb25886b80a8b5b8d4ed4390743e3eecb810538683e209dd6b AS bridge-libraries
+# A patch-level Guava security update from the canonical Maven repository.
+# Build tooling never enters the runtime rootfs. The reviewed SHA binds bytes,
+# not a mutable version URL or a scanner suppression.
+FROM tools-build AS security-artifacts
+RUN dnf install -y --allowerasing curl && dnf clean all
+RUN curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+      https://repo.maven.apache.org/maven2/com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar \
+      --output /guava.jar && \
+    echo 'b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c  /guava.jar' | sha256sum --check --strict
+
+FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS bridge-libraries
 
 FROM tools-build AS bridge-build
 RUN dnf install -y java-21-openjdk-devel && dnf clean all
@@ -38,7 +48,7 @@ RUN mkdir -p /bridge/classes && \
     javac --release 21 -cp '/tmp/keycloak-libs/*' -d /bridge/classes /bridge/src/main/java/org/baobab/iam/EvidenceBridge.java && \
     jar --create --file /bridge/evidence-bridge.jar -C /bridge/classes . -C /bridge/src/main/resources .
 
-FROM quay.io/keycloak/keycloak:26.8.1@sha256:a78d6b79572168cb25886b80a8b5b8d4ed4390743e3eecb810538683e209dd6b AS builder
+FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS builder
 
 # The upstream image already switches to its non-root runtime user (see
 # the final stage's own USER 1000 below), which this build stage inherits.
@@ -48,6 +58,16 @@ FROM quay.io/keycloak/keycloak:26.8.1@sha256:a78d6b79572168cb25886b80a8b5b8d4ed4
 # so building it as root has no effect on the shipped runtime image, which
 # still ends with USER 1000.
 USER root
+
+# Keep the upstream classpath filename but replace the jar's actual signed
+# Maven contents/POM version before augmentation. Quarkus records this path;
+# adding a second jar would leave the vulnerable copy reachable. Scanners
+# inspect the replacement's embedded 33.7.2-jre metadata.
+COPY --from=security-artifacts /guava.jar /tmp/fixed-guava.jar
+RUN test -f /opt/keycloak/lib/lib/main/com.google.guava.guava-33.5.0-jre.jar && \
+    test "$(find /opt/keycloak/lib/lib/main -maxdepth 1 -name 'com.google.guava.guava-*.jar' | wc -l)" -eq 1 && \
+    install -m 0644 /tmp/fixed-guava.jar /opt/keycloak/lib/lib/main/com.google.guava.guava-33.5.0-jre.jar && \
+    rm /tmp/fixed-guava.jar
 
 # Copy custom theme and providers (if any)
 COPY themes/ /opt/keycloak/themes/
@@ -83,7 +103,7 @@ ENV KC_HEALTH_ENABLED=true
 RUN /opt/keycloak/bin/kc.sh build
 
 # Final stage – minimal distroless image
-FROM quay.io/keycloak/keycloak:26.8.1@sha256:a78d6b79572168cb25886b80a8b5b8d4ed4390743e3eecb810538683e209dd6b
+FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85
 ARG VERSION=0.0.0-dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.source="https://github.com/baobab-platform/baobab-iam" \
