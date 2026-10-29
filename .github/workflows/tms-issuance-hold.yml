@@ -1,10 +1,11 @@
-name: IAM TMS Proposed Workload Issuance Hold
+name: IAM TMS Unregistered Workload Issuance Hold
 on:
   pull_request:
     paths:
       - "internal/tokenprofile/tms_provisional.go"
       - "internal/tokenprofile/tms_provisional_test.go"
       - "internal/tokenprofile/profile.go"
+      - "internal/tokenprofile/human.go"
       - "docs/operations/tms-provisional-issuer-hold.md"
       - ".github/workflows/tms-issuance-hold.yml"
   push:
@@ -13,13 +14,14 @@ on:
       - "internal/tokenprofile/tms_provisional.go"
       - "internal/tokenprofile/tms_provisional_test.go"
       - "internal/tokenprofile/profile.go"
+      - "internal/tokenprofile/human.go"
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   tms-unaccepted:
     name: Deny unaccepted TMS issuer scope and audience
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Checkout IAM
@@ -33,9 +35,7 @@ jobs:
           cache: true
       - name: Run negative issuance and current profile tests
         run: |
-          for file in internal/tokenprofile/tms_provisional.go internal/tokenprofile/tms_provisional_test.go; do
-            echo "BEGIN_FORMATTED_SOURCE:$file"
-            gofmt "$file"
-            echo "END_FORMATTED_SOURCE:$file"
-          done
+          set -euo pipefail
+          test -z "$(gofmt -l internal/tokenprofile/tms_provisional*.go internal/tokenprofile/profile.go internal/tokenprofile/human.go)"
           go test -race -count=1 ./internal/tokenprofile
+          go vet ./internal/tokenprofile

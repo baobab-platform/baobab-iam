@@ -10,9 +10,15 @@ import re
 BFF = 'baobab-dev-zuribeans-bff'
 VALIDATOR = 'baobab-dev-trade-buyer-validator'
 CALLBACK = 'https://rp.baobab-dev.test/dev07/callback'
+BFF_HTTP_CALLBACK = 'https://rp.baobab-dev.test/api/iam/callback'
 VALIDATOR_SCOPES = ['context:resolve', 'identity:principal:resolve', 'estate:client-binding:resolve']
 
-def build_clients(registry, run_id, deadline, secrets, now=None):
+def build_clients(registry, run_id, deadline, secrets, now=None, *, bff_http=False):
+    # Two closed, IAM-owned transports, never a caller-supplied redirect URL.
+    # The existing native-handler qualifier keeps its exact default callback.
+    if type(bff_http) is not bool:
+        raise ValueError('DEV07_CALLBACK_PROFILE_REFUSED')
+    callback = BFF_HTTP_CALLBACK if bff_http else CALLBACK
     now = now or datetime.now(timezone.utc)
     if (not re.fullmatch('[0-9a-f]{32}', run_id) or deadline.tzinfo is None or now.tzinfo is None
             or not 60 <= (deadline - now).total_seconds() <= 3600):
@@ -39,7 +45,7 @@ def build_clients(registry, run_id, deadline, secrets, now=None):
             'client_id': name, 'client_secret': secrets[name],
             'grant_types': ['authorization_code', 'client_credentials'] if human else ['client_credentials'],
             'response_types': ['code'] if human else [],
-            'redirect_uris': [CALLBACK] if human else [],
+            'redirect_uris': [callback] if human else [],
             # openid is OIDC protocol scope; business ceilings remain unchanged.
             'scope': 'openid trade:buy trade:buyer-handoff' if human else ' '.join(VALIDATOR_SCOPES),
             'audience': ['baobab-trade'] if human else ['baobab-control-plane'],

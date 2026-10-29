@@ -26,6 +26,8 @@ func TestProposedTMSValidatorCannotIssueBeforeSharedAcceptance(t *testing.T) {
 		scopes    []string
 		audiences []string
 	}{
+		{"baobab-dev-tms-validator", []string{"context:validate"}, []string{"baobab-control-plane"}},
+		{"other-client", []string{"context:validate"}, []string{"baobab-tms-development"}},
 		{"baobab-tms", []string{"context:validate"}, []string{"baobab-control-plane"}},
 		{"baobab-tms-validator-development", []string{"context:validate"}, []string{"baobab-control-plane"}},
 		{"other-client", []string{"tms:native-execution:resolve"}, []string{"baobab-control-plane"}},
@@ -79,5 +81,44 @@ func TestUnrelatedActiveWorkloadUnaffectedByTMSHold(t *testing.T) {
 	}
 	if _, err := c.Claims(e); err != nil {
 		t.Fatalf("unrelated approved workload regressed: %v", err)
+	}
+}
+
+func TestTMSNestedHumanProfileCannotBypassDirectHooks(t *testing.T) {
+	for _, mutate := range []func(*Workload){
+		func(p *Workload) { p.HumanTokenProfile = &HumanTokenProfile{Audiences: []string{"baobab-tms"}} },
+		func(p *Workload) { p.HumanTokenProfile = &HumanTokenProfile{Scopes: []string{"tms:booking:submit"}} },
+		func(p *Workload) { p.HumanScopeAudiences = map[string][]string{"buyer:handoff": {"baobab-tms"}} },
+		func(p *Workload) { p.HumanScopeAudiences = map[string][]string{"tms:booking:submit": {"baobab-trade"}} },
+	} {
+		c := tmsTestProfile()
+		p := c.Workloads["synthetic-other"]
+		mutate(&p)
+		c.Workloads["synthetic-other"] = p
+		if err := c.Validate(); err == nil {
+			t.Fatal("nested TMS profile accepted")
+		}
+		if _, err := c.HumanConsent("synthetic-other", []string{"openid", "buyer:handoff"}); err == nil {
+			t.Fatal("direct human consent bypassed hold")
+		}
+		if _, err := c.HumanClaims(HumanEvidence{ClientID: "synthetic-other"}, make([]byte, MinConsentSealKeyBytes)); err == nil {
+			t.Fatal("direct human claims bypassed hold")
+		}
+	}
+}
+
+func TestTMSEvidenceIndependentlyDenied(t *testing.T) {
+	for _, e := range []Evidence{
+		{ClientID: "baobab-dev-tms-validator"},
+		{ClientID: "synthetic-other", RequestedScopes: []string{"tms:booking:submit"}},
+		{ClientID: "synthetic-other", GrantedScopes: []string{"tms:booking:submit"}},
+		{ClientID: "synthetic-other", GrantedAudiences: []string{"baobab-tms"}},
+	} {
+		if err := tmsGrantHold(e); err == nil {
+			t.Fatal("TMS provider evidence bypassed hold")
+		}
+		if _, err := tmsTestProfile().Claims(e); err == nil {
+			t.Fatal("direct workload claims bypassed hold")
+		}
 	}
 }

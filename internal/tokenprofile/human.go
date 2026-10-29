@@ -106,6 +106,9 @@ var consentScopes = []string{"openid", "profile", "email"}
 // membership or purchasing authority: Trade decides that per operation.
 func (c Config) HumanConsent(clientID string, requestedScopes []string) ([]string, error) {
 	p, ok := c.Workloads[clientID]
+	if err := tmsProposalHold(clientID, p); err != nil {
+		return nil, err
+	}
 	if !ok || p.Status != "ACTIVE" || p.HumanTokenProfile == nil || p.Environment == "" || p.Environment != c.Environment {
 		return nil, fmt.Errorf("buyer consent denied")
 	}
@@ -193,6 +196,12 @@ func (c Config) HumanClaims(e HumanEvidence, sealKey []byte) (map[string]any, er
 		return nil, fmt.Errorf("human issuance requires the consent seal key")
 	}
 	p, ok := c.Workloads[e.ClientID]
+	if err := tmsProposalHold(e.ClientID, p); err != nil {
+		return nil, err
+	}
+	if err := tmsGrantHold(Evidence{ClientID: e.ClientID, RequestedScopes: e.RequestedScopes, GrantedScopes: e.GrantedScopes, GrantedAudiences: e.GrantedAudiences}); err != nil {
+		return nil, err
+	}
 	if !ok || p.Status != "ACTIVE" || p.HumanTokenProfile == nil || p.Environment == "" || p.Environment != c.Environment {
 		return nil, fmt.Errorf("human issuance denied")
 	}

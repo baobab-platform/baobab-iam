@@ -123,6 +123,9 @@ func (c Config) Claims(e Evidence) (map[string]any, error) {
 	if err := tmsProposalHold(e.ClientID, p); err != nil {
 		return nil, err
 	}
+	if err := tmsGrantHold(e); err != nil {
+		return nil, err
+	}
 	if !ok || (p.Status != "ACTIVE" && p.Status != "PROVISIONED") {
 		return nil, fmt.Errorf("workload issuance denied")
 	}
