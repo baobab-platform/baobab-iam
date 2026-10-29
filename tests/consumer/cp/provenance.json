@@ -3,8 +3,8 @@
   "commit": "20235ac2c4e1c0285e747a5a4b41c1eefb3a4dd7",
   "files": {
     "internal/auth/oidc.go": "741c8c9d7e17c16b592034085cdebf26cef9865f3ce8a8b0f30eaa22baefd162",
-    "go.mod": "f8fe7b04888b580cf1abdccc99fbdfb55252bed27dd78b759c540e4e57410ab5",
-    "go.sum": "6ac4aa27f7b8bacd65fa3b2a89e6099aace47d342b9d6004b023d06dfbf8bafa",
+    "go.mod": "29c0813305ca29ef80266a70b99bd2d83006810c05f99e94f22205a15de1c3e0",
+    "go.sum": "1669f791b48dc1364e10a7014f7574d80db44070eb99a8bb0824cadd0965c913",
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
   },
   "dependency_overrides": {
@@ -12,6 +12,13 @@
       "upstream": "v0.39.0",
       "selected": "v0.42.0",
       "advisory": "GO-2026-6629",
+      "upstream_go_mod_sha256": "7b459debbb3d8bbcda56ed7fc75f500af6496b13878d2e50a67472b8debb5556",
+      "upstream_go_sum_sha256": "97f140bfffba71a7bd8248b0b731800012e0ecd89961bb892cc7291666b54e1b"
+    },
+    "github.com/go-jose/go-jose/v4": {
+      "upstream": "v4.1.5",
+      "selected": "v4.1.6",
+      "advisory": "GHSA-mgcc-cww5-fp2q",
       "upstream_go_mod_sha256": "7b459debbb3d8bbcda56ed7fc75f500af6496b13878d2e50a67472b8debb5556",
       "upstream_go_sum_sha256": "97f140bfffba71a7bd8248b0b731800012e0ecd89961bb892cc7291666b54e1b"
     }

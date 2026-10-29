@@ -2,9 +2,10 @@
 
 The nested Go module compiles the **unchanged** production `internal/auth/oidc.go`
 from baobab-cp commit `20235ac2c4e1c0285e747a5a4b41c1eefb3a4dd7`, with that
-revision's Apache 2.0 license and dependency baseline. The sole reviewed
-dependency override upgrades golang.org/x/text from v0.39.0 to v0.42.0 for
-[GO-2026-6629](https://pkg.go.dev/vuln/GO-2026-6629). The verifier source stays
+revision's Apache 2.0 license and dependency baseline. The two reviewed
+dependency overrides upgrade golang.org/x/text from v0.39.0 to v0.42.0 for
+[GO-2026-6629](https://pkg.go.dev/vuln/GO-2026-6629), and JOSE v4.1.5 to v4.1.6 for
+[GHSA-mgcc-cww5-fp2q](https://github.com/go-jose/go-jose/security/advisories/GHSA-mgcc-cww5-fp2q). The verifier source stays
 unchanged. The snapshot checker reverses that exact lock change and verifies
 the original upstream lock hashes, preventing unrelated dependency drift. `provenance.json`
 records SHA-256 checksums; `verify_snapshot.py` prevents accidental fixture edits.

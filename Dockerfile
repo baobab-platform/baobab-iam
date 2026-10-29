@@ -28,6 +28,16 @@ RUN mkdir -p /mnt/rootfs && \
       jq \
     && dnf clean all --installroot /mnt/rootfs
 
+# A patch-level Guava security update from the canonical Maven repository.
+# Build tooling never enters the runtime rootfs. The reviewed SHA binds bytes,
+# not a mutable version URL or a scanner suppression.
+FROM tools-build AS security-artifacts
+RUN dnf install -y --allowerasing curl && dnf clean all
+RUN curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+      https://repo.maven.apache.org/maven2/com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar \
+      --output /guava.jar && \
+    echo 'b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c  /guava.jar' | sha256sum --check --strict
+
 FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS bridge-libraries
 
 FROM tools-build AS bridge-build
@@ -48,6 +58,16 @@ FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6c
 # so building it as root has no effect on the shipped runtime image, which
 # still ends with USER 1000.
 USER root
+
+# Keep the upstream classpath filename but replace the jar's actual
+# Maven contents/POM version before augmentation. Quarkus records this path;
+# adding a second jar would leave the vulnerable copy reachable. Scanners
+# inspect the replacement's embedded 33.7.2-jre metadata.
+COPY --from=security-artifacts /guava.jar /tmp/fixed-guava.jar
+RUN test -f /opt/keycloak/lib/lib/main/com.google.guava.guava-33.5.0-jre.jar && \
+    test "$(find /opt/keycloak/lib/lib/main -maxdepth 1 -name 'com.google.guava.guava-*.jar' | wc -l)" -eq 1 && \
+    install -m 0644 /tmp/fixed-guava.jar /opt/keycloak/lib/lib/main/com.google.guava.guava-33.5.0-jre.jar && \
+    rm /tmp/fixed-guava.jar
 
 # Copy custom theme and providers (if any)
 COPY themes/ /opt/keycloak/themes/

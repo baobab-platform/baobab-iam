@@ -66,6 +66,9 @@ func (c Config) Validate() error {
 		return fmt.Errorf("the issuer environment must be development, staging or production")
 	}
 	for id, p := range c.Workloads {
+		if err := tmsProposalHold(id, p); err != nil {
+			return err
+		}
 		if p.Environment != c.Environment {
 			return fmt.Errorf("workload %q belongs to environment %q, not this issuer's %q", id, p.Environment, c.Environment)
 		}
@@ -117,6 +120,12 @@ func (c Config) Validate() error {
 // provider mechanics only; it is never returned as canonical activation evidence.
 func (c Config) Claims(e Evidence) (map[string]any, error) {
 	p, ok := c.Workloads[e.ClientID]
+	if err := tmsProposalHold(e.ClientID, p); err != nil {
+		return nil, err
+	}
+	if err := tmsGrantHold(e); err != nil {
+		return nil, err
+	}
 	if !ok || (p.Status != "ACTIVE" && p.Status != "PROVISIONED") {
 		return nil, fmt.Errorf("workload issuance denied")
 	}
