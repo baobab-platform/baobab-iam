@@ -122,3 +122,51 @@ func TestTMSEvidenceIndependentlyDenied(t *testing.T) {
 		}
 	}
 }
+
+func TestDirectClaimsCannotSmuggleScopesInsideOneEntry(t *testing.T) {
+	for _, scope := range []string{"context:resolve tms:booking:submit", "context:resolve\ttms:booking:submit", "context:resolve\ntms:booking:submit", "context:resolve\u2003tms:booking:submit", "context:*", "context:resolve\x00"} {
+		c := tmsTestProfile()
+		p := c.Workloads["synthetic-other"]
+		p.Scopes = []string{scope}
+		c.Workloads["synthetic-other"] = p
+		e := Evidence{}
+		e.ClientID = "synthetic-other"
+		e.Subject = e.ClientID
+		e.Grant = "client_credentials"
+		e.RequestedScopes = []string{scope}
+		e.GrantedScopes = []string{scope}
+		e.GrantedAudiences = p.Audiences
+		if _, err := c.Claims(e); err == nil {
+			t.Fatal("multi-token or noncanonical scope issued")
+		}
+		if err := tmsGrantHold(e); err == nil {
+			t.Fatal("direct provider evidence bypassed token validation")
+		}
+	}
+}
+
+func TestDirectHumanHooksRejectMultiTokenProfileScope(t *testing.T) {
+	for _, mapping := range []bool{false, true} {
+		c := tmsTestProfile()
+		p := c.Workloads["synthetic-other"]
+		p.HumanTokenProfile = &HumanTokenProfile{}
+		p.HumanTokenProfile.Scopes = []string{"trade:buy tms:booking:submit"}
+		p.HumanTokenProfile.Audiences = []string{"baobab-trade"}
+		if mapping {
+			p.HumanTokenProfile.Scopes = []string{"trade:buy"}
+			p.HumanScopeAudiences = map[string][]string{"trade:buy tms:booking:submit": {"baobab-trade"}}
+		}
+		c.Workloads["synthetic-other"] = p
+		if err := tmsProposalHold("synthetic-other", p); err == nil {
+			t.Fatal("multi-token human profile accepted")
+		}
+		if _, err := c.HumanConsent("synthetic-other", []string{"openid", "trade:buy tms:booking:submit"}); err == nil {
+			t.Fatal("multi-token human consent issued")
+		}
+		e := HumanEvidence{}
+		e.ClientID = "synthetic-other"
+		if _, err := c.HumanClaims(e, make([]byte, MinConsentSealKeyBytes)); err == nil {
+			t.Fatal("multi-token human profile issued")
+		}
+	}
+}

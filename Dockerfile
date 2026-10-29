@@ -59,7 +59,7 @@ FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6c
 # still ends with USER 1000.
 USER root
 
-# Keep the upstream classpath filename but replace the jar's actual signed
+# Keep the upstream classpath filename but replace the jar's actual
 # Maven contents/POM version before augmentation. Quarkus records this path;
 # adding a second jar would leave the vulnerable copy reachable. Scanners
 # inspect the replacement's embedded 33.7.2-jre metadata.
