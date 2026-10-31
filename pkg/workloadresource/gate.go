@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -99,6 +100,8 @@ func New(p Profile, verified SignedTokenVerifier, issuer IssuerStatusReader, aut
 // Internal-only test path accepts the exact disposable issuer. Production
 // consumers can only call New, which requires an HTTPS issuer.
 func newGate(p Profile, verified SignedTokenVerifier, issuer IssuerStatusReader, authority CurrentAuthority, loopbackFixture bool) (*Gate, error) {
+	parsed, parseErr := url.Parse(p.Issuer)
+	if parseErr != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" { return nil, ErrDenied }
 	if absent(verified) || absent(issuer) || absent(authority) ||
 		(!strings.HasPrefix(p.Issuer, "https://") &&
 			!(loopbackFixture && p.Issuer == "http://127.0.0.1:4444")) || p.Audience == "" ||
