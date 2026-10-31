@@ -159,7 +159,12 @@ def run_browser(profile: dict[str, Any]) -> dict[str, str]:
             # Use a real browser top-level form POST (not Playwright APIRequest)
             # so the browser emits an Origin and receives genuine host cookies.
             STAGE = "HYDRA_KRATOS_BROWSER"
-            page.goto(bff + "/auth/session", wait_until="domcontentloaded")
+            # Begin from the *owner's actual first-party estate UI*, not a
+            # fabricated form injected into a JSON response. The estate must
+            # render this gated development route and dispatch a real browser
+            # same-origin form POST to the native Go BFF.
+            first_party = bff + "/identity/native-qualification"
+            page.goto(first_party, wait_until="domcontentloaded")
             seen_callback = []
             def remember_callback(request):
                 target = urllib.parse.urlsplit(request.url)
@@ -167,13 +172,7 @@ def run_browser(profile: dict[str, Any]) -> dict[str, str]:
                         and target.path == "/auth/callback"):
                     seen_callback.append(request.url)  # memory-only, never log
             page.on("request", remember_callback)
-            page.evaluate("""() => {
-                const form = document.createElement('form');
-                form.method='POST';
-                form.action='/auth/start';
-                document.body.appendChild(form);
-                form.submit();
-            }""")
+            page.get_by_role("button", name="Continue with governed IAM").click()
             page.locator(selectors["identifier"]).fill(profile["synthetic_identifier"])
             page.locator(selectors["password"]).fill(read_secret(profile, "password_file"))
             page.locator(selectors["submit"]).click()
@@ -263,12 +262,8 @@ def run_browser(profile: dict[str, Any]) -> dict[str, str]:
             # Recovery alone must not grant anything. Require a new, distinct
             # OAuth authorization-code ceremony and current CP Principal.
             STAGE = "POST_RECOVERY_FRESH_LOGIN"
-            page.goto(bff + "/auth/session", wait_until="domcontentloaded")
-            page.evaluate("""() => {
-                const form = document.createElement('form');
-                form.method = 'POST'; form.action = '/auth/start';
-                document.body.appendChild(form); form.submit();
-            }""")
+            page.goto(first_party, wait_until="domcontentloaded")
+            page.get_by_role("button", name="Continue with governed IAM").click()
             page.locator(selectors["identifier"]).fill(profile["synthetic_identifier"])
             page.locator(selectors["password"]).fill(read_secret(profile, "post_recovery_password_file"))
             page.locator(selectors["submit"]).click()
