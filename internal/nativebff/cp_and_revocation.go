@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ type PrincipalResolutionConfig struct {
 	CPOrigin string
 	Caller   CallerTokenSource
 	Now      func() time.Time
+	TrustedRoots *x509.CertPool
 	// Test-only: production never accepts an injected proxy/TLS transport.
 	TestClient        *http.Client
 	AllowTestLoopback bool
@@ -48,7 +50,7 @@ func NewHTTPPrincipalResolver(c PrincipalResolutionConfig) (*HTTPPrincipalResolv
 	}
 	httpClient := &http.Client{
 		Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12}, Proxy: nil},
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: c.TrustedRoots}, Proxy: nil},
 	}
 	if c.AllowTestLoopback && c.TestClient != nil {
 		httpClient.Transport = c.TestClient.Transport
@@ -151,6 +153,7 @@ type OAuthRevokeConfig struct {
 	Issuer, ClientID, ClientSecret string
 	TestClient                     *http.Client
 	AllowTestLoopback              bool
+	TrustedRoots                   *x509.CertPool
 }
 type OAuthRevoker struct {
 	issuer, clientID, secret string
@@ -165,7 +168,7 @@ func NewOAuthRevoker(c OAuthRevokeConfig) (*OAuthRevoker, error) {
 		return nil, errors.New("confidential OAuth revocation required")
 	}
 	client := &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12}, Proxy: nil}}
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: c.TrustedRoots}, Proxy: nil}}
 	if c.AllowTestLoopback && c.TestClient != nil {
 		client.Transport = c.TestClient.Transport
 	}
