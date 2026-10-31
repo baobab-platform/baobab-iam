@@ -1,5 +1,8 @@
 # IAM-N02 — Connected native browser and protected-evidence qualification
 
+> **N02 DEVELOPMENT GATE — NOT PASSED (31 October 2026).** This runbook describes implementation and how to obtain real evidence, **not** a completed real browser–Kratos–Hydra–CP qualification. Actual estate/BFF client binding, approved first-party UI, current CP Principal, AAL2 and recovery courier, seven N02 browser cases and original seven DEV-04 cases in the **same source-pinned development run**, global logout/revocation and independently verified teardown are outstanding **development work**. Do not defer these to staging; synthetic real-service testing is allowed by ADR-SHARED-043. [Closure audit](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md). `RUNNER_PRESENT`, `TEST_SKIPPED` and source-only CI are not PASS.
+
+
 **Status: ENGINEERING SOURCE / REAL HYDRA COMPONENT TEST CANDIDATE, CONNECTED EVIDENCE HELD.**
 **Stack:** IAM #147 → IAM #146 (N02) → IAM #145 (N01). No PR merged.
 **Governing authorities:** accepted IAM ADR-IAM-0023, 0024, 0025, 0033; accepted Shared ADR-SHARED-042/043; EA v2.3 and EA-DEV DEV-03/04/05/07/11/13/14; EA-XB v1.1. N01 exact Shared pin remains unchanged. Provider support remains PARTIAL.
