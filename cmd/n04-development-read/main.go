@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -70,8 +71,8 @@ func checkedConfig(path string) (config, error) {
 		return config{}, errors.New("malformed exact N04 config")
 	}
 	var unexpected any
-	if decoder.Decode(&unexpected) == nil {
-		return config{}, errors.New("trailing config")
+	if err := decoder.Decode(&unexpected); err != io.EOF {
+		return config{}, errors.New("trailing or invalid config")
 	}
 	if out.Schema != "baobab.iam.n04.dev-read-config.v1" ||
 		out.Environment != "development" ||
