@@ -37,19 +37,19 @@ jobs:
           python3 -m unittest discover -s tests/unit -p 'test_nabhold_human_cp.py'
       - name: Enforce Go formatting across release source
         run: |
-          gofmt -d cmd internal
-          test -z "$(gofmt -l cmd internal)"
+          gofmt -d cmd internal pkg
+          test -z "$(gofmt -l cmd internal pkg)"
       - name: Build packages
-        run: go build ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
+        run: go build ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
       - name: Test packages
-        run: go test ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
+        run: go test ./pkg/workloadresource/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
       - name: Validate IAM-N02 browser/evidence source and negative custody gates
         run: |
           python3 -m py_compile tests/browser/n02_live.py scripts/n02_evidence_gate.py
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_evidence_gate.py' -v
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_browser_source.py' -v
       - name: Test federation and native browser boundaries with race detector
-        run: go test -race ./internal/federation/... ./internal/nativebff/... -count=1
+        run: go test -race ./pkg/workloadresource/... ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
         run: python3 -m pip install PyYAML==6.0.3
       - name: Verify IAM-N01 ADR precedence, immutable Shared pin and development boundary

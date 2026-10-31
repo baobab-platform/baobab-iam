@@ -1,0 +1,26 @@
+name: IAM-N03 temporary gofmt readback
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  format-readback:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feat/iam-n03-workload-resource-acceptance' && github.event.pull_request.base.ref == 'feat/iam-n02-connected-browser-qualification'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: gofmt candidate resource consumer source without modifying GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          gofmt -w pkg/workloadresource/*.go
+          for f in pkg/workloadresource/*.go; do
+            printf 'N03_FORMAT_BEGIN:%s\n' "$f"
+            base64 -w0 "$f"
+            printf '\nN03_FORMAT_END:%s\n' "$f"
+          done
