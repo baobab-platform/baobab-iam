@@ -289,6 +289,7 @@ events = [json.loads(line) for line in (root / 'n03-resource-tests.jsonl').read_
 parent = 'TestLiveN03HydraCPResourceAcceptance'
 subcases = (
     'real-issued-token-and-CP-current-route-accepted',
+    'real-issued-token-HTTP-resource-accepted',
     'real-wrong-audience-refused',
     'CP-other-owner-denied-with-unexpired-bearer',
     'CP-revoked-external-link-denied-while-issuer-active',
