@@ -30,7 +30,7 @@ SCHEMA = "baobab.iam.n07.estates-browser.v1"
 ESTATES = {
     "nabhold": ("/api/auth/session", "/api/auth/context"),
     "zuribeans": ("/api/iam/session", None),
-    "thamani": ("/api/auth/session", None),
+    "thamani": ("/api/auth/session", "/api/auth/context"),
 }
 
 
@@ -53,8 +53,8 @@ def validate_browser_profile(p: dict[str, Any]) -> None:
         n07.trusted_origin(details.get("origin"))
         if details.get("session_path") != ESTATES[name][0]:
             raise n07.Blocked("UNREVIEWED_FIRST_PARTY_SESSION")
-        if name == "nabhold" and details.get("context_path") != ESTATES[name][1]:
-            raise n07.Blocked("NABHOLD_CP_NAVIGATION_REQUIRED")
+        if name in ("nabhold", "thamani") and details.get("context_path") != ESTATES[name][1]:
+            raise n07.Blocked("ESTATE_CP_NAVIGATION_REQUIRED")
         n07.resource_path(details.get("entry_path"))
         for key in ("identifier_selector", "password_selector", "submit_selector",
                     "login_button_selector", "logout_button_selector"):
@@ -63,8 +63,8 @@ def validate_browser_profile(p: dict[str, Any]) -> None:
         for key in ("identifier_file", "password_file"):
             if not isinstance(details.get(key), str) or not Path(details[key]).is_absolute():
                 raise n07.Blocked("PRIVATE_SYNTHETIC_IDENTITY_REQUIRED")
-        if name == "nabhold":
-            expected = details.get("executive_navigation")
+        if name in ("nabhold", "thamani"):
+            expected = details.get("executive_navigation" if name == "nabhold" else "logistics_navigation")
             if (not isinstance(expected, dict) or not isinstance(expected.get("tenant_id"), str)
                     or not isinstance(expected.get("market"), str) or
                     not re.fullmatch(r"tn_[a-z0-9]{3,60}", expected["tenant_id"]) or
@@ -94,7 +94,7 @@ def current_session(name: str, reply: dict[str, Any]) -> None:
     if (isinstance(expire, bool) or not isinstance(expire, (int, float)) or
             expire < time.time() * 1000 + 10_000):
         raise n07.Blocked("CURRENT_SESSION_EXPIRED")
-    if name == "nabhold":
+    if name in ("nabhold", "thamani"):
         try:
             if not isinstance(reply.get("principalId"), str):
                 raise ValueError()
@@ -105,9 +105,9 @@ def current_session(name: str, reply: dict[str, Any]) -> None:
         raise n07.Blocked("CURRENT_NATIVE_SESSION_NOT_OBSERVED")
 
 
-def current_executive_context(reply: dict[str, Any], expect: dict[str, str]) -> None:
+def current_executive_context(reply: dict[str, Any], expect: dict[str, str], kind: str = "EXECUTIVE_NAVIGATION") -> None:
     market = reply.get("market")
-    if (reply.get("kind") != "EXECUTIVE_NAVIGATION" or
+    if (reply.get("kind") != kind or
             reply.get("executionAuthority") is not False or
             reply.get("tenantId") != expect["tenant_id"] or
             not isinstance(market, dict) or
@@ -177,11 +177,13 @@ def actual_estates(profile: dict[str, Any]) -> dict[str, str]:
                         continue
                     results[prefix + "_LOGIN_SESSION"] = "OBSERVED"
 
-                    if name == "nabhold":
+                    if name in ("nabhold", "thamani"):
                         navigation = context.request.get(base + cfg["context_path"],
                                                          max_redirects=0, timeout=5000)
                         nav = cookie_free_json(navigation)
-                        current_executive_context(nav, cfg["executive_navigation"])
+                        current_executive_context(nav,
+                            cfg["executive_navigation" if name == "nabhold" else "logistics_navigation"],
+                            "EXECUTIVE_NAVIGATION" if name == "nabhold" else "LOGISTICS_NAVIGATION")
                         results[prefix + "_CP_READ_ONLY"] = "OBSERVED"
                     # Other estate CP buyer/legal-actor authority requires
                     # separate owner-native and N02/N03 current-CP receipts.
