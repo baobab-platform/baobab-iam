@@ -3,7 +3,6 @@ package securityops
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -155,7 +154,7 @@ func TestN06IncidentRequiresIndependentActorAndCurrentResourceDenial(t *testing.
 		t.Fatal("incident history deleted")
 	}
 	cmd.Action="DISABLE_GLOBAL_ISSUER"
-	if _,err:=s.ProposeIncident(ctx,cmd);!errors.Is(err,nil)&&err==nil{
+	if _,err:=s.ProposeIncident(ctx,cmd);err==nil{
 		t.Fatal("global issuer shutdown representable")
 	}
 }
