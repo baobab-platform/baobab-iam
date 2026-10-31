@@ -97,6 +97,40 @@ jobs:
       - name: Every client and scope description fits Keycloak's 255-character limit
         run: ./scripts/check-config-limits.sh
 
+  iam-n05-postgres17-lifecycle:
+    name: IAM-N05 disposable PostgreSQL 17 ledger + revocation negatives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+        env:
+          POSTGRES_DB: n05_ci
+          POSTGRES_USER: n05_ci
+          POSTGRES_PASSWORD: "n05-disposable-${{ github.run_id }}"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U n05_ci -d n05_ci"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      IAM_N05_DISPOSABLE_PG: "1"
+      IAM_N05_TEST_DATABASE_URL: "postgres://n05_ci:n05-disposable-${{ github.run_id }}@127.0.0.1:5432/n05_ci?sslmode=disable"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Check N05 Go source formatting and SQL embedded migration
+        run: |
+          test -z "$(gofmt -l internal/migration internal/provider/ory/n05_session_readback.go)"
+          go test ./internal/migration -run '^TestN05' -count=1 -v
+      - name: N05 concurrent durable database and revocation replay under race detector
+        run: go test -race ./internal/migration -run '^TestN05' -count=1
+
   enterprise-federation-live:
     runs-on: ubuntu-latest
     timeout-minutes: 25
