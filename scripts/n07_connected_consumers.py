@@ -9,7 +9,9 @@ to activate provider support, grant a Principal, or certify an engine.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -18,6 +20,7 @@ import ssl
 import stat
 import subprocess
 import sys
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -98,7 +101,7 @@ def trusted_origin(value: str) -> str:
 def resource_path(value: str) -> str:
     if (not isinstance(value, str) or not value.startswith("/") or
             value.startswith("//") or "//" in value or ".." in value or
-            any(c in value for c in ("?", "#", "\\", "\r", "\n")) or
+            any(c in value for c in ("?", "#", "%", "\\", "\r", "\n")) or
             len(value) > 180):
         raise Blocked("READ_ONLY_RESOURCE_PATH_INVALID")
     return value
@@ -198,10 +201,61 @@ def case_id(name: str, case: str) -> str:
     return "N07_" + name.upper().replace("-", "_") + "_" + case.upper()
 
 
+def fingerprint(run_id: str, value: str) -> str:
+    """Private run-bound token correlation, never a bearer or public identifier."""
+    return hmac.new(bytes.fromhex(run_id), value.encode("ascii"),
+                    hashlib.sha256).hexdigest()
+
+
+def unexpired_jwt(value: str) -> None:
+    """Untrusted expiry sanity only; real issuer/JWKS/RFC7662 evidence is N03."""
+    chunks = value.split(".")
+    if len(chunks) != 3:
+        raise Blocked("SIGNED_JWT_REQUIRED")
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(
+            chunks[1] + "=" * (-len(chunks[1]) % 4)),
+            object_pairs_hook=pairs_unique)
+    except (ValueError, UnicodeError, TypeError):
+        raise Blocked("SIGNED_JWT_CLAIMS_UNAVAILABLE") from None
+    now = time.time()
+    exp, iat = claims.get("exp"), claims.get("iat")
+    if (isinstance(exp, bool) or isinstance(iat, bool) or
+            not isinstance(exp, int) or not isinstance(iat, int) or
+            iat > now or exp <= now + 15 or exp - iat > 15 * 60):
+        raise Blocked("ORIGINAL_UNEXPIRED_SHORT_LIVED_TOKEN_REQUIRED")
+
+
+def require_before(profile: dict[str, Any], directory: str) -> dict[str, Any]:
+    root = Path(directory)
+    before_bytes = private_read(str(root / "before.json"))
+    if private_read(str(root / "before.sha256"), 256).decode("ascii").strip() != hashlib.sha256(before_bytes).hexdigest():
+        raise Blocked("ORIGINAL_BEFORE_DIGEST_INVALID")
+    try:
+        before = json.loads(before_bytes, object_pairs_hook=pairs_unique)
+    except (ValueError, TypeError):
+        raise Blocked("ORIGINAL_BEFORE_INVALID") from None
+    if (not isinstance(before, dict) or before.get("schema") != "baobab.iam.n07.http-observation.v1"
+            or before.get("phase") != "before" or before.get("run_id") != profile["run_id"]
+            or before.get("source_pins") != profile["source_pins"]
+            or before.get("protected_accepted") is not False
+            or before.get("fully_qualified") is not False
+            or not isinstance(before.get("fingerprints"), dict)):
+        raise Blocked("ORIGINAL_BEFORE_PROVENANCE_INVALID")
+    for name in REQUIRED_ENGINES:
+        if before.get("cases", {}).get(case_id(name, "allowed")) != "OBSERVED":
+            raise Blocked("ORIGINAL_POSITIVE_RESOURCE_NOT_OBSERVED")
+        token_hash = before["fingerprints"].get(name)
+        if not isinstance(token_hash, str) or not DIGEST.fullmatch(token_hash):
+            raise Blocked("ORIGINAL_TOKEN_BINDING_MISSING")
+    return before
+
+
 def observe(p: dict[str, Any], phase: str,
-            probe=http_probe) -> dict[str, Any]:
+            probe=http_probe, before: dict[str, Any] | None = None) -> dict[str, Any]:
     """HTTP observations only. External N02/N03/CP owner evidence is mandatory."""
     results: dict[str, str] = {}
+    fingerprints: dict[str, str] = {}
     for c in p["consumers"]:
         name, base = c["name"], c["origin"]
         if phase == "before":
@@ -222,6 +276,9 @@ def observe(p: dict[str, Any], phase: str,
                 try:
                     original = token(c[f"{case}_token_file"])
                     digest = hashlib.sha256(original.encode("ascii")).digest()
+                    if case == "allowed":
+                        unexpired_jwt(original)
+                        fingerprints[name] = fingerprint(p["run_id"], original)
                     if digest in observed_tokens:
                         raise Blocked("REUSED_INDEPENDENT_NEGATIVE_TOKEN")
                     observed_tokens.add(digest)
@@ -241,6 +298,10 @@ def observe(p: dict[str, Any], phase: str,
                 revoked = token(c["revoked_unexpired_token_file"])
                 if earlier != revoked:
                     raise Blocked("REVOKED_TOKEN_MUST_MATCH_PREVIOUS")
+                if (not isinstance(before, dict) or before.get("fingerprints", {}).get(name)
+                        != fingerprint(p["run_id"], revoked)):
+                    raise Blocked("ORIGINAL_PRE_REVOCATION_BINDING_MISSING")
+                unexpired_jwt(revoked)
                 status, _ = probe(base, c["resource_path"], revoked)
                 results[case_id(name, "revoked_unexpired")] = (
                     "OBSERVED" if status in (401, 403) else "BLOCKED")
@@ -250,7 +311,8 @@ def observe(p: dict[str, Any], phase: str,
             "evidence_class": "REAL_HTTP_READBACK_UNATTESTED",
             "environment": "development", "phase": phase,
             "run_id": p["run_id"], "source_pins": p["source_pins"],
-            "cases": results, "protected_accepted": False,
+            "cases": results, "fingerprints": fingerprints,
+            "protected_accepted": False,
             "cp_authority_certified": False, "issuer_qualified": False,
             "consumer_native_consequence_qualified": False,
             "fully_qualified": False}
@@ -301,7 +363,8 @@ def main() -> int:
             raise Blocked("PROTECTED_EXECUTION_NOT_AUTHORIZED")
         profile = validate_profile(private_json(args.profile))
         exact_source(profile)
-        result = observe(profile, args.phase)
+        prior = require_before(profile, args.output_dir) if args.phase == "after" else None
+        result = observe(profile, args.phase, before=prior)
         original_write(args.output_dir, args.phase, result)
         print(json.dumps({"classification": "N07_SOURCE_AND_HTTP_OBSERVED_UNATTESTED"
                           if all(v == "OBSERVED" for v in result["cases"].values())
