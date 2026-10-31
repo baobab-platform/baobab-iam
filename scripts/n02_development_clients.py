@@ -32,7 +32,7 @@ CP_READER = "baobab-dev-zuribeans-cp-principal-validator"
 ROLES = (
     ("browser", BROWSER, ["authorization_code"], ["code"], ["baobab-trade"],
      "openid trade:buy"),
-    ("cp_reader", CP_READER, ["client_credentials"], ["token"],
+    ("cp_reader", CP_READER, ["client_credentials"], [],
      ["baobab-control-plane"], "identity:principal:resolve"),
 )
 
@@ -178,6 +178,8 @@ class Registry:
             "scope": scope,
             "audience": audiences,
             "token_endpoint_auth_method": "client_secret_basic",
+            "client_credentials_grant_access_token_lifespan": "120s",
+            "authorization_code_grant_access_token_lifespan": "120s",
             "metadata": metadata,
             "skip_consent": False,
         }
@@ -212,6 +214,24 @@ class Registry:
             new_status, _ = self.request("POST", "/admin/clients", self.expected(role))
             require(new_status == 201, "N02_HYDRA_CLIENT_ISSUANCE_UNCONFIRMED")
             self.readback(role)
+
+    def recover(self) -> None:
+        """Destroy only existing clients whose live metadata binds this run.
+
+        An incomplete register is recoverable; foreign-run clients or an
+        unreadable Hydra profile remain untouched with a BLOCKED result.
+        """
+        for role in reversed(ROLES):
+            code, value = self.request("GET", "/admin/clients/" + role[1])
+            if code == 404:
+                continue
+            require(code == 200 and isinstance(value, dict),
+                    "N02_PARTIAL_CLIENT_CUSTODY_UNKNOWN")
+            self.readback(role)
+            deleted, _ = self.request("DELETE", "/admin/clients/" + role[1])
+            require(deleted in (200, 204), "N02_PARTIAL_CLIENT_DELETE_UNCONFIRMED")
+            absent, _ = self.request("GET", "/admin/clients/" + role[1])
+            require(absent == 404, "N02_PARTIAL_CLIENT_SURVIVED")
 
     def teardown(self) -> None:
         for role in reversed(ROLES):
@@ -261,7 +281,7 @@ def original(directory: str, doc: dict, stage: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("operation", choices=("register", "verify", "teardown"))
+    parser.add_argument("operation", choices=("register", "verify", "teardown", "recover"))
     parser.add_argument("--profile", required=True)
     parser.add_argument("--evidence-dir", required=True)
     args = parser.parse_args()
@@ -273,8 +293,10 @@ def main() -> int:
         elif args.operation == "verify":
             for role in ROLES:
                 registry.readback(role)
-        else:
+        elif args.operation == "teardown":
             registry.teardown()
+        else:
+            registry.recover()
         original(args.evidence_dir, doc, args.operation.upper())
     except (Refused, OSError, ValueError, KeyError, TypeError, UnicodeDecodeError):
         print("N02_HYDRA_CLIENTS_HELD", file=sys.stderr)
