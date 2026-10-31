@@ -119,7 +119,20 @@ def browser_readback(browser: dict, iam_sha: str) -> str:
     cases = browser.get("cases")
     if not isinstance(cases, dict) or set(cases) != CASE_IDS or any(v != "OBSERVED" for v in cases.values()):
         raise Blocked("MANDATORY_BROWSER_CASE_MISSING")
+    for name in ("shared_source_sha", "cp_source_sha", "infrastructure_harness_sha"):
+        if not isinstance(browser.get(name), str) or not SHA.fullmatch(browser[name]):
+            raise Blocked("BROWSER_PEER_SOURCE_UNPINNED")
     return browser["run_id"]
+
+
+def joined_source_readback(browser: dict, dev04: dict) -> None:
+    """Cross-check original producer source pins without editing either source."""
+    pins = dev04.get("source_pins")
+    if (not isinstance(pins, dict) or
+            browser.get("shared_source_sha") != pins.get("shared") or
+            browser.get("cp_source_sha") != pins.get("baobab-cp") or
+            browser.get("infrastructure_harness_sha") != dev04.get("harness_sha")):
+        raise Blocked("CONNECTED_SOURCE_PROVENANCE_MISMATCH")
 
 
 def dev04_readback(dev04: dict, iam_sha: str, run_id: str) -> None:
@@ -146,7 +159,9 @@ def dev04_readback(dev04: dict, iam_sha: str, run_id: str) -> None:
     if not isinstance(cases, dict) or set(cases) != DEV04_CASES:
         raise Blocked("SEVEN_ORIGINAL_CASES_MISSING")
     for case in cases.values():
-        evidence = case.get("assertions") if isinstance(case, dict) else None
+        if not isinstance(case, dict):
+            raise Blocked("INT03C_OBSERVATION_INCOMPLETE")
+        evidence = case.get("assertions")
         if (case.get("result") != "PASS" or case.get("reason") != "OBSERVED"
                 or not isinstance(evidence, dict) or not evidence
                 or any(value is not True for value in evidence.values())):
@@ -207,6 +222,7 @@ def main() -> int:
         digest_sidecar(raw_dev04, args.int03c_digest)
         run_id = browser_readback(browser, args.iam_sha)
         dev04_readback(dev04, args.iam_sha, run_id)
+        joined_source_readback(browser, dev04)
         if any((args.protected_packet, args.independent_review_key, args.independent_review_signature)):
             if not all((args.protected_packet, args.independent_review_key, args.independent_review_signature)):
                 raise Blocked("INDEPENDENT_REVIEW_MISSING")
