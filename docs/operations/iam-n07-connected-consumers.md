@@ -30,6 +30,47 @@ N07 must prove real first-party consumer integrations against genuine Kratos nat
 
 The structural worksheet is tests/connected/n07-profile.example.json. Its invalid placeholder origins and all-zero source SHA pins are **not a development deployment**.
 
+## Real first-party estate Chromium companion
+
+The opt-in tests/browser/n07_estates_live.py exercises the actual first-party
+entry/login form, current same-origin IAM session JSON and locally-initiated
+logout against **all three** independently configured estate owners. It
+requires an owner-only 0600 private profile based on
+tests/browser/n07-estates-profile.example.json; the example deliberately
+contains inert 40-hex SHA placeholders, invalid synthetic Tenant and
+unimplemented owner selectors. It is neither a mock browser nor a recipe
+that assumes Thamani already supports IAM.
+
+For Nabhold it additionally reads the real server-side
+/api/auth/context response and refuses a mismatched Tenant/Market, stale
+observation or any claim of executionAuthority=true. The response is
+EXECUTIVE_NAVIGATION read-only, **not** an executive command permit.
+ZuriBeans's /api/iam/session only proves a current provider-backed
+session, not an automatically CP-approved buyer or seller. Thamani's
+absent /api/auth/session route remains BLOCKED. In all estates the true
+business-resource and CP-authority positives, step-up policy, issuer
+revocation and cross-Tenant negatives require independent owner receipts.
+
+The runner never exports browser cookies, bearer tokens or browser
+storage, injects a fake login form, disables TLS verification or writes
+screenshots/traces. It does not persist the principal ID or session
+reply. A single browser failure remains BLOCKED without a sensitive
+traceback; the original only contains low-cardinality case results,
+immutable source pins and source-run association. CI only compiles
+this source and executes structural negative tests; the real Chromium
+runner must be launched from the owner-supervised private environment
+after Playwright Chromium is installed.
+
+    BAOBAB_ENVIRONMENT=development python3 -B tests/browser/n07_estates_live.py \
+      --profile /run/private/iam-n07/estates-browser.json \
+      --output-dir /run/private/iam-n07/browser-originals
+
+Expect exit 2 for incomplete owner integrations, or exit 3 for full
+browser HTTP readback **without** protected, issuer or CP acceptance.
+The N02 original and Infrastructure DEV-04 seven-case producer must
+still match the approved actual runtime and source pins before any
+development acceptance is considered.
+
 ## Real owner-supervised development execution
 
 1. Independently inspect each consumer's current exact code SHA and accepted Shared/IAM/CP/Infrastructure pins. Obtain governed *synthetic* CP Principals, registered OAuth clients/scopes, native user sessions and actual approved engine resource paths. Do not infer legal actor or owner access from corporate structure.
