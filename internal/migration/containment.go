@@ -170,6 +170,29 @@ func (c *NativeContainment) Contain(ctx context.Context, migrationID, operationI
 	receipt, err := c.begin(ctx, migrationID, operationID)
 	if err != nil { return nil, err }
 	if receipt.Phase == "VERIFIED" {
+		// A restored provider snapshot can resurrect a previously revoked
+		// session. A historical VERIFIED row is NOT a current authority
+		// observation: recheck all three independent boundaries on replay,
+		// without issuing any enable/delete or new provider mutation.
+		if c.Provider == nil || c.Current == nil {
+			return nil, errors.New("migration: current verified-containment readback unavailable")
+		}
+		identity, readErr := c.Provider.GetIdentity(ctx, receipt.Target)
+		count, countErr := c.Provider.ActiveSessionCount(ctx, receipt.Target)
+		proof, proofErr := c.Current.VerifyCurrentDenial(
+			ctx, receipt.Source, receipt.Target, receipt.CanonicalPrincipalID)
+		now := time.Now().UTC()
+		if readErr != nil || identity == nil ||
+			identity.Issuer != receipt.Target.Issuer ||
+			identity.Subject != receipt.Target.Subject ||
+			identity.Status != provider.IdentityStatusDisabled ||
+			countErr != nil || count != 0 || proofErr != nil ||
+			!proof.SourceIssuerDenied || !proof.TargetIssuerDenied ||
+			!proof.CanonicalUnchanged || proof.OriginalReference == "" ||
+			proof.ObservedAt.IsZero() || proof.ObservedAt.After(now) ||
+			now.Sub(proof.ObservedAt) > time.Minute {
+			return nil, errors.New("migration: current containment drift after restore/replay")
+		}
 		return receipt, nil
 	}
 	defer func() {
