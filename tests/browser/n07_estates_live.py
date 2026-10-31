@@ -16,6 +16,7 @@ import re
 import sys
 import time
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import UUID
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -141,7 +142,9 @@ def actual_estates(profile: dict[str, Any]) -> dict[str, str]:
                     page = context.new_page()
                     page.set_default_timeout(12000)
                     start = page.goto(base + cfg["entry_path"], wait_until="domcontentloaded", timeout=15000)
+                    landed = urlsplit(page.url)
                     if (start is None or start.status != 200 or
+                            landed.scheme + "://" + landed.netloc != base or
                             "text/html" not in start.headers.get("content-type", "").lower()):
                         continue
                     results[prefix + "_FIRST_PARTY"] = "OBSERVED"
@@ -162,7 +165,7 @@ def actual_estates(profile: dict[str, Any]) -> dict[str, str]:
                     # Poll the *actual* same-origin issuer-backed session. Do not
                     # log URLs, credentials, response text or browser state.
                     confirmed: dict[str, Any] | None = None
-                    for _ in range(8):
+                    for _ in range(20):
                         page.wait_for_timeout(500)
                         response = context.request.get(base + cfg["session_path"],
                                                        max_redirects=0, timeout=5000)
