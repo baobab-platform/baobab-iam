@@ -1,5 +1,13 @@
 # Baobab IAM (`baobab-iam`)
 
+> **DEVELOPMENT COMPLETION HOLD — N01–N03 NOT CERTIFIED (audited 31 October 2026).**
+> **Do not report “development complete”, “only staging/production outstanding”, or “ready for protected handoff”.**
+> Open **development** gates are: (N01) newer Shared workload/scope pin and real consumer qualification; (N02) connected estate/browser–Kratos–Hydra–CP tests, original DEV-04 seven-case same-run evidence, recovery/logout and teardown; (N03) final-head CI, genuine issuer/CP HTTP-resource results and actual owner-engine DEV-14/15 consumer acceptance, including mandatory negatives.
+> Source code, runners, opt-in tests and previously green CI are **not** a substitute for executed final-head, source-pinned, real-component receipts. Development-only synthetic proving **does not require protected human approval** under accepted ADR-SHARED-043, but requires genuine issuer/CP/engine enforcement and truthful negative evidence.
+> **Protected staging/production approval, accounts, credentials, independent custody, legal/provider certification and production GO are separately deferred**; the preceding development tasks **are not**.
+> See the [N01–N03 development closure audit](docs/governance/iam-n01-n03-development-closure-audit-2026-10-31.md). Provider-support declarations remain **PARTIAL** and PRs #145–#148 must not be merged on an unsupported completion claim.
+
+
 **IAM-N03 — workload resource verification (stacked draft):** [provider-neutral resource acceptance and revocation](docs/operations/n03-workload-resource-qualification.md) now requires direct JWKS signature verification, current RFC 7662 issuer status before **and after** CP-authorized resource access, a separate CP context:validate token, and the owning engine's native PEP. Real disposable Hydra/CP source router tests exercise wrong audience, foreign/disabled Principal and unexpired revocation; this is not a deployed provider/engine or staging acceptance. Workload claims never grant Tenant, legal actor, Market or domain permission. Shared pin, existing ACTIVE declarations and provider PARTIAL status remain unchanged.
 
 
