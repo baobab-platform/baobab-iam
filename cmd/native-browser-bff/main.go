@@ -216,8 +216,13 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("invalid native BFF configuration")
 	}
+	// Operational labels are server-owned enumerations only. This does not
+	// authenticate a user or change CP authority. Emit a bounded aggregate on
+	// shutdown rather than logging sensitive per-request paths or credentials.
+	n08Metrics := nativebff.NewN08OperationalMetrics()
+	defer func() { fmt.Fprintln(os.Stderr, n08Metrics.SnapshotJSON()) }()
 	server := &http.Server{
-		Addr: listen, Handler: handler, ReadHeaderTimeout: 5 * time.Second,
+		Addr: listen, Handler: nativebff.ObserveN08Native(handler, n08Metrics), ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout: 12 * time.Second, WriteTimeout: 20 * time.Second,
 		IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10,
 	}
