@@ -156,7 +156,7 @@ func TestN05PostgresTargetAndRollbackNoRevocationResurrection(t *testing.T) {
 type n05Rollback struct{valid bool}
 func (w n05Rollback) VerifyPreCutoverRollback(context.Context,*migration.Record)(migration.RollbackWitness,error){
 	return migration.RollbackWitness{
-		SourceStillTrusted:w.valid,TargetTrustWithdrawn:w.valid,
+		SourceFallbackConfirmed:w.valid,TargetActorDenied:w.valid,
 		CanonicalUnchanged:w.valid,LegacyRevocationsPreserved:w.valid,
 		OriginalReference:"private-development-issuer-trust-readback",
 	},nil
