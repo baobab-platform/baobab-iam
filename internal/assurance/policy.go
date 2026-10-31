@@ -183,7 +183,7 @@ func (e *Evaluator) Check(ctx context.Context, session CurrentSessionKey, op Ope
 	}
 	no.Observed = level
 	if !proof.RecoveryCompletedAt.IsZero() {
-		if proof.RecoveryCompletedAt.After(now) || proof.RecoveryCompletedAt.Before(proof.AuthenticatedAt.Add(-req.MaxAge)) {
+		if proof.RecoveryCompletedAt.After(now) {
 			no.Reason = "RECOVERY_EVIDENCE_INVALID"
 			return no
 		}
@@ -210,8 +210,13 @@ func (e *Evaluator) Check(ctx context.Context, session CurrentSessionKey, op Ope
 		if risk.Level == "high" && req.Min < A3 {
 			no.Required = A3
 		}
-		if req.Min == A4 && (!risk.PrivilegedContextVerified || !proof.HardwareBound) {
+		if req.Min == A4 && !risk.PrivilegedContextVerified {
 			no.Reason = "PRIVILEGED_A4_WITNESS_REQUIRED"
+			return no
+		}
+		if req.Min == A4 && !proof.HardwareBound {
+			no.Outcome = StepUp
+			no.Reason = "FRESH_HARDWARE_STEP_UP_REQUIRED"
 			return no
 		}
 		if req.Min == A4 && level >= A3 && risk.PrivilegedContextVerified && proof.HardwareBound {
