@@ -18,12 +18,12 @@ import (
 // obtained from CP-governed registration; values from a token, HTTP request,
 // tenant claim or provider self-description are never authoritative.
 type CPBindingTarget struct {
-	ProviderID              string
-	EngineInstanceID        string
-	OrganisationID          string
-	EstateID                string
-	ConfigurationReference  string
-	SecurityDomainReference string
+	ProviderID              string `json:"provider_id"`
+	EngineInstanceID        string `json:"engine_instance_id"`
+	OrganisationID          string `json:"organisation_id"`
+	EstateID                string `json:"estate_id"`
+	ConfigurationReference  string `json:"configuration_reference"`
+	SecurityDomainReference string `json:"security_domain_reference"`
 }
 
 // CPRegistrationToken obtains a separately registered CP identity-runtime:read
