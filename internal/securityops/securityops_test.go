@@ -145,7 +145,14 @@ func (w trustedRotation) ReadbackRotation(_ context.Context, _ Rotation, _ Rotat
 func TestN06RotationCannotRetireOldJWKSBeforeActualConsumerProof(t *testing.T) {
 	s, pool := testDB(t)
 	ctx := context.Background()
-	id, err := s.ProposeRotation(ctx, Rotation{SecurityDomain: "iam-native",
+	// The normal and race jobs exercise the same disposable database. Give
+	// each invocation a unique owner to preserve the rotation uniqueness
+	// fence rather than deleting or relaxing persisted security evidence.
+	suffix, err := uuid()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := s.ProposeRotation(ctx, Rotation{SecurityDomain: "iam-native-test-" + suffix,
 		Environment: "development", Purpose: HydraSigning,
 		PreviousRef: "vault-key-v1", NextRef: "vault-key-v2",
 		OverlapUntil: s.now().Add(time.Hour)})
