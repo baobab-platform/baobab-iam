@@ -143,7 +143,20 @@ type Incident struct {
 // ProposeIncident is an IAM-only, least-blast-radius action request.
 // Global issuer/tenant/key revocation is deliberately not a representable
 // command. Higher-impact actions always require separate approval identity.
-func(s *Store) ProposeIncident(ctx context.Context,i Incident)(string,error){
+type IncidentApprovalEvidence struct {
+	ExactActor bool
+	ExactApprover bool
+	ScopeAuthorized bool
+	RecentHighAssurance bool
+	ObservedAt time.Time
+	OriginalReference string
+}
+type IncidentApprovalReader interface {
+	VerifyIncidentApproval(context.Context, Incident)(IncidentApprovalEvidence,error)
+}
+// The CP/IAM reviewer must independently verify requester AND approver's
+// current authority and high assurance: two distinct strings are not approval.
+func(s *Store) ProposeIncident(ctx context.Context,i Incident,approvals IncidentApprovalReader)(string,error){
 	if s==nil||ctx==nil||ctx.Err()!=nil||!uuidPattern.MatchString(i.IncidentID)||
 		!slices.Contains([]IncidentAction{RevokeSession,DisableNative,DisableWorkload},i.Action)||
 		!slices.Contains([]string{"SESSION","NATIVE_IDENTITY","WORKLOAD_CLIENT"},i.TargetType)||
@@ -153,6 +166,15 @@ func(s *Store) ProposeIncident(ctx context.Context,i Incident)(string,error){
 		(i.Action==DisableWorkload&&i.TargetType!="WORKLOAD_CLIENT") ||
 		(i.Action!=RevokeSession && (i.Approver==""||i.Approver==i.Requester)) {
 		return "",errors.New("securityops: narrow incident action and distinct approver required")
+	}
+	if approvals==nil {return "",errors.New("securityops: CP-reviewed incident approval proof required")}
+	proof,err:=approvals.VerifyIncidentApproval(ctx,i)
+	now:=s.now().UTC()
+	if err!=nil||!proof.ExactActor||!proof.ScopeAuthorized||
+		proof.OriginalReference==""||proof.ObservedAt.IsZero()||
+		proof.ObservedAt.After(now)||now.Sub(proof.ObservedAt)>time.Minute ||
+		(i.Action!=RevokeSession&&(!proof.ExactApprover||!proof.RecentHighAssurance)){
+		return "",errors.New("securityops: current independent approval or requester authority not proven")
 	}
 	target,err:=s.tag("incident-target",i.Target);if err!=nil{return "",err}
 	req,err:=s.tag("incident-actor",i.Requester);if err!=nil{return "",err}
