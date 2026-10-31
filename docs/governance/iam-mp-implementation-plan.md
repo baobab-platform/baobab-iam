@@ -1,5 +1,10 @@
 # ADR-IAM-0033 implementation plan
 
+## 2026-10-31 N02 connected qualification follow-on (stacked review)
+
+[Executable producer/consumer test plan](../operations/n02-connected-browser-qualification.md) extends N02 with current CP+Kratos AAL2 readback, Kratos-owned recovery, explicit all-native-session logout using an HMAC-indexed PostgreSQL vault, true disposable Hydra client registration and actual Chromium Playwright source. Independent protected evidence requires the unchanged native INT-03C seven-case meaning, new real browser evidence from the **same exact reviewed runtime source and run**, separate operator approval, independent readback and external custody; signature alone cannot authorize promotion. Work remains to connect the estate-owned UI/ingress, CP registered BFF workload profile, common governed runtime driver and actual protected observed proof. N01 pin and provider PARTIAL declarations remain unchanged.
+
+
 ## 2026-10-31 N02 native browser component
 
 [Source and qualification boundary](../operations/native-browser-bff.md) introduces the actual HTTP BFF OAuth Code/S256, consent and PostgreSQL session layer over the governed native Kratos/Hydra composition, plus CP delegated human-token resolution and remote token revocation. Do not confuse a passing synthetic fixture with verified current CP/estate/Trade acceptance. The N01 Shared pin hold and existing PARTIAL provider support remain in force; the next execution gates are real registered clients, native estate UX, exact human resource audience, C4 connected evidence and separately approved protected runtime.

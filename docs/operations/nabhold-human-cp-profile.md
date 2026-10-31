@@ -1,5 +1,8 @@
 # G04B-04 — Nabhold human client, CP audience and protected observations
 
+**N02 client separation reminder:** [Development ZuriBeans Trade-buyer BFF client registration](n02-connected-browser-qualification.md) deliberately has aud=baobab-trade/trade:buy and no CP registration. It **must not** be used as an executive Nabhold client or assumed to satisfy the separate authority:self / baobab-control-plane audience and approval gates recorded here. The connected N02 Playwright runner and Kratos AAL2 implementation do not certify Nabhold G17 acceptance, executive session grants, protected legal representation or production. Keep this Keycloak federation compatibility profile dormant until its explicit approval.
+
+
 **N02 reconciliation:** [IAM's new server-only native BFF library](native-browser-bff.md) is a source component, not a replacement approved Nabhold executive confidential client. CP's existing delegated Principal endpoint currently requires Trade-buyer audience and scope; it cannot silently accept the Nabhold authority:self audience or create executive entitlements. Keep this dormant Keycloak client profile and protected readback gates unchanged until the actual native Nabhold CP consumer profile and Kratos browser UX are separately implemented and approved. Keycloak remains the enterprise federation provider under ADR-IAM-0033.
 
 

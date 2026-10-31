@@ -54,6 +54,18 @@ type Revoker interface {
 	Revoke(context.Context, humanauth.Response) error
 }
 
+type AssuranceInspector interface {
+	AuthenticatorAAL(context.Context, ory.NativeSessionCredential) (string, error)
+	AuthenticatorSubjectAAL(context.Context, ory.NativeSessionCredential) (string, string, error)
+}
+
+type NativeSessionRevoker interface {
+	RevokeNativeSessions(context.Context, string) error
+}
+type OAuthSubjectSessionRevoker interface {
+	RevokeSubjectSessions(context.Context, string) error
+}
+
 type IDVerifier interface {
 	Verify(context.Context, string, string) (string, error)
 }
@@ -83,6 +95,7 @@ type Store interface {
 	PutSession(context.Context, string, Session) error
 	ReadSession(context.Context, string) (Session, error)
 	DeleteSession(context.Context, string) error
+	DeleteHumanSessions(context.Context, string, string) error
 }
 
 type Config struct {
@@ -97,6 +110,11 @@ type Config struct {
 	Verifier                                                         IDVerifier
 	AccessVerifier                                                   IDVerifier // disposable loopback test fixture only
 	AccessAudience, AccessScope                                      string
+	KratosOrigin                                                    string
+	RequireAAL2                                                     bool
+	Assurance                                                        AssuranceInspector
+	NativeSessions                                                  NativeSessionRevoker
+	OAuthSessions                                                   OAuthSubjectSessionRevoker
 	TrustedRoots                                                     *x509.CertPool
 	// Only disposable loopback tests may inject an ID verifier or use HTTP.
 	AllowTestLoopback bool
@@ -109,6 +127,7 @@ type Handler struct {
 	client *http.Client
 	origin *url.URL
 	issuer *url.URL
+	kratosOrigin *url.URL
 	router http.Handler
 }
 
@@ -137,6 +156,8 @@ func New(c Config) (*Handler, error) {
 	if err != nil {
 		return nil, err
 	}
+	kratosOrigin, err := originURL(c.KratosOrigin, c.AllowTestLoopback)
+	if err != nil { return nil, errors.New("invalid approved Kratos browser origin") }
 	redirect := strings.TrimRight(c.PublicOrigin, "/") + "/auth/callback"
 	if c.RedirectURI != redirect || c.ClientID == "" || len(c.ClientID) > 255 || len(c.ClientSecret) < 32 ||
 		c.Now == nil || c.Handoff == nil || c.CP == nil || c.Revoker == nil || c.Store == nil ||
@@ -157,6 +178,7 @@ func New(c Config) (*Handler, error) {
 	if c.Scope != strings.Join(scopes, " ") || !seen[c.AccessScope] {
 		return nil, errors.New("scope profile mismatch")
 	}
+	if c.RequireAAL2 && c.Assurance == nil { return nil, errors.New("step-up requires real Kratos AAL proof") }
 	if (c.Verifier != nil || c.AccessVerifier != nil) && !c.AllowTestLoopback {
 		return nil, errors.New("production requires cryptographic ID and access token verification")
 	}
@@ -175,16 +197,17 @@ func New(c Config) (*Handler, error) {
 		verifier = &signedIDVerifier{
 			issuer:   strings.TrimRight(c.Issuer, "/"),
 			clientID: c.ClientID,
-			keys:     oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json"),
+			keys:     oidc.NewRemoteKeySet(context.Background(), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json"),
+			client: client,
 		}
 	}
 	var access IDVerifier
 	if c.AccessVerifier != nil {
 		access = c.AccessVerifier
 	} else {
-		access = &signedAccessVerifier{issuer: strings.TrimRight(c.Issuer, "/"), audience: c.AccessAudience, scope: c.AccessScope, keys: oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json")}
+		access = &signedAccessVerifier{issuer: strings.TrimRight(c.Issuer, "/"), audience: c.AccessAudience, scope: c.AccessScope, keys: oidc.NewRemoteKeySet(context.Background(), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json"), client: client}
 	}
-	h := &Handler{c: c, verify: verifier, access: access, client: client, origin: origin, issuer: issuer}
+	h := &Handler{c: c, verify: verifier, access: access, client: client, origin: origin, issuer: issuer, kratosOrigin: kratosOrigin}
 	h.router = h.routes()
 	return h, nil
 }
@@ -192,6 +215,7 @@ func New(c Config) (*Handler, error) {
 type signedIDVerifier struct {
 	issuer, clientID string
 	keys             oidc.KeySet
+	client           *http.Client
 }
 
 func (v *signedIDVerifier) Verify(ctx context.Context, raw, nonce string) (string, error) {
@@ -200,7 +224,7 @@ func (v *signedIDVerifier) Verify(ctx context.Context, raw, nonce string) (strin
 	}
 	id, err := oidc.NewVerifier(v.issuer, v.keys, &oidc.Config{
 		ClientID: v.clientID, SupportedSigningAlgs: []string{"RS256"},
-	}).Verify(ctx, raw)
+	}).Verify(oidc.ClientContext(ctx,v.client), raw)
 	if err != nil || id.Subject == "" || id.Nonce == "" || subtle.ConstantTimeCompare([]byte(id.Nonce), []byte(nonce)) != 1 {
 		return "", errors.New("invalid signed ID token")
 	}
@@ -210,13 +234,14 @@ func (v *signedIDVerifier) Verify(ctx context.Context, raw, nonce string) (strin
 type signedAccessVerifier struct {
 	issuer, audience, scope string
 	keys                    oidc.KeySet
+	client                  *http.Client
 }
 
 func (v *signedAccessVerifier) Verify(ctx context.Context, raw, subject string) (string, error) {
 	if len(raw) < 20 || len(raw) > 16384 || subject == "" {
 		return "", errors.New("missing human access token")
 	}
-	verified, err := oidc.NewVerifier(v.issuer, v.keys, &oidc.Config{ClientID: v.audience, SupportedSigningAlgs: []string{"RS256"}}).Verify(ctx, raw)
+	verified, err := oidc.NewVerifier(v.issuer, v.keys, &oidc.Config{ClientID: v.audience, SupportedSigningAlgs: []string{"RS256"}}).Verify(oidc.ClientContext(ctx,v.client), raw)
 	if err != nil || verified.Subject != subject {
 		return "", errors.New("human access token subject mismatch")
 	}
@@ -294,6 +319,8 @@ func (h *Handler) routes() http.Handler {
 	mux.HandleFunc("GET /auth/callback", h.callback)
 	mux.HandleFunc("GET /auth/session", h.session)
 	mux.HandleFunc("POST /auth/logout", h.logout)
+	mux.HandleFunc("POST /auth/logout-all", h.logoutAll)
+	mux.HandleFunc("GET /auth/recovery", h.recovery)
 	return mux
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -359,9 +386,10 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	cred, err := h.kratos(r)
 	if err != nil {
-		h.fail(w, 401)
+		h.redirectKratos(w, r, "login", false)
 		return
 	}
+	if !h.allowAssurance(w,r,cred,false) {return}
 	dest, err := h.c.Handoff.AcceptLogin(r.Context(), r.URL.Query().Get("login_challenge"), cred, tx.Intent)
 	if err != nil || !h.safeHydra(dest) {
 		h.fail(w, 403)
@@ -391,10 +419,12 @@ func (h *Handler) consentPage(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 401)
 		return
 	}
-	if _, err = h.kratos(r); err != nil {
+	cred, err := h.kratos(r)
+	if err != nil {
 		h.fail(w, 401)
 		return
 	}
+	if !h.allowAssurance(w,r,cred,false) {return}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = consentForm.Execute(w, struct{ Client, Scopes, Challenge, CSRF string }{
 		tx.Intent.ClientID, tx.Intent.Scope, r.URL.Query().Get("consent_challenge"), tx.CSRF,
@@ -422,6 +452,7 @@ func (h *Handler) consent(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 401)
 		return
 	}
+	if !h.allowAssurance(w,r,cred,true) {return}
 	dest, err := h.c.Handoff.AcceptConsent(r.Context(), r.URL.Query().Get("consent_challenge"), cred, tx.Intent, true)
 	if err != nil || !h.safeHydra(dest) {
 		h.fail(w, 403)
@@ -429,6 +460,61 @@ func (h *Handler) consent(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, dest, http.StatusSeeOther)
 }
+
+
+// Redirects are constructed from reviewed Kratos public origin and the
+// **current** BFF path; the browser never selects a return_to or provider URL.
+// Kratos self-service owns credentials, recovery challenges and CSRF.
+// Deployers must allowlist exactly this first-party return URI in Kratos.
+func (h *Handler) redirectKratos(w http.ResponseWriter, r *http.Request, flow string, stepUp bool) {
+	if flow != "login" { h.fail(w, http.StatusBadRequest); return }
+	if len(r.URL.RawQuery) > 16384 || r.URL.Path != "/auth/login" {
+		h.fail(w, http.StatusBadRequest); return
+	}
+	back := strings.TrimRight(h.c.PublicOrigin, "/") + "/auth/login?" + r.URL.RawQuery
+	params := url.Values{"return_to":{back}}
+	if stepUp {
+		params.Set("aal","aal2")
+		params.Set("refresh","true")
+	}
+	dest := strings.TrimRight(h.c.KratosOrigin, "/") + "/self-service/login/browser?" + params.Encode()
+	http.Redirect(w,r,dest,http.StatusSeeOther)
+}
+
+// The step-up decision is driven by reviewed server configuration, and the
+// assurance evidence is fetched afresh from Kratos *and* checked against CP.
+// A pending consent POST cannot become a GET-based automatic grant.
+func (h *Handler) allowAssurance(w http.ResponseWriter,r *http.Request,cred ory.NativeSessionCredential,fromPost bool) bool {
+	if !h.c.RequireAAL2 {return true}
+	if h.c.Assurance == nil {h.fail(w,http.StatusForbidden);return false}
+	aal,err := h.c.Assurance.AuthenticatorAAL(r.Context(),cred)
+	if err != nil {h.fail(w,http.StatusServiceUnavailable);return false}
+	if aal == "aal2" {return true}
+	if aal != "aal1" {h.fail(w,http.StatusForbidden);return false}
+	if fromPost {
+		h.fail(w,http.StatusForbidden)
+		return false
+	}
+	if r.URL.Path != "/auth/login" {
+		// Kratos refresh returns to the original consent GET, not a POST.
+		back := strings.TrimRight(h.c.PublicOrigin,"/") + r.URL.RequestURI()
+		values:=url.Values{"aal":{"aal2"},"refresh":{"true"},"return_to":{back}}
+		http.Redirect(w,r,strings.TrimRight(h.c.KratosOrigin,"/")+"/self-service/login/browser?"+values.Encode(),http.StatusSeeOther)
+		return false
+	}
+	h.redirectKratos(w,r,"login",true)
+	return false
+}
+
+// Recovery always begins with Kratos's own browser ceremony; it never
+// creates an IAM or CP Principal, changes an existing issuer/subject link or
+// treats recovery as an assurance upgrade. A new signed OAuth login remains
+// mandatory before any new BFF session.
+func (h *Handler) recovery(w http.ResponseWriter,r *http.Request) {
+	if r.URL.RawQuery!="" {h.fail(w,http.StatusBadRequest);return}
+	http.Redirect(w,r,strings.TrimRight(h.c.KratosOrigin,"/")+"/self-service/recovery/browser",http.StatusSeeOther)
+}
+
 func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 	if !exactQuery(r.URL.Query(), "code", "state") {
 		h.fail(w, 400)
@@ -459,6 +545,15 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.fail(w, 403)
 		return
+	}
+	if h.c.RequireAAL2 {
+		credential, e := h.kratos(r)
+		if e != nil || h.c.Assurance == nil {h.fail(w,http.StatusForbidden);return}
+		currentSubject,currentAAL,e := h.c.Assurance.AuthenticatorSubjectAAL(r.Context(),credential)
+		if e != nil || currentSubject != sub || currentAAL != "aal2" {
+			h.fail(w,http.StatusForbidden)
+			return
+		}
 	}
 	if _, err = h.access.Verify(r.Context(), tokens.AccessToken, sub); err != nil {
 		h.fail(w, 403)
@@ -586,6 +681,31 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 503)
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+
+
+// logoutAll is an explicit Kratos-native session-wide revocation request.
+// It does NOT claim federation-wide SLO or revoke unrelated Hydra clients:
+// those remain independent identity-provider and resource-server gates.
+func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
+	if !h.postOrigin(r) || r.URL.RawQuery!="" {h.fail(w,http.StatusForbidden);return}
+	c,err:=r.Cookie(sessionCookie)
+	if err!=nil || len(c.Value)!=43 {h.fail(w,http.StatusUnauthorized);return}
+	s,err:=h.c.Store.ReadSession(r.Context(),c.Value)
+	if err!=nil || s.Subject=="" || s.CSRF=="" {h.fail(w,http.StatusUnauthorized);return}
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")),[]byte(s.CSRF))!=1 {
+		h.fail(w,http.StatusForbidden);return
+	}
+	// Never make the local session live again after a provider timeout.
+	localOk := h.c.Store.DeleteSession(r.Context(), c.Value)==nil
+	allOk := h.c.Store.DeleteHumanSessions(r.Context(), s.Issuer, s.Subject)==nil
+	expireCookie(w,sessionCookie,http.SameSiteStrictMode)
+	kratosOk:=h.c.NativeSessions!=nil && h.c.NativeSessions.RevokeNativeSessions(r.Context(),s.Subject)==nil
+	hydraSessionOk:=h.c.OAuthSessions!=nil && h.c.OAuthSessions.RevokeSubjectSessions(r.Context(),s.Subject)==nil
+	hydraOk:=h.c.Revoker.Revoke(r.Context(),s.Tokens)==nil
+	if !localOk || !allOk || !kratosOk || !hydraSessionOk || !hydraOk {h.fail(w,http.StatusServiceUnavailable);return}
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -13,7 +13,7 @@ CP alone owns canonical identity, the ACTIVE Principal, issuer+subject mapping, 
 
 - internal/nativebff/handler.go: exact configured browser Host and TLS, POST-only same-Origin start, server-generated S256/state/nonce, Secure/HttpOnly host-only transaction cookie (Lax), server-only confidential code exchange, explicit consent with CSRF, signed issuer/nonce/audience/subject checked against signed human access token, CP Principal resolution, encrypted Strict session cookie and logout.
 - internal/nativebff/cp_and_revocation.go: actual CP POST /internal/identity/v1/principals/resolve with independent workload Authorization bearer and separately supplied human subject_token. The CP independently checks current issuer, token status, scope, audience, approved registered caller relationship, and ACTIVE Principal. Separate authenticated Hydra /oauth2/revoke reports unknown issuer outcomes rather than claiming successful revocation.
-- internal/nativebff/postgres.go and migrations/001_native_browser_bff.sql: PostgreSQL 17 IAM-only transaction/session tables, hashed opaque cookie IDs, AES-256-GCM ciphertext bound to row ID and record kind, atomic single-use DELETE RETURNING, no in-memory production fallback.
+- internal/nativebff/postgres.go and migrations/001_native_browser_bff.sql and 002_subject_session_revocation.sql: PostgreSQL 17 IAM-only transaction/session tables, hashed opaque cookie IDs, AES-256-GCM ciphertext bound to row ID and record kind, atomic single-use DELETE RETURNING, no in-memory production fallback.
 - internal/nativebff/*_test.go: negative callback state/replay/consent/CSRF, CP outage and revocation, issuer logout uncertainty, encryption AAD and multi-replica Postgres cases.
 
 ## Browser contract
@@ -77,6 +77,8 @@ placeholders, **not runnable or accepted credentials/provider/CP IDs**:
     "security_domain_reference": "APPROVED_DOMAIN"
   },
   "kratos_public_origin": "https://APPROVED_KRATOS_BROWSER_ORIGIN",
+  "kratos_admin_origin": "https://APPROVED_PRIVATE_KRATOS_ADMIN",
+  "require_aal2": true,
   "hydra_admin_origin": "https://APPROVED_PRIVATE_HYDRA_ADMIN",
   "issuer": "https://APPROVED_HYDRA_PUBLIC_ISSUER",
   "public_origin": "https://APPROVED_FIRST_PARTY_ESTATE_HOST",
@@ -129,3 +131,14 @@ deployment release. No provider secret, token, private key or literal signed
 identity should be in committed configuration or in runtime evidence. Review
 the exact approved staging/production secret-file ownership, certificate
 lifetime, PostgreSQL privilege/backup configuration and restoration behavior.
+
+
+## N02 connected-source additions (stacked PR #147)
+
+See [connected qualification and protected evidence runbook](n02-connected-browser-qualification.md). The TLS host now consumes an exact, reviewed `kratos_admin_origin` for private verified-TLS session revocation and an optional server-owned `require_aal2` flag. It never trusts an AAL field from the browser. The only assurance source is current Kratos `/sessions/whoami` under current CP dispatch. Unenrolled or lower-level sessions are redirected to Kratos-owned step-up with `aal=aal2` and `refresh=true`; a pending consent POST may not auto-promote. AAL2 is not A3 nor a business grant.
+
+`GET /auth/recovery` enters a real Kratos recovery ceremony; the provider/courier and estate UI must deliver it, and completion cannot directly create a BFF/CP session. `POST /auth/logout-all` requires same-origin and session CSRF, removes **all** locally indexed BFF sessions for the verified exact issuer+subject, calls the approved private Kratos Admin session revocation and revokes the current Hydra client tokens. Session index records are HMAC-SHA256 values, never plaintext personal identity. Hydra private admin also revokes all current subject login/consent sessions, but the pinned Hydra JWT profile requires resource-side issuer-status/CP denial before declaring outstanding access tokens withdrawn. It does not revoke Keycloak enterprise federation sessions or prove external-provider SLO.
+
+**Migration sequencing:** Apply 001 then 002 in the IAM-owned PostgreSQL 17 browser vault before connecting the new host. Migration 002 drains unindexed old sessions rather than leaving an unrevocable legacy login. Run genuine readback and cross-replica negative cases; preserve the previous database backup and observe a separately qualified restore. Deployment requires updated server config `kratos_admin_origin` and a reviewed `require_aal2` decision. The existing foundation Hydra `urls.login/consent` and Kratos UI URLs remain local placeholders until the correct estate ingress is adopted. All server-side secrets, challenge state, recipient email, recovery codes and tokens remain private.
+
+**Provider/estate status:** The source includes a real **development-only** ZuriBeans confidential client create/readback/delete flow and a Chromium Playwright suite, not approval for Nabhold, Thamani or staging. The original Infrastructure DEV-04 native seven-case positive/negative suite and a real browser suite must be executed on an independently reproducible common lease and pinned source. They are not yet one proven connected orchestration. No protected environment approval or native Keycloak federation SLO follows from the code alone. Provider support stays PARTIAL.

@@ -68,6 +68,11 @@ func (m *memoryStore) ReadSession(_ context.Context, id string) (Session, error)
 	}
 	return v, nil
 }
+func (m *memoryStore) DeleteHumanSessions(_ context.Context, issuer, subject string) error {
+	m.mu.Lock(); defer m.mu.Unlock()
+	for id,s := range m.sessions { if s.Issuer == issuer && s.Subject == subject {delete(m.sessions,id)} }
+	return nil
+}
 func (m *memoryStore) DeleteSession(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -149,7 +154,7 @@ func makeFixture(t *testing.T) fixture {
 	revoker := &fixtureRevoke{}
 	handoff := &fixtureHandoff{}
 	h, err := New(Config{
-		PublicOrigin: "http://127.0.0.1:3000", Issuer: "http://127.0.0.1:4444",
+		PublicOrigin: "http://127.0.0.1:3000", Issuer: "http://127.0.0.1:4444", KratosOrigin: "http://127.0.0.1:4433",
 		ClientID: "synthetic-estate-bff", ClientSecret: strings.Repeat("s", 32),
 		RedirectURI: "http://127.0.0.1:3000/auth/callback", Scope: "openid trade:buy",
 		KratosSessionCookieName: "ory_kratos_session", AccessAudience: "baobab-trade", AccessScope: "trade:buy", Now: time.Now, Handoff: handoff,
@@ -376,4 +381,124 @@ func TestAtomicTestTransactionConsumption(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("transaction consumed %d times", n)
 	}
+}
+
+
+type fixtureAAL struct {
+	aal string
+	err error
+	calls int
+	subject string
+}
+func (a *fixtureAAL) AuthenticatorAAL(_ context.Context, credential ory.NativeSessionCredential)(string,error){
+	a.calls++
+	if credential.Cookie==""{return "",errors.New("Kratos cookie required")}
+	return a.aal,a.err
+}
+func (a *fixtureAAL) AuthenticatorSubjectAAL(ctx context.Context, credential ory.NativeSessionCredential)(string,string,error){
+	aal,err:=a.AuthenticatorAAL(ctx,credential)
+	if err!=nil{return "", "",err}
+	if a.subject!=""{return a.subject,aal,nil}
+	return "synthetic-subject",aal,nil
+}
+type fixtureOAuthSubjectRevoke struct { calls int; fail bool; subject string }
+func (n *fixtureOAuthSubjectRevoke) RevokeSubjectSessions(_ context.Context,subject string)error{
+	n.calls++;n.subject=subject
+	if n.fail{return errors.New("Hydra subject session revoke unknown")}
+	return nil
+}
+type fixtureNativeRevoke struct { calls int; fail bool; subject string }
+func (n *fixtureNativeRevoke) RevokeNativeSessions(_ context.Context,subject string)error{
+	n.calls++;n.subject=subject
+	if n.fail{return errors.New("Kratos outage")}
+	return nil
+}
+
+func TestKratosRecoveryAndLoginRedirectDoNotGrantIdentity(t *testing.T){
+	f:=makeFixture(t)
+	recovery:=request(f.h,"GET","http://127.0.0.1:3000/auth/recovery","")
+	if recovery.Code!=http.StatusSeeOther||recovery.Header().Get("Location")!="http://127.0.0.1:4433/self-service/recovery/browser"{
+		t.Fatalf("recovery must use real Kratos browser flow: %d",recovery.Code)
+	}
+	c,_:=startFlow(t,f)
+	login:=request(f.h,"GET","http://127.0.0.1:3000/auth/login?login_challenge=real-hydra-challenge","",c)
+	if login.Code!=http.StatusSeeOther {t.Fatalf("missing Kratos cookie did not enter browser flow: %d",login.Code)}
+	loc,err:=url.Parse(login.Header().Get("Location"))
+	if err!=nil||loc.Host!="127.0.0.1:4433"||loc.Path!="/self-service/login/browser"{
+		t.Fatal("provider-directed login was not origin pinned")
+	}
+	if loc.Query().Get("return_to")!="http://127.0.0.1:3000/auth/login?login_challenge=real-hydra-challenge"{
+		t.Fatal("unbound login return URL")
+	}
+	if f.cp.calls!=0||len(f.store.sessions)!=0||f.hand.accepted!=0{
+		t.Fatal("unauthenticated recovery/login created CP or IAM session")
+	}
+	tampered:=request(f.h,"GET","http://127.0.0.1:3000/auth/recovery?return_to=https://evil.invalid","")
+	if tampered.Code!=http.StatusBadRequest{t.Fatal("untrusted recovery return target accepted")}
+}
+func TestNativeAAL2StepUpRequiresCurrentKratosProof(t *testing.T){
+	f:=makeFixture(t)
+	evidence:=&fixtureAAL{aal:"aal1"}
+	conf:=f.h.c
+	conf.RequireAAL2=true
+	conf.Assurance=evidence
+	h,err:=New(conf);if err!=nil{t.Fatal(err)}
+	c,_:=startFlow(t,f)
+	kratos:=&http.Cookie{Name:"ory_kratos_session",Value:"kratos-browser-session"}
+	login:=request(h,"GET","http://127.0.0.1:3000/auth/login?login_challenge=real-hydra-challenge","",c,kratos)
+	if login.Code!=303{t.Fatal("AAL1 should prompt Kratos step-up")}
+	redirect,err:=url.Parse(login.Header().Get("Location"))
+	if err!=nil || redirect.Query().Get("aal")!="aal2" || redirect.Query().Get("refresh")!="true" {
+		t.Fatal("step-up did not request Kratos AAL2")
+	}
+	if f.hand.accepted!=0 {t.Fatal("AAL1 accepted native Hydra login")}
+	evidence.aal="aal2"
+	login=request(h,"GET","http://127.0.0.1:3000/auth/login?login_challenge=real-hydra-challenge","",c,kratos)
+	if login.Code!=303||f.hand.accepted!=1 {t.Fatal("verified Kratos AAL2 was rejected")}
+	evidence.err=errors.New("CP unavailable")
+	login=request(h,"GET","http://127.0.0.1:3000/auth/login?login_challenge=another","",c,kratos)
+	if login.Code!=503||f.hand.accepted!=1 {t.Fatal("CP outage must deny AAL assertion")}
+	conf.Assurance=nil
+	if _,err=New(conf);err==nil{t.Fatal("high-risk AAL2 config without proof admitted")}
+}
+func TestAllSessionLogoutRevokesKratosAndHydraEvenIfCPUnavailable(t *testing.T){
+	f:=makeFixture(t)
+	native:=&fixtureNativeRevoke{}
+	f.h.c.NativeSessions=native
+	hydraSubject:=&fixtureOAuthSubjectRevoke{}
+	f.h.c.OAuthSessions=hydraSubject
+	c,state:=startFlow(t,f)
+	w:=request(f.h,"GET","http://127.0.0.1:3000/auth/callback?code=legitimate-code-1234&state="+state,"",c)
+	session:=findCookie(w,sessionCookie)
+	if session==nil {t.Fatal("setup failed")}
+	stored,err:=f.store.ReadSession(context.Background(),session.Value);if err!=nil{t.Fatal(err)}
+	r:=httptest.NewRequest(http.MethodPost,"http://127.0.0.1:3000/auth/logout-all",nil)
+	r.Header.Set("Origin","http://127.0.0.1:3000")
+	r.Header.Set("X-CSRF-Token",stored.CSRF)
+	r.AddCookie(session)
+	// A CP outage must never block local session teardown and issuer revocation.
+	f.cp.deny=true
+	out:=httptest.NewRecorder()
+	f.h.ServeHTTP(out,r)
+	if out.Code!=http.StatusNoContent ||native.calls!=1||f.revoker.calls!=1||
+		native.subject!=stored.Subject||hydraSubject.calls!=1||hydraSubject.subject!=stored.Subject{t.Fatal("native global and Hydra session revocation not invoked")}
+	if _,err=f.store.ReadSession(context.Background(),session.Value);err==nil{t.Fatal("global logout retained browser session")}
+}
+func TestAllSessionLogoutProviderFailureDoesNotRestoreSession(t *testing.T){
+	f:=makeFixture(t)
+	native:=&fixtureNativeRevoke{fail:true}
+	f.h.c.NativeSessions=native
+	hydraSubject:=&fixtureOAuthSubjectRevoke{}
+	f.h.c.OAuthSessions=hydraSubject
+	c,state:=startFlow(t,f)
+	w:=request(f.h,"GET","http://127.0.0.1:3000/auth/callback?code=legitimate-code-1234&state="+state,"",c)
+	session:=findCookie(w,sessionCookie)
+	stored,err:=f.store.ReadSession(context.Background(),session.Value);if err!=nil{t.Fatal(err)}
+	r:=httptest.NewRequest(http.MethodPost,"http://127.0.0.1:3000/auth/logout-all",nil)
+	r.Header.Set("Origin","http://127.0.0.1:3000")
+	r.Header.Set("X-CSRF-Token",stored.CSRF)
+	r.AddCookie(session)
+	w=httptest.NewRecorder();f.h.ServeHTTP(w,r)
+	if w.Code!=http.StatusServiceUnavailable || f.revoker.calls!=1 {t.Fatal("unknown Kratos global logout not reported")}
+	if _,err=f.store.ReadSession(context.Background(),session.Value);err==nil {t.Fatal("failed global logout resurrected browser session")}
 }

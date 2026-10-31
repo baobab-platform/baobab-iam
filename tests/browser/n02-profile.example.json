@@ -1,0 +1,30 @@
+{
+  "schema": "baobab.iam.n02.browser-qualification.v1",
+  "environment": "development",
+  "run_id": "REPLACE_WITH_ORIGINAL_32_LOWERCASE_HEX_RUN_NONCE",
+  "iam_source_sha": "REPLACE_WITH_IMMUTABLE_40_HEX_IAM_N02_SHA",
+  "bff_origin": "https://APPROVED_FIRST_PARTY_ESTATE_ORIGIN",
+  "kratos_origin": "https://APPROVED_FIRST_PARTY_ESTATE_ORIGIN",
+  "hydra_origin": "https://APPROVED_HYDRA_PUBLIC_ISSUER",
+  "synthetic_identifier": "REPLACE_WITH_ACTUAL_SYNTHETIC_IDENTITY",
+  "password_file": "/run/secrets/synthetic-identity-password",
+  "recovery_code_file": "/run/secrets/synthetic-recovery-code",
+  "totp_seed_file": "/run/secrets/synthetic-totp-seed",
+  "require_aal2": true,
+  "selectors": {
+    "identifier": "input[name=\"identifier\"]",
+    "password": "input[name=\"password\"]",
+    "submit": "button[type=\"submit\"]",
+    "totp_input": "input[name=\"totp_code\"]",
+    "totp_submit": "button[type=\"submit\"]",
+    "recovery_identifier": "input[name=\"email\"]",
+    "recovery_submit": "button[type=\"submit\"]",
+    "recovery_code": "input[name=\"code\"]",
+    "recovery_complete": "button[type=\"submit\"]"
+  },
+  "post_recovery_password_file": "/run/secrets/synthetic-post-recovery-password",
+  "shared_source_sha": "REPLACE_WITH_PINNED_40_HEX_SHARED_SOURCE",
+  "cp_source_sha": "REPLACE_WITH_PINNED_40_HEX_CP_SOURCE",
+  "zuribeans_source_sha": "REPLACE_WITH_PINNED_40_HEX_FIRST_PARTY_ESTATE_SOURCE",
+  "infrastructure_harness_sha": "REPLACE_WITH_ORIGINAL_40_HEX_INFRASTRUCTURE_SOURCE"
+}
