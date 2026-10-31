@@ -73,7 +73,7 @@ func n05Human(t *testing.T, store *migration.PostgresStore, target bool) *migrat
 		}
 		updated,err := svc.SetTargetBinding(ctx,id,migration.ProviderBinding{
 			Provider: "ory", Issuer: "https://native-issuer.invalid",
-			Subject: "11111111-1111-4111-8111-111111111111",
+			Subject: "11111111-1111-4111-8111-" + strings.TrimPrefix(id, "iam-n05-")[12:24],
 		})
 		if err != nil { t.Fatal(err) }
 		if updated.Target.Issuer == "" { t.Fatal("missing actual target") }
