@@ -124,15 +124,15 @@ func (r *DevelopmentClientRegistry) Readback(ctx context.Context,id,redirect str
 	status,raw,err:=r.request(ctx,http.MethodGet,"/admin/clients/"+url.PathEscape(id),nil)
 	if err!=nil||status!=http.StatusOK{return errors.New("registered client unreadable")}
 	var v struct {
-		ID string json:"client_id"
-		GrantTypes []string json:"grant_types"
-		ResponseTypes []string json:"response_types"
-		Scope string json:"scope"
-		Audience []string json:"audience"
-		RedirectURIs []string json:"redirect_uris"
-		Method string json:"token_endpoint_auth_method"
-		SubjectType string json:"subject_type"
-		SkipConsent bool json:"skip_consent"
+		ID string `json:"client_id"`
+		GrantTypes []string `json:"grant_types"`
+		ResponseTypes []string `json:"response_types"`
+		Scope string `json:"scope"`
+		Audience []string `json:"audience"`
+		RedirectURIs []string `json:"redirect_uris"`
+		Method string `json:"token_endpoint_auth_method"`
+		SubjectType string `json:"subject_type"`
+		SkipConsent bool `json:"skip_consent"`
 	}
 	if json.Unmarshal(raw,&v)!=nil||v.ID!=id||
 		!slices.Equal(v.GrantTypes,[]string{"authorization_code"})||
