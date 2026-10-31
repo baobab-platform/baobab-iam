@@ -9,7 +9,6 @@ separate governed admission; a Hydra client is not a CP permission.
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
 import os
@@ -253,7 +252,14 @@ def original(directory: str, doc: dict, stage: str) -> None:
             and not meta.st_mode & 0o077, "N02_PRIVATE_ORIGINAL_DIR_REQUIRED")
     result = {
         "schema": "baobab.iam.n02.disposable-client-observation.v1",
-        "classification": "REAL_HYDRA_ADMIN_CLIENTS_ONLY_UNATTESTED",
+        # Recovery can observe ZERO clients: never mislabel absence as
+        # a successful earlier registration. Register/verify must be read
+        # together with their immutable originals and current Hydra state.
+        "classification": (
+            "REAL_HYDRA_ADMIN_CLIENTS_ONLY_UNATTESTED"
+            if stage in ("REGISTER", "VERIFY")
+            else "HYDRA_CLIENT_CUSTODY_RECONCILED_UNATTESTED"
+        ),
         "run_id": doc["run_id"],
         "phase": stage,
         "source": {name: doc[name] for name in (
