@@ -1,5 +1,10 @@
 # ADR-IAM-0033 implementation plan
 
+## 2026-10-31 IAM-N03 provider-neutral workload resource acceptance (draft #148)
+
+[Owner implementation and negative qualification plan](../operations/n03-workload-resource-qualification.md): direct standards JWT/JWKS and current RFC7662, exact issuer/subject/client/scope/audience, current CP context + native policy, second issuer read and real revocation denial before expiry. The first live harness reuses actual disposable Hydra issuance and the pinned CP production router code in a synthetic fixture; it does not qualify an actual deployed resource or canonical provider. Next adopt the same verified port in real Pulse/Payments/ERP/Trade consumers, execute ENG-ONB negative/teardown and C4-03B–E/C4-04B/C protected evidence. IAM/CP hold their distinct authorities; Shared N01 re-pin remains HELD and provider support stays PARTIAL.
+
+
 ## 2026-10-31 N02 connected qualification follow-on (stacked review)
 
 [Executable producer/consumer test plan](../operations/n02-connected-browser-qualification.md) extends N02 with current CP+Kratos AAL2 readback, Kratos-owned recovery, explicit all-native-session logout using an HMAC-indexed PostgreSQL vault, true disposable Hydra client registration and actual Chromium Playwright source. Independent protected evidence requires the unchanged native INT-03C seven-case meaning, new real browser evidence from the **same exact reviewed runtime source and run**, separate operator approval, independent readback and external custody; signature alone cannot authorize promotion. Work remains to connect the estate-owned UI/ingress, CP registered BFF workload profile, common governed runtime driver and actual protected observed proof. N01 pin and provider PARTIAL declarations remain unchanged.
