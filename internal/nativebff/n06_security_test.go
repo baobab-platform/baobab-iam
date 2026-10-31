@@ -101,7 +101,7 @@ func TestN06KratosLiveReaderDeniesUnknownA3AndForgedProviderResponse(t *testing.
 		_, _ = w.Write([]byte(reply))
 	}))
 	defer server.Close()
-	p, err := NewKratosN06Provider(issuer, nil, func() time.Time { return now }, true, server.Client())
+	p, err := NewKratosN06Provider(server.URL, nil, func() time.Time { return now }, true, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
