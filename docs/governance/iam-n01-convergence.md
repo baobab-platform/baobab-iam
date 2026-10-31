@@ -47,6 +47,32 @@ All three provider declarations remain PARTIAL: Kratos identity.authentication.p
 - **N03**: real signed Hydra issuance → current CP runtime/authority → protected resource acceptance with wrong-audience, foreign-tenant and unexpired-token withdrawal.
 - **N04**: registered CP support/binding/artifact acceptance, full C4-03 and C4-04 qualification, then independently reviewed canonical-support promotion.
 
+## N01 audit correction — governance guard hardening (31 October 2026)
+
+This PR has been re-audited as a **source-only** governance change.
+The original source guard compared selected YAML/JSON values after using parsers
+that silently permitted duplicate keys. Inconsistent parsers can therefore
+interpret ambiguous source documents differently. It also did not check the
+provider adapter/simulation flag, full provenance, evidence existence, planned
+provider targets or an actual Go pin declaration rather than a matching comment.
+
+The guard now fails closed on duplicate YAML and JSON mapping keys; enforces
+the unchanged reviewed Shared pin and lock review policy; checks exactly one
+Go SharedCommit declaration; requires genuine PARTIAL provider adapter
+declarations with non-simulated support, repository-owned ADR-IAM-0033
+provenance, actual source and integration-test paths, and reviewed planned
+capability targets. The regression tests include positive source acceptance,
+ambiguous input, comment spoofing, provenance drift, simulated provider
+promotion, invalid evidence paths, duplicate planned capabilities and
+protected-environment restrictions.
+
+**Boundary:** these are offline source-integrity and contract-drift checks,
+not real provider tokens, CP provenance, issuer activation, credential
+issuance or live C4-03/C4-04 acceptance. Future intentional changes to
+provider capabilities, Shared registry or contract pins require a separately
+reviewed source update and actual consumer qualification. The narrow
+development exception in ADR-SHARED-043 remains unchanged.
+
 ## Verification and rollback
 
 The N01 source check is scripts/check_iam_n01.py, with negative cases in tests/unit/test_iam_n01.py. The existing scripts/iam_capability_matrix.py independently verifies the exact pinned Shared capability catalogue and generated matrix; the current CI scope, Ory/Keycloak/provider, Go/race, PostgreSQL and security gates remain required. Do **not** interpret a successful source guard as operational readiness.
