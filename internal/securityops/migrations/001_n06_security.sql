@@ -134,7 +134,7 @@ DROP TRIGGER IF EXISTS n06_rebind_history_immutable ON iam_security.rebind_histo
 CREATE TRIGGER n06_rebind_history_immutable BEFORE UPDATE OR DELETE
 ON iam_security.rebind_history FOR EACH ROW EXECUTE FUNCTION iam_security.append_only();
 CREATE OR REPLACE FUNCTION iam_security.audit_rebind()
-RETURNS trigger LANGUAGE plpgsql AS $
+RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP='UPDATE' THEN
     IF (OLD.request_id,OLD.principal_key,OLD.issuer_key,OLD.credential_kind,
@@ -151,7 +151,7 @@ BEGIN
   INSERT INTO iam_security.rebind_history(request_id,phase,revision)
   VALUES (NEW.request_id,NEW.phase,NEW.revision);
   RETURN NEW;
-END; $;
+END; $$;
 DROP TRIGGER IF EXISTS n06_rebind_audit ON iam_security.credential_rebind;
 CREATE TRIGGER n06_rebind_audit AFTER INSERT OR UPDATE
 ON iam_security.credential_rebind FOR EACH ROW EXECUTE FUNCTION iam_security.audit_rebind();
