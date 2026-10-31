@@ -3,7 +3,6 @@ package securityops
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"time"
 
@@ -229,4 +228,3 @@ RETURNING revision`,id,to,i.Revision).Scan(&revision)
 	i.Phase=to;i.Revision=revision
 	return &i,nil
 }
-var _ = fmt.Sprintf
