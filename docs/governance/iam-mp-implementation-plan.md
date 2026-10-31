@@ -1,5 +1,15 @@
 # ADR-IAM-0033 implementation plan
 
+## 2026-10-31 IAM-N01 source-only convergence
+
+[Current governance/contract reconciliation](iam-n01-convergence.md)
+records accepted ADR-SHARED-043's synthetic development exception, checks ADR
+source precedence, and holds a newer Shared consumer re-pin because its
+development-only workload and scope registry changed. Existing canonical
+provider declarations remain PARTIAL. This source-only increment does **not**
+close N02/N03/N04, C4-03/C4-04, MP3/MP4 support/registration, nor protected
+staging/production acceptance.
+
 **Status:** Advanced implementation; production acceptance not reached. Permanent
 Keycloak OIDC/SAML federation and PostgreSQL shared authority/recovery fencing
 are implemented. Enterprise CP-governed dispatch is merged in #80; broader MP3 support publication and native/workload MP4 dispatch remain open.

@@ -1,5 +1,11 @@
 # ADR-IAM-0033 programme status
 
+**N01 source-only note, 31 October 2026:** The [current convergence
+record](iam-n01-convergence.md) addresses ADR precedence, the exact Shared
+contract pin and the accepted synthetic development boundary. The historical
+MP gate matrix below is retained as dated construction evidence; this note
+does not activate a provider or claim C4-03/C4-04 or staging acceptance.
+
 Reviewed 2026-10-05 against IAM main
 `a927259753a0d2dee16f8df6f5509c5dc9cb18e9`. This is a repository evidence
 reconciliation, not certification or authority activation. The original MP0
