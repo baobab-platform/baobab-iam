@@ -17,13 +17,13 @@ type OperationResolver interface {
 // boundary, forwarding only after fresh issuer + CP + native checks. Tokens
 // are intentionally stripped from downstream handler headers.
 type Middleware struct {
-	gate *Gate
+	gate ResourceAuthorizer
 	operations OperationResolver
 	next http.Handler
 }
 
-func NewMiddleware(gate *Gate, operations OperationResolver, next http.Handler) (*Middleware, error) {
-	if gate == nil || absent(operations) || absent(next) {
+func NewMiddleware(gate ResourceAuthorizer, operations OperationResolver, next http.Handler) (*Middleware, error) {
+	if absent(gate) || absent(operations) || absent(next) {
 		return nil, ErrDenied
 	}
 	return &Middleware{gate: gate, operations: operations, next: next}, nil
@@ -44,7 +44,7 @@ func (m *Middleware) ServeHTTP(w http.ResponseWriter,r *http.Request) {
 	w.Header().Set("Cache-Control","no-store")
 	w.Header().Set("Pragma","no-cache")
 	w.Header().Set("X-Content-Type-Options","nosniff")
-	if m==nil||m.gate==nil||r==nil {
+	if m==nil||absent(m.gate)||r==nil {
 		http.Error(w,"Unauthorized",http.StatusUnauthorized)
 		return
 	}
