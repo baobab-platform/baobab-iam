@@ -168,6 +168,35 @@ def dev04_readback(dev04: dict, iam_sha: str, run_id: str) -> None:
             raise Blocked("INT03C_OBSERVATION_INCOMPLETE")
 
 
+def checkpoint_readback(browser_raw: bytes, dev04: dict, iam_sha: str,
+                        run_id: str) -> None:
+    """The owner host witnessed the original while CP was still active.
+
+    This reconciles original files only: no self-signed browser/host digest
+    can establish independent provider identity or protected acceptance.
+    """
+    checkpoint = dev04.get("n02_browser_checkpoint")
+    if not isinstance(checkpoint, dict) or set(checkpoint) != {
+        "schema", "run_id", "browser_sha256", "source_sha",
+        "shared_source_sha", "cp_source_sha", "harness_sha", "phase",
+        "classification", "provider_independently_attested",
+        "protected_accepted",
+    }:
+        raise Blocked("PRE_DEACTIVATION_BROWSER_CHECKPOINT_MISSING")
+    if (checkpoint["schema"] != "infrastructure.dev04.n02-browser-checkpoint.v1"
+            or checkpoint["run_id"] != run_id
+            or checkpoint["browser_sha256"] != hashlib.sha256(browser_raw).hexdigest()
+            or checkpoint["source_sha"] != iam_sha
+            or checkpoint["shared_source_sha"] != dev04["source_pins"].get("shared")
+            or checkpoint["cp_source_sha"] != dev04["source_pins"].get("baobab-cp")
+            or checkpoint["harness_sha"] != dev04["harness_sha"]
+            or checkpoint["phase"] != "BEFORE_INT03C_DEACTIVATION"
+            or checkpoint["classification"] != "ORIGINAL_BROWSER_RECONCILED_UNATTESTED"
+            or checkpoint["provider_independently_attested"] is not False
+            or checkpoint["protected_accepted"] is not False):
+        raise Blocked("PRE_DEACTIVATION_BROWSER_CHECKPOINT_DRIFT")
+
+
 def protected_packet(packet: dict, browser_raw: bytes, dev04_raw: bytes,
                      iam_sha: str, run_id: str, packet_path: str,
                      public_key_path: str, signature_path: str) -> None:
@@ -223,6 +252,7 @@ def main() -> int:
         run_id = browser_readback(browser, args.iam_sha)
         dev04_readback(dev04, args.iam_sha, run_id)
         joined_source_readback(browser, dev04)
+        checkpoint_readback(raw_browser, dev04, args.iam_sha, run_id)
         if any((args.protected_packet, args.independent_review_key, args.independent_review_signature)):
             if not all((args.protected_packet, args.independent_review_key, args.independent_review_signature)):
                 raise Blocked("INDEPENDENT_REVIEW_MISSING")
