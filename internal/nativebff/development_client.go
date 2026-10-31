@@ -21,6 +21,7 @@ import (
 // A bounded development lease under ADR-SHARED-043 authorizes this isolated
 // provider-only operation; protected environments have a separate ceremony.
 type DevelopmentEstateClient struct {
+	Environment string
 	Estate string
 	RunID string
 	RedirectURI string
@@ -40,7 +41,7 @@ func NewDevelopmentClientRegistry(adminOrigin string, client *http.Client, now f
 		return nil,errors.New("invalid Hydra development admin origin")
 	}
 	ip:=net.ParseIP(u.Hostname())
-	if !(u.Scheme=="http"&&ip!=nil&&ip.IsLoopback()) && u.Scheme!="https"{
+	if ip==nil || !ip.IsLoopback() || u.Scheme!="http" && u.Scheme!="https"{
 		return nil,errors.New("development admin requires HTTPS or exact loopback")
 	}
 	// Only exact loopback fixture transport may be injected.
@@ -61,7 +62,7 @@ func validRunID(s string)bool{
 	return true
 }
 func (r *DevelopmentClientRegistry) name(l DevelopmentEstateClient)(string,error){
-	if r==nil||r.now==nil||l.Estate!="zuribeans"||!validRunID(l.RunID)||
+	if r==nil||r.now==nil||l.Environment!="development"||l.Estate!="zuribeans"||!validRunID(l.RunID)||
 		len(l.ClientSecret)<32||strings.TrimSpace(l.ClientSecret)!=l.ClientSecret||
 		strings.ContainsAny(l.ClientSecret," \t\r\n")||l.ExpiresAt.Sub(r.now())<=0||
 		l.ExpiresAt.Sub(r.now())>time.Hour{
