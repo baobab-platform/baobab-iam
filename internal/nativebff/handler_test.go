@@ -258,6 +258,74 @@ func TestStateSubstitutionAndCPUnavailableFailClosed(t *testing.T) {
 		t.Fatal("CP failure issued session")
 	}
 }
+// failSessionStore simulates a vault failure after a real code exchange.
+type failSessionStore struct{ Store }
+
+func (f failSessionStore) PutSession(context.Context, string, Session) error {
+	return errors.New("disposable vault unavailable")
+}
+
+func TestCallbackFailuresRevokeExchangedTokens(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		breakAfterExchange func(f *fixture)
+	}{
+		{"ID token verification", func(f *fixture) {
+			f.h.verify = fixtureVerifier{subject: "synthetic-subject", fail: true}
+		}},
+		{"human access token binding", func(f *fixture) {
+			f.h.access = fixtureVerifier{subject: "synthetic-subject", fail: true}
+		}},
+		{"CP canonical Principal denial", func(f *fixture) {
+			f.cp.deny = true
+		}},
+		{"PostgreSQL session write failure", func(f *fixture) {
+			f.h.c.Store = failSessionStore{Store: f.store}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := makeFixture(t)
+			c, state := startFlow(t, f)
+			tc.breakAfterExchange(&f)
+			path := "http://127.0.0.1:3000/auth/callback?code=legitimate-code-1234&state=" + state
+			w := request(f.h, "GET", path, "", c)
+			if w.Code == http.StatusSeeOther || f.revoker.calls != 1 || len(f.store.sessions) != 0 {
+				t.Fatalf("callback failure did not attempt credential cleanup: status=%d revocations=%d sessions=%d",
+					w.Code, f.revoker.calls, len(f.store.sessions))
+			}
+			if replay := request(f.h, "GET", path, "", c); replay.Code == http.StatusSeeOther ||
+				f.revoker.calls != 1 {
+				t.Fatal("failed callback replay unexpectedly succeeded or exchanged tokens again")
+			}
+		})
+	}
+}
+
+func TestCallbackCleanupFailureStillRefusesSession(t *testing.T) {
+	f := makeFixture(t)
+	c, state := startFlow(t, f)
+	f.cp.deny = true
+	f.revoker.fail = true
+	w := request(f.h, "GET",
+		"http://127.0.0.1:3000/auth/callback?code=legitimate-code-1234&state="+state, "", c)
+	if w.Code == http.StatusSeeOther || f.revoker.calls != 1 || len(f.store.sessions) != 0 {
+		t.Fatal("uncertain issuer cleanup must not authorize a browser session")
+	}
+}
+
+func TestFailedCodeExchangeDoesNotClaimTokenRevocation(t *testing.T) {
+	f := makeFixture(t)
+	c, state := startFlow(t, f)
+	f.h.client = &http.Client{Transport: roundTripper(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("issuer unreachable")
+	})}
+	w := request(f.h, "GET",
+		"http://127.0.0.1:3000/auth/callback?code=legitimate-code-1234&state="+state, "", c)
+	if w.Code == http.StatusSeeOther || f.revoker.calls != 0 || len(f.store.sessions) != 0 {
+		t.Fatal("failed exchange cannot mint session or pretend issuer revocation was observed")
+	}
+}
+
 func TestConsentRequiresExplicitPOSTAndBoundCSRF(t *testing.T) {
 	f := makeFixture(t)
 	c, _ := startFlow(t, f)
