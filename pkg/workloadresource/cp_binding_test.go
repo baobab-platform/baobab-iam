@@ -149,25 +149,34 @@ func TestN04LiveTLSCPBindingRequiresExactCurrentRegistration(t *testing.T) {
 func TestN04CPBindingRejectsUntrustedOriginAndReferences(t *testing.T) {
 	tgt := n04Target()
 	token := func(context.Context) (string, error) { return strings.Repeat("v", 40), nil }
+	srv := httptest.NewTLSServer(http.NotFoundHandler())
+	defer srv.Close()
+	roots := x509.NewCertPool()
+	roots.AddCert(srv.Certificate())
+	for name, pool := range map[string]*x509.CertPool{"nil": nil, "empty": x509.NewCertPool()} {
+		if _, err := NewCPRegisteredBinding(srv.URL, pool, tgt, token); err == nil {
+			t.Fatalf("unconfigured CP trust roots accepted: %s", name)
+		}
+	}
 	for _, origin := range []string{
 		"http://localhost:8080", "https://bad.invalid/path",
 		"https://bad.invalid/?q=1", "https://user@bad.invalid", "",
 	} {
-		if _, err := NewCPRegisteredBinding(origin, nil, tgt, token); err == nil {
+		if _, err := NewCPRegisteredBinding(origin, roots, tgt, token); err == nil {
 			t.Fatal("untrusted CP address accepted")
 		}
 	}
 	bad := tgt
 	bad.ConfigurationReference = "user_supplied"
-	if _, err := NewCPRegisteredBinding("https://cp.invalid", nil, bad, token); err == nil {
+	if _, err := NewCPRegisteredBinding(srv.URL, roots, bad, token); err == nil {
 		t.Fatal("noncanonical CP reference admitted")
 	}
 	bad = tgt
 	bad.ProviderID = "provider_"
-	if _, err := NewCPRegisteredBinding("https://cp.invalid", nil, bad, token); err == nil {
+	if _, err := NewCPRegisteredBinding(srv.URL, roots, bad, token); err == nil {
 		t.Fatal("unregistered provider id admitted")
 	}
-	if _, err := NewCPRegisteredBinding("https://cp.invalid", nil, tgt, nil); err == nil {
+	if _, err := NewCPRegisteredBinding(srv.URL, roots, tgt, nil); err == nil {
 		t.Fatal("missing separately registered CP caller accepted")
 	}
 }
@@ -175,7 +184,11 @@ func TestN04CPBindingRejectsUntrustedOriginAndReferences(t *testing.T) {
 func TestN04CPBindingDoesNotReuseExpiredOrRevokedCPCaller(t *testing.T) {
 	calls := 0
 	tgt := n04Target()
-	read, err := NewCPRegisteredBinding("https://cp.invalid", nil, tgt,
+	srv := httptest.NewTLSServer(http.NotFoundHandler())
+	defer srv.Close()
+	roots := x509.NewCertPool()
+	roots.AddCert(srv.Certificate())
+	read, err := NewCPRegisteredBinding(srv.URL, roots, tgt,
 		func(context.Context) (string, error) {
 			calls++
 			return "bad", nil
