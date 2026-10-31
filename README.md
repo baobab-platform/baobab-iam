@@ -24,6 +24,10 @@ token-visible scope is present in the exact pinned registry, and
 description limit. The targeted unit test refuses implicit scope allocation.
 None of these static checks establishes live IAM/CP staging acceptance.
 
+## IAM-N02 native browser/BFF integration (stacked source)
+
+The [N02 browser/BFF operating design](docs/operations/native-browser-bff.md) introduces an HTTPS same-origin server-only OAuth Code/S256 transaction and consent handler, encrypted PostgreSQL 17 session and one-time callback ledger, independent signed ID/access token verification, actual CP delegated-human Principal lookup protocol, and server-side Hydra token revocation. It is **source and component test evidence only**: a real deployed Kratos UX, the registered confidential client and CP workload, browser/estate integration, global provider logout and C4-03/C4-04 connected acceptance remain open. The exact N01 Shared pin and all three PARTIAL provider declarations are unchanged. No estate or business grants are inferred from authentication.
+
 ## IAM-N01 source-only architecture and contract convergence
 
 The [N01 reconciliation](docs/governance/iam-n01-convergence.md) documents
