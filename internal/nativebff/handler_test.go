@@ -315,6 +315,8 @@ func TestLogoutRequiresCSRFAndReportsRemoteRevocationUnknown(t *testing.T) {
 			t.Fatalf("logout CSRF did not deny %q", tc.origin)
 		}
 	}
+	// A Principal deactivation or CP outage cannot prevent local sign-out.
+	f.cp.deny = true
 	f.revoker.fail = true
 	r := httptest.NewRequest("POST", "http://127.0.0.1:3000/auth/logout", nil)
 	r.Header.Set("Origin", "http://127.0.0.1:3000")
