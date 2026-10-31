@@ -192,14 +192,15 @@ func New(c Config) (*Handler, error) {
 		verifier = &signedIDVerifier{
 			issuer:   strings.TrimRight(c.Issuer, "/"),
 			clientID: c.ClientID,
-			keys:     oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json"),
+			keys:     oidc.NewRemoteKeySet(context.Background(), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json"),
+			client: client,
 		}
 	}
 	var access IDVerifier
 	if c.AccessVerifier != nil {
 		access = c.AccessVerifier
 	} else {
-		access = &signedAccessVerifier{issuer: strings.TrimRight(c.Issuer, "/"), audience: c.AccessAudience, scope: c.AccessScope, keys: oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json")}
+		access = &signedAccessVerifier{issuer: strings.TrimRight(c.Issuer, "/"), audience: c.AccessAudience, scope: c.AccessScope, keys: oidc.NewRemoteKeySet(context.Background(), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json"), client: client}
 	}
 	h := &Handler{c: c, verify: verifier, access: access, client: client, origin: origin, issuer: issuer, kratosOrigin: kratosOrigin}
 	h.router = h.routes()
@@ -209,6 +210,7 @@ func New(c Config) (*Handler, error) {
 type signedIDVerifier struct {
 	issuer, clientID string
 	keys             oidc.KeySet
+	client           *http.Client
 }
 
 func (v *signedIDVerifier) Verify(ctx context.Context, raw, nonce string) (string, error) {
@@ -217,7 +219,7 @@ func (v *signedIDVerifier) Verify(ctx context.Context, raw, nonce string) (strin
 	}
 	id, err := oidc.NewVerifier(v.issuer, v.keys, &oidc.Config{
 		ClientID: v.clientID, SupportedSigningAlgs: []string{"RS256"},
-	}).Verify(ctx, raw)
+	}).Verify(oidc.ClientContext(ctx,v.client), raw)
 	if err != nil || id.Subject == "" || id.Nonce == "" || subtle.ConstantTimeCompare([]byte(id.Nonce), []byte(nonce)) != 1 {
 		return "", errors.New("invalid signed ID token")
 	}
@@ -227,13 +229,14 @@ func (v *signedIDVerifier) Verify(ctx context.Context, raw, nonce string) (strin
 type signedAccessVerifier struct {
 	issuer, audience, scope string
 	keys                    oidc.KeySet
+	client                  *http.Client
 }
 
 func (v *signedAccessVerifier) Verify(ctx context.Context, raw, subject string) (string, error) {
 	if len(raw) < 20 || len(raw) > 16384 || subject == "" {
 		return "", errors.New("missing human access token")
 	}
-	verified, err := oidc.NewVerifier(v.issuer, v.keys, &oidc.Config{ClientID: v.audience, SupportedSigningAlgs: []string{"RS256"}}).Verify(ctx, raw)
+	verified, err := oidc.NewVerifier(v.issuer, v.keys, &oidc.Config{ClientID: v.audience, SupportedSigningAlgs: []string{"RS256"}}).Verify(oidc.ClientContext(ctx,v.client), raw)
 	if err != nil || verified.Subject != subject {
 		return "", errors.New("human access token subject mismatch")
 	}
