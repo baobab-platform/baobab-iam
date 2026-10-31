@@ -40,7 +40,7 @@ def profile():
         }
         if context:
             entry["context_path"] = context
-            entry["executive_navigation"] = {
+            entry["executive_navigation" if name == "nabhold" else "logistics_navigation"] = {
                 "tenant_id": "tn_abcde", "market": "ZA",
             }
         p["estates"][name] = entry
@@ -88,6 +88,16 @@ class N07BrowserSource(unittest.TestCase):
         with self.assertRaises(mod.n07.Blocked):
             mod.validate_browser_profile(p)
 
+    def test_thamani_cp_navigation_required(self):
+        p = profile()
+        p["estates"]["thamani"].pop("context_path")
+        with self.assertRaises(mod.n07.Blocked):
+            mod.validate_browser_profile(p)
+        p = profile()
+        p["estates"]["thamani"].pop("logistics_navigation")
+        with self.assertRaises(mod.n07.Blocked):
+            mod.validate_browser_profile(p)
+
     def test_malformed_source_or_secret_file_blocks(self):
         p = profile()
         p["source_pins"]["nabhold"] = "main"
@@ -115,21 +125,22 @@ class N07BrowserSource(unittest.TestCase):
         self.assertEqual(mod.cookie_free_json(Response(b'{"authenticated":true}')),
                          {"authenticated": True})
 
-    def test_zuribeans_and_thamani_need_live_issuer_session(self):
+    def test_zuribeans_current_issuer_session(self):
         now = time.time() * 1000
-        for name in ("zuribeans", "thamani"):
+        for name in ("zuribeans",):
             with self.assertRaises(mod.n07.Blocked):
                 mod.current_session(name, {"authenticated": False, "expiresAt": now + 60000})
             with self.assertRaises(mod.n07.Blocked):
                 mod.current_session(name, {"authenticated": True, "expiresAt": now - 1})
             mod.current_session(name, {"authenticated": True, "expiresAt": now + 60000})
 
-    def test_nabhold_session_uuid_does_not_grant_execution(self):
+    def test_cp_principal_uuids_for_nabhold_and_thamani(self):
         now = time.time() * 1000
-        for subject in ("identity@email.test", "not-a-uuid", ""):
-            with self.assertRaises(mod.n07.Blocked):
-                mod.current_session("nabhold", {"principalId": subject, "expiresAt": now + 60000})
-        mod.current_session("nabhold", {"principalId": str(uuid4()), "expiresAt": now + 60000})
+        for name in ("nabhold", "thamani"):
+            for subject in ("identity@email.test", "not-a-uuid", ""):
+                with self.assertRaises(mod.n07.Blocked):
+                    mod.current_session(name, {"principalId": subject, "expiresAt": now + 60000})
+            mod.current_session(name, {"principalId": str(uuid4()), "expiresAt": now + 60000})
 
     def test_cp_navigation_is_only_read_model_never_execution_permit(self):
         now = time.time() * 1000
@@ -142,6 +153,7 @@ class N07BrowserSource(unittest.TestCase):
             "expiresAt": now + 60000,
         }
         mod.current_executive_context(ok, expect)
+        mod.current_executive_context(dict(ok, kind="LOGISTICS_NAVIGATION"), expect, "LOGISTICS_NAVIGATION")
         for bad in (
             dict(ok, executionAuthority=True),
             dict(ok, tenantId="tn_other"),
