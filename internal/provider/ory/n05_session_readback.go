@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 
@@ -33,8 +34,8 @@ func (a *Adapter) ActiveSessionCount(ctx context.Context, subject provider.Exter
 	response, err := client.Do(request)
 	if err != nil { return 0, errors.New("ory: Kratos session readback unavailable") }
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK ||
-		response.Header.Get("Content-Type") != "application/json" {
+	media, _, mediaErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
+	if response.StatusCode != http.StatusOK || mediaErr != nil || media != "application/json" {
 		return 0, errors.New("ory: Kratos session readback not authoritative")
 	}
 	raw, err := io.ReadAll(io.LimitReader(response.Body, 65537))
