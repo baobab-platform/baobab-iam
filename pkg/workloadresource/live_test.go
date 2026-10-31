@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"os/exec"
@@ -52,6 +53,11 @@ func (a *n03ConsumerFixture) AuthorizeCurrent(ctx context.Context, raw string, c
 		return ErrDenied
 	}
 	return nil
+}
+
+type n03LiveOperation struct{operation Operation}
+func (r n03LiveOperation) ResolveOperation(_ context.Context,_ *http.Request)(Operation,error){
+	return r.operation,nil
 }
 
 // TestLiveN03HydraCPResourceAcceptance is deliberately opt-in, with no mock
@@ -142,11 +148,39 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 	if err!=nil{t.Fatal("real resource verifier profile refused")}
 	operation:=Operation{ContextID:"cp-generated-by-pinned-probe",
 		TenantID:"tn_m4fixture",ResourceOperation:"context.validate"}
+	// This is a real HTTP resource-server boundary in an isolated test,
+	// *not* a separately deployed engine or a native business consequence.
+	middleware,err:=NewMiddleware(gate,n03LiveOperation{operation},
+		http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+			if r.Header.Get("Authorization")!=""||r.Header.Get("Cookie")!=""{
+				w.WriteHeader(http.StatusForbidden);return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}))
+	if err!=nil{t.Fatal("cannot construct actual resource HTTP boundary")}
+	resource:=httptest.NewServer(middleware)
+	defer resource.Close()
+	sendToResource:=func(token string)int{
+		t.Helper()
+		req,err:=http.NewRequestWithContext(ctx,http.MethodPost,resource.URL+"/protected",nil)
+		if err!=nil{t.Fatal("cannot make resource request")}
+		req.Header.Set("Authorization","Bearer "+token)
+		response,err:=client.Do(req)
+		if err!=nil{t.Fatal("actual resource transport refused")}
+		defer response.Body.Close()
+		_,_=io.Copy(io.Discard,io.LimitReader(response.Body,512))
+		return response.StatusCode
+	}
 	claims,err:=verifier.VerifySigned(ctx,raw)
 	if err!=nil||claims.ActorType!="workload"||claims.Issuer!=issuer||
 		claims.ClientID!="m4-ci-subject"||claims.ExpiresAt.Before(time.Now()){
 		t.Fatal("real issuer signature/claims not verified")
 	}
+	t.Run("real-issued-token-HTTP-resource-accepted",func(t *testing.T){
+		if code:=sendToResource(raw);code!=http.StatusNoContent{
+			t.Fatalf("actual HTTP resource denied current Hydra/CP token: %d",code)
+		}
+	})
 	t.Run("real-issued-token-and-CP-current-route-accepted",func(t *testing.T){
 		if err:=gate.Authorize(ctx,raw,operation);err!=nil{
 			t.Fatal("real signed active Hydra token denied by CP current resource fixture")
@@ -204,6 +238,7 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 		}
 		if _,err:=status.ReadCurrent(ctx,raw);err==nil{t.Fatal("revoked token still admitted as active issuer status")}
 		if gate.Authorize(ctx,raw,operation)==nil{t.Fatal("revoked unexpired token accepted by resource")}
+		if code:=sendToResource(raw);code!=http.StatusForbidden{t.Fatal("revoked unexpired token accepted by HTTP resource")}
 		if !time.Now().Before(claims.ExpiresAt){t.Fatal("natural expiry substituted for revocation")}
 	})
 	t.Run("fresh-token-after-specific-revocation-accepted",func(t *testing.T){
