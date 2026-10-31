@@ -93,6 +93,7 @@ type Config struct {
 	Store Store
 	HTTPClient *http.Client
 	Verifier IDVerifier
+	AccessVerifier IDVerifier // disposable loopback test fixture only
 	AccessAudience, AccessScope string
 	// Only disposable loopback tests may inject an ID verifier or use HTTP.
 	AllowTestLoopback bool
@@ -142,7 +143,7 @@ func New(c Config) (*Handler, error) {
 		seen[scope] = true
 	}
 	if c.Scope != strings.Join(scopes, " ") { return nil, errors.New("noncanonical scope list") }
-	if c.Verifier != nil && !c.AllowTestLoopback { return nil, errors.New("production requires cryptographic ID verification") }
+	if (c.Verifier != nil || c.AccessVerifier != nil) && !c.AllowTestLoopback { return nil, errors.New("production requires cryptographic ID and access token verification") }
 	client := &http.Client{Timeout: 10*time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	if c.AllowTestLoopback && c.HTTPClient != nil { client.Transport = c.HTTPClient.Transport }
 	if !c.AllowTestLoopback && c.HTTPClient != nil { return nil, errors.New("production browser provider transport cannot be injected") }
@@ -151,10 +152,11 @@ func New(c Config) (*Handler, error) {
 		verifier = &signedIDVerifier{
 			issuer: strings.TrimRight(c.Issuer, "/"),
 			clientID: c.ClientID,
-			keys: oidc.NewRemoteKeySet(context.Background(), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json"),
+			keys: oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(),client), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json"),
 		}
 	}
-	access := &signedAccessVerifier{issuer: strings.TrimRight(c.Issuer, "/"), audience:c.AccessAudience, scope:c.AccessScope, keys:oidc.NewRemoteKeySet(context.Background(), strings.TrimRight(c.Issuer,"/")+"/.well-known/jwks.json")}
+	var access IDVerifier
+	if c.AccessVerifier != nil { access = c.AccessVerifier } else { access = &signedAccessVerifier{issuer: strings.TrimRight(c.Issuer, "/"), audience:c.AccessAudience, scope:c.AccessScope, keys:oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(),client), strings.TrimRight(c.Issuer,"/")+"/.well-known/jwks.json")} }
 	return &Handler{c:c,verify:verifier,access:access,client:client,origin:origin,issuer:issuer}, nil
 }
 
