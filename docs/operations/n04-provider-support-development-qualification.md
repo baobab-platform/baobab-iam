@@ -151,3 +151,28 @@ Only a genuine, current `200 no-store` CP binding reply with ACTIVE provider/ins
 ## Rollback and security
 
 The N04 source gate is read-only. Discarding this branch removes the evidence readback and CI unit checks; it requires **no** CP/issuer/provider rollback because it grants nothing. A real development qualification run must revoke its own bounded client/identity credentials and remove its CP-owned synthetic context and labelled host resources through the Infrastructure owner, then retain original redacted receipts. Never commit tokens, DSNs, raw browser traces, real identity data, PII or production credentials.
+
+## N03 native resource evidence is now a separate mandatory N04 input
+
+The N04 source-only evidence reconciliation gate no longer accepts a Pulse
+ENG-ONB engine-lifecycle receipt alone as native IAM-N03 proof. It now
+requires an **additional** independently retained owner-private
+`--pulse-native` and `--pulse-native-digest`, plus immutable
+`--pulse-source-sha`, from the actual Pulse PR #63
+`scripts/n03_native_development.py` producer.
+
+The exact `baobab.pulse.n03.native-observation.v1` must bind IAM,
+Shared, CP **and Pulse source SHAs**, the *same* original Pulse owner run
+ID, all seven native issuance/CP isolation/revocation cases as
+`OBSERVED`, development-only classification and no protected acceptance.
+The recorded `two_tenants_independently_attested=false` is intentional;
+the N04 readback only reconciles this candidate with the ENG-ONB record.
+It does **not** elevate the candidate to independently qualified
+two-tenant authority, N04 provider readiness, C4-04 support or
+production admission. Independent owner/CP provenance and teardown
+remain mandatory.
+
+This prevents the previously dangerous inference
+`ENG-ONB source/engine fixtures passed => N03 native revocation proved`.
+The Payments owner must still supply actual native and money-movement
+negative evidence; the Pulse receipt cannot stand in for Payments.
