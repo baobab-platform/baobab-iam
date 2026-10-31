@@ -1,5 +1,8 @@
 # ADR-IAM-0033 programme status
 
+**N02 follow-on, 31 October 2026 — connected qualification engineering (PR #147 draft):** [Source/evidence crosswalk](../operations/n02-connected-browser-qualification.md) adds real Hydra development-only client registration/readback/teardown, current CP-gated Kratos AAL2 proof, recovery routing, native session-wide logout with PostgreSQL subject-index migration, Playwright actual-browser runner and fail-closed review/custody gate. The underlying Infrastructure DEV-04 seven-case run must be repeated and bound to a common source SHA/run identity; no N02 browser+CP connected acceptance receipt or protected permission is claimed. Retained Keycloak federation and N01 contract pin are unchanged; providers remain PARTIAL.
+
+
 **N02 source increment (31 October 2026):** [Native browser/BFF integration](../operations/native-browser-bff.md) implements browser-bound PKCE/state/nonce, explicit consent/CSRF, independent ID and human access token checking, CP delegated Principal resolution, encrypted PostgreSQL sessions and issuer revocation with negative component tests. Real branded Kratos UX, approved BFF/workload allocations, hosted CP runtime and C4-03/C4-04 protected evidence are **not yet demonstrated**. N02 remains source/component qualified only; PARTIAL support and N01 immutable pin unchanged.
 
 
