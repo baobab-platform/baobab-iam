@@ -34,7 +34,7 @@ func singleBearer(r *http.Request) (string, error) {
 	values:=r.Header.Values("Authorization")
 	if len(values)!=1 || len(values[0])>16391{return "",ErrDenied}
 	v:=values[0]
-	if len(v)<28 || !strings.EqualFold(v[:7],"Bearer "){return "",ErrDenied}
+	if len(v)<27 || !strings.EqualFold(v[:7],"Bearer "){return "",ErrDenied}
 	token:=v[7:]
 	if len(token)<20||len(token)>16384||strings.TrimSpace(token)!=token||
 		strings.ContainsAny(token," \t\r\n,"){return "",ErrDenied}
