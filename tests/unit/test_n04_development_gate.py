@@ -18,6 +18,7 @@ IAM = "a" * 40
 SHARED = "b" * 40
 CP = "c" * 40
 INFRA = "d" * 40
+PULSE_SHA = "9" * 40
 R = "e" * 32
 PR = "f" * 32
 PAY = "0" * 32
@@ -103,7 +104,43 @@ def dev04():
     }
 
 
+def n03_pulse():
+    return {
+        "schema": "baobab.pulse.n03.native-observation.v1",
+        "classification": "REAL_NATIVE_HYDRA_PULSE_CP_UNATTESTED",
+        "environment": "development", "run_id": PR,
+        "pulse_source_sha": PULSE_SHA,
+        "iam_source_sha": IAM, "cp_source_sha": CP,
+        "shared_source_sha": SHARED,
+        "two_tenants_independently_attested": False,
+        "protected_accepted": False,
+        "cases": {case: "OBSERVED" for case in n04.N03_PULSE},
+    }
+
+
 class N04Gate(unittest.TestCase):
+    def test_n03_live_native_revocation_is_not_engine_onboarding(self):
+        n04.n03_pulse_readback(n03_pulse(),
+            pulse_sha=PULSE_SHA, iam_sha=IAM, shared_sha=SHARED,
+            cp_sha=CP, owner_run_id=PR)
+        for mutate in (
+            lambda row: row["cases"].pop("N03_HYDRA_REVOCATION_READBACK"),
+            lambda row: row["cases"].update({
+                "N03_NATIVE_PULSE_REVOKED_BEARER_DENIAL": "BLOCKED"}),
+            lambda row: row.update(pulse_source_sha="e" * 40),
+            lambda row: row.update(run_id=R),
+            lambda row: row.update(two_tenants_independently_attested=True),
+            lambda row: row.update(protected_accepted=True),
+            lambda row: row.update(environment="staging"),
+            lambda row: row.update(classification="SOURCE_TEST"),
+        ):
+            packet = copy.deepcopy(n03_pulse())
+            mutate(packet)
+            with self.assertRaises(n04.Held):
+                n04.n03_pulse_readback(packet,
+                    pulse_sha=PULSE_SHA, iam_sha=IAM,
+                    shared_sha=SHARED, cp_sha=CP, owner_run_id=PR)
+
     def test_c403_exact_closed_checklist_and_never_production(self):
         n04.c403_readback(c403(), IAM)
         for mutation in (
@@ -173,6 +210,7 @@ class N04Gate(unittest.TestCase):
             models = {
                 "browser": n02_browser(), "int03c": dev04(), "c403": c403(),
                 "pulse": engine("baobab-pulse", PR),
+                "pulse-native": n03_pulse(),
                 "payments": engine("baobab-payments", PAY),
             }
             files = []
@@ -188,7 +226,7 @@ class N04Gate(unittest.TestCase):
                 sidecar.chmod(0o600)
                 files.extend((f"--{key}", str(path), f"--{key}-digest", str(sidecar)))
             args = ["--iam-sha", IAM, "--shared-sha", SHARED, "--cp-sha", CP,
-                    "--infrastructure-sha", INFRA] + files
+                    "--infrastructure-sha", INFRA, "--pulse-source-sha", PULSE_SHA] + files
             self.assertEqual(n04.readback(args),
                              "N04_ORIGINAL_EVIDENCE_RECONCILED_UNATTESTED")
             # No acceptance if two independent owner runs reuse one run ID.
@@ -205,8 +243,9 @@ class N04Gate(unittest.TestCase):
     def test_non_immutable_source_denied(self):
         with self.assertRaises(n04.Held):
             n04.readback(["--iam-sha", "main", "--shared-sha", SHARED,
-                          "--cp-sha", CP, "--infrastructure-sha", INFRA] + [
-                              x for key in ("browser", "int03c", "c403", "pulse", "payments")
+                          "--cp-sha", CP, "--infrastructure-sha", INFRA,
+                          "--pulse-source-sha", PULSE_SHA] + [
+                              x for key in ("browser", "int03c", "c403", "pulse", "pulse-native", "payments")
                               for x in (f"--{key}", "/not/present",
                                         f"--{key}-digest", "/not/present")])
 
