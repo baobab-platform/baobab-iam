@@ -1,5 +1,8 @@
 # ADR-IAM-0033 implementation plan
 
+**IAM-N04 development increment (31 October 2026; stacked draft):** [N04 original-evidence reconciliation and owner-execution runbook](../operations/n04-provider-support-development-qualification.md) adds a source-pinned, fail-closed integrity check over original N02/DEV-04, C4-03B–E, and Pulse/Payments ENG-ONB owner receipts. It cannot authenticate external producers or register CP authority; even fully internally consistent packets remain `UNATTESTED` with nonzero exit. **Next executable development obligations:** CP owner-governed support/instance/market binding readback and current-token consumption, actual C4-04B/C native positive and negative cases, real owner-engine/estate joins and original completed receipts. Protected staging/production gates are separate, never substitutes. N01–N03 holds remain.
+
+
 > **EXIT GATE — N01–N03 DEVELOPMENT IS NOT YET COMPLETE (31 October 2026).** Do **not** describe the backlog as staging/production-only. N01's newer Shared workloads/scopes require reviewed adoption and real consumer proof; N02 requires genuine live estate/browser–Kratos–Hydra–CP, all seven N02 browser cases and original seven DEV-04 cases linked to one exact run/source with verified teardown; N03 requires passing final-head CI, real issuer/CP HTTP-resource and DEV-14/15 actual Pulse/Payments consumer negatives, revocation, recovery and teardown. Re-run all evidence after final source/lock changes. **No mock, skipped test or fixture-only result closes a development acceptance case.** Protected independent human/security/legal/provider gates apply **after**, not instead of, development qualification. [Current audited closure and owner action list](iam-n01-n03-development-closure-audit-2026-10-31.md).
 
 
