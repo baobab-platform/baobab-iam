@@ -41,3 +41,91 @@ Apply the SQL migration with an IAM database owner, restrict DML to its scoped r
 Verification: Go build/test for internal/nativebff, race tests, genuine PostgreSQL 17 test when TEST_NATIVE_BFF_DATABASE_URL is supplied, and existing IAM Ory/Keycloak/CP contracts and security checks. Tests with injected providers are fixtures and cannot be reported as real connected acceptance. Branded Kratos UI/session routing, passkeys/recovery/step-up, actual confidential Hydra client and registered CP workload, browser Playwright, estate integration, operational key lifecycle, C4-03B–E and C4-04B/C remain to be qualified.
 
 **All three canonical provider supports remain PARTIAL** pending independent N02/N03/N04 end-to-end consumer evidence. This PR proposes no new ADR, capability, grant, registration, production approval or Shared re-pin.
+
+
+## TLS composition host (source-ready, not deployed)
+
+The runtime source is cmd/native-browser-bff/main.go and builds with the main IAM
+CI. It is not enabled by the existence of a command. Its private configuration
+is supplied with the following shape; all values shown are descriptive
+placeholders, **not runnable or accepted credentials/provider/CP IDs**:
+
+~~~json
+{
+  "human_runtime": {
+    "cp_origin": "https://APPROVED_PRIVATE_CP_ORIGIN",
+    "resolution_token_file": "/run/secrets/native-human-resolution",
+    "runtime_token_file": "/run/secrets/native-human-runtime",
+    "context_target": {},
+    "provider_id": "APPROVED_KRATOS_PROVIDER",
+    "engine_instance_id": "APPROVED_KRATOS_INSTANCE",
+    "estate_id": "APPROVED_ESTATE",
+    "service_reference": "APPROVED_SERVICE_REFERENCE",
+    "configuration_reference": "APPROVED_KRATOS_CONFIG",
+    "security_domain_reference": "APPROVED_DOMAIN"
+  },
+  "issuer_runtime": {
+    "cp_origin": "https://APPROVED_PRIVATE_CP_ORIGIN",
+    "resolution_token_file": "/run/secrets/native-human-resolution",
+    "runtime_token_file": "/run/secrets/native-hydra-runtime",
+    "context_target": {},
+    "provider_id": "APPROVED_HYDRA_PROVIDER",
+    "engine_instance_id": "APPROVED_HYDRA_INSTANCE",
+    "estate_id": "APPROVED_ESTATE",
+    "service_reference": "APPROVED_SERVICE_REFERENCE",
+    "configuration_reference": "APPROVED_HYDRA_CONFIG",
+    "security_domain_reference": "APPROVED_DOMAIN"
+  },
+  "kratos_public_origin": "https://APPROVED_KRATOS_BROWSER_ORIGIN",
+  "hydra_admin_origin": "https://APPROVED_PRIVATE_HYDRA_ADMIN",
+  "issuer": "https://APPROVED_HYDRA_PUBLIC_ISSUER",
+  "public_origin": "https://APPROVED_FIRST_PARTY_ESTATE_HOST",
+  "client_id": "APPROVED_CONFIDENTIAL_ESTATE_CLIENT",
+  "client_secret_file": "/run/secrets/estate-oidc-secret",
+  "scope": "openid trade:buy",
+  "access_audience": "baobab-trade",
+  "access_scope": "trade:buy",
+  "cp_caller_token_file": "/run/secrets/bff-cp-workload-token",
+  "browser_database_dsn_file": "/run/secrets/iam-browser-postgres17-dsn",
+  "browser_vault_key_file": "/run/secrets/iam-browser-aes256-key",
+  "challenge_storage": {
+    "DSNFile": "/run/secrets/iam-challenge-postgres17-dsn",
+    "Namespace": "APPROVED_IAM_CHALLENGE_NAMESPACE",
+    "RecoveryEpoch": "APPROVED_RECOVERY_EPOCH"
+  },
+  "human_token_profiles_file": "/run/secrets/reviewed-human-profiles.json",
+  "human_consent_seal_key_file": "/run/secrets/human-consent-seal",
+  "tls_certificate_file": "/run/secrets/estate-bff-tls-cert",
+  "tls_private_key_file": "/run/secrets/estate-bff-tls-key"
+}
+~~~
+
+The CP runtime ContextTarget must have the exact reviewed tenant,
+Organisation and Market identity expected by the existing
+federation.RuntimeComposition type. The host refuses invalid CP composition,
+unverified TLS PostgreSQL DSNs, missing runtime/profile/consent keys, missing
+or short confidential client credentials, a non-32-byte vault key and
+unapproved resource audience/scope. The CP delegated workload bearer is
+**distinct** from the human ID/access token and from runtime-profile tokens.
+The challenge ledger uses the existing federation.PostgresStorage epoch
+and migration; the browser vault uses the new separate N02 SQL migration.
+Both require independently verified restoration/replay controls.
+
+Start only after approvals and the real configuration are supplied:
+
+~~~sh
+go run ./cmd/native-browser-bff \
+  -config /run/secrets/iam-native-bff-runtime.json \
+  -ca-file /run/secrets/iam-ca-roots.pem \
+  -listen 127.0.0.1:8443
+~~~
+
+This creates a **TLS-only HTTP listener**, not an automatically approved
+public estate endpoint. The ingress must retain the exact first-party Host,
+route genuine Kratos browser session cookies to the approved BFF and Hydra
+login/consent URLs, enforce private administrative routes and independent
+security headers, and establish managed user-facing UX and a protected
+deployment release. No provider secret, token, private key or literal signed
+identity should be in committed configuration or in runtime evidence. Review
+the exact approved staging/production secret-file ownership, certificate
+lifetime, PostgreSQL privilege/backup configuration and restoration behavior.
