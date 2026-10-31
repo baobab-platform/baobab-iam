@@ -44,13 +44,18 @@
       "origin": "https://thamani.private.example.invalid",
       "entry_path": "/sign-in",
       "session_path": "/api/auth/session",
-      "login_button_selector": "#REPLACE_WITH_REAL_FIRST_PARTY_LOGIN_BUTTON",
+      "login_button_selector": "#thamani-governed-login",
       "identifier_selector": "#REPLACE_WITH_REAL_AUTH_IDENTIFIER",
       "password_selector": "#REPLACE_WITH_REAL_AUTH_PASSWORD",
       "submit_selector": "#REPLACE_WITH_REAL_AUTH_SUBMIT",
-      "logout_button_selector": "#REPLACE_WITH_REAL_FIRST_PARTY_LOGOUT",
+      "logout_button_selector": "#thamani-governed-logout",
       "identifier_file": "/run/private/iam-n07/thamani.identifier",
-      "password_file": "/run/private/iam-n07/thamani.password"
+      "password_file": "/run/private/iam-n07/thamani.password",
+      "context_path": "/api/auth/context",
+      "logistics_navigation": {
+        "tenant_id": "tn_replace",
+        "market": "ZA"
+      }
     }
   }
 }
