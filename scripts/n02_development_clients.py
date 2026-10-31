@@ -165,10 +165,13 @@ class Registry:
 
     def expected(self, role: tuple) -> dict:
         name, client_id, grants, responses, audiences, scope = role
+        # Browser metadata MUST match the IAM Go DevelopmentClientRegistry
+        # exactly. Different lease tags on the same canonical client_id would
+        # break independent current Hydra readback and safe teardown.
         metadata = {
             "environment": "development",
-            "owner": "baobab-platform/zuribeans",
-            "n02_run_id": self.doc["run_id"],
+            "estate": "zuribeans",
+            "development_run_id": self.doc["run_id"],
         }
         item = {
             "client_id": client_id,
