@@ -1,0 +1,61 @@
+{
+  "schema": "baobab.iam.n07.estates-browser.v1",
+  "environment": "development",
+  "run_id": "00000000000000000000000000000000",
+  "source_pins": {
+    "baobab-iam": "0000000000000000000000000000000000000000",
+    "baobab-cp": "0000000000000000000000000000000000000000",
+    "shared": "0000000000000000000000000000000000000000",
+    "nabhold": "0000000000000000000000000000000000000000",
+    "zuribeans": "0000000000000000000000000000000000000000",
+    "thamani": "0000000000000000000000000000000000000000"
+  },
+  "estates": {
+    "nabhold": {
+      "origin": "https://nabhold.private.example.invalid",
+      "entry_path": "/sign-in",
+      "session_path": "/api/auth/session",
+      "login_button_selector": "#REPLACE_WITH_REAL_FIRST_PARTY_LOGIN_BUTTON",
+      "identifier_selector": "#REPLACE_WITH_REAL_AUTH_IDENTIFIER",
+      "password_selector": "#REPLACE_WITH_REAL_AUTH_PASSWORD",
+      "submit_selector": "#REPLACE_WITH_REAL_AUTH_SUBMIT",
+      "logout_button_selector": "#REPLACE_WITH_REAL_FIRST_PARTY_LOGOUT",
+      "identifier_file": "/run/private/iam-n07/nabhold.identifier",
+      "password_file": "/run/private/iam-n07/nabhold.password",
+      "context_path": "/api/auth/context",
+      "executive_navigation": {
+        "tenant_id": "tn_REPLACE_WITH_REAL_TENANT",
+        "market": "ZA"
+      }
+    },
+    "zuribeans": {
+      "origin": "https://zuribeans.private.example.invalid",
+      "entry_path": "/identity/native-qualification",
+      "session_path": "/api/iam/session",
+      "login_button_selector": "#REPLACE_WITH_REAL_FIRST_PARTY_LOGIN_BUTTON",
+      "identifier_selector": "#REPLACE_WITH_REAL_AUTH_IDENTIFIER",
+      "password_selector": "#REPLACE_WITH_REAL_AUTH_PASSWORD",
+      "submit_selector": "#REPLACE_WITH_REAL_AUTH_SUBMIT",
+      "logout_button_selector": "#REPLACE_WITH_REAL_FIRST_PARTY_LOGOUT",
+      "identifier_file": "/run/private/iam-n07/zuribeans.identifier",
+      "password_file": "/run/private/iam-n07/zuribeans.password"
+    },
+    "thamani": {
+      "origin": "https://thamani.private.example.invalid",
+      "entry_path": "/sign-in",
+      "session_path": "/api/auth/session",
+      "login_button_selector": "#thamani-governed-login",
+      "identifier_selector": "#REPLACE_WITH_REAL_AUTH_IDENTIFIER",
+      "password_selector": "#REPLACE_WITH_REAL_AUTH_PASSWORD",
+      "submit_selector": "#REPLACE_WITH_REAL_AUTH_SUBMIT",
+      "logout_button_selector": "#thamani-governed-logout",
+      "identifier_file": "/run/private/iam-n07/thamani.identifier",
+      "password_file": "/run/private/iam-n07/thamani.password",
+      "context_path": "/api/auth/context",
+      "logistics_navigation": {
+        "tenant_id": "tn_replace",
+        "market": "ZA"
+      }
+    }
+  }
+}

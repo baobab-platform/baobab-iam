@@ -49,6 +49,11 @@ jobs:
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_evidence_gate.py' -v
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_browser_source.py' -v
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_development_clients.py' -v
+      - name: IAM-N07 connected-consumer and real-browser source negatives (not live acceptance)
+        run: |
+          python3 -B -m py_compile scripts/n07_connected_consumers.py tests/browser/n07_estates_live.py
+          python3 -B -m unittest discover -s tests/unit -p 'test_n07_connected_consumers.py' -v
+          python3 -B -m unittest discover -s tests/unit -p 'test_n07_estate_browser_source.py' -v
       - name: Test federation and native browser boundaries with race detector
         run: go test -race ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
