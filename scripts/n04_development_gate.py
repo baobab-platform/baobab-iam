@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import re
 import sys
 
@@ -29,7 +28,7 @@ C403 = frozenset({
     "real_cp_withdrawal_denied_unexpired_token", "evidence_closed",
 })
 ENG = frozenset(f"ENG-ONB-0{i}" for i in range(1, 10))
-PROFILES = frozenset({"baobab-pulse", "baobab-payments"})
+PROFILES = {"baobab-pulse": "pulse-intelligence", "baobab-payments": "payments-sandbox"}
 
 
 class Held(ValueError):
@@ -98,6 +97,7 @@ def engine_readback(receipt: dict, expected_engine: str,
             and report.get("schema") == "infrastructure.engine-integration.observed.v1"
             and report.get("run_id") == receipt["run_id"]
             and report.get("subject_engine") == expected_engine
+            and report.get("profile_key") == PROFILES[expected_engine]
             and report.get("synthetic_only") is True
             and report.get("protected_acceptance") is False
             and report.get("production_authorized") is False,
