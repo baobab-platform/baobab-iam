@@ -1,5 +1,8 @@
 # ADR-IAM-0033 programme status
 
+**N04 started — DEVELOPMENT GATE HELD (31 October 2026):** [N04 owner-conformance source increment](../operations/n04-provider-support-development-qualification.md) reads original private source/CI/engine receipts, checks C4-03B–E and mandatory Pulse/Payments ENG-ONB cases, and refuses false source-only acceptance. **A valid checksum is not real producer attestation; all N04 output remains UNATTESTED / HELD.** CP-owned live support lifecycle and C4-04B/C registered token-consumer positive/negative, independent provider readback and teardown are still **development** work. N01–N03 development hold continues. No provider IMPLEMENTED declaration, support promotion, staging approval or PR merge follows.
+
+
 > **PROGRAMME DEVELOPMENT HOLD — N01–N03 NOT COMPLETE (31 October 2026).** N01 source convergence checks passed, but its newer Shared development workload/scope adoption is HELD. N02 requires real browser–Kratos–Hydra–CP/estate same-run DEV-04 cases, recovery, global logout, PostgreSQL recovery and teardown. N03 requires executed final-head tests and real owner-engine (especially Pulse/Payments) issuer→CP→native resource positive/negative qualification. **These are DEVELOPMENT obligations and cannot be moved into staging/production.** `QUEUED`, `IN_PROGRESS`, opt-in/not-run and source-only tests are **not PASS**. Protected staging/production gates remain separate. [Closure audit](iam-n01-n03-development-closure-audit-2026-10-31.md). **No provider-support promotion or release claim; current support remains PARTIAL.**
 
 
