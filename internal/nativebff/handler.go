@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/baobab-platform/baobab-iam/internal/assurance"
 	"github.com/baobab-platform/baobab-iam/internal/humanauth"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -113,6 +114,12 @@ type Config struct {
 	KratosOrigin                                                    string
 	RequireAAL2                                                     bool
 	Assurance                                                        AssuranceInspector
+	// N06 is a mandatory owner-side gate only where explicitly enabled.
+	// Map each non-openid native scope to a reviewed assurance operation.
+	// The BFF never accepts scope/operation policies from the browser.
+	N06Required                                                     bool
+	N06ScopeOperations                                             map[string]assurance.Operation
+	N06Gate                                                         N06Gate
 	NativeSessions                                                  NativeSessionRevoker
 	OAuthSessions                                                   OAuthSubjectSessionRevoker
 	TrustedRoots                                                     *x509.CertPool
@@ -179,6 +186,17 @@ func New(c Config) (*Handler, error) {
 		return nil, errors.New("scope profile mismatch")
 	}
 	if c.RequireAAL2 && c.Assurance == nil { return nil, errors.New("step-up requires real Kratos AAL proof") }
+	if c.N06Required {
+		if c.N06Gate == nil || len(c.N06ScopeOperations) == 0 { return nil,errors.New("N06 owner security gate and scope policy required") }
+		for _,scope:=range scopes {
+			if scope=="openid" {continue}
+			operation,ok:=c.N06ScopeOperations[scope]
+			if !ok || _,reviewed:=assurance.DefaultDevelopmentPolicy()[operation];!reviewed {return nil,errors.New("unreviewed N06 scope operation")}
+		}
+		for scope:=range c.N06ScopeOperations {if !seen[scope] || scope=="openid"{return nil,errors.New("N06 policies must match exact registered scope")} }
+	} else if len(c.N06ScopeOperations)>0 || c.N06Gate!=nil {
+		return nil,errors.New("N06 security gate must be explicitly enabled")
+	}
 	if (c.Verifier != nil || c.AccessVerifier != nil) && !c.AllowTestLoopback {
 		return nil, errors.New("production requires cryptographic ID and access token verification")
 	}
@@ -389,7 +407,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		h.redirectKratos(w, r, "login", false)
 		return
 	}
-	if !h.allowAssurance(w,r,cred,false) {return}
+	if !h.allowAssurance(w,r,cred,false) || !h.allowN06(w,r,cred,tx.Intent) {return}
 	dest, err := h.c.Handoff.AcceptLogin(r.Context(), r.URL.Query().Get("login_challenge"), cred, tx.Intent)
 	if err != nil || !h.safeHydra(dest) {
 		h.fail(w, 403)
@@ -424,7 +442,7 @@ func (h *Handler) consentPage(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 401)
 		return
 	}
-	if !h.allowAssurance(w,r,cred,false) {return}
+	if !h.allowAssurance(w,r,cred,false) || !h.allowN06(w,r,cred,tx.Intent) {return}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = consentForm.Execute(w, struct{ Client, Scopes, Challenge, CSRF string }{
 		tx.Intent.ClientID, tx.Intent.Scope, r.URL.Query().Get("consent_challenge"), tx.CSRF,
@@ -452,7 +470,7 @@ func (h *Handler) consent(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 401)
 		return
 	}
-	if !h.allowAssurance(w,r,cred,true) {return}
+	if !h.allowAssurance(w,r,cred,true) || !h.allowN06(w,r,cred,tx.Intent) {return}
 	dest, err := h.c.Handoff.AcceptConsent(r.Context(), r.URL.Query().Get("consent_challenge"), cred, tx.Intent, true)
 	if err != nil || !h.safeHydra(dest) {
 		h.fail(w, 403)
@@ -506,6 +524,25 @@ func (h *Handler) allowAssurance(w http.ResponseWriter,r *http.Request,cred ory.
 	return false
 }
 
+// allowN06 checks fresh, first-party current identity/assurance/risk on
+// every high-impact login and consent, before creating a Hydra issuer grant.
+// A missing/wrong/uncertain proof is DENIED without claiming business rights.
+func (h *Handler) allowN06(w http.ResponseWriter,r *http.Request,cred ory.NativeSessionCredential,intent humanauth.Request)bool{
+	if !h.c.N06Required {return true}
+	if h.c.N06Gate==nil {h.fail(w,http.StatusServiceUnavailable);return false}
+	for _,scope:=range strings.Fields(intent.Scope){
+		if scope=="openid"{continue}
+		op,ok:=h.c.N06ScopeOperations[scope]
+		if !ok {h.fail(w,http.StatusForbidden);return false}
+		decision,err:=h.c.N06Gate.EvaluateNative(r.Context(),cred,op)
+		if err!=nil || decision.Outcome!=assurance.Allow {
+			h.fail(w,http.StatusForbidden)
+			return false
+		}
+	}
+	return true
+}
+
 // Recovery always begins with Kratos's own browser ceremony; it never
 // creates an IAM or CP Principal, changes an existing issuer/subject link or
 // treats recovery as an assurance upgrade. A new signed OAuth login remains
@@ -552,6 +589,15 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		currentSubject,currentAAL,e := h.c.Assurance.AuthenticatorSubjectAAL(r.Context(),credential)
 		if e != nil || currentSubject != sub || currentAAL != "aal2" {
 			h.fail(w,http.StatusForbidden)
+			return
+		}
+	}
+	// N06 must recheck fresh native provider evidence before the new sealed
+	// BFF session is minted. Earlier consent proof is not permanently valid.
+	if h.c.N06Required {
+		credential,e:=h.kratos(r)
+		if e!=nil || !h.allowN06(w,r,credential,tx.Intent) {
+			if e!=nil {h.fail(w,http.StatusForbidden)}
 			return
 		}
 	}
