@@ -23,9 +23,9 @@ func (s *currentStub) ReadCurrent(_ context.Context,_ string)(LiveStatus,error) 
 	return a,s.err
 }
 type authorityStub struct{ calls int; err error; withdraw func() }
-func (s *authorityStub) AuthorizeCurrent(_ context.Context,c Claims,o Operation)error {
+func (s *authorityStub) AuthorizeCurrent(_ context.Context,raw string,c Claims,o Operation)error {
 	s.calls++
-	if c.ClientID==""||o.ContextID==""||o.TenantID==""||o.ResourceOperation=="" {
+	if raw==""||c.ClientID==""||o.ContextID==""||o.TenantID==""||o.ResourceOperation=="" {
 		return ErrDenied
 	}
 	if s.withdraw!=nil {s.withdraw()}
