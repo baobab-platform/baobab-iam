@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -89,6 +90,21 @@ def load_profile() -> dict[str, Any]:
         raise Denied("UNPINNED_SOURCE")
     if not re.fullmatch(r"[0-9a-f]{32}", data.get("run_id", "")):
         raise Denied("UNBOUNDED_SYNTHETIC_RUN")
+    if data.get("require_aal2") is not True:
+        raise Denied("AAL2_REQUIRED_FOR_QUALIFICATION")
+    # Profile SHA alone is not executable provenance; verify actual clean checkout.
+    source = Path(__file__).resolve().parents[2]
+    try:
+        revision = subprocess.run(["git", "-C", str(source), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=True, timeout=10)
+        clean = subprocess.run(["git", "-C", str(source), "diff", "--quiet", "HEAD", "--"],
+            capture_output=True, check=False, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        raise Denied("IMMUTABLE_SOURCE_UNVERIFIED") from None
+    if revision.stdout.strip() != data["iam_source_sha"] or clean.returncode != 0:
+        raise Denied("IMMUTABLE_SOURCE_MISMATCH")
+    if not isinstance(data.get("post_recovery_password_file"), str):
+        raise Denied("POST_RECOVERY_CREDENTIAL_REQUIRED")
     if not isinstance(data.get("selectors"), dict):
         raise Denied("REAL_BROWSER_SELECTORS_REQUIRED")
     for name in ("identifier", "password", "submit", "recovery_identifier",
@@ -175,7 +191,11 @@ def run_browser(profile: dict[str, Any]) -> dict[str, str]:
                 code = str((int.from_bytes(digest[offset:offset+4], "big") & 0x7fffffff) % 1000000).zfill(6)
                 page.locator(selectors["totp_input"]).fill(code)
                 page.locator(selectors["totp_submit"]).click()
-                results[CASES[4]] = "OBSERVED"
+                # A clicked OTP submit is not proof: observe actual Kratos AAL.
+                current = context.request.get(kratos + "/sessions/whoami", max_redirects=0)
+                if (current.status != 200 or
+                        current.json().get("authenticator_assurance_level") != "aal2"):
+                    raise Denied("KRATOS_AAL2_NOT_OBSERVED")
             STAGE = "EXPLICIT_CONSENT"
             page.get_by_role("button", name="Allow").click()
             page.wait_for_url(bff + "/", wait_until="domcontentloaded")
@@ -185,8 +205,13 @@ def run_browser(profile: dict[str, Any]) -> dict[str, str]:
             exposed = session.json()
             if set(exposed) != {"authenticated", "principal_id", "csrf"} or exposed["authenticated"] is not True:
                 raise Denied("BROWSER_SESSION_EXPOSED_EXTRA_AUTHORITY")
+            if (not isinstance(exposed["principal_id"], str) or
+                    not exposed["principal_id"]):
+                raise Denied("CP_PRINCIPAL_ID_INVALID")
+            principal_id = exposed["principal_id"]
             results[CASES[1]] = "OBSERVED"
             results[CASES[3]] = "OBSERVED"
+            results[CASES[4]] = "OBSERVED"
 
             # A one-time code must remain unusable after the initial callback.
             STAGE = "CALLBACK_REPLAY"
@@ -224,6 +249,43 @@ def run_browser(profile: dict[str, Any]) -> dict[str, str]:
             page.locator(selectors["recovery_complete"]).click()
             if context.request.get(bff + "/auth/session", max_redirects=0).status != 401:
                 raise Denied("RECOVERY_AUTO_GRANTED_CP_SESSION")
+            # Recovery alone must not grant anything. Require a new, distinct
+            # OAuth authorization-code ceremony and current CP Principal.
+            STAGE = "POST_RECOVERY_FRESH_LOGIN"
+            page.goto(bff + "/auth/session", wait_until="domcontentloaded")
+            page.evaluate("""() => {
+                const form = document.createElement('form');
+                form.method = 'POST'; form.action = '/auth/start';
+                document.body.appendChild(form); form.submit();
+            }""")
+            page.locator(selectors["identifier"]).fill(profile["synthetic_identifier"])
+            page.locator(selectors["password"]).fill(read_secret(profile, "post_recovery_password_file"))
+            page.locator(selectors["submit"]).click()
+            seed = read_secret(profile, "totp_seed_file")
+            import base64
+            import hmac
+            import struct
+            import hashlib as digests
+            secret = base64.b32decode(seed, casefold=True)
+            digest = hmac.new(secret, struct.pack(">Q", int(time.time()) // 30), digests.sha1).digest()
+            offset = digest[-1] & 15
+            code = str((int.from_bytes(digest[offset:offset+4], "big") & 0x7fffffff) % 1000000).zfill(6)
+            page.locator(selectors["totp_input"]).fill(code)
+            page.locator(selectors["totp_submit"]).click()
+            current = context.request.get(kratos + "/sessions/whoami", max_redirects=0)
+            if (current.status != 200 or
+                    current.json().get("authenticator_assurance_level") != "aal2"):
+                raise Denied("POST_RECOVERY_AAL2_NOT_OBSERVED")
+            page.get_by_role("button", name="Allow").click()
+            page.wait_for_url(bff + "/", wait_until="domcontentloaded")
+            recovered = context.request.get(bff + "/auth/session", max_redirects=0)
+            if recovered.status != 200:
+                raise Denied("POST_RECOVERY_FRESH_SESSION_MISSING")
+            current = recovered.json()
+            if (set(current) != {"authenticated", "principal_id", "csrf"} or
+                    current["authenticated"] is not True or
+                    current["principal_id"] != principal_id):
+                raise Denied("POST_RECOVERY_CP_PRINCIPAL_DRIFT")
             results[CASES[5]] = "OBSERVED"
         finally:
             browser.close()
@@ -274,7 +336,18 @@ def main() -> int:
         os.fsync(f.fileno())
     target = destination / "browser-observation.json"
     os.replace(temporary,target)
-    (destination / "browser-observation.sha256").write_text(hashlib.sha256(encoded).hexdigest()+"\n")
+    # Gate requires 0600 original sidecars. Path.write_text may create 0644.
+    digest_temp = destination / ".browser-observation.sha256.tmp"
+    with os.fdopen(os.open(digest_temp, os.O_WRONLY|os.O_CREAT|os.O_EXCL, 0o600), "w") as f:
+        f.write(hashlib.sha256(encoded).hexdigest()+"\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(digest_temp, destination / "browser-observation.sha256")
+    folder_fd = os.open(destination, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(folder_fd)
+    finally:
+        os.close(folder_fd)
     print("N02_BROWSER_OBSERVED_UNATTESTED; no CP/protected certification")
     return 0
 
