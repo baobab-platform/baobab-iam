@@ -40,6 +40,14 @@ This directory contains the ADRs for Baobab IAM.
 - [ADR-IAM-0031: IAM Administration, Delegated Administration, Privileged Access and Break-Glass Governance](./ADR-IAM-0031%20—%20IAM%20Administration,%20Delegated%20Administration,%20Privileged%20Access%20and%20Break-Glass%20Governance.md)
 - [ADR-IAM-0032: IAM Production Governance, SLOs, Capacity, Compatibility, Upgrade and Operational Acceptance Architecture](./ADR-IAM-0032%20—%20IAM%20Production%20Governance,%20SLOs,%20Capacity,%20Compatibility,%20Upgrade%20and%20Operational%20Acceptance%20Architecture.md)
 
+## Governing multi-provider and development records
+
+- [ADR-IAM-0033: Multi-Provider Identity Runtime, Enterprise SSO and Federation Provider Architecture](./ADR-IAM-0033%20—%20Multi-Provider%20Identity%20Runtime,%20Enterprise%20SSO%20and%20Federation%20Provider%20Architecture.md) — **Accepted**, controls provider allocation, retains enterprise Keycloak, supersedes incompatible general-provider/retirement assumptions.
+- [ADR-IAM-0034: Native Commitment Server Workload Identity](./ADR-IAM-0034%20—%20Native%20Commitment%20Server%20Workload%20Identity.md) — **Proposed** and unallocated; subordinate to ADR-SHARED-042 Decision 9.
+- [ADR-SHARED-043: Development Provisioning and Environment Approval Boundaries](https://github.com/baobab-platform/shared/blob/main/docs/adr/ADR-SHARED-043-Development-Provisioning-and-Environment-Approval-Boundaries.md) — **Accepted** for synthetic development without independent human per-run approval; protected staging/production controls stay in force.
+
+The ADR-0001–0018 source headers remain historical **Proposed** records. ADR-IAM-0019–0032 are **Accepted** but amended where inconsistent with 0033. This index does not change those file statuses or activate support. See [IAM-N01 source and contract audit](../governance/iam-n01-convergence.md).
+
 ## Related documents
 
 - [Consolidated Technical Specification](./Consolidated-Technical-Specification.md) — merges ADR-0001 through ADR-0018
