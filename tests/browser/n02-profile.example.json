@@ -21,5 +21,6 @@
     "recovery_submit": "button[type=\"submit\"]",
     "recovery_code": "input[name=\"code\"]",
     "recovery_complete": "button[type=\"submit\"]"
-  }
+  },
+  "post_recovery_password_file": "/run/secrets/synthetic-post-recovery-password"
 }
