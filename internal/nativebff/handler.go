@@ -62,6 +62,9 @@ type AssuranceInspector interface {
 type NativeSessionRevoker interface {
 	RevokeNativeSessions(context.Context, string) error
 }
+type OAuthSubjectSessionRevoker interface {
+	RevokeSubjectSessions(context.Context, string) error
+}
 
 type IDVerifier interface {
 	Verify(context.Context, string, string) (string, error)
@@ -111,6 +114,7 @@ type Config struct {
 	RequireAAL2                                                     bool
 	Assurance                                                        AssuranceInspector
 	NativeSessions                                                  NativeSessionRevoker
+	OAuthSessions                                                   OAuthSubjectSessionRevoker
 	TrustedRoots                                                     *x509.CertPool
 	// Only disposable loopback tests may inject an ID verifier or use HTTP.
 	AllowTestLoopback bool
@@ -699,8 +703,9 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 	allOk := h.c.Store.DeleteHumanSessions(r.Context(), s.Issuer, s.Subject)==nil
 	expireCookie(w,sessionCookie,http.SameSiteStrictMode)
 	kratosOk:=h.c.NativeSessions!=nil && h.c.NativeSessions.RevokeNativeSessions(r.Context(),s.Subject)==nil
+	hydraSessionOk:=h.c.OAuthSessions!=nil && h.c.OAuthSessions.RevokeSubjectSessions(r.Context(),s.Subject)==nil
 	hydraOk:=h.c.Revoker.Revoke(r.Context(),s.Tokens)==nil
-	if !localOk || !allOk || !kratosOk || !hydraOk {h.fail(w,http.StatusServiceUnavailable);return}
+	if !localOk || !allOk || !kratosOk || !hydraSessionOk || !hydraOk {h.fail(w,http.StatusServiceUnavailable);return}
 	w.WriteHeader(http.StatusNoContent)
 }
 
