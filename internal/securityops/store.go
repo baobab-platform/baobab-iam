@@ -81,7 +81,7 @@ func (s *Store) RecordRecovery(ctx context.Context, a RecoveryAction) error {
 	p,err:=s.tag("principal",a.Principal);if err!=nil{return err}
 	i,err:=s.tag("issuer",a.Issuer);if err!=nil{return err}
 	d,err:=s.tag("security-domain",a.SecurityDomain);if err!=nil{return err}
-	_,err=s.pool.Exec(ctx,`INSERT INTO iam_security.recovery_hold
+	command,err:=s.pool.Exec(ctx,`INSERT INTO iam_security.recovery_hold
  (principal_key,issuer_key,security_domain_key,observed_at,hold_until,reason)
  VALUES ($1,$2,$3,$4,$5,$6)
  ON CONFLICT (principal_key) DO UPDATE SET
@@ -94,6 +94,7 @@ func (s *Store) RecordRecovery(ctx context.Context, a RecoveryAction) error {
  AND iam_security.recovery_hold.security_domain_key=EXCLUDED.security_domain_key`,
 	p,i,d,a.ObservedAt,a.HoldUntil,a.Reason)
 	if err!=nil{return fmt.Errorf("securityops: recovery hold not persisted: %w",err)}
+	if command.RowsAffected()!=1{return errors.New("securityops: recovery issuer/security-domain ownership drift")}
 	return nil
 }
 
