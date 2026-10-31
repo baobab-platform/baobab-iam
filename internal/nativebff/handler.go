@@ -191,7 +191,8 @@ func New(c Config) (*Handler, error) {
 		for _,scope:=range scopes {
 			if scope=="openid" {continue}
 			operation,ok:=c.N06ScopeOperations[scope]
-			if !ok || _,reviewed:=assurance.DefaultDevelopmentPolicy()[operation];!reviewed {return nil,errors.New("unreviewed N06 scope operation")}
+			if !ok {return nil,errors.New("missing N06 scope operation")}
+			if _,reviewed:=assurance.DefaultDevelopmentPolicy()[operation];!reviewed {return nil,errors.New("unreviewed N06 scope operation")}
 		}
 		for scope:=range c.N06ScopeOperations {if !seen[scope] || scope=="openid"{return nil,errors.New("N06 policies must match exact registered scope")} }
 	} else if len(c.N06ScopeOperations)>0 || c.N06Gate!=nil {
