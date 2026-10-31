@@ -54,6 +54,11 @@ jobs:
           python3 -B -m py_compile scripts/n07_connected_consumers.py tests/browser/n07_estates_live.py
           python3 -B -m unittest discover -s tests/unit -p 'test_n07_connected_consumers.py' -v
           python3 -B -m unittest discover -s tests/unit -p 'test_n07_estate_browser_source.py' -v
+      - name: IAM-N08 native Go source and supply-chain negatives
+        run: |
+          python3 -B scripts/n08_verify_supply_chain.py
+          python3 -B -m unittest discover -s tests/unit -p 'test_n08_native_supply_chain.py' -v
+          go test -race ./internal/nativebff ./cmd/native-browser-bff -run '^TestN08' -count=1
       - name: Test federation and native browser boundaries with race detector
         run: go test -race ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
@@ -145,6 +150,12 @@ jobs:
           go test ./internal/assurance ./internal/securityops ./internal/nativebff -run 'TestN06' -count=1 -v
       - name: Race-check real security ledger and credential-change negatives
         run: go test -race ./internal/securityops ./internal/assurance -run 'TestN06' -count=1
+      - name: IAM-N08 real PostgreSQL 17 backup restore and replay fencing
+        env:
+          IAM_N08_DISPOSABLE_PG: "1"
+          IAM_N08_DATABASE_NAME: n06_ci
+          IAM_N08_PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: bash tests/operations/n08_postgres_restore_replay.sh
 
   enterprise-federation-live:
     runs-on: ubuntu-latest
