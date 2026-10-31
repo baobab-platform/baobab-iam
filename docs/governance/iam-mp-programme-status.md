@@ -1,5 +1,8 @@
 # ADR-IAM-0033 programme status
 
+> **PROGRAMME DEVELOPMENT HOLD — N01–N03 NOT COMPLETE (31 October 2026).** N01 source convergence checks passed, but its newer Shared development workload/scope adoption is HELD. N02 requires real browser–Kratos–Hydra–CP/estate same-run DEV-04 cases, recovery, global logout, PostgreSQL recovery and teardown. N03 requires executed final-head tests and real owner-engine (especially Pulse/Payments) issuer→CP→native resource positive/negative qualification. **These are DEVELOPMENT obligations and cannot be moved into staging/production.** `QUEUED`, `IN_PROGRESS`, opt-in/not-run and source-only tests are **not PASS**. Protected staging/production gates remain separate. [Closure audit](iam-n01-n03-development-closure-audit-2026-10-31.md). **No provider-support promotion or release claim; current support remains PARTIAL.**
+
+
 **IAM-N03 implementation review, 31 October 2026:** [Resource-side standard OAuth verification](../operations/n03-workload-resource-qualification.md) now has a reusable provider-neutral gate with JWKS, RFC7662 freshness, CP context and mandatory domain veto, adversarial tests, and an opt-in actual Hydra + CP source router/issuer-revocation suite. This remains DRAFT/source and isolated real-component evidence only until executed; no actual protected tenant/market consumer or production token withdrawal has been demonstrated. No provider-support promotion or authorization/Shared re-pin is implied.
 
 
