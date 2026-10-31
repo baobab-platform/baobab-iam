@@ -3,6 +3,7 @@ package workloadresource
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -188,7 +189,19 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 	})
 	t.Run("real-wrong-audience-refused",func(t *testing.T){
 		other:=exchange("m4-ci-subject",subjectSecret,"context:resolve","baobab-control-plane")
-		if gate.Authorize(ctx,other,operation)==nil{t.Fatal("real foreign audience admitted")}
+		if gate.Authorize(ctx,other,operation)==nil||sendToResource(other)!=http.StatusForbidden{t.Fatal("real foreign audience admitted")}
+	})
+	t.Run("real-tampered-signature-denied-by-resource",func(t *testing.T){
+		parts:=strings.Split(raw,".")
+		if len(parts)!=3{t.Fatal("real provider JWT shape invalid")}
+		sig,err:=base64.RawURLEncoding.DecodeString(parts[2])
+		if err!=nil||len(sig)==0{t.Fatal("provider token signature absent")}
+		sig[0]^=1
+		parts[2]=base64.RawURLEncoding.EncodeToString(sig)
+		altered:=strings.Join(parts,".")
+		if gate.Authorize(ctx,altered,operation)==nil||sendToResource(altered)!=http.StatusForbidden{
+			t.Fatal("tampered original provider signature accepted")
+		}
 	})
 	t.Run("CP-other-owner-denied-with-unexpired-bearer",func(t *testing.T){
 		current.scenario="other-owner"
