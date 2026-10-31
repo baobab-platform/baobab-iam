@@ -7,6 +7,27 @@ pre-provisioned identities, clients, tenants, grants and provider registrations.
 During a live run it requests provider tokens and CP contexts; it does not
 provision or activate the underlying authorities.
 
+## Development execution versus protected staging
+
+Accepted ADR-SHARED-043 permits CP-governed, isolated **synthetic**
+development identities and real IAM-issued credentials without per-run
+independent human approval or real incorporation documents. A developer/CI
+operator may coordinate separate synthetic maker/checker Principals, but a
+single Principal must still fail self-approval. Existing C4-03 inputs remain
+required: this runner does not provision synthetic identities or credentials;
+an owner must supply its bounded, privately held runtime configuration from
+CP's default-off development bootstrap and actual provider provisioning.
+
+The existing BAOBAB_C403_DISPOSABLE=1 marker is necessary, never sufficient:
+actual environment isolation, run provenance, current CP authority, issuer
+signature, wrong-tenant denial, revocation while unexpired, and teardown
+must be independently exercised. Real-component development results use
+REAL_COMPONENT_SYNTHETIC_DATA; mocked tests are not upgraded to that class.
+No simulated issuer/CP response is a positive. Protected staging retains
+independent authorised approvers and custody; production adds its separate
+legal/provider/operational gates. Neither is accepted by development evidence.
+N01 adds this governing distinction, not an approval bypass or C4-03 PASS.
+
 ## Evidence and gates
 
 | Gate | Real acceptance required | Present status |
