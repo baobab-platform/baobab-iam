@@ -107,9 +107,28 @@ func (s *Service) RegisterBatch(
 		// Deterministic id: batch + provider + issuer + subject (issuer required).
 		migrationID := BatchMigrationID(req.BatchID, source)
 
-		_, getErr := s.Store.Get(ctx, migrationID)
+		existing, getErr := s.Store.Get(ctx, migrationID)
 		switch {
 		case getErr == nil:
+			// Repeatable import is a verified NO-OP, never silent acceptance
+			// of altered source data, batch reassignment, or a changed CP
+			// issuer+subject -> canonical identity mapping.
+			if existing.MigrationBatchID != req.BatchID ||
+				existing.Source != source ||
+				existing.SourceSnapshotReference != b.SnapshotReference {
+				return nil, fmt.Errorf("migration: source binding/receipt drift for %s", migrationID)
+			}
+			canonical, resolveErr := resolver.ResolveCanonical(ctx, source)
+			if resolveErr != nil && !isNoCanonical(resolveErr) {
+				return nil, fmt.Errorf("migration: repeat canonical readback unavailable: %w", resolveErr)
+			}
+			if isNoCanonical(resolveErr) {
+				canonical = ""
+			}
+			if existing.CanonicalIdentityID != canonical ||
+				(existing.IdentityClass == ClassOrphanCandidate) != (canonical == "") {
+				return nil, fmt.Errorf("migration: canonical identity drift for %s (requires manual reconciliation)", migrationID)
+			}
 			result.SkippedExists++
 			continue
 		case errors.Is(getErr, ErrNotFound):
