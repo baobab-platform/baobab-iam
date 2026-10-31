@@ -84,7 +84,8 @@ def github_json(repository: str, path: str, token: str) -> dict:
         "User-Agent": "baobab-n04-original-artifact-readback",
     })
     client = urllib.request.build_opener(
-        NoRedirect(), urllib.request.HTTPSHandler(context=ssl.create_default_context()))
+        urllib.request.ProxyHandler({}), NoRedirect(),
+        urllib.request.HTTPSHandler(context=ssl.create_default_context()))
     with client.open(request, timeout=12) as response:
         require(response.status == 200, "GITHUB_READBACK_UNAVAILABLE")
         raw = response.read(1_000_001)
