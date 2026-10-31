@@ -93,6 +93,7 @@ type Config struct {
 	CP                                                               PrincipalResolver
 	Revoker                                                          Revoker
 	Store                                                            Store
+	Limiter                                                          AdmissionLimiter
 	HTTPClient                                                       *http.Client
 	Verifier                                                         IDVerifier
 	AccessVerifier                                                   IDVerifier // disposable loopback test fixture only
@@ -140,7 +141,8 @@ func New(c Config) (*Handler, error) {
 	redirect := strings.TrimRight(c.PublicOrigin, "/") + "/auth/callback"
 	if c.RedirectURI != redirect || c.ClientID == "" || len(c.ClientID) > 255 || len(c.ClientSecret) < 32 ||
 		c.Now == nil || c.Handoff == nil || c.CP == nil || c.Revoker == nil || c.Store == nil ||
-		c.KratosSessionCookieName != "ory_kratos_session" || c.AccessAudience == "" || c.AccessScope == "" {
+		c.KratosSessionCookieName != "ory_kratos_session" || c.AccessAudience == "" || c.AccessScope == "" ||
+		c.Limiter == nil {
 		return nil, errors.New("incomplete confidential native BFF configuration")
 	}
 	scopes := strings.Fields(c.Scope)
@@ -308,6 +310,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.TLS != nil {
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+	}
+	// Rate admission is independent of authentication and runs before any
+	// challenge, provider request, CP lookup or new session allocation.
+	// Only the actual TLS TCP peer is considered; forwarded headers are not trusted.
+	operation := r.Method + " " + r.URL.Path
+	if _, known := limits[operation]; known {
+		if err := h.c.Limiter.Admit(r.Context(), operation, r.RemoteAddr); err != nil {
+			if errors.Is(err, ErrRateLimited) {
+				w.Header().Set("Retry-After", "60")
+				h.fail(w, http.StatusTooManyRequests)
+			} else {
+				h.fail(w, http.StatusServiceUnavailable)
+			}
+			return
+		}
 	}
 	h.router.ServeHTTP(w, r)
 }
