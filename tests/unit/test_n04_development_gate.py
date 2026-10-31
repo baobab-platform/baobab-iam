@@ -124,7 +124,7 @@ class N04Gate(unittest.TestCase):
 
     def test_engine_negatives_must_all_be_original_passes(self):
         row = engine("baobab-pulse", PR)
-        n04.engine_readback(row, "baobab-pulse", IAM, SHARED, CP)
+        n04.engine_readback(row, "baobab-pulse", IAM, SHARED, CP, INFRA)
         for mutate in (
             lambda x: x["engine_integration"]["cases"].pop("ENG-ONB-06"),
             lambda x: x["engine_integration"]["cases"]["ENG-ONB-04"].update(
@@ -146,7 +146,7 @@ class N04Gate(unittest.TestCase):
             bad = copy.deepcopy(row)
             mutate(bad)
             with self.assertRaises(n04.Held):
-                n04.engine_readback(bad, "baobab-pulse", IAM, SHARED, CP)
+                n04.engine_readback(bad, "baobab-pulse", IAM, SHARED, CP, INFRA)
 
     def test_c403_sidecar_requires_original_exact_bytes(self):
         with tempfile.TemporaryDirectory() as d:
@@ -187,7 +187,8 @@ class N04Gate(unittest.TestCase):
                 path.chmod(0o600)
                 sidecar.chmod(0o600)
                 files.extend((f"--{key}", str(path), f"--{key}-digest", str(sidecar)))
-            args = ["--iam-sha", IAM, "--shared-sha", SHARED, "--cp-sha", CP] + files
+            args = ["--iam-sha", IAM, "--shared-sha", SHARED, "--cp-sha", CP,
+                    "--infrastructure-sha", INFRA] + files
             self.assertEqual(n04.readback(args),
                              "N04_ORIGINAL_EVIDENCE_RECONCILED_UNATTESTED")
             # No acceptance if two independent owner runs reuse one run ID.
@@ -204,7 +205,7 @@ class N04Gate(unittest.TestCase):
     def test_non_immutable_source_denied(self):
         with self.assertRaises(n04.Held):
             n04.readback(["--iam-sha", "main", "--shared-sha", SHARED,
-                          "--cp-sha", CP] + [
+                          "--cp-sha", CP, "--infrastructure-sha", INFRA] + [
                               x for key in ("browser", "int03c", "c403", "pulse", "payments")
                               for x in (f"--{key}", "/not/present",
                                         f"--{key}-digest", "/not/present")])
