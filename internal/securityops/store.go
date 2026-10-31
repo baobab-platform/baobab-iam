@@ -110,6 +110,9 @@ func (s *Store) RecordRecovery(ctx context.Context, a RecoveryAction, witness Re
 		return errors.New("securityops: current, approved recovery proof required")
 	}
 	proof, err := witness.VerifyRecovery(ctx, a)
+	// Read the verifier clock after obtaining its original observation; a
+	// nanosecond newer witness must not be mistaken for a future event.
+	now = s.now().UTC()
 	if err != nil || !proof.ExactProviderSession || !proof.RecoveryCompleted ||
 		proof.OriginalReference == "" || proof.ObservedAt.IsZero() ||
 		proof.ObservedAt.After(now) || now.Sub(proof.ObservedAt) > time.Minute {
@@ -233,7 +236,7 @@ func (s *Store) AppendEvent(ctx context.Context, ev SafeEvent) (string, error) {
 	// or provider exception text goes to the immutable audit stream.
 	_, err = s.pool.Exec(ctx, `INSERT INTO iam_security.event
 (event_id,event_type,occurred_at,actor_key,subject_key,correlation_id,
-outcome,severity,metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,jsonb_build_object('result_code',$9))`,
+outcome,severity,metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,jsonb_build_object('result_code',$9::text))`,
 		id, ev.Type, ev.OccurredAt, actor, sub, ev.CorrelationID, ev.Outcome, ev.Severity, ev.ResultCode)
 	if err != nil {
 		return "", fmt.Errorf("securityops: security event not committed: %w", err)
