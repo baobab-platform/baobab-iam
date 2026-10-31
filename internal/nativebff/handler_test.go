@@ -75,6 +75,18 @@ func (m *memoryStore) DeleteSession(_ context.Context, id string) error {
 	return nil
 }
 
+type allowAdmission struct {
+	reject error
+	calls int
+}
+func (a *allowAdmission) Admit(_ context.Context, operation, remote string) error {
+	a.calls++
+	if remote == "" || operation == "" {
+		return errors.New("invalid admission target")
+	}
+	return a.reject
+}
+
 type fixtureHandoff struct {
 	accepted int
 	intent   humanauth.Request
@@ -153,7 +165,7 @@ func makeFixture(t *testing.T) fixture {
 		ClientID: "synthetic-estate-bff", ClientSecret: strings.Repeat("s", 32),
 		RedirectURI: "http://127.0.0.1:3000/auth/callback", Scope: "openid trade:buy",
 		KratosSessionCookieName: "ory_kratos_session", AccessAudience: "baobab-trade", AccessScope: "trade:buy", Now: time.Now, Handoff: handoff,
-		CP: cp, Revoker: revoker, Store: store, AllowTestLoopback: true,
+		CP: cp, Revoker: revoker, Store: store, Limiter: &allowAdmission{}, AllowTestLoopback: true,
 		Verifier:       fixtureVerifier{subject: "synthetic-subject"},
 		AccessVerifier: fixtureVerifier{subject: "synthetic-subject"},
 		HTTPClient: &http.Client{Transport: roundTripper(func(r *http.Request) (*http.Response, error) {
@@ -323,6 +335,22 @@ func TestFailedCodeExchangeDoesNotClaimTokenRevocation(t *testing.T) {
 		"http://127.0.0.1:3000/auth/callback?code=legitimate-code-1234&state="+state, "", c)
 	if w.Code == http.StatusSeeOther || f.revoker.calls != 0 || len(f.store.sessions) != 0 {
 		t.Fatal("failed exchange cannot mint session or pretend issuer revocation was observed")
+	}
+}
+
+func TestAuthenticationAdmissionRejectsBeforeProviderOrVault(t *testing.T) {
+	f := makeFixture(t)
+	gate := &allowAdmission{reject: ErrRateLimited}
+	f.h.c.Limiter = gate
+	w := request(f.h, "POST", "http://127.0.0.1:3000/auth/start", "http://127.0.0.1:3000")
+	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") != "60" ||
+		gate.calls != 1 || len(f.store.tx) != 0 {
+		t.Fatal("rate-limited start performed browser transaction or returned wrong status")
+	}
+	gate.reject = errors.New("database unavailable")
+	w = request(f.h, "POST", "http://127.0.0.1:3000/auth/start", "http://127.0.0.1:3000")
+	if w.Code != http.StatusServiceUnavailable || len(f.store.tx) != 0 {
+		t.Fatal("unavailable admission ledger must fail closed")
 	}
 }
 
