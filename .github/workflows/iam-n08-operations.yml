@@ -1,0 +1,68 @@
+name: IAM-N08 Native Operational Hardening
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-image:
+    name: IAM-N08 pinned native image, source negatives and rootless fail-closed runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Verify native supply-chain policy and tampering negatives
+        run: |
+          python3 -B scripts/n08_verify_supply_chain.py
+          python3 -B -m unittest discover -s tests/unit -p 'test_n08_native_supply_chain.py' -v
+          bash -n tests/operations/n08_postgres_restore_replay.sh
+          go mod verify
+          go vet ./internal/nativebff/... ./internal/securityops/... ./cmd/native-browser-bff/...
+          go test -race ./internal/nativebff ./cmd/native-browser-bff -run '^TestN08' -count=1
+          go test ./internal/nativebff -run '^N08_NO_MATCHING_TEST' -bench '^BenchmarkN08SourceOnly' -benchmem -benchtime=200x
+      - name: Reproduce two independent same-source native image builds
+        run: |
+          docker build --pull=false --no-cache --build-arg SOURCE_DATE_EPOCH=0 -f Dockerfile.native-browser-bff -t baobab-iam-native:n08-first .
+          docker build --pull=false --no-cache --build-arg SOURCE_DATE_EPOCH=0 -f Dockerfile.native-browser-bff -t baobab-iam-native:n08-second .
+          first="$(docker image inspect baobab-iam-native:n08-first --format '{{.Id}}')"
+          second="$(docker image inspect baobab-iam-native:n08-second --format '{{.Id}}')"
+          test "$first" = "$second"
+          test "$(docker image inspect baobab-iam-native:n08-first --format '{{.Config.User}}')" = "65532:65532"
+      - name: Rootless read-only native binary denies absent original secrets
+        run: |
+          set +e
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --user 65532:65532 baobab-iam-native:n08-first > /tmp/n08-native-denial.log 2>&1
+          code=$?
+          set -e
+          test "$code" -eq 2
+          grep -q 'DENIED N02 missing reviewed runtime' /tmp/n08-native-denial.log
+          rm -f /tmp/n08-native-denial.log
+      - name: Scan native image for high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: baobab-iam-native:n08-first
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          format: table
+      - name: Generate native executable image SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: baobab-iam-native:n08-first
+          format: cyclonedx
+          output: n08-native.cyclonedx.json
+      - name: Upload native SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4.7.5
+        with:
+          name: iam-n08-native-sbom
+          path: n08-native.cyclonedx.json
+          retention-days: 30
+
