@@ -10,6 +10,18 @@ resolution, runtime evidence and binding authority. Retained Keycloak remains
 the enterprise federation provider. No C4 increment may grant, allocate, widen,
 promote, bypass or migrate tenant rights based on a local health check.
 
+## Development qualification versus protected acceptance
+
+Accepted ADR-SHARED-043 removes per-run independent **human** approvals for
+isolated synthetic development/CI. It does not remove the actual
+Kratos/Hydra runtime, CP-sourced context and support/binding checks, distinct
+synthetic maker/checker Principals, issuer credential security, cross-tenant
+denial or verifiable teardown. The read-only OBSERVED_CURRENT observation
+is not registration or resource-consumer qualification in any environment.
+C4-04B/C must still prove the current CP authority and actual token-consumer
+acceptance. Protected staging and production require separate reviewers,
+operational controls and sign-off. N01 does not alter native dispatch semantics.
+
 ## Increment and hard boundaries
 
 C4-04A adds `ory.CheckGovernedNativeWorkloadReadiness` and
