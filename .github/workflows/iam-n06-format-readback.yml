@@ -14,6 +14,10 @@ jobs:
     timeout-minutes: 7
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
       - name: Format only reviewed IAM-N06 new Go files and native BFF gate
         shell: bash
         run: |
@@ -24,3 +28,6 @@ jobs:
             base64 -w0 "$f"
             printf '\nN06_FORMAT_END:%s\n' "$f"
           done
+      - name: Compile N06 owner sources and execute source-negative tests
+        run: |
+          go test ./internal/assurance ./internal/nativebff ./internal/securityops -run '^TestN06' -count=1 -v
