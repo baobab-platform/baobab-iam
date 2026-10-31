@@ -1,5 +1,8 @@
 # C4-04 — Governed native/workload dispatch and operational readiness
 
+**IAM-N04 workstream started (31 October 2026):** [N04 development original-receipt gate](n04-provider-support-development-qualification.md) checks exact existing N02/DEV-04, C4-03B–E and Pulse/Payments ENG-ONB receipt semantics and source pins; it never authorises a provider. `c4-04-readiness` remains a transient live CP+Ory observation (C4-04A), **not** a CP registration, C4-04B health/support publication, C4-04C registered consumer operation or independently trusted development acceptance. Actual CP-owner support lifecycle, issuer+resource negatives and real engine/estate original receipts remain pending **development** obligations. No provider activation or protected admission is implied.
+
+
 > **DEVELOPMENT FIRST — N01–N03 NOT CERTIFIED (31 October 2026).** Real development CP-governed provider/client/binding and issuer→CP→resource registration/consumption, native denial, withdrawal and independent teardown remain unqualified. An IAM/CP code path or isolated source fixture is not a current registered consumer. Those development obligations **cannot be postponed as protected staging**; protected C4-04B/C approval, support promotion and production acceptance remain separate. [Development closure audit](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md). All canonical provider-support declarations remain PARTIAL.
 
 
