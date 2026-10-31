@@ -29,6 +29,8 @@ type document struct {
 	Human                   federation.RuntimeComposition    `json:"human_runtime"`
 	IssuerRuntime           federation.RuntimeComposition    `json:"issuer_runtime"`
 	KratosPublic            string                           `json:"kratos_public_origin"`
+	KratosAdmin             string                           `json:"kratos_admin_origin"`
+	RequireAAL2             bool                             `json:"require_aal2"`
 	HydraAdmin              string                           `json:"hydra_admin_origin"`
 	Issuer                  string                           `json:"issuer"`
 	PublicOrigin            string                           `json:"public_origin"`
@@ -99,7 +101,7 @@ func loadRoots(file string) (*x509.CertPool, error) {
 
 func run(ctx context.Context, listen string, d document, caFile string) error {
 	if ctx == nil || ctx.Err() != nil || d.PublicOrigin == "" || d.Issuer == "" ||
-		d.ClientID == "" || d.CPCallerTokenFile == "" || d.TLSCertificateFile == "" ||
+		d.ClientID == "" || d.KratosAdmin == "" || d.CPCallerTokenFile == "" || d.TLSCertificateFile == "" ||
 		d.TLSPrivateKeyFile == "" || d.HumanTokenProfilesFile == "" ||
 		d.HumanConsentSealKeyFile == "" {
 		return errors.New("incomplete governed browser configuration")
@@ -187,6 +189,10 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("CP delegated Principal boundary unavailable")
 	}
+	kratosSessions, err := nativebff.NewKratosAdminSessionRevoker(nativebff.KratosAdminRevokeConfig{
+		Origin: d.KratosAdmin, TrustedRoots: roots,
+	})
+	if err != nil {return errors.New("Kratos global logout authority unavailable")}
 	revoker, err := nativebff.NewOAuthRevoker(nativebff.OAuthRevokeConfig{
 		Issuer: d.Issuer, ClientID: d.ClientID, ClientSecret: string(secret), TrustedRoots: roots,
 	})
@@ -194,7 +200,8 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		return errors.New("confidential token revocation unavailable")
 	}
 	handler, err := nativebff.New(nativebff.Config{
-		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer,
+		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer, KratosOrigin: d.KratosPublic,
+		RequireAAL2: d.RequireAAL2, Assurance: handoff, NativeSessions: kratosSessions,
 		ClientID: d.ClientID, ClientSecret: string(secret),
 		RedirectURI: strings.TrimRight(d.PublicOrigin, "/") + "/auth/callback",
 		Scope:       d.Scope, AccessAudience: d.AccessAudience, AccessScope: d.AccessScope, TrustedRoots: roots,
