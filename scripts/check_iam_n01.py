@@ -45,8 +45,7 @@ CONTRACTS = {
 
 
 # A release-boundary guard must reject ambiguous input before checking values.
-# PyYAML's normal safe_load and json.loads accept duplicate keys with
-# last-writer-wins semantics. Other consumers need not choose the same winner.
+# PyYAML safe_load and json.loads accept duplicate keys last-writer-wins.
 class UniqueKeyLoader(yaml.SafeLoader):
     def construct_mapping(self, node, deep=False):
         result = {}
@@ -78,10 +77,37 @@ def load_unique_json(content):
 
 
 def actual_shared_commit(content):
-    # Search only a Go declaration, not an arbitrary comment/string. A second
-    # declaration or refactoring of authority requires an explicit N01 review.
+    # Compare the actual Go declaration, not a comment containing the pin.
     found = re.findall(
-        r'(?m)^const[ \t]+SharedCommit[ \t]*=[ \t]*"([0-9a-f]{40})"[ \t]*    if not condition:
+        r'(?m)^const[ \t]+SharedCommit[ \t]*=[ \t]*"([0-9a-f]{40})"[ \t]*$',
+        content,
+    )
+    require(len(found) == 1, "Go Shared pin declaration missing or ambiguous")
+    return found[0]
+
+
+def evidence_paths_valid(root, items):
+    if not isinstance(items, list) or not items:
+        return False
+    seen = set()
+    types = set()
+    for item in items:
+        if not isinstance(item, dict) or set(item) != {"type", "path"}:
+            return False
+        kind, path = item["type"], item["path"]
+        if kind not in ("source", "integration-test") or not isinstance(path, str):
+            return False
+        if path in seen or not path.startswith("internal/provider/") or not path.endswith(".go"):
+            return False
+        seen.add(path)
+        types.add(kind)
+        if not (root / path).is_file():
+            return False
+    return types == {"source", "integration-test"}
+
+
+def require(condition, message):
+    if not condition:
         raise ValueError(message)
 
 
@@ -189,129 +215,6 @@ def check(root=ROOT, record=None, lock=None, declaration=None):
         require(target in OWNERS or (key == "identity.migration.map"
                                     and target == "baobab-iam.ory"),
                 "planned capability targets unreviewed provider")
-    return True
-
-
-def main():
-    try:
-        check()
-    except (ValueError, KeyError, TypeError, OSError, yaml.YAMLError, json.JSONDecodeError) as exc:
-        print("IAM-N01 denied: " + str(exc), file=sys.stderr)
-        return 1
-    print("IAM-N01 source convergence valid; Shared re-pin and provider activation held")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
-,
-        content,
-    )
-    require(len(found) == 1, "Go Shared pin declaration missing or ambiguous")
-    return found[0]
-
-
-def evidence_paths_valid(root, items):
-    if not isinstance(items, list) or not items:
-        return False
-    seen = set()
-    types = set()
-    for item in items:
-        if not isinstance(item, dict) or set(item) != {"type", "path"}:
-            return False
-        kind, path = item["type"], item["path"]
-        if kind not in ("source", "integration-test") or not isinstance(path, str):
-            return False
-        if path in seen or not path.startswith("internal/provider/") or not path.endswith(".go"):
-            return False
-        seen.add(path)
-        types.add(kind)
-        if not (root / path).is_file():
-            return False
-    return types == {"source", "integration-test"}
-
-
-def require(condition, message):
-    if not condition:
-        raise ValueError(message)
-
-
-def adr(root, number, prefix):
-    matches = list((root / "docs/adr").glob(f"{prefix}{number:04d} *.md"))
-    require(len(matches) == 1, "ADR source missing or ambiguous")
-    return matches[0].read_text()
-
-
-def check(root=ROOT, record=None, lock=None, declaration=None):
-    if record is None:
-        record = json.loads((root / RECORD_PATH).read_text())
-    if lock is None:
-        lock = yaml.safe_load((root / "contracts.lock.yaml").read_text())
-    if declaration is None:
-        declaration = yaml.safe_load((root / ".baobab/capability-provider.yaml").read_text())
-
-    require(record.get("schema") == "baobab.iam.n01.convergence.v1", "N01 schema mismatch")
-    require(record.get("governing") == GOVERNING, "ADR precedence mismatch")
-    require(record.get("development") == DEVELOPMENT, "development/protected boundary mismatch")
-
-    for n in range(1, 19):
-        require(re.search(r"\*\*Status:\*\*\s*Proposed\b", "\n".join(adr(root, n, "ADR-").splitlines()[:12])),
-                "original ADR status was silently promoted")
-    for n in range(19, 34):
-        require(re.search(r"\*\*Status:\*\*\s*Accepted\b", "\n".join(adr(root, n, "ADR-IAM-").splitlines()[:12])),
-                "accepted successor ADR status drift")
-    proposed = adr(root, 34, "ADR-IAM-")
-    require(re.search(r"\*\*Status:\*\*\s*Proposed\b", "\n".join(proposed.splitlines()[:12])),
-            "ADR-IAM-0034 cannot be silently accepted")
-    index = (root / "docs/adr/README.md").read_text()
-    for identifier in ("ADR-IAM-0033:", "ADR-IAM-0034:", "ADR-SHARED-043"):
-        require(identifier in index, "ADR index omission: " + identifier)
-    for document in ("docs/operations/c4-03-live-qualification.md",
-                     "docs/operations/c4-04-governed-runtime-readiness.md"):
-        require("ADR-SHARED-043" in (root / document).read_text(),
-                "development approval boundary not reconciled in " + document)
-
-    shared = record.get("shared", {})
-    require(shared == {
-        "repository": "baobab-platform/shared",
-        "pin": PIN,
-        "reviewed_head": "c97387ed8e27eeffb0c0382e043db98cb450b900",
-        "decision": "HOLD_REPIN_PENDING_CONSUMER_QUALIFICATION",
-    }, "Shared re-pin was not independently reviewed")
-    require(lock.get("source") == {"repository": "baobab-platform/shared", "commit": PIN},
-            "Shared lock differs from reviewed pin")
-    require(CONTRACTS.issubset(set(lock.get("contracts", []))), "required Shared contract missing")
-    require(('const SharedCommit = "' + PIN + '"') in
-            (root / "internal/federation/consume.go").read_text(), "Go Shared pin changed")
-    require(PIN in proposed, "proposed native commitment Shared reference changed")
-
-    expected = record.get("providers", {})
-    require(isinstance(expected, dict) and set(expected) == set(OWNERS),
-            "unreviewed provider identity")
-    providers = declaration.get("providers", [])
-    require(declaration.get("engine", {}).get("engine_id") == "baobab-iam"
-            and isinstance(providers, list) and len(providers) == 3, "provider declaration mismatch")
-    seen = set()
-    for row in providers:
-        key = row.get("provider_key")
-        require(key in OWNERS and key not in seen, "unknown or repeated provider")
-        seen.add(key)
-        impl, capability = OWNERS[key]
-        require(row.get("implementation_key") == impl, "provider allocation drift")
-        require(row.get("provenance", {}).get("authority", {}).get("decision") == "ADR-IAM-0033",
-                "provider has wrong governing ADR")
-        supports = row.get("support", [])
-        require(isinstance(supports, list) and len(supports) == 1, "provider support census drift")
-        support = supports[0]
-        require(support.get("capability_key") == capability and support.get("contract_versions") == [1],
-                "canonical capability/major mismatch")
-        require(support.get("implementation_status") == "PARTIAL",
-                "N01 cannot promote support without N02/N03/N04 qualification")
-        require(expected[key] == {"key": impl, "capability": capability, "status": "PARTIAL"},
-                "manifest support drift")
-    for row in declaration.get("planned_capabilities", []):
-        require(row.get("proposal_status") in ("PROPOSED", "CANDIDATE"),
-                "planned capability improperly promoted")
     return True
 
 
