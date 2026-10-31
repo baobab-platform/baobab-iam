@@ -68,11 +68,19 @@ func (r *DevelopmentClientRegistry) name(l DevelopmentEstateClient)(string,error
 		return "",errors.New("unapproved bounded synthetic estate lease")
 	}
 	redirect,err:=url.Parse(l.RedirectURI)
-	if err!=nil||redirect.Scheme!="http"||redirect.Host!="127.0.0.1:3000"||
-		redirect.Path!="/auth/callback"||redirect.RawQuery!=""||redirect.Fragment!=""||redirect.User!=nil{
-		return "",errors.New("unapproved development estate callback")
-	}
-	return "baobab-dev-zuribeans-bff",nil
+    if err!=nil||redirect.Hostname()==""||redirect.Path!="/auth/callback"||
+        redirect.RawQuery!=""||redirect.Fragment!=""||redirect.User!=nil||
+        redirect.Scheme!="https" && !(redirect.Scheme=="http" &&
+            redirect.Host=="127.0.0.1:3000") {
+        return "",errors.New("unapproved development estate callback")
+    }
+    // The lease is issued by the development owner, not from a request URL.
+    // The exact deployed first-party origin is required to match the callback.
+    // HTTPS may use a private development host; plaintext is strict loopback.
+    if l.PublicOrigin==""||l.PublicOrigin+"/auth/callback"!=l.RedirectURI{
+        return "",errors.New("reviewed first-party callback origin mismatch")
+    }
+	return "baobab-dev-zuribeans-native-browser-bff",nil
 }
 func (r *DevelopmentClientRegistry) request(ctx context.Context,method,path string,in any)(int,[]byte,error){
 	var payload []byte
@@ -120,7 +128,7 @@ func (r *DevelopmentClientRegistry) CreateDevelopment(ctx context.Context,l Deve
 }
 
 func (r *DevelopmentClientRegistry) Readback(ctx context.Context,id,redirect,runID string)error{
-	if r==nil||id!="baobab-dev-zuribeans-bff"||!validRunID(runID){return errors.New("outside synthetic development client scope")}
+	if r==nil||id!="baobab-dev-zuribeans-native-browser-bff"||!validRunID(runID){return errors.New("outside synthetic development client scope")}
 	status,raw,err:=r.request(ctx,http.MethodGet,"/admin/clients/"+url.PathEscape(id),nil)
 	if err!=nil||status!=http.StatusOK{return errors.New("registered client unreadable")}
 	var v struct {
@@ -152,7 +160,7 @@ func (r *DevelopmentClientRegistry) Readback(ctx context.Context,id,redirect,run
 // DeleteDevelopment performs actual Hydra Delete plus independent 404 readback.
 // Only this run-owned name is accepted; it cannot remove protected clients.
 func (r *DevelopmentClientRegistry) DeleteDevelopment(ctx context.Context,id,runID string)error{
-    if r==nil||id!="baobab-dev-zuribeans-bff"||!validRunID(runID){
+    if r==nil||id!="baobab-dev-zuribeans-native-browser-bff"||!validRunID(runID){
         return errors.New("development client teardown outside scope")
     }
     // A globally canonical client ID is safe only inside one isolated Hydra
