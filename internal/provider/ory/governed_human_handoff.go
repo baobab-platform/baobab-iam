@@ -47,3 +47,25 @@ func (h *GovernedNativeHumanHandoff) AcceptConsent(ctx context.Context, challeng
 	}
 	return h.mechanics.AcceptConsent(ctx, challenge, credential, intent, consented)
 }
+
+
+// AuthenticatorAAL returns only the Kratos-verified current assurance level,
+// after fresh CP dispatch and native whoami. No browser AAL or user claim is
+// accepted as step-up evidence. This does not assign BAOBAB-A2/A3: the
+// separately governed assurance policy controls that mapping.
+func (h *GovernedNativeHumanHandoff) AuthenticatorAAL(ctx context.Context, credential NativeSessionCredential) (string, error) {
+	if h == nil || h.mechanics == nil || h.authority == nil || ctx == nil || ctx.Err() != nil {
+		return "", fmt.Errorf("native assurance unavailable")
+	}
+	if h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication) != nil {
+		return "", fmt.Errorf("current CP native dispatch denied")
+	}
+	session, err := h.mechanics.session(ctx, credential)
+	if err != nil {
+		return "", fmt.Errorf("native assurance unavailable")
+	}
+	if h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication) != nil {
+		return "", fmt.Errorf("current CP native dispatch denied")
+	}
+	return session.AAL, nil
+}
