@@ -61,7 +61,6 @@ func TestN06BFFLoginAndConsentRequireCurrentSecurity(t *testing.T){
 }
 func TestN06KratosLiveReaderDeniesUnknownA3AndForgedProviderResponse(t *testing.T){
 	now:=time.Now().UTC()
-	issuer:="http://127.0.0.1:3004"
 	payload:=`{"id":"session-original","active":true,"expires_at":"`+
 		now.Add(time.Hour).Format(time.RFC3339)+
 		`","authenticated_at":"`+now.Add(-time.Minute).Format(time.RFC3339)+
@@ -78,7 +77,6 @@ func TestN06KratosLiveReaderDeniesUnknownA3AndForgedProviderResponse(t *testing.
 		_,_=w.Write([]byte(reply))
 	}))
 	defer server.Close()
-	issuer=server.URL
 	p,err:=NewKratosN06Provider(issuer,nil,func()time.Time{return now},true,server.Client())
 	if err!=nil{t.Fatal(err)}
 	key,proof,err:=p.CurrentNativeAuthentication(context.Background(),ory.NativeSessionCredential{Cookie:"ory_kratos_session=synthetic-cookie"})
