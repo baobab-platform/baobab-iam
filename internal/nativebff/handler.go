@@ -455,6 +455,18 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 403)
 		return
 	}
+	// A code exchange can succeed even when subsequent signature, CP or vault
+	// checks fail. The BFF must not simply abandon those provider credentials.
+	// Revoke best-effort with a bounded independent context even if the original
+	// browser request has been cancelled. Failure is still UNKNOWN, not success.
+	committed := false
+	defer func() {
+		if !committed {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = h.c.Revoker.Revoke(cleanupCtx, tokens)
+		}
+	}()
 	sub, err := h.verify.Verify(r.Context(), tokens.IDToken, tx.Intent.Nonce)
 	if err != nil {
 		h.fail(w, 403)
@@ -488,6 +500,7 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 503)
 		return
 	}
+	committed = true
 	cookie(w, sessionCookie, sessionID, int(lifetime.Seconds()), http.SameSiteStrictMode)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
