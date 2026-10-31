@@ -388,11 +388,18 @@ type fixtureAAL struct {
 	aal string
 	err error
 	calls int
+	subject string
 }
 func (a *fixtureAAL) AuthenticatorAAL(_ context.Context, credential ory.NativeSessionCredential)(string,error){
 	a.calls++
 	if credential.Cookie==""{return "",errors.New("Kratos cookie required")}
 	return a.aal,a.err
+}
+func (a *fixtureAAL) AuthenticatorSubjectAAL(ctx context.Context, credential ory.NativeSessionCredential)(string,string,error){
+	aal,err:=a.AuthenticatorAAL(ctx,credential)
+	if err!=nil{return "", "",err}
+	if a.subject!=""{return a.subject,aal,nil}
+	return "synthetic-subject",aal,nil
 }
 type fixtureNativeRevoke struct { calls int; fail bool; subject string }
 func (n *fixtureNativeRevoke) RevokeNativeSessions(_ context.Context,subject string)error{
