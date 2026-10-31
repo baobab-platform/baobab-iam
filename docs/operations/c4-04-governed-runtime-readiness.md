@@ -1,5 +1,8 @@
 # C4-04 — Governed native/workload dispatch and operational readiness
 
+**N03 current consumer boundary:** [Provider-neutral workload resource acceptance](n03-workload-resource-qualification.md) requires exact signed issuer/subject/client/audience, live RFC7662 status at both sides of current CP + native operation authorization, and real post-revocation denial. It cannot register or activate a CP provider/capability binding; temporary Hydra registration and CP fixture acceptance do not change the canonical PARTIAL provider support declarations. Protected C4-04B/C onboarding and negative consumer execution remain pending.
+
+
 **N02 runtime qualification status (source):** The [TLS-only native browser/CP consumer](n02-connected-browser-qualification.md) requires real approved provider/instance bindings and issuer/subject evidence; development Hydra client creation alone registers **no** CP provider support, consumer/estate binding, workload mandate, legal actor or resource grant. Real protected C4-04B/C registration/activation and consumer negative acceptance remain outstanding. Keep canonical provider supports PARTIAL and CRITICAL AdministrativeGrant restrictions unchanged.
 
 
