@@ -75,7 +75,7 @@ class NativeClientSourceTests(unittest.TestCase):
         self.assertEqual(cp["audience"], ["baobab-control-plane"])
         self.assertNotIn("redirect_uris", cp)
         self.assertNotEqual(cp["client_id"], browser["client_id"])
-        self.assertTrue(all(p["metadata"]["n02_run_id"] == self.run for p in (browser, cp)))
+        self.assertTrue(all(p["metadata"]["development_run_id"] == self.run for p in (browser, cp)))
 
     def test_profile_does_not_accept_protected_or_unknown_source(self):
         self.assertEqual(self.profile()["run_id"], self.run)
@@ -112,13 +112,16 @@ class NativeClientSourceTests(unittest.TestCase):
     def test_partial_recovery_only_deletes_owned_readback(self):
         registry = manager.Registry(self.lease)
         called = []
+        removed = False
         def send(method, path, payload=None):
+            nonlocal removed
             called.append((method, path))
             if method == "GET" and path.endswith(manager.CP_READER):
                 return 404, None
             if method == "GET" and path.endswith(manager.BROWSER):
-                return 200, {"client_id": manager.BROWSER}
+                return (404, None) if removed else (200, {"client_id": manager.BROWSER})
             if method == "DELETE" and path.endswith(manager.BROWSER):
+                removed = True
                 return 204, None
             raise AssertionError("unexpected path")
         with (
