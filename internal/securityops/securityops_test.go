@@ -134,16 +134,24 @@ func (w trustedIncident) VerifyContainment(_ context.Context,_ Incident,_ Incide
 		ActualCPResourceDenied:w.cp,IndependentApproval:w.approved,
 		ObservedAt:time.Now().UTC(),OriginalReference:"real-issuer-CP-original-test-only"},nil
 }
+type incidentApprovalTest struct{approved bool}
+func (w incidentApprovalTest) VerifyIncidentApproval(_ context.Context,_ Incident)(IncidentApprovalEvidence,error){
+	return IncidentApprovalEvidence{
+		ExactActor:true,ExactApprover:w.approved,
+		ScopeAuthorized:true,RecentHighAssurance:w.approved,
+		ObservedAt:time.Now().UTC(),OriginalReference:"test-only-CP-approval-readback",
+	},nil
+}
 func TestN06IncidentRequiresIndependentActorAndCurrentResourceDenial(t *testing.T){
 	s,pool:=testDB(t);ctx:=context.Background()
 	id,_:=uuid()
 	cmd:=Incident{IncidentID:id,Target:"human-test",TargetType:"NATIVE_IDENTITY",
 		Action:DisableNative,Reason:"CONFIRMED_TAKEOVER",Requester:"one"}
-	if _,err:=s.ProposeIncident(ctx,cmd);err==nil{t.Fatal("self-approved security-wide disable")}
+	if _,err:=s.ProposeIncident(ctx,cmd,incidentApprovalTest{approved:true});err==nil{t.Fatal("self-approved security-wide disable")}
 	cmd.Approver="one"
-	if _,err:=s.ProposeIncident(ctx,cmd);err==nil{t.Fatal("self-approved disable")}
+	if _,err:=s.ProposeIncident(ctx,cmd,incidentApprovalTest{approved:true});err==nil{t.Fatal("self-approved disable")}
 	cmd.Approver="independent-reviewer"
-	created,err:=s.ProposeIncident(ctx,cmd)
+	created,err:=s.ProposeIncident(ctx,cmd,incidentApprovalTest{approved:true})
 	if err!=nil{t.Fatal(err)}
 	if _,err:=s.AdvanceIncident(ctx,created,IncidentProviderApplied,trustedIncident{approved:true});err==nil{
 		t.Fatal("provider not observed")
@@ -161,7 +169,7 @@ func TestN06IncidentRequiresIndependentActorAndCurrentResourceDenial(t *testing.
 		t.Fatal("incident history deleted")
 	}
 	cmd.Action="DISABLE_GLOBAL_ISSUER"
-	if _,err:=s.ProposeIncident(ctx,cmd);err==nil{
+	if _,err:=s.ProposeIncident(ctx,cmd,incidentApprovalTest{approved:true});err==nil{
 		t.Fatal("global issuer shutdown representable")
 	}
 }
