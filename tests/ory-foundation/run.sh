@@ -44,10 +44,10 @@ export ORY_SMOKE=1 ORY_FOUNDATION=1 ORY_WORKLOAD=1
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
 # Test output contains only statuses, never fixture credential or response bodies.
-# IAM-N02: real disposable Hydra estate-client registration, exact readback
-# and independent cleanup. This is PROVIDER_COMPONENT_SYNTHETIC_DATA, never CP
-# audience/profile activation or protected client approval.
-go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistration|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
+# N02 real disposable Hydra estate-client registration is tested in its
+# owning package. Its output is separate from provider workload mechanics, and
+# a skipped/failed test cannot be promoted to provider- or CP-support evidence.
+go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistrationgo test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -95,10 +95,10 @@ from pathlib import Path
 events = [json.loads(line) for line in Path('ory-foundation-evidence/native-bff-client.jsonl').read_text().splitlines()]
 name = 'TestLiveDevelopmentHydraEstateClientRegistration'
 if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
-    raise SystemExit('N02 real Hydra client registration/readback/teardown not proven')
+    raise SystemExit('N02 actual Hydra client register/readback/teardown not proven')
 if any(e.get('Test') == name and e.get('Action') == 'skip' for e in events):
-    raise SystemExit('N02 real Hydra client test skipped')
-print('N02 live synthetic Hydra BFF client registration/readback/teardown PASS; CP and protected acceptance not claimed')
+    raise SystemExit('N02 actual Hydra client test skipped')
+print('N02 genuine disposable Hydra client lifecycle observed (provider-only)')
 PY_N02_CLIENT
 go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
 python3 - <<'PY'
