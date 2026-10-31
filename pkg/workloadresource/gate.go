@@ -116,6 +116,10 @@ func newGate(p Profile, verified SignedTokenVerifier, issuer IssuerStatusReader,
 			return nil, ErrDenied
 		}
 	}
+	// Copy caller-owned slices; runtime trust cannot drift through a mutable
+	// config object after construction without another reviewed deployment.
+	p.RequiredScopes = slices.Clone(p.RequiredScopes)
+	p.AllowedClients = slices.Clone(p.AllowedClients)
 	return &Gate{p: p, verified: verified, issuer: issuer, authority: authority}, nil
 }
 
