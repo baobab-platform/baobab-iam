@@ -1,5 +1,8 @@
 # C4-04 — Governed native/workload dispatch and operational readiness
 
+> **DEVELOPMENT FIRST — N01–N03 NOT CERTIFIED (31 October 2026).** Real development CP-governed provider/client/binding and issuer→CP→resource registration/consumption, native denial, withdrawal and independent teardown remain unqualified. An IAM/CP code path or isolated source fixture is not a current registered consumer. Those development obligations **cannot be postponed as protected staging**; protected C4-04B/C approval, support promotion and production acceptance remain separate. [Development closure audit](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md). All canonical provider-support declarations remain PARTIAL.
+
+
 **N03 current consumer boundary:** [Provider-neutral workload resource acceptance](n03-workload-resource-qualification.md) requires exact signed issuer/subject/client/audience, live RFC7662 status at both sides of current CP + native operation authorization, and real post-revocation denial. It cannot register or activate a CP provider/capability binding; temporary Hydra registration and CP fixture acceptance do not change the canonical PARTIAL provider support declarations. Protected C4-04B/C onboarding and negative consumer execution remain pending.
 
 
