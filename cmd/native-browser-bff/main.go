@@ -40,6 +40,7 @@ type document struct {
 	CPCallerTokenFile       string                           `json:"cp_caller_token_file"`
 	BrowserDatabaseDSNFile  string                           `json:"browser_database_dsn_file"`
 	BrowserVaultKeyFile     string                           `json:"browser_vault_key_file"`
+	BrowserRateKeyFile      string                           `json:"browser_rate_key_file"`
 	ChallengeStorage        federation.PostgresStorageConfig `json:"challenge_storage"`
 	HumanTokenProfilesFile  string                           `json:"human_token_profiles_file"`
 	HumanConsentSealKeyFile string                           `json:"human_consent_seal_key_file"`
@@ -193,7 +194,11 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("confidential token revocation unavailable")
 	}
-	limiter, err := nativebff.NewPostgresAdmissionLimiter(pool, vaultKey)
+	rateKey, err := privateBytes(d.BrowserRateKeyFile)
+	if err != nil || len(rateKey) != 32 {
+		return errors.New("separate 256-bit admission HMAC key required")
+	}
+	limiter, err := nativebff.NewPostgresAdmissionLimiter(pool, rateKey)
 	if err != nil {
 		return errors.New("native browser admission ledger unavailable")
 	}
