@@ -16,6 +16,49 @@ CP alone owns canonical identity, the ACTIVE Principal, issuer+subject mapping, 
 - internal/nativebff/postgres.go and migrations/001_native_browser_bff.sql: PostgreSQL 17 IAM-only transaction/session tables, hashed opaque cookie IDs, AES-256-GCM ciphertext bound to row ID and record kind, atomic single-use DELETE RETURNING, no in-memory production fallback.
 - internal/nativebff/*_test.go: negative callback state/replay/consent/CSRF, CP outage and revocation, issuer logout uncertainty, encryption AAD and multi-replica Postgres cases.
 
+## N02 audit hardening — token cleanup and authentication admission (31 October 2026)
+
+This source PR was audited against ADR-IAM-0023/0024/0025/0033 before
+merge. Two credential-lifecycle failures were corrected:
+
+- After a **successful code exchange**, a subsequent ID-token, access-token,
+  CP Principal or session-vault failure now triggers a bounded, best-effort
+  provider token revocation attempt. The browser session remains denied and
+  the single-use transaction remains consumed. A failed cleanup is UNKNOWN,
+  not a certified provider revocation. Expired provider credentials and
+  revocation journal reconciliation remain operational concerns.
+- OAuth logout/revocation now attempts both access and refresh token
+  revocation even when the first request fails. Only complete confirmation
+  is success; a partial/unknown result remains a failure.
+
+ADR-IAM-0023 also requires appropriately rate-limited authentication
+endpoints. The native BFF now requires a fail-closed, shared PostgreSQL 17
+admission ledger. Per public authentication operation and observed TCP-peer
+IP, it uses a separate private 256-bit HMAC key and an atomic fixed-minute
+counter across replicas. No plaintext peer address or caller-supplied
+X-Forwarded-For value is persisted or trusted. Current source ceilings per
+minute are 20 starts, 60 login callbacks, 60 consent pages, 30 consent POSTs,
+60 OAuth callbacks, 120 session reads and 30 logout requests. A missing
+ledger, missing trusted peer or unapproved route is denied; over-limit
+requests return HTTP 429 with Retry-After. Denied starts allocate no
+OAuth transaction.
+
+**Protected ingress hold:** the native BFF uses the actual TLS TCP peer,
+not X-Forwarded-For. Behind a reverse proxy that peer may be the proxy
+rather than the customer. A real deployment must independently qualify
+the TLS ingress topology and a provider/ingress per-client admission
+policy without spoofable forwarded headers. These source limits do not
+constitute operational abuse-prevention certification. The IAM-owned
+maintenance task must purge old private rate windows before production;
+unbounded pseudonymous record retention is forbidden.
+
+The rate-HMAC key is **distinct** from the browser AES-GCM encryption key,
+is kept in a separate protected file and must be rotated independently
+under ADR-IAM-0028. Applying N02's SQL migration now also creates the
+native_bff_rate_limits table; PostgreSQL race qualification includes
+multi-replica admission/rejection. The no-deployment and no-C4-03/C4-04
+protected acceptance hold is unchanged.
+
 ## Browser contract
 
 Hydra must be configured with the approved same-origin estate endpoints /auth/login and /auth/consent and the exact confidential /auth/callback URI. POST /auth/start requires exact Origin and returns a server-bound PKCE, state and nonce transaction (five minutes). Hydra challenge callbacks must present the retained transaction cookie and a genuine Kratos browser session, verified by the existing GovernedNativeHumanHandoff and its durable challenge fence. The BFF never reads credentials from callback query arguments.
@@ -88,6 +131,7 @@ placeholders, **not runnable or accepted credentials/provider/CP IDs**:
   "cp_caller_token_file": "/run/secrets/bff-cp-workload-token",
   "browser_database_dsn_file": "/run/secrets/iam-browser-postgres17-dsn",
   "browser_vault_key_file": "/run/secrets/iam-browser-aes256-key",
+  "browser_rate_key_file": "/run/secrets/iam-browser-rate-hmac-key",
   "challenge_storage": {
     "DSNFile": "/run/secrets/iam-challenge-postgres17-dsn",
     "Namespace": "APPROVED_IAM_CHALLENGE_NAMESPACE",
@@ -104,7 +148,7 @@ The CP runtime ContextTarget must have the exact reviewed tenant,
 Organisation and Market identity expected by the existing
 federation.RuntimeComposition type. The host refuses invalid CP composition,
 unverified TLS PostgreSQL DSNs, missing runtime/profile/consent keys, missing
-or short confidential client credentials, a non-32-byte vault key and
+or short confidential client credentials, a non-32-byte vault or admission-HMAC key and
 unapproved resource audience/scope. The CP delegated workload bearer is
 **distinct** from the human ID/access token and from runtime-profile tokens.
 The challenge ledger uses the existing federation.PostgresStorage epoch
