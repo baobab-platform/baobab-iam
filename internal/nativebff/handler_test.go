@@ -401,6 +401,12 @@ func (a *fixtureAAL) AuthenticatorSubjectAAL(ctx context.Context, credential ory
 	if a.subject!=""{return a.subject,aal,nil}
 	return "synthetic-subject",aal,nil
 }
+type fixtureOAuthSubjectRevoke struct { calls int; fail bool; subject string }
+func (n *fixtureOAuthSubjectRevoke) RevokeSubjectSessions(_ context.Context,subject string)error{
+	n.calls++;n.subject=subject
+	if n.fail{return errors.New("Hydra subject session revoke unknown")}
+	return nil
+}
 type fixtureNativeRevoke struct { calls int; fail bool; subject string }
 func (n *fixtureNativeRevoke) RevokeNativeSessions(_ context.Context,subject string)error{
 	n.calls++;n.subject=subject
@@ -459,6 +465,8 @@ func TestAllSessionLogoutRevokesKratosAndHydraEvenIfCPUnavailable(t *testing.T){
 	f:=makeFixture(t)
 	native:=&fixtureNativeRevoke{}
 	f.h.c.NativeSessions=native
+	hydraSubject:=&fixtureOAuthSubjectRevoke{}
+	f.h.c.OAuthSessions=hydraSubject
 	c,state:=startFlow(t,f)
 	w:=request(f.h,"GET","http://127.0.0.1:3000/auth/callback?code=legitimate-code-1234&state="+state,"",c)
 	session:=findCookie(w,sessionCookie)
@@ -473,13 +481,15 @@ func TestAllSessionLogoutRevokesKratosAndHydraEvenIfCPUnavailable(t *testing.T){
 	out:=httptest.NewRecorder()
 	f.h.ServeHTTP(out,r)
 	if out.Code!=http.StatusNoContent ||native.calls!=1||f.revoker.calls!=1||
-		native.subject!=stored.Subject{t.Fatal("native global and Hydra session revocation not invoked")}
+		native.subject!=stored.Subject||hydraSubject.calls!=1||hydraSubject.subject!=stored.Subject{t.Fatal("native global and Hydra session revocation not invoked")}
 	if _,err=f.store.ReadSession(context.Background(),session.Value);err==nil{t.Fatal("global logout retained browser session")}
 }
 func TestAllSessionLogoutProviderFailureDoesNotRestoreSession(t *testing.T){
 	f:=makeFixture(t)
 	native:=&fixtureNativeRevoke{fail:true}
 	f.h.c.NativeSessions=native
+	hydraSubject:=&fixtureOAuthSubjectRevoke{}
+	f.h.c.OAuthSessions=hydraSubject
 	c,state:=startFlow(t,f)
 	w:=request(f.h,"GET","http://127.0.0.1:3000/auth/callback?code=legitimate-code-1234&state="+state,"",c)
 	session:=findCookie(w,sessionCookie)
