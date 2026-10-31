@@ -84,8 +84,14 @@ def load_profile() -> dict[str, Any]:
     data["bff_origin"] = origin(data.get("bff_origin"), environment)
     data["kratos_origin"] = origin(data.get("kratos_origin"), environment)
     data["hydra_origin"] = origin(data.get("hydra_origin"), environment)
-    if len({data["bff_origin"], data["kratos_origin"], data["hydra_origin"]}) != 3:
-        raise Denied("AUTHORITY_ORIGIN_COLLISION")
+    # Kratos owns a host-only browser session cookie. In the native
+    # development ingress its public /self-service/* and /sessions/whoami
+    # endpoints MUST use the exact same HTTPS origin as the estate and BFF,
+    # so the cookie reaches /auth/login without a cross-subdomain Domain
+    # override. Hydra remains a separate origin, avoiding cookie confusion.
+    if (data["bff_origin"] != data["kratos_origin"]
+            or data["hydra_origin"] == data["bff_origin"]):
+        raise Denied("KRATOS_HOST_ONLY_SESSION_ROUTE_REQUIRED")
     if not re.fullmatch(r"[0-9a-f]{40}", data.get("iam_source_sha", "")):
         raise Denied("UNPINNED_SOURCE")
     if not re.fullmatch(r"[0-9a-f]{32}", data.get("run_id", "")):
