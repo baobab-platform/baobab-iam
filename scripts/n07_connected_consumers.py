@@ -218,6 +218,8 @@ def unexpired_jwt(value: str) -> None:
             object_pairs_hook=pairs_unique)
     except (ValueError, UnicodeError, TypeError):
         raise Blocked("SIGNED_JWT_CLAIMS_UNAVAILABLE") from None
+    if not isinstance(claims, dict):
+        raise Blocked("SIGNED_JWT_CLAIMS_UNAVAILABLE")
     now = time.time()
     exp, iat = claims.get("exp"), claims.get("iat")
     if (isinstance(exp, bool) or isinstance(iat, bool) or
@@ -240,10 +242,11 @@ def require_before(profile: dict[str, Any], directory: str) -> dict[str, Any]:
             or before.get("source_pins") != profile["source_pins"]
             or before.get("protected_accepted") is not False
             or before.get("fully_qualified") is not False
-            or not isinstance(before.get("fingerprints"), dict)):
+            or not isinstance(before.get("fingerprints"), dict)
+            or not isinstance(before.get("cases"), dict)):
         raise Blocked("ORIGINAL_BEFORE_PROVENANCE_INVALID")
     for name in REQUIRED_ENGINES:
-        if before.get("cases", {}).get(case_id(name, "allowed")) != "OBSERVED":
+        if before["cases"].get(case_id(name, "allowed")) != "OBSERVED":
             raise Blocked("ORIGINAL_POSITIVE_RESOURCE_NOT_OBSERVED")
         token_hash = before["fingerprints"].get(name)
         if not isinstance(token_hash, str) or not DIGEST.fullmatch(token_hash):
@@ -328,11 +331,13 @@ def original_write(directory: str, phase: str, receipt: dict[str, Any]) -> None:
     if st.st_uid != os.getuid() or st.st_mode & 0o077:
         raise Blocked("PRIVATE_OUTPUT_PERMISSIONS_REQUIRED")
     payload = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
-    for suffix, data in ((".json", payload),
-                         (".sha256", (hashlib.sha256(payload).hexdigest() + "\n").encode("ascii"))):
+    for suffix in (".json", ".sha256", ".json.part", ".sha256.part"):
         target = root / (phase + suffix)
         if target.exists() or target.is_symlink():
             raise Blocked("ORIGINAL_EVIDENCE_ALREADY_EXISTS")
+    for suffix, data in ((".json", payload),
+                         (".sha256", (hashlib.sha256(payload).hexdigest() + "\n").encode("ascii"))):
+        target = root / (phase + suffix)
         tmp = root / (phase + suffix + ".part")
         if tmp.exists() or tmp.is_symlink():
             raise Blocked("TEMPORARY_EVIDENCE_ALREADY_EXISTS")
