@@ -47,6 +47,7 @@ jobs:
         run: |
           python3 -m py_compile tests/browser/n02_live.py scripts/n02_evidence_gate.py
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_evidence_gate.py' -v
+          python3 -B -m unittest discover -s tests/unit -p 'test_n02_browser_source.py' -v
       - name: Test federation and native browser boundaries with race detector
         run: go test -race ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
