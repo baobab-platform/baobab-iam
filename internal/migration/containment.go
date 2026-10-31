@@ -269,12 +269,12 @@ SELECT 1 FROM iam_migration.deny_fence WHERE migration_id=$1)`, migrationID).Sca
 	return found, err
 }
 
-// RollbackWitness is supplied only after independent CP issuer-trust,
+// RollbackWitness is supplied only after independent per-actor CP authority,
 // original provider and unchanged-Principal verification. It does not
 // authorize reenabling credentials or deleting a deny tombstone.
 type RollbackWitness struct {
-	SourceStillTrusted bool
-	TargetTrustWithdrawn bool
+	SourceFallbackConfirmed bool
+	TargetActorDenied bool
 	CanonicalUnchanged bool
 	LegacyRevocationsPreserved bool
 	OriginalReference string
@@ -301,8 +301,8 @@ func (s *PostgresStore) RollbackPreCutover(
 		return nil, ErrCutoverNotApproved
 	}
 	witness, err := verifier.VerifyPreCutoverRollback(ctx, current)
-	if err != nil || !witness.SourceStillTrusted ||
-		!witness.TargetTrustWithdrawn ||
+	if err != nil || !witness.SourceFallbackConfirmed ||
+		!witness.TargetActorDenied ||
 		!witness.CanonicalUnchanged || !witness.LegacyRevocationsPreserved ||
 		witness.OriginalReference == "" {
 		return nil, errors.New("migration: independent rollback/trust readback missing")
