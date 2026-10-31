@@ -33,7 +33,16 @@ type RegisteredGate struct {
 	provider RegisteredProviderAuthority
 }
 
-func NewRegisteredGate(resource ResourceAuthorizer, provider RegisteredProviderAuthority) (*RegisteredGate, error) {
+// NewRegisteredGate is the ONLY public registered-gate constructor and
+// requires the actual N03 signed issuer/current-CP/native Gate, not an
+// arbitrary caller-controlled ResourceAuthorizer implementation.
+func NewRegisteredGate(resource *Gate, provider RegisteredProviderAuthority) (*RegisteredGate, error) {
+	return newRegisteredGate(resource, provider)
+}
+
+// Internal test hook permits negative unit fixtures without giving deployed
+// consumers a supported path to skip cryptographic issuer validation.
+func newRegisteredGate(resource ResourceAuthorizer, provider RegisteredProviderAuthority) (*RegisteredGate, error) {
 	if absent(resource) || absent(provider) {
 		return nil, ErrDenied
 	}
