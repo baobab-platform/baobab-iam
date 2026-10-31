@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -79,13 +78,3 @@ func (v *OIDCSignedVerifier) VerifySigned(ctx context.Context, raw string) (Clai
 }
 
 var _ SignedTokenVerifier = (*OIDCSignedVerifier)(nil)
-
-// VerifyJWTShape is a non-authorising diagnostic that rejects non-JWT strings
-// and never returns decoded claims. This is NOT a replacement for VerifySigned.
-func VerifyJWTShape(raw string) error {
-	if len(raw) < 20 || len(raw) > 16384 || strings.Count(raw, ".") != 2 {
-		return ErrDenied
-	}
-	_ = json.Valid // Avoid leaking JWT claims through diagnostics.
-	return nil
-}
