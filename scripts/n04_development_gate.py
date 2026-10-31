@@ -27,6 +27,15 @@ C403 = frozenset({
     "tampered_subject_token_denied",
     "real_cp_withdrawal_denied_unexpired_token", "evidence_closed",
 })
+N03_PULSE = frozenset({
+    "N03_HYDRA_CURRENT_ISSUER_ISSUANCE",
+    "N03_NATIVE_PULSE_OWN_CONTEXT",
+    "N03_NATIVE_PULSE_NEIGHBOUR_OWN_CONTEXT",
+    "N03_NATIVE_PULSE_CROSS_CONTEXT_DENIAL",
+    "N03_NATIVE_PULSE_MISSING_BEARER_DENIAL",
+    "N03_HYDRA_REVOCATION_READBACK",
+    "N03_NATIVE_PULSE_REVOKED_BEARER_DENIAL",
+})
 ENG = frozenset(f"ENG-ONB-0{i}" for i in range(1, 10))
 PROFILES = {"baobab-pulse": "pulse-intelligence", "baobab-payments": "payments-sandbox"}
 
@@ -132,23 +141,57 @@ def engine_readback(receipt: dict, expected_engine: str,
             "ENGINE_NATIVE_CAPABILITY_NOT_OBSERVED")
 
 
+def n03_pulse_readback(original: dict, *, pulse_sha: str, iam_sha: str,
+                       shared_sha: str, cp_sha: str, owner_run_id: str) -> None:
+    """Require original native JWT revocation/CP denial observation.
+
+    This only reconciles private bytes. A source-only fixture, same-run ID,
+    untrusted self-attestation or engine unit test cannot certify two
+    independent CP tenants, live issuer revocation or provider readiness.
+    """
+    require(set(original) == {
+        "schema", "classification", "environment", "run_id",
+        "pulse_source_sha", "iam_source_sha", "cp_source_sha",
+        "shared_source_sha", "cases", "two_tenants_independently_attested",
+        "protected_accepted",
+    }, "N03_NATIVE_ORIGINAL_SCHEMA_DRIFT")
+    require(
+        original["schema"] == "baobab.pulse.n03.native-observation.v1"
+        and original["classification"] == "REAL_NATIVE_HYDRA_PULSE_CP_UNATTESTED"
+        and original["environment"] == "development"
+        and original["protected_accepted"] is False
+        and original["two_tenants_independently_attested"] is False
+        and original["run_id"] == owner_run_id
+        and original["pulse_source_sha"] == pulse_sha
+        and original["iam_source_sha"] == iam_sha
+        and original["shared_source_sha"] == shared_sha
+        and original["cp_source_sha"] == cp_sha
+        and isinstance(original["cases"], dict)
+        and set(original["cases"]) == N03_PULSE
+        and all(value == "OBSERVED" for value in original["cases"].values()),
+        "N03_REAL_NATIVE_REVOCATION_AND_CP_DENIAL_NOT_OBSERVED",
+    )
+
+
 def readback(argv: list[str] | None = None) -> str:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--iam-sha", required=True)
     parser.add_argument("--shared-sha", required=True)
     parser.add_argument("--cp-sha", required=True)
+    parser.add_argument("--pulse-source-sha", required=True)
     parser.add_argument("--infrastructure-sha", required=True)
-    for kind in ("browser", "int03c", "c403", "pulse", "payments"):
+    for kind in ("browser", "int03c", "c403", "pulse", "pulse-native", "payments"):
         parser.add_argument(f"--{kind}", required=True)
         parser.add_argument(f"--{kind}-digest", required=True)
     args = parser.parse_args(argv)
     require(all(SHA.fullmatch(x) for x in
-                (args.iam_sha, args.shared_sha, args.cp_sha, args.infrastructure_sha)),
+                (args.iam_sha, args.shared_sha, args.cp_sha, args.infrastructure_sha, args.pulse_source_sha)),
             "IMMUTABLE_REVIEWED_SOURCE_PINS_REQUIRED")
     browser = original(args.browser, args.browser_digest)
     int03c = original(args.int03c, args.int03c_digest)
     c403 = original(args.c403, args.c403_digest, c403=True)
     pulse = original(args.pulse, args.pulse_digest)
+    pulse_native = original(args.pulse_native, args.pulse_native_digest)
     payments = original(args.payments, args.payments_digest)
     try:
         run_id = n02.browser_readback(browser, args.iam_sha)
@@ -166,6 +209,10 @@ def readback(argv: list[str] | None = None) -> str:
                     args.infrastructure_sha)
     engine_readback(payments, "baobab-payments", args.iam_sha, args.shared_sha, args.cp_sha,
                     args.infrastructure_sha)
+    n03_pulse_readback(pulse_native,
+        pulse_sha=args.pulse_source_sha,
+        iam_sha=args.iam_sha, shared_sha=args.shared_sha, cp_sha=args.cp_sha,
+        owner_run_id=pulse["run_id"])
     require(len({run_id, pulse["run_id"], payments["run_id"]}) == 3,
             "ENGINE_DISPOSABLE_RUN_COLLISION")
     # C4-04A's existing read-only current CP/health command emits no
