@@ -93,8 +93,15 @@ type Gate struct {
 
 // No local status cache or fallback token verifier is permitted.
 func New(p Profile, verified SignedTokenVerifier, issuer IssuerStatusReader, authority CurrentAuthority) (*Gate, error) {
+	return newGate(p, verified, issuer, authority, false)
+}
+
+// Internal-only test path accepts the exact disposable issuer. Production
+// consumers can only call New, which requires an HTTPS issuer.
+func newGate(p Profile, verified SignedTokenVerifier, issuer IssuerStatusReader, authority CurrentAuthority, loopbackFixture bool) (*Gate, error) {
 	if absent(verified) || absent(issuer) || absent(authority) ||
-		!strings.HasPrefix(p.Issuer, "https://") || p.Audience == "" ||
+		(!strings.HasPrefix(p.Issuer, "https://") &&
+			!(loopbackFixture && p.Issuer == "http://127.0.0.1:4444")) || p.Audience == "" ||
 		len(p.RequiredScopes) == 0 || len(p.AllowedClients) == 0 ||
 		p.MaxTokenAge <= 0 || p.MaxTokenAge > 15*time.Minute ||
 		!distinct(p.RequiredScopes) || !distinct(p.AllowedClients) ||
