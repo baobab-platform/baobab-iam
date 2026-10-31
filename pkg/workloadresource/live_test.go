@@ -188,7 +188,23 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 		if response.StatusCode!=200&&response.StatusCode!=204{
 			t.Fatal("Hydra did not confirm real token revocation")
 		}
-		if _,err:=status.ReadCurrent(ctx,raw);err==nil{t.Fatal("revoked token still active at issuer")}
+		// Independently observe the provider's actual inactive=true/false value.
+		// A generic issuer 5xx or network failure is NOT revocation proof.
+		introspect:=url.Values{"token":{raw}}
+		introspectionRequest,err:=http.NewRequestWithContext(ctx,http.MethodPost,
+			admin+"/admin/oauth2/introspect",strings.NewReader(introspect.Encode()))
+		if err!=nil{t.Fatal("independent issuer readback unavailable")}
+		introspectionRequest.Header.Set("Content-Type","application/x-www-form-urlencoded")
+		introspectionRequest.SetBasicAuth("m4-ci-validator",validatorSecret)
+		readback,err:=client.Do(introspectionRequest)
+		if err!=nil{t.Fatal("issuer status readback transport unavailable")}
+		var observation struct {Active *bool `json:"active"`}
+		e:=json.NewDecoder(io.LimitReader(readback.Body,4096)).Decode(&observation)
+		readback.Body.Close()
+		if readback.StatusCode!=200||e!=nil||observation.Active==nil||*observation.Active{
+			t.Fatal("exact real issuer inactive readback missing")
+		}
+		if _,err:=status.ReadCurrent(ctx,raw);err==nil{t.Fatal("revoked token still admitted as active issuer status")}
 		if gate.Authorize(ctx,raw,operation)==nil{t.Fatal("revoked unexpired token accepted by resource")}
 		if !time.Now().Before(claims.ExpiresAt){t.Fatal("natural expiry substituted for revocation")}
 	})
