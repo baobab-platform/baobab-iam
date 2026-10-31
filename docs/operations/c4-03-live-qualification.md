@@ -1,5 +1,8 @@
 # C4-03 — live Kratos/Hydra–CP qualification programme
 
+**N02 qualification status (source):** The [new browser and evidence gate](n02-connected-browser-qualification.md) adds real disposable Hydra confidential-client registration, explicit browser AAL2/recovery/logout and a common SHA/run-ID gate requiring the actual unmodified Infrastructure DEV-04 receipt. Those are *additional* component/consumer evidence cases; they do not replace C4-03B–E's current native protected issuer/CP proofs, independent witness, unexpired-token withdrawal or private-source custody. C4-03B–E protected runtime execution remains pending.
+
+
 **N02 source qualification:** [native BFF integration](native-browser-bff.md) supplies an additional browser transaction, consent, server-side code exchange, encrypted session, CP delegated Principal and issuer revocation component. These tests do not close C4-03B–E without actual protected runtime proof, an approved client, CP active binding and independent evidence. Keep the existing exact A–E case meanings, withdrawal and cross-tenant negatives, teardown and protected reviewer requirements unchanged.
 
 
