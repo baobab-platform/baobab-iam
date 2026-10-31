@@ -24,6 +24,7 @@ type DevelopmentEstateClient struct {
 	Estate string
 	RunID string
 	RedirectURI string
+	PublicOrigin string
 	ClientSecret string
 	ExpiresAt time.Time
 }
