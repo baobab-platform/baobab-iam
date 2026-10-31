@@ -85,6 +85,11 @@ FOR EACH ROW EXECUTE FUNCTION iam_migration.prevent_history_change();
 CREATE OR REPLACE FUNCTION iam_migration.audit_record_revision()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  -- Even direct SQL cannot promote N05 to protected cutover while M18's
+  -- independent issuer-trust/rollback ceremony remains unqualified.
+  IF NEW.migration_state IN ('CUTOVER','LEGACY_RETIRED') THEN
+    RAISE EXCEPTION 'IAM-N05 protected issuer cutover/retirement refused';
+  END IF;
   IF TG_OP = 'UPDATE' THEN
     IF (OLD.migration_id, OLD.migration_batch_id, OLD.canonical_identity_id,
         OLD.source_provider, OLD.source_issuer, OLD.source_subject,
