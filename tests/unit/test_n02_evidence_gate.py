@@ -53,6 +53,18 @@ class EvidenceGateTests(unittest.TestCase):
             "run_id": self.run_id, "harness_sha": self.harness_sha,
             "source_pins": {"baobab-iam": self.sha, "shared": self.shared_sha,
                             "baobab-cp": self.cp_sha},
+            "n02_browser_checkpoint": {
+                "schema": "infrastructure.dev04.n02-browser-checkpoint.v1",
+                "run_id": self.run_id,
+                "browser_sha256": hashlib.sha256(
+                    json.dumps(self.browser()).encode()).hexdigest(),
+                "source_sha": self.sha, "shared_source_sha": self.shared_sha,
+                "cp_source_sha": self.cp_sha, "harness_sha": self.harness_sha,
+                "phase": "BEFORE_INT03C_DEACTIVATION",
+                "classification": "ORIGINAL_BROWSER_RECONCILED_UNATTESTED",
+                "provider_independently_attested": False,
+                "protected_accepted": False,
+            },
             "evidence_class": "REAL_COMPONENT_SYNTHETIC_DATA",
             "lifecycle_passed": True, "teardown_verified": True,
             "int03c_qualified": True, "protected_acceptance": False,
@@ -76,6 +88,7 @@ class EvidenceGateTests(unittest.TestCase):
         self.assertEqual(gate.browser_readback(browser, self.sha), self.run_id)
         gate.dev04_readback(dev04, self.sha, self.run_id)
         gate.joined_source_readback(browser, dev04)
+        gate.checkpoint_readback(json.dumps(browser).encode(), dev04, self.sha, self.run_id)
         with self.assertRaises(gate.Blocked):
             gate.protected_packet({}, b"browser", b"dev04", self.sha,
                 self.run_id, "/fake/packet", "/fake/pub", "/fake/sig")
@@ -118,6 +131,23 @@ class EvidenceGateTests(unittest.TestCase):
         del browser["cp_source_sha"]
         with self.assertRaises(gate.Blocked):
             gate.browser_readback(browser, self.sha)
+
+    def test_checkpoint_must_precede_destructive_deactivation(self):
+        raw = json.dumps(self.browser()).encode()
+        for key, value in (
+            ("phase", "AFTER_INT03C_TEARDOWN"),
+            ("browser_sha256", "f" * 64),
+            ("run_id", "f" * 32),
+            ("provider_independently_attested", True),
+        ):
+            receipt = self.dev04()
+            receipt["n02_browser_checkpoint"][key] = value
+            with self.subTest(key=key), self.assertRaises(gate.Blocked):
+                gate.checkpoint_readback(raw, receipt, self.sha, self.run_id)
+        receipt = self.dev04()
+        del receipt["n02_browser_checkpoint"]
+        with self.assertRaises(gate.Blocked):
+            gate.checkpoint_readback(raw, receipt, self.sha, self.run_id)
 
     def test_digest_sidecar_validates_original_bytes(self):
         original = self.write("original.json", self.browser())
