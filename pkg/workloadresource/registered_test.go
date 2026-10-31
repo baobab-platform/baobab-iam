@@ -68,7 +68,7 @@ func TestN04RegisteredGateRechecksCurrentCPBeforeAndAfterResource(t *testing.T) 
 				}
 				return nil
 			}}
-			gate, err := NewRegisteredGate(native, cp)
+			gate, err := newRegisteredGate(native, cp)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -85,14 +85,14 @@ func TestN04GateDeniesMissingAndCancelledDependencies(t *testing.T) {
 	if _, err := NewRegisteredGate(nil, &n04Provider{}); err == nil {
 		t.Fatal("missing token/CP/native resource gate accepted")
 	}
-	if _, err := NewRegisteredGate(&n04Resource{}, (*n04Provider)(nil)); err == nil {
+	if _, err := newRegisteredGate(&n04Resource{}, (*n04Provider)(nil)); err == nil {
 		t.Fatal("typed-nil CP authority admitted")
 	}
-	if _, err := NewRegisteredGate((*n04Resource)(nil), &n04Provider{}); err == nil {
+	if _, err := newRegisteredGate((*n04Resource)(nil), &n04Provider{}); err == nil {
 		t.Fatal("typed-nil native gate admitted")
 	}
 	native, cp := &n04Resource{}, &n04Provider{}
-	gate, err := NewRegisteredGate(native, cp)
+	gate, err := newRegisteredGate(native, cp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,8 @@ func TestN04GateDeniesMissingAndCancelledDependencies(t *testing.T) {
 }
 
 func TestN04HTTPAcceptsOnlyRegisteredDoubleCurrentCP(t *testing.T) {
-	cp, resourceGate := &n04Provider{}, &n04Resource{}
+	cp := &n04Provider{}
+	resourceGate, _, _, _ := fixture(t)
 	g, err := NewRegisteredGate(resourceGate, cp)
 	if err != nil {
 		t.Fatal(err)
@@ -145,5 +146,15 @@ func TestN04HTTPRefusesUnregisteredNilAuthorizer(t *testing.T) {
 	_, err := NewMiddleware((*RegisteredGate)(nil), n04Operation{}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	if err == nil {
 		t.Fatal("typed nil registered authorizer accepted")
+	}
+	if _, err := NewMiddleware(&n04Resource{}, n04Operation{},
+		http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})); err == nil {
+		t.Fatal("unverified unsigned fake resource was accepted as middleware")
+	}
+	internalOnly, err := newRegisteredGate(&n04Resource{}, &n04Provider{})
+	if err != nil { t.Fatal(err) }
+	if _, err := NewMiddleware(internalOnly, n04Operation{},
+		http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})); err == nil {
+		t.Fatal("unsigned internal fixture got deployed HTTP admission")
 	}
 }
