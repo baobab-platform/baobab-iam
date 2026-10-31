@@ -291,6 +291,7 @@ subcases = (
     'real-issued-token-and-CP-current-route-accepted',
     'real-issued-token-HTTP-resource-accepted',
     'real-wrong-audience-refused',
+    'real-tampered-signature-denied-by-resource',
     'CP-other-owner-denied-with-unexpired-bearer',
     'CP-revoked-external-link-denied-while-issuer-active',
     'CP-suspended-tenant-denied',
