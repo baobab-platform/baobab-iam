@@ -51,7 +51,7 @@ def engine(kind, run):
         "protected_acceptance": False, "production_authorized": False,
         "engine_integration": {
             "schema": "infrastructure.engine-integration.observed.v1",
-            "run_id": run, "profile_key": kind, "subject_engine": kind,
+            "run_id": run, "profile_key": n04.PROFILES[kind], "subject_engine": kind,
             "synthetic_only": True, "protected_acceptance": False,
             "production_authorized": False,
             "cases": {case: {"result": "PASS", "reason": "OBSERVED"}
@@ -192,6 +192,7 @@ class N04Gate(unittest.TestCase):
                              "N04_ORIGINAL_EVIDENCE_RECONCILED_UNATTESTED")
             # No acceptance if two independent owner runs reuse one run ID.
             models["payments"]["run_id"] = PR
+            models["payments"]["engine_integration"]["run_id"] = PR
             path = root / "payments.json"
             sidecar = root / "payments.sha256"
             raw = (json.dumps(models["payments"], sort_keys=True) + "\n").encode()
