@@ -1,5 +1,10 @@
 # ADR-IAM-0033 implementation plan
 
+## 2026-10-31 N02 native browser component
+
+[Source and qualification boundary](../operations/native-browser-bff.md) introduces the actual HTTP BFF OAuth Code/S256, consent and PostgreSQL session layer over the governed native Kratos/Hydra composition, plus CP delegated human-token resolution and remote token revocation. Do not confuse a passing synthetic fixture with verified current CP/estate/Trade acceptance. The N01 Shared pin hold and existing PARTIAL provider support remain in force; the next execution gates are real registered clients, native estate UX, exact human resource audience, C4 connected evidence and separately approved protected runtime.
+
+
 ## 2026-10-31 IAM-N01 source-only convergence
 
 [Current governance/contract reconciliation](iam-n01-convergence.md)
