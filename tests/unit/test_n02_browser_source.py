@@ -37,7 +37,7 @@ class BrowserSourceAndCustodyTests(unittest.TestCase):
             "cp_source_sha": "d" * 40,
             "infrastructure_harness_sha": "e" * 40,
             "bff_origin": "https://bff.example.invalid",
-            "kratos_origin": "https://kratos.example.invalid",
+            "kratos_origin": "https://bff.example.invalid",
             "hydra_origin": "https://hydra.example.invalid",
             "require_aal2": True,
             "post_recovery_password_file": "/dev/null",
@@ -60,6 +60,16 @@ class BrowserSourceAndCustodyTests(unittest.TestCase):
                   SimpleNamespace(stdout=""),
               ])):
             return browser.load_profile()
+
+    def test_kratos_host_only_cookie_must_share_estate_origin(self):
+        self.assertEqual(self.load()["kratos_origin"], self.load()["bff_origin"])
+        self.profile["kratos_origin"] = "https://kratos.example.invalid"
+        with self.assertRaisesRegex(browser.Denied, "KRATOS_HOST_ONLY_SESSION_ROUTE_REQUIRED"):
+            self.load()
+        self.profile["kratos_origin"] = self.profile["bff_origin"]
+        self.profile["hydra_origin"] = self.profile["bff_origin"]
+        with self.assertRaisesRegex(browser.Denied, "KRATOS_HOST_ONLY_SESSION_ROUTE_REQUIRED"):
+            self.load()
 
     def test_only_exact_clean_source_and_aal2_profile_admitted(self):
         self.assertEqual(self.load()["iam_source_sha"], self.sha)
