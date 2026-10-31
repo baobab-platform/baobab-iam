@@ -89,6 +89,7 @@ func (a *CPContextAuthority) AuthorizeCurrent(ctx context.Context, raw string, c
 		TenantID string `json:"tenant_id"`
 		ExpiresAt time.Time `json:"expires_at"`
 	}
+	if _,err:=decodeUnique(rawBody);err!=nil{return ErrDenied}
 	if json.Unmarshal(rawBody, &contextData) != nil ||
 		contextData.ContextID != operation.ContextID ||
 		contextData.TenantID != operation.TenantID ||
