@@ -1,5 +1,8 @@
 # ADR-IAM-0033 programme status
 
+**IAM-N03 implementation review, 31 October 2026:** [Resource-side standard OAuth verification](../operations/n03-workload-resource-qualification.md) now has a reusable provider-neutral gate with JWKS, RFC7662 freshness, CP context and mandatory domain veto, adversarial tests, and an opt-in actual Hydra + CP source router/issuer-revocation suite. This remains DRAFT/source and isolated real-component evidence only until executed; no actual protected tenant/market consumer or production token withdrawal has been demonstrated. No provider-support promotion or authorization/Shared re-pin is implied.
+
+
 **N02 follow-on, 31 October 2026 — connected qualification engineering (PR #147 draft):** [Source/evidence crosswalk](../operations/n02-connected-browser-qualification.md) adds real Hydra development-only client registration/readback/teardown, current CP-gated Kratos AAL2 proof, recovery routing, native session-wide logout with PostgreSQL subject-index migration, Playwright actual-browser runner and fail-closed review/custody gate. The underlying Infrastructure DEV-04 seven-case run must be repeated and bound to a common source SHA/run identity; no N02 browser+CP connected acceptance receipt or protected permission is claimed. Retained Keycloak federation and N01 contract pin are unchanged; providers remain PARTIAL.
 
 
