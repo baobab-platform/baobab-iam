@@ -11,7 +11,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"html/template"
 	"io"
 	"net"
@@ -44,7 +43,7 @@ type Principal struct { ID string }
 // PrincipalResolver must perform fresh, independently authenticated CP
 // exact issuer+subject resolution and check current lifecycle on every read.
 type PrincipalResolver interface {
-	ResolveHuman(context.Context, string, string) (Principal, error)
+	ResolveHuman(context.Context, string, string, string) (Principal, error)
 }
 
 // Revoker revokes provider access/refresh tokens (not just local cookies).
@@ -94,6 +93,7 @@ type Config struct {
 	Store Store
 	HTTPClient *http.Client
 	Verifier IDVerifier
+	AccessAudience, AccessScope string
 	// Only disposable loopback tests may inject an ID verifier or use HTTP.
 	AllowTestLoopback bool
 }
@@ -101,6 +101,7 @@ type Config struct {
 type Handler struct {
 	c Config
 	verify IDVerifier
+	access IDVerifier
 	client *http.Client
 	origin *url.URL
 	issuer *url.URL
@@ -130,7 +131,7 @@ func New(c Config) (*Handler, error) {
 	redirect := strings.TrimRight(c.PublicOrigin, "/") + "/auth/callback"
 	if c.RedirectURI != redirect || c.ClientID == "" || len(c.ClientID) > 255 || len(c.ClientSecret) < 32 ||
 		c.Now == nil || c.Handoff == nil || c.CP == nil || c.Revoker == nil || c.Store == nil ||
-		c.KratosSessionCookieName != "ory_kratos_session" {
+		c.KratosSessionCookieName != "ory_kratos_session" || c.AccessAudience == "" || c.AccessScope == "" {
 		return nil, errors.New("incomplete confidential native BFF configuration")
 	}
 	scopes := strings.Fields(c.Scope)
@@ -153,7 +154,8 @@ func New(c Config) (*Handler, error) {
 			keys: oidc.NewRemoteKeySet(context.Background(), strings.TrimRight(c.Issuer, "/")+"/.well-known/jwks.json"),
 		}
 	}
-	return &Handler{c:c,verify:verifier,client:client,origin:origin,issuer:issuer}, nil
+	access := &signedAccessVerifier{issuer: strings.TrimRight(c.Issuer, "/"), audience:c.AccessAudience, scope:c.AccessScope, keys:oidc.NewRemoteKeySet(context.Background(), strings.TrimRight(c.Issuer,"/")+"/.well-known/jwks.json")}
+	return &Handler{c:c,verify:verifier,access:access,client:client,origin:origin,issuer:issuer}, nil
 }
 
 type signedIDVerifier struct { issuer, clientID string; keys oidc.KeySet }
@@ -168,6 +170,20 @@ func (v *signedIDVerifier) Verify(ctx context.Context, raw, nonce string) (strin
 	return id.Subject, nil
 }
 
+type signedAccessVerifier struct { issuer, audience, scope string; keys oidc.KeySet }
+func (v *signedAccessVerifier) Verify(ctx context.Context, raw, subject string) (string,error) {
+	if len(raw)<20 || len(raw)>16384 || subject=="" {return "",errors.New("missing human access token")}
+	verified,err:=oidc.NewVerifier(v.issuer,v.keys,&oidc.Config{ClientID:v.audience,SupportedSigningAlgs:[]string{"RS256"}}).Verify(ctx,raw)
+	if err!=nil || verified.Subject!=subject {return "",errors.New("human access token subject mismatch")}
+	var claims struct {
+		ActorType string `json:"actor_type"`
+		Scope string `json:"scope"`
+	}
+	if verified.Claims(&claims)!=nil || claims.ActorType!="human" || !strings.Contains(" "+claims.Scope+" "," "+v.scope+" ") {
+		return "",errors.New("human access token scope or actor invalid")
+	}
+	return verified.Subject,nil
+}
 func randomValue() (string,error) {
 	var bytes [32]byte
 	if _,err:=rand.Read(bytes[:]);err!=nil {return "",err}
@@ -300,7 +316,8 @@ func (h *Handler) callback(w http.ResponseWriter,r *http.Request) {
 	if err!=nil {h.fail(w,403);return}
 	sub,err:=h.verify.Verify(r.Context(),tokens.IDToken,tx.Intent.Nonce)
 	if err!=nil {h.fail(w,403);return}
-	principal,err:=h.c.CP.ResolveHuman(r.Context(),strings.TrimRight(h.c.Issuer,"/"),sub)
+	if _,err=h.access.Verify(r.Context(),tokens.AccessToken,sub);err!=nil {h.fail(w,403);return}
+	principal,err:=h.c.CP.ResolveHuman(r.Context(),strings.TrimRight(h.c.Issuer,"/"),sub,tokens.AccessToken)
 	if err!=nil||principal.ID=="" {h.fail(w,403);return}
 	sessionID,err:=randomValue();if err!=nil {h.fail(w,503);return}
 	csrf,err:=randomValue();if err!=nil {h.fail(w,503);return}
@@ -335,7 +352,7 @@ func (h *Handler) authenticated(r *http.Request)(string,Session,error) {
 		return "",Session{},errors.New("session invalid")
 	}
 	// CP is the canonical authority on every read, never a cached browser grant.
-	p,err:=h.c.CP.ResolveHuman(r.Context(),s.Issuer,s.Subject)
+	p,err:=h.c.CP.ResolveHuman(r.Context(),s.Issuer,s.Subject,s.Tokens.AccessToken)
 	if err!=nil||p.ID==""||p.ID!=s.PrincipalID {return "",Session{},errors.New("current CP mapping denied")}
 	return c.Value,s,nil
 }
