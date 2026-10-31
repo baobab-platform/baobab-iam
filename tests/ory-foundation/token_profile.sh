@@ -303,6 +303,9 @@ for name in (parent,) + tuple(parent + '/' + suffix for suffix in subcases):
         raise SystemExit('N03 genuine issuer/CP route case skipped')
 proof = json.loads((root / 'n03-resource-acceptance.json').read_text())
 if (proof.get('classification') != 'REAL_COMPONENT_SYNTHETIC_DATA' or
+        proof.get('fixture_only') is not True or
+        proof.get('cp_consumer_source_sha') != 'c84063cb07dce76e1ffac4b12fa29c5e4e5ec855' or
+        not __import__('re').fullmatch(r'[a-f0-9]{40}', proof.get('executed_source_sha', '')) or
         not proof.get('actual_provider_issuer') or
         not proof.get('actual_cp_router_from_immutable_consumer') or
         not proof.get('issuer_revocation_before_expiry') or
