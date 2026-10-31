@@ -348,7 +348,16 @@ func (b *CPRegisteredBinding) CheckCapability(ctx context.Context, capability st
 	if err != nil || len(body) > 8192 {
 		return ErrDenied
 	}
-	if _, err := decodeUnique(body); err != nil {
+	fields, err := decodeUnique(body)
+	if err != nil || len(fields) != 14 {
+		return ErrDenied
+	}
+	scope, ok := fields["scope"]
+	if !ok {
+		return ErrDenied
+	}
+	scopeFields, err := decodeUnique(scope)
+	if err != nil || len(scopeFields) != 2 {
 		return ErrDenied
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
