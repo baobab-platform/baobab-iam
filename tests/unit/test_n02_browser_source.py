@@ -57,7 +57,7 @@ class BrowserSourceAndCustodyTests(unittest.TestCase):
                            return_value=json.dumps(self.profile).encode()),
               patch.object(browser.subprocess, "run", side_effect=[
                   SimpleNamespace(stdout=self.sha + "\n"),
-                  SimpleNamespace(returncode=0),
+                  SimpleNamespace(stdout=""),
               ])):
             return browser.load_profile()
 
@@ -89,6 +89,21 @@ class BrowserSourceAndCustodyTests(unittest.TestCase):
                   SimpleNamespace(returncode=0),
               ])):
             with self.assertRaises(browser.Denied):
+                browser.load_profile()
+
+    def test_untracked_checkout_contents_refuse_source_qualification(self):
+        # A dirty/untracked first-party runner is never source-identity proof.
+        with (patch.dict(os.environ, {
+                "BAOBAB_ENVIRONMENT": "development",
+                "BAOBAB_N02_PRIVATE_PROFILE": "/private/fixture.json",
+              }),
+              patch.object(browser, "private_file",
+                           return_value=json.dumps(self.profile).encode()),
+              patch.object(browser.subprocess, "run", side_effect=[
+                  SimpleNamespace(stdout=self.sha + "\\n"),
+                  SimpleNamespace(stdout="?? private_override.py\\n"),
+              ])):
+            with self.assertRaisesRegex(browser.Denied, "IMMUTABLE_SOURCE_MISMATCH"):
                 browser.load_profile()
 
     def test_original_receipt_and_sidecar_are_owner_private(self):
