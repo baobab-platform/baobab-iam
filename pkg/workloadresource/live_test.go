@@ -219,6 +219,9 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 		if gate.Authorize(ctx,raw,operation)==nil{t.Fatal("suspended CP tenant admitted")}
 		current.scenario="owned"
 	})
+	// N04 adds genuine Hydra/CP-source-composed token admission over local TLS.
+	// The registration endpoint remains a fixture, NOT a CP PostgreSQL proof.
+	n04LiveProviderComponentFixture(t, ctx, raw, validatorToken, issuer, gate, operation, client)
 	t.Run("real-issuer-revocation-before-expiry",func(t *testing.T){
 		if !time.Now().Before(claims.ExpiresAt){t.Fatal("fixture expired before revocation")}
 		form:=url.Values{"token":{raw},"token_type_hint":{"access_token"},
