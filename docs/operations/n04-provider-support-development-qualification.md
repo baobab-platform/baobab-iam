@@ -45,6 +45,7 @@ python3 -B scripts/n04_development_gate.py \
   --iam-sha "$REVIEWED_IAM_SHA" \
   --shared-sha "$REVIEWED_SHARED_SHA" \
   --cp-sha "$REVIEWED_CP_SHA" \
+  --infrastructure-sha "$REVIEWED_INFRASTRUCTURE_SHA" \
   --browser "$PRIVATE_RUN/n02/browser-observation.json" \
   --browser-digest "$PRIVATE_RUN/n02/browser-observation.sha256" \
   --int03c "$PRIVATE_RUN/int03c/completed/receipt.json" \
