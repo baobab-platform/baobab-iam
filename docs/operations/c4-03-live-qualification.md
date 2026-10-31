@@ -1,5 +1,8 @@
 # C4-03 — live Kratos/Hydra–CP qualification programme
 
+> **DEVELOPMENT FIRST — N01–N03 NOT CERTIFIED (31 October 2026).** Before any protected C4-03B–E execution, actual **development** browser–Kratos–Hydra–CP/estate and issuer→CP→resource cases must be executed with original, matching source/run pins, unchanged negative cases, revocation while unexpired, and teardown. These connected runs are **not yet evidenced** by the stacked N01–N03 PRs; they must not be described as protected-only blockers. A source-ready runner or isolated provider test is not acceptance. [Development closure audit](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md). Protected approval/custody/operations remain separately gated.
+
+
 **N03 workload-resource addition (source only):** [Workload consumer and revocation gate](n03-workload-resource-qualification.md) checks signed/current Hydra issuer tokens, independently authenticated CP context (distinct validator credential) and owning resource operation policy. Its Ory Foundation regression reuses pinned CP production router code under synthetic state; that is not a deployed protected CP resource. C4-03B real signed issuance and revocation, C4-03D actual protected cross-tenant withdrawal while unexpired and C4-03E independent custody remain mandatory and unproven by source CI.
 
 
