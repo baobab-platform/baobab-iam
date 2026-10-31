@@ -33,10 +33,20 @@ jobs:
         run: |
           docker build --pull=false --no-cache --build-arg SOURCE_DATE_EPOCH=0 -f Dockerfile.native-browser-bff -t baobab-iam-native:n08-first .
           docker build --pull=false --no-cache --build-arg SOURCE_DATE_EPOCH=0 -f Dockerfile.native-browser-bff -t baobab-iam-native:n08-second .
-          first="$(docker image inspect baobab-iam-native:n08-first --format '{{.Id}}')"
-          second="$(docker image inspect baobab-iam-native:n08-second --format '{{.Id}}')"
-          test "$first" = "$second"
-          test "$(docker image inspect baobab-iam-native:n08-first --format '{{.Config.User}}')" = "65532:65532"
+          # Classic Docker's image config Creation timestamp is not normalized
+          # by SOURCE_DATE_EPOCH. Compare reproducible native binary bytes and
+          # security-relevant runtime metadata separately, rather than claiming
+          # equal manifest IDs from two differently timestamped image configs.
+          for label in first second; do
+            id="$(docker create "baobab-iam-native:n08-$label")"
+            docker cp "$id:/native-browser-bff" "$RUNNER_TEMP/native-$label"
+            docker rm "$id" >/dev/null
+            test "$(docker image inspect "baobab-iam-native:n08-$label" --format '{{.Config.User}}')" = "65532:65532"
+            test "$(docker image inspect "baobab-iam-native:n08-$label" --format '{{.Config.Entrypoint}}')" = "[/native-browser-bff]"
+          done
+          cmp -s "$RUNNER_TEMP/native-first" "$RUNNER_TEMP/native-second"
+          sha256sum "$RUNNER_TEMP/native-first" "$RUNNER_TEMP/native-second"
+          rm -f "$RUNNER_TEMP/native-first" "$RUNNER_TEMP/native-second"
       - name: Rootless read-only native binary denies absent original secrets
         run: |
           set +e
