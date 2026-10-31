@@ -1,0 +1,59 @@
+{
+  "schema": "baobab.iam.n01.convergence.v1",
+  "purpose": "Source-only drift guard, not an issuer, provider registry, grant, deployment or approval.",
+  "governing": {
+    "native": "ADR-IAM-0033",
+    "native_status": "Accepted",
+    "original": "ADR-0001..ADR-0018 Proposed (preserved where applicable)",
+    "successors": "ADR-IAM-0019..ADR-IAM-0033 Accepted (amended by 0033)",
+    "native_commitment": "ADR-IAM-0034 Proposed",
+    "development": "ADR-SHARED-043 Accepted"
+  },
+  "shared": {
+    "repository": "baobab-platform/shared",
+    "pin": "1517429bcae601a1b0288ca0279e524ce48a3d77",
+    "reviewed_head": "c97387ed8e27eeffb0c0382e043db98cb450b900",
+    "decision": "HOLD_REPIN_PENDING_CONSUMER_QUALIFICATION"
+  },
+  "providers": {
+    "baobab-iam.kratos": {
+      "key": "kratos",
+      "capability": "identity.authentication.perform",
+      "status": "PARTIAL"
+    },
+    "baobab-iam.hydra": {
+      "key": "hydra",
+      "capability": "identity.workload-token.issue",
+      "status": "PARTIAL"
+    },
+    "baobab-iam.keycloak": {
+      "key": "keycloak",
+      "capability": "identity.authentication.perform",
+      "status": "PARTIAL"
+    }
+  },
+  "development": {
+    "environment": "development",
+    "allowed_execution": [
+      "local-development",
+      "disposable-ci",
+      "isolated-shared-development"
+    ],
+    "profiles": [
+      "nabhold",
+      "zuribeans",
+      "thamani",
+      "equator-estate",
+      "external-client"
+    ],
+    "synthetic_only": true,
+    "independent_human_approval_per_run": false,
+    "distinct_maker_checker_principals": true,
+    "real_provider_tokens_required": true,
+    "max_lease_seconds": 86400,
+    "no_protected_bootstrap": true,
+    "no_protected_acceptance_from_development": true,
+    "revocation_and_teardown_required": true,
+    "no_authority_from_scope_or_provider_health": true
+  }
+}
