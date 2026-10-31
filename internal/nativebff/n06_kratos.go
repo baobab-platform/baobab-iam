@@ -78,7 +78,10 @@ func (k *KratosN06Provider) CurrentNativeAuthentication(
 		} `json:"identity"`
 	}
 	d:=json.NewDecoder(bytes.NewReader(raw))
-	if err:=d.Decode(&row);err!=nil||d.Decode(new(any))!=io.EOF{
+	if err:=n06UniqueJSON(d);err!=nil||d.Decode(new(any))!=io.EOF{
+		return none,empty,errors.New("N06 ambiguous provider proof")
+	}
+	if err:=json.Unmarshal(raw,&row);err!=nil{
 		return none,empty,errors.New("N06 malformed provider proof")
 	}
 	now:=k.now().UTC()
@@ -106,5 +109,29 @@ func (k *KratosN06Provider) CurrentNativeAuthentication(
 		HardwareBound:false,
 	}
 	return key,evidence,nil
+}
+// n06UniqueJSON walks the actual JSON token stream without accepting
+// overwritten duplicate keys, including nested identities and methods.
+func n06UniqueJSON(decoder *json.Decoder)error{
+	tok,err:=decoder.Token()
+	if err!=nil{return err}
+	start,compound:=tok.(json.Delim)
+	if !compound{return nil}
+	if start!='{'&&start!='[' {return errors.New("N06 unexpected JSON structure")}
+	seen:=map[string]bool{}
+	for decoder.More(){
+		if start=='{'{
+			name,err:=decoder.Token()
+			key,ok:=name.(string)
+			if err!=nil||!ok||seen[key]{return errors.New("N06 duplicate or invalid JSON key")}
+			seen[key]=true
+		}
+		if err:=n06UniqueJSON(decoder);err!=nil{return err}
+	}
+	end,err:=decoder.Token()
+	if err!=nil||start=='{'&&end!=json.Delim('}')||start=='['&&end!=json.Delim(']'){
+		return errors.New("N06 invalid JSON container")
+	}
+	return nil
 }
 var _ N06ProviderProof=(*KratosN06Provider)(nil)
