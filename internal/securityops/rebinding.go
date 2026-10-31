@@ -128,7 +128,7 @@ FROM iam_security.credential_rebind WHERE request_id=$1 FOR UPDATE`,request.Requ
 	var revision int64
 	err=tx.QueryRow(ctx,`UPDATE iam_security.credential_rebind
 SET phase=$2,revision=revision+1 WHERE request_id=$1 AND revision=$3
-RETURNING revision`,id,to,out.Revision).Scan(&revision)
+RETURNING revision`,request.RequestID,to,out.Revision).Scan(&revision)
 	if err!=nil{return nil,errConflict(err)}
 	if err:=tx.Commit(ctx);err!=nil{return nil,errConflict(err)}
 	out.Phase=to;out.Revision=revision
