@@ -172,3 +172,23 @@ be explicitly repinned by the Infrastructure #69 candidate lock after
 review. No unreviewed main-line Shared re-pin, issuer registration, CP
 client permission, protected deployment or N04 support promotion occurs
 through this source-only increment.
+
+
+### Current Kratos host-only session / same-origin N02 contract
+
+The qualified browser profile now requires
+`bff_origin == kratos_origin` and a **separate** `hydra_origin`.
+Kratos public `/self-service/*` and `/sessions/whoami` must use
+the exact first-party estate host, so a Kratos host-only `Secure`
+session cookie is presented to IAM's `/auth/login` and `/auth/consent`
+without a shared subdomain cookie. Infrastructure #69 carries the
+source-only, TLS-preserving NGINX ingress candidate and closed unit tests.
+ZuriBeans #141 supplies the private first-party Next UI. Neither source
+PR deploys the real Kratos flow UI, private CA, courier or IAM BFF; actual
+reviewed, running service and current CP readback remain mandatory.
+
+The candidate Infrastructure #69 lock currently cannot be run while
+CP's embedded workload-registry source is older than Shared #421.
+CP #455 is the separate **draft** projection companion; its complete
+Shared consumer-pin review, current registry admission and N02 original
+evidence are required before declaring connected acceptance.
