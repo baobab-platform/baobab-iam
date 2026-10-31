@@ -30,6 +30,28 @@ N07 must prove real first-party consumer integrations against genuine Kratos nat
 
 The structural worksheet is tests/connected/n07-profile.example.json. Its invalid placeholder origins and all-zero source SHA pins are **not a development deployment**.
 
+## Thamani estate owner companion — source integrated, runtime HELD
+
+Thamani [draft PR #44](https://github.com/baobab-platform/thamani/pull/44)
+now introduces a proper first-party `/sign-in`,
+`/api/auth/{login,callback,session,logout,context}` confidential BFF and
+read-only CP `LOGISTICS_NAVIGATION` bound to a server-selected canonical
+Organisation/Tenant/Market with current issuer and Principal checks. Its
+opaque cookie, TLS Redis custody and CSRF controls are **not** Medusa
+customer authentication and do not authorize native shipment/booking
+operations. The N07 Chromium probe now requires Thamani's exact CP
+Principal UUID and real `/api/auth/context` read, unlike ZuriBeans's
+separate provider-backed buyer-session summary.
+
+**Source ≠ connected run:** Thamani #44 is draft and disabled by default;
+its actual Hydra/CP/Redis owner lease and first-party browser credentials
+are not yet provisioned/read back. The TMS repo's default
+`src/http/development-server.mjs` currently only exposes `/livez`
+and a 503 `/readyz`; it has **no authorized booking/resource endpoint**.
+N07 must therefore retain TMS native booking/commitment acceptance
+as BLOCKED until the TMS owner qualifies a real native operation.
+No demo workspace 200 or health check may substitute.
+
 ## Real first-party estate Chromium companion
 
 The opt-in tests/browser/n07_estates_live.py exercises the actual first-party
