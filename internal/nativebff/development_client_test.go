@@ -49,7 +49,7 @@ func TestDevClientRegistrationRefusesNonDevelopmentAndUnsafeOrigins(t *testing.T
 		}
 		if _,err=r.name(c);err==nil{t.Fatal("unapproved client accepted",kind)}
 	}
-	if err=r.DeleteDevelopment(context.Background(),"production-nabhold-client");err==nil{
+	if err=r.DeleteDevelopment(context.Background(),"production-nabhold-client",lease.RunID);err==nil{
 		t.Fatal("protected client teardown accepted")
 	}
 }
@@ -74,15 +74,22 @@ func TestLiveDevelopmentHydraEstateClientRegistration(t *testing.T){
 	t.Cleanup(func(){
 		cleanCtx,stop:=context.WithTimeout(context.Background(),10*time.Second)
 		defer stop()
-		if err:=r.DeleteDevelopment(cleanCtx,id);err!=nil{
+		if err:=r.DeleteDevelopment(cleanCtx,id,lease.RunID);err!=nil{
 			t.Error("Hydra client teardown unverified")
 		}
 	})
-	if err:=r.Readback(ctx,id,lease.RedirectURI);err!=nil{
+	if err:=r.Readback(ctx,id,lease.RedirectURI,lease.RunID);err!=nil{
 		t.Fatal("live Hydra readback drift",err)
 	}
-	if err:=r.Readback(ctx,id,"http://127.0.0.1:3000/unapproved");err==nil{
+	if err:=r.Readback(ctx,id,"http://127.0.0.1:3000/unapproved",lease.RunID);err==nil{
 		t.Fatal("Hydra unapproved redirect mistakenly qualified")
+	}
+	if id!="baobab-dev-zuribeans-bff" {t.Fatal("actual client differs from Shared identity")}
+	if err:=r.Readback(ctx,id,lease.RedirectURI,strings.Repeat("f",32));err==nil {
+		t.Fatal("foreign development lease adopted canonical client")
+	}
+	if err:=r.DeleteDevelopment(ctx,id,strings.Repeat("f",32));err==nil {
+		t.Fatal("foreign development lease deleted canonical client")
 	}
 	// Readback only proves a provider's registration, never current CP client
 	// binding or a valid human subject token at Trade's resource.
