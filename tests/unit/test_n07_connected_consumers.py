@@ -1,8 +1,11 @@
 """IAM-N07 negative-first source tests. These never stand in for a live consumer."""
+import base64
 import importlib.util
+import json
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -15,6 +18,15 @@ spec.loader.exec_module(n07)
 
 SHA = "a" * 40
 RUN = "b" * 32
+
+
+def unit_jwt(label="one", *, expires_in=300):
+    # Syntactically shaped UNIT DATA, not a signed token or live acceptance.
+    now = int(time.time())
+    payload = {"iat": now - 5, "exp": now + expires_in, "unit": label}
+    encoded = base64.urlsafe_b64encode(
+        json.dumps(payload, sort_keys=True).encode()).rstrip(b"=").decode("ascii")
+    return "eyJhbGciOiJub25lIn0." + encoded + ".fixture"
 
 
 def example():
@@ -147,10 +159,27 @@ class N07SourceTests(unittest.TestCase):
     def test_wrong_negative_token_cannot_be_the_good_token(self):
         def fake(_origin, _path, bearer):
             return (401, True) if bearer is None else (200, True)
-        with patch.object(n07, "token", return_value="same-credential"):
+        with patch.object(n07, "token", return_value=unit_jwt()):
             result = n07.observe(example(), "before", fake)
         self.assertEqual(result["cases"]["N07_BAOBAB_PAYMENTS_ALLOWED"], "OBSERVED")
         self.assertEqual(result["cases"]["N07_BAOBAB_PAYMENTS_WRONG_AUDIENCE"], "BLOCKED")
+
+    def test_expired_or_oversized_jwt_fails_without_proving_signature(self):
+        for value in (unit_jwt(expires_in=-10), unit_jwt(expires_in=10),
+                      "not.a.valid.token", unit_jwt(expires_in=3600)):
+            with self.subTest(value=value[:20]), self.assertRaises(n07.Blocked):
+                n07.unexpired_jwt(value)
+
+    def test_after_rejects_missing_or_tampered_pre_original(self):
+        with tempfile.TemporaryDirectory() as d:
+            n07.original_write(d, "before", n07.observe(
+                example(), "before", lambda *_: (401, True)))
+            with self.assertRaises(n07.Blocked):
+                n07.require_before(example(), d)
+            with (Path(d) / "before.sha256").open("w") as stream:
+                stream.write("0" * 64 + "\n")
+            with self.assertRaises(n07.Blocked):
+                n07.require_before(example(), d)
 
     def test_after_requires_exact_same_original_token(self):
         with patch.object(n07, "token", side_effect=lambda path: path), \
@@ -159,6 +188,18 @@ class N07SourceTests(unittest.TestCase):
             result = n07.observe(example(), "after",
                 lambda _origin, _path, _bearer: (401, True))
         self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_REVOKED_UNEXPIRED"], "BLOCKED")
+
+    def test_post_revocation_observation_always_unattested(self):
+        p = example()
+        original = unit_jwt()
+        before = {"fingerprints": {name: n07.fingerprint(RUN, original)
+                                   for name in n07.REQUIRED_ENGINES}}
+        with patch.object(n07, "token", return_value=original):
+            result = n07.observe(p, "after",
+                lambda _origin, _path, _bearer: (403, True), before=before)
+        self.assertEqual(result["cases"]["N07_BAOBAB_PAYMENTS_REVOKED_UNEXPIRED"], "OBSERVED")
+        self.assertFalse(result["fully_qualified"])
+        self.assertFalse(result["issuer_qualified"])
 
     def test_originals_never_overwritten(self):
         with tempfile.TemporaryDirectory() as d:
