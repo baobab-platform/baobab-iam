@@ -100,11 +100,13 @@ def load_profile() -> dict[str, Any]:
     try:
         revision = subprocess.run(["git", "-C", str(source), "rev-parse", "HEAD"],
             capture_output=True, text=True, check=True, timeout=10)
-        clean = subprocess.run(["git", "-C", str(source), "diff", "--quiet", "HEAD", "--"],
-            capture_output=True, check=False, timeout=10)
+        clean = subprocess.run(["git", "-C", str(source), "status", "--porcelain"],
+            capture_output=True, text=True, check=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
         raise Denied("IMMUTABLE_SOURCE_UNVERIFIED") from None
-    if revision.stdout.strip() != data["iam_source_sha"] or clean.returncode != 0:
+    if revision.stdout.strip() != data["iam_source_sha"] or clean.stdout.strip():
+        # Includes untracked scripts, fixtures, worktree changes and staged
+        # modifications; 'git diff HEAD' alone misses untracked files.
         raise Denied("IMMUTABLE_SOURCE_MISMATCH")
     if not isinstance(data.get("post_recovery_password_file"), str):
         raise Denied("POST_RECOVERY_CREDENTIAL_REQUIRED")
