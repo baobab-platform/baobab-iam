@@ -49,23 +49,29 @@ func (h *GovernedNativeHumanHandoff) AcceptConsent(ctx context.Context, challeng
 }
 
 
-// AuthenticatorAAL returns only the Kratos-verified current assurance level,
-// after fresh CP dispatch and native whoami. No browser AAL or user claim is
-// accepted as step-up evidence. This does not assign BAOBAB-A2/A3: the
-// separately governed assurance policy controls that mapping.
-func (h *GovernedNativeHumanHandoff) AuthenticatorAAL(ctx context.Context, credential NativeSessionCredential) (string, error) {
+// AuthenticatorSubjectAAL resolves an exact **current** Kratos subject and AAL
+// within two current CP routing checks. The browser cannot supply a subject or
+// an assurance result. A changed/revoked session denies callback binding.
+func (h *GovernedNativeHumanHandoff) AuthenticatorSubjectAAL(ctx context.Context, credential NativeSessionCredential) (string, string, error) {
 	if h == nil || h.mechanics == nil || h.authority == nil || ctx == nil || ctx.Err() != nil {
-		return "", fmt.Errorf("native assurance unavailable")
+		return "", "", fmt.Errorf("native assurance unavailable")
 	}
 	if h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication) != nil {
-		return "", fmt.Errorf("current CP native dispatch denied")
+		return "", "", fmt.Errorf("current CP native dispatch denied")
 	}
 	session, err := h.mechanics.session(ctx, credential)
 	if err != nil {
-		return "", fmt.Errorf("native assurance unavailable")
+		return "", "", fmt.Errorf("native assurance unavailable")
 	}
 	if h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication) != nil {
-		return "", fmt.Errorf("current CP native dispatch denied")
+		return "", "", fmt.Errorf("current CP native dispatch denied")
 	}
-	return session.AAL, nil
+	return session.Identity.ID, session.AAL, nil
+}
+
+// AuthenticatorAAL never elevates the Kratos assurance model into Baobab's
+// separately governed BAOBAB-A2/A3 approval taxonomy.
+func (h *GovernedNativeHumanHandoff) AuthenticatorAAL(ctx context.Context, credential NativeSessionCredential) (string, error) {
+	_, aal, err := h.AuthenticatorSubjectAAL(ctx, credential)
+	return aal, err
 }
