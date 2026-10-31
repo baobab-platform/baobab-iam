@@ -106,6 +106,7 @@ type Handler struct {
 	client *http.Client
 	origin *url.URL
 	issuer *url.URL
+	router http.Handler
 }
 
 func originURL(s string, allowTest bool) (*url.URL, error) {
@@ -142,7 +143,7 @@ func New(c Config) (*Handler, error) {
 		if seen[scope] || strings.TrimSpace(scope) == "" { return nil, errors.New("duplicate scope") }
 		seen[scope] = true
 	}
-	if c.Scope != strings.Join(scopes, " ") { return nil, errors.New("noncanonical scope list") }
+	if c.Scope != strings.Join(scopes, " ") || !seen[c.AccessScope] { return nil, errors.New("scope profile mismatch") }
 	if (c.Verifier != nil || c.AccessVerifier != nil) && !c.AllowTestLoopback { return nil, errors.New("production requires cryptographic ID and access token verification") }
 	client := &http.Client{Timeout: 10*time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	if c.AllowTestLoopback && c.HTTPClient != nil { client.Transport = c.HTTPClient.Transport }
@@ -157,7 +158,9 @@ func New(c Config) (*Handler, error) {
 	}
 	var access IDVerifier
 	if c.AccessVerifier != nil { access = c.AccessVerifier } else { access = &signedAccessVerifier{issuer: strings.TrimRight(c.Issuer, "/"), audience:c.AccessAudience, scope:c.AccessScope, keys:oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(),client), strings.TrimRight(c.Issuer,"/")+"/.well-known/jwks.json")} }
-	return &Handler{c:c,verify:verifier,access:access,client:client,origin:origin,issuer:issuer}, nil
+	h := &Handler{c:c,verify:verifier,access:access,client:client,origin:origin,issuer:issuer}
+	h.router = h.routes()
+	return h, nil
 }
 
 type signedIDVerifier struct { issuer, clientID string; keys oidc.KeySet }
@@ -242,8 +245,10 @@ func (h *Handler) routes() http.Handler {
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
 	h.noStore(w)
+	if r.Host != h.origin.Host { h.fail(w,http.StatusMisdirectedRequest);return }
 	if r.TLS==nil && !h.c.AllowTestLoopback {h.fail(w,http.StatusUpgradeRequired);return}
-	h.routes().ServeHTTP(w,r)
+	if r.TLS!=nil {w.Header().Set("Strict-Transport-Security","max-age=31536000")}
+	h.router.ServeHTTP(w,r)
 }
 
 func (h *Handler) start(w http.ResponseWriter,r *http.Request) {
