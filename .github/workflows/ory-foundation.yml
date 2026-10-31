@@ -25,6 +25,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Validate exact foundation shell syntax before provider startup
+        run: bash -n tests/ory-foundation/run.sh
       - name: Build exact upstream audience backport candidate
         if: matrix.hydra == 'audience-backport'
         run: bash tests/ory-foundation/hydra-audience/build.sh
