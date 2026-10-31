@@ -107,6 +107,55 @@ DROP TRIGGER IF EXISTS n06_rotation_audit ON iam_security.rotation_plan;
 CREATE TRIGGER n06_rotation_audit AFTER INSERT OR UPDATE ON iam_security.rotation_plan
 FOR EACH ROW EXECUTE FUNCTION iam_security.record_rotation();
 
+-- A high-risk credential change is a pre-authorised, provider-verified
+-- rebinding ceremony, NOT permission to modify CP principal/membership.
+CREATE TABLE IF NOT EXISTS iam_security.credential_rebind (
+  request_id uuid PRIMARY KEY,
+  principal_key bytea NOT NULL CHECK(octet_length(principal_key)=32),
+  issuer_key bytea NOT NULL CHECK(octet_length(issuer_key)=32),
+  credential_kind text NOT NULL CHECK (credential_kind IN ('PASSKEY','TOTP','RECOVERY_FACTOR')),
+  requester_key bytea NOT NULL CHECK(octet_length(requester_key)=32),
+  approver_key bytea NOT NULL CHECK(octet_length(approver_key)=32),
+  reason text NOT NULL CHECK(reason IN ('LOST_DEVICE','COMPROMISE','PLANNED_REPLACEMENT')),
+  phase text NOT NULL DEFAULT 'PENDING' CHECK(phase IN ('PENDING','PROVIDER_VERIFIED','COMMITTED','UNKNOWN')),
+  revision bigint NOT NULL DEFAULT 1 CHECK(revision>0),
+  created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  CHECK (requester_key <> approver_key)
+);
+CREATE TABLE IF NOT EXISTS iam_security.rebind_history (
+  event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  request_id uuid NOT NULL REFERENCES iam_security.credential_rebind(request_id),
+  phase text NOT NULL,
+  revision bigint NOT NULL,
+  at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  UNIQUE(request_id,revision)
+);
+DROP TRIGGER IF EXISTS n06_rebind_history_immutable ON iam_security.rebind_history;
+CREATE TRIGGER n06_rebind_history_immutable BEFORE UPDATE OR DELETE
+ON iam_security.rebind_history FOR EACH ROW EXECUTE FUNCTION iam_security.append_only();
+CREATE OR REPLACE FUNCTION iam_security.audit_rebind()
+RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+  IF TG_OP='UPDATE' THEN
+    IF (OLD.request_id,OLD.principal_key,OLD.issuer_key,OLD.credential_kind,
+        OLD.requester_key,OLD.approver_key,OLD.reason) IS DISTINCT FROM
+       (NEW.request_id,NEW.principal_key,NEW.issuer_key,NEW.credential_kind,
+        NEW.requester_key,NEW.approver_key,NEW.reason)
+       OR NEW.revision <> OLD.revision+1 THEN
+       RAISE EXCEPTION 'IAM-N06 credential rebind ownership/revision changed';
+    END IF;
+    IF OLD.phase='COMMITTED' THEN
+       RAISE EXCEPTION 'IAM-N06 completed credential rebind cannot reopen';
+    END IF;
+  END IF;
+  INSERT INTO iam_security.rebind_history(request_id,phase,revision)
+  VALUES (NEW.request_id,NEW.phase,NEW.revision);
+  RETURN NEW;
+END; $;
+DROP TRIGGER IF EXISTS n06_rebind_audit ON iam_security.credential_rebind;
+CREATE TRIGGER n06_rebind_audit AFTER INSERT OR UPDATE
+ON iam_security.credential_rebind FOR EACH ROW EXECUTE FUNCTION iam_security.audit_rebind();
+
 -- Exact, low-blast-radius incident scope. The CP/resource authority is a
 -- separately observed/approved step, not a flag this IAM table can grant.
 CREATE TABLE IF NOT EXISTS iam_security.incident_command (
