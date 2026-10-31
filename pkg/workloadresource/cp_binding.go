@@ -37,16 +37,217 @@ type CPRegisteredBinding struct {
 	client   *http.Client
 }
 
-var bindingIdentifier = regexp.MustCompile(`^[a-z][a-z0-9._-]{2,127}$`)
+var (
+	providerIdentifier  = regexp.MustCompile(`^provider_[a-z0-9]+package workloadresource
+
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// CPBindingTarget is an exact, reviewed resource deployment input. It must be
+// obtained from CP-governed registration; values from a token, HTTP request,
+// tenant claim or provider self-description are never authoritative.
+type CPBindingTarget struct {
+	ProviderID              string
+	EngineInstanceID        string
+	OrganisationID          string
+	EstateID                string
+	ConfigurationReference  string
+	SecurityDomainReference string
+}
+
+// CPRegistrationToken obtains a separately registered CP identity-runtime:read
+// workload credential from the trusted service secret boundary on every call.
+type CPRegistrationToken func(context.Context) (string, error)
+
+type CPRegisteredBinding struct {
+	endpoint string
+	target   CPBindingTarget
+	token    CPRegistrationToken
+	client   *http.Client
+}
+
+)
+	instanceIdentifier  = regexp.MustCompile(`^ei_[a-z0-9]+package workloadresource
+
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// CPBindingTarget is an exact, reviewed resource deployment input. It must be
+// obtained from CP-governed registration; values from a token, HTTP request,
+// tenant claim or provider self-description are never authoritative.
+type CPBindingTarget struct {
+	ProviderID              string
+	EngineInstanceID        string
+	OrganisationID          string
+	EstateID                string
+	ConfigurationReference  string
+	SecurityDomainReference string
+}
+
+// CPRegistrationToken obtains a separately registered CP identity-runtime:read
+// workload credential from the trusted service secret boundary on every call.
+type CPRegistrationToken func(context.Context) (string, error)
+
+type CPRegisteredBinding struct {
+	endpoint string
+	target   CPBindingTarget
+	token    CPRegistrationToken
+	client   *http.Client
+}
+
+)
+	orgIdentifier       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}package workloadresource
+
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// CPBindingTarget is an exact, reviewed resource deployment input. It must be
+// obtained from CP-governed registration; values from a token, HTTP request,
+// tenant claim or provider self-description are never authoritative.
+type CPBindingTarget struct {
+	ProviderID              string
+	EngineInstanceID        string
+	OrganisationID          string
+	EstateID                string
+	ConfigurationReference  string
+	SecurityDomainReference string
+}
+
+// CPRegistrationToken obtains a separately registered CP identity-runtime:read
+// workload credential from the trusted service secret boundary on every call.
+type CPRegistrationToken func(context.Context) (string, error)
+
+type CPRegisteredBinding struct {
+	endpoint string
+	target   CPBindingTarget
+	token    CPRegistrationToken
+	client   *http.Client
+}
+
+)
+	estateIdentifier    = regexp.MustCompile(`^[a-z][a-z0-9]*(?:_[a-z0-9]+)*package workloadresource
+
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// CPBindingTarget is an exact, reviewed resource deployment input. It must be
+// obtained from CP-governed registration; values from a token, HTTP request,
+// tenant claim or provider self-description are never authoritative.
+type CPBindingTarget struct {
+	ProviderID              string
+	EngineInstanceID        string
+	OrganisationID          string
+	EstateID                string
+	ConfigurationReference  string
+	SecurityDomainReference string
+}
+
+// CPRegistrationToken obtains a separately registered CP identity-runtime:read
+// workload credential from the trusted service secret boundary on every call.
+type CPRegistrationToken func(context.Context) (string, error)
+
+type CPRegisteredBinding struct {
+	endpoint string
+	target   CPBindingTarget
+	token    CPRegistrationToken
+	client   *http.Client
+}
+
+)
+	referenceIdentifier = regexp.MustCompile(`^ref_[a-z0-9]+package workloadresource
+
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// CPBindingTarget is an exact, reviewed resource deployment input. It must be
+// obtained from CP-governed registration; values from a token, HTTP request,
+// tenant claim or provider self-description are never authoritative.
+type CPBindingTarget struct {
+	ProviderID              string
+	EngineInstanceID        string
+	OrganisationID          string
+	EstateID                string
+	ConfigurationReference  string
+	SecurityDomainReference string
+}
+
+// CPRegistrationToken obtains a separately registered CP identity-runtime:read
+// workload credential from the trusted service secret boundary on every call.
+type CPRegistrationToken func(context.Context) (string, error)
+
+type CPRegisteredBinding struct {
+	endpoint string
+	target   CPBindingTarget
+	token    CPRegistrationToken
+	client   *http.Client
+}
+
+)
+)
 var artifactDigest = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 
 func validCPBindingTarget(t CPBindingTarget) bool {
-	return bindingIdentifier.MatchString(t.ProviderID) &&
-		bindingIdentifier.MatchString(t.EngineInstanceID) &&
-		bindingIdentifier.MatchString(t.OrganisationID) &&
-		bindingIdentifier.MatchString(t.EstateID) &&
-		bindingIdentifier.MatchString(t.ConfigurationReference) &&
-		bindingIdentifier.MatchString(t.SecurityDomainReference)
+	return len(t.ProviderID) >= 10 && len(t.ProviderID) <= 63 && providerIdentifier.MatchString(t.ProviderID) &&
+		len(t.EngineInstanceID) >= 6 && len(t.EngineInstanceID) <= 63 && instanceIdentifier.MatchString(t.EngineInstanceID) &&
+		orgIdentifier.MatchString(t.OrganisationID) &&
+		len(t.EstateID) >= 3 && len(t.EstateID) <= 63 && estateIdentifier.MatchString(t.EstateID) &&
+		len(t.ConfigurationReference) >= 8 && len(t.ConfigurationReference) <= 63 && referenceIdentifier.MatchString(t.ConfigurationReference) &&
+		len(t.SecurityDomainReference) >= 8 && len(t.SecurityDomainReference) <= 63 && referenceIdentifier.MatchString(t.SecurityDomainReference)
 }
 
 // NewCPRegisteredBinding is an ADAPTER to CP's already implemented
