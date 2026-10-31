@@ -71,12 +71,30 @@ type RecoveryAction struct {
 	ObservedAt time.Time
 	HoldUntil time.Time
 }
-func (s *Store) RecordRecovery(ctx context.Context, a RecoveryAction) error {
+type RecoveryEvidence struct {
+	ExactProviderSession bool
+	RecoveryCompleted bool
+	ObservedAt time.Time
+	OriginalReference string
+}
+type RecoveryWitness interface {
+	VerifyRecovery(context.Context, RecoveryAction) (RecoveryEvidence,error)
+}
+// RecordRecovery accepts ONLY an owner-verified provider recovery event,
+// never an estate/browser clock, an email or a request-supplied success flag.
+func (s *Store) RecordRecovery(ctx context.Context, a RecoveryAction, witness RecoveryWitness) error {
+	if s==nil||witness==nil {return errors.New("securityops: independent recovery witness required")}
 	now:=s.now().UTC()
 	if ctx==nil||ctx.Err()!=nil||!slices.Contains(recoveryReasons,a.Reason)||
 		a.ObservedAt.IsZero()||a.ObservedAt.After(now)||now.Sub(a.ObservedAt)>time.Minute||
 		!a.HoldUntil.After(now)||a.HoldUntil.Sub(now)>30*24*time.Hour {
 		return errors.New("securityops: current, approved recovery proof required")
+	}
+	proof,err:=witness.VerifyRecovery(ctx,a)
+	if err!=nil||!proof.ExactProviderSession||!proof.RecoveryCompleted||
+		proof.OriginalReference==""||proof.ObservedAt.IsZero()||
+		proof.ObservedAt.After(now)||now.Sub(proof.ObservedAt)>time.Minute {
+		return errors.New("securityops: actual provider recovery and original evidence required")
 	}
 	p,err:=s.tag("principal",a.Principal);if err!=nil{return err}
 	i,err:=s.tag("issuer",a.Issuer);if err!=nil{return err}
