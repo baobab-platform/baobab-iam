@@ -139,18 +139,18 @@ func run(ctx context.Context,listen string,d document,caFile string)error {
 	resolver,err:=nativebff.NewHTTPPrincipalResolver(nativebff.PrincipalResolutionConfig{
 		CPOrigin:d.Human.CPOrigin,
 		Caller:federation.FileAuthorityTokens{Path:d.CPCallerTokenFile},
-		Now:time.Now,
+		Now:time.Now,TrustedRoots:roots,
 	})
 	if err!=nil{return errors.New("CP delegated Principal boundary unavailable")}
 	revoker,err:=nativebff.NewOAuthRevoker(nativebff.OAuthRevokeConfig{
-		Issuer:d.Issuer,ClientID:d.ClientID,ClientSecret:string(secret),
+		Issuer:d.Issuer,ClientID:d.ClientID,ClientSecret:string(secret),TrustedRoots:roots,
 	})
 	if err!=nil{return errors.New("confidential token revocation unavailable")}
 	handler,err:=nativebff.New(nativebff.Config{
 		PublicOrigin:d.PublicOrigin,Issuer:d.Issuer,
 		ClientID:d.ClientID,ClientSecret:string(secret),
 		RedirectURI:strings.TrimRight(d.PublicOrigin,"/")+"/auth/callback",
-		Scope:d.Scope,AccessAudience:d.AccessAudience,AccessScope:d.AccessScope,
+		Scope:d.Scope,AccessAudience:d.AccessAudience,AccessScope:d.AccessScope,TrustedRoots:roots,
 		KratosSessionCookieName:"ory_kratos_session",
 		Now:time.Now,Handoff:handoff,CP:resolver,Revoker:revoker,
 		Store:browserStore,
