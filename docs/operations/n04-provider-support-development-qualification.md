@@ -101,6 +101,42 @@ To distinguish **existing** real developer capability from missing N04 requalifi
 
 The original success of an Infrastructure CI job with an **expected nonzero Payments qualifier** does not mean Payments or IAM-N04 passed. Its workflow explicitly verifies the correct BLOCKED matrix. These observations are **older immutable source receipts**, not a new run by this N04 PR; do not modify or reissue them as current evidence. This row remains open until actual owner commits and original receipts are re-created and independently inspected.
 
+## Read current development CP registration with executable N04 operator command
+
+`cmd/n04-development-read` implements a **real, read-only CP HTTPS call**, rather than consuming an operator's `healthy=true` statement. It requires `BAOBAB_ENVIRONMENT=development`, an absolute mode-`0600` configuration file, dedicated private CA trust bundle and dedicated mode-`0600` short-lived CP `identity-runtime:read` bearer file. The canonical target is a **CP-issued** ProviderID, EngineInstanceID, Organisation, DigitalEstate, configuration and security-domain reference, under the reviewed source pins. This command is for disposable development operators, not browser/tenant supplied input.
+
+Example **shape only** (replace every placeholder from a genuinely reviewed development CP/Shared/IAM owner receipt; do not treat these as valid IDs or URLs):
+
+```json
+{
+  "schema": "baobab.iam.n04.dev-read-config.v1",
+  "environment": "development",
+  "run_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "iam_source_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "shared_source_sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "cp_source_sha": "dddddddddddddddddddddddddddddddddddddddd",
+  "cp_origin": "https://cp.example.invalid",
+  "ca_root_file": "/private/n04/cp-root.pem",
+  "token_file": "/private/n04/cp-runtime-reader.jwt",
+  "target": {
+    "provider_id": "provider_example",
+    "engine_instance_id": "ei_example",
+    "organisation_id": "org_example",
+    "estate_id": "estate_example",
+    "configuration_reference": "ref_configexample",
+    "security_domain_reference": "ref_securityexample"
+  }
+}
+```
+
+```sh
+BAOBAB_ENVIRONMENT=development go run ./cmd/n04-development-read \
+  --settings /private/n04/exact-reviewed-source.json \
+  > /private/n04/actual-cp-read-observation.json
+```
+
+Only a genuine, current `200 no-store` CP binding reply with ACTIVE provider/instance/binding, VERIFIED support, correct immutable target and artifact, and fresh evidence produces `cp_current_registered_read_observed=true`. **Even then** it emits `classification=UNATTESTED_LIVE_CP_READ_ONLY`, `native_engine_qualified=false`, `independent_witness=false`, `protected_accepted=false`. It cannot bootstrap its own OAuth client or CP AdministrativeGrant. The owner must separately produce and independently read back those authorities, invoke native Pulse/Payments resources and witness teardown. Failed or unavailable CP/issuer never yields a PASS receipt. Local TLS tests and private source negatives are enforced in CI; they do **not** replace the actual developer execution.
+
 ## N04 remaining mandatory *development* work
 
 - **N04-D01**: Reconcile N01's held Shared workload/scope registry. Validate the real compiled Kratos/Hydra/Keycloak adapters and the new profiles' exact registration bundles against the current immutable Shared checkout. No support-state promotion or synthetic provider grant.
