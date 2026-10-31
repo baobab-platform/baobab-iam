@@ -100,8 +100,8 @@ class BrowserSourceAndCustodyTests(unittest.TestCase):
               patch.object(browser, "private_file",
                            return_value=json.dumps(self.profile).encode()),
               patch.object(browser.subprocess, "run", side_effect=[
-                  SimpleNamespace(stdout=self.sha + "\\n"),
-                  SimpleNamespace(stdout="?? private_override.py\\n"),
+                  SimpleNamespace(stdout=self.sha + "\n"),
+                  SimpleNamespace(stdout="?? private_override.py\n"),
               ])):
             with self.assertRaisesRegex(browser.Denied, "IMMUTABLE_SOURCE_MISMATCH"):
                 browser.load_profile()
