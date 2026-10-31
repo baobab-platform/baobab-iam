@@ -22,8 +22,27 @@ type Middleware struct {
 	next http.Handler
 }
 
+// The public HTTP fence must never accept an arbitrary implementation
+// that can return nil without verifying a signed issuer token. Only the
+// audited N03 Gate and the N04 RegisteredGate wrapping that exact Gate are
+// admissible. Internal fakes remain confined to non-HTTP unit helpers.
+func trustedHTTPAuthorizer(value ResourceAuthorizer) bool {
+	switch gate := value.(type) {
+	case *Gate:
+		return gate != nil
+	case *RegisteredGate:
+		if gate == nil || absent(gate.provider) {
+			return false
+		}
+		native, ok := gate.resource.(*Gate)
+		return ok && native != nil
+	default:
+		return false
+	}
+}
+
 func NewMiddleware(gate ResourceAuthorizer, operations OperationResolver, next http.Handler) (*Middleware, error) {
-	if absent(gate) || absent(operations) || absent(next) {
+	if !trustedHTTPAuthorizer(gate) || absent(operations) || absent(next) {
 		return nil, ErrDenied
 	}
 	return &Middleware{gate: gate, operations: operations, next: next}, nil
