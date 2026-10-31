@@ -48,6 +48,7 @@ jobs:
           python3 -m py_compile scripts/n04_development_gate.py
           python3 -B -m unittest discover -s tests/unit -p 'test_n04_development_gate.py' -v
           python3 -B -m unittest discover -s tests/unit -p 'test_n04_ory_lifecycle.py' -v
+          python3 -B -m unittest discover -s tests/unit -p 'test_n04_github_archive_readback.py' -v
           bash -n tests/ory-foundation/run.sh tests/ory-foundation/token_profile.sh
           # Genuine runtime evidence is NOT present in source CI; do not
           # run N04's actual acceptance command against synthetic test fixtures.
