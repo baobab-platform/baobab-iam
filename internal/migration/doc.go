@@ -1,9 +1,12 @@
 // Package migration defines the domain model for the Keycloak → Ory
 // migration ledger (Gate IAM-M5, ADR-IAM-0022 §7–12).
 //
-// This package is intentionally storage-agnostic: it holds types, validation,
-// and the migration state machine only. Persistence, workers, and production
-// runners are out of scope until a later implementation PR.
+// The package keeps its provider-neutral types and state machine. IAM-N05
+// introduces a PostgreSQL 17 RecordStore with optimistic compare-and-swap,
+// append-only migration history, immutable external-identity mappings and
+// explicit durable deny fences. The schema is separately deployed; opening
+// a store never upgrades a database or authorizes a production cutover.
+// The existing MemoryStore remains only a non-durable Phase C pilot.
 //
 // Normative constraints applied here:
 //
