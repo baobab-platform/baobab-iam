@@ -24,7 +24,7 @@ GET /auth/consent renders a minimal escaped no-script consent scaffold; only a s
 
 A successful callback requires an actual signed OIDC ID token, signed human access token with matching subject and expected resource audience/scope/actor, then a fresh CP Principal resolution. It establishes a short-lived Secure, HttpOnly, host-only, SameSite=Strict opaque BFF cookie. OAuth access, refresh and ID tokens remain AES-GCM encrypted server-side. GET /auth/session re-resolves the same human through current CP authority and exposes minimal identity plus session CSRF, never domain rights.
 
-POST /auth/logout requires same-origin Origin and session CSRF, destroys the BFF session first and then requests Hydra access/refresh revocation. Unknown provider revocation is HTTP 503, not a confirmed end-to-end logout; Kratos provider session revocation and global federation logout require a separate integration gate. Sessions do not outlive the current OAuth access token or thirty minutes.
+POST /auth/logout requires same-origin Origin and session CSRF, destroys the BFF session first and then requests Hydra access/refresh revocation. Local sign-out remains available when CP is unavailable or has deactivated the Principal; remote issuer revocation uncertainty is never hidden. Unknown provider revocation is HTTP 503, not a confirmed end-to-end logout; Kratos provider session revocation and global federation logout require a separate integration gate. Sessions do not outlive the current OAuth access token or thirty minutes.
 
 ## Critical CP contract / estate constraints
 
