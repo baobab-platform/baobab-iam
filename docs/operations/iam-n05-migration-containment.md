@@ -119,8 +119,8 @@ denial independently.
 
 ## Reversible abort without resurrection
 
-`RollbackPreCutover` requires actual prior-source issuer trust,
-target issuer withdrawn, exact CP Principal unchanged, and preserved
+`RollbackPreCutover` requires the exact affected actor's source-provider fallback, 
+the target actor's native binding denied, exact CP Principal unchanged, and preserved
 legacy revocations, using an independently operated verifier.
 The method does not call provider EnableIdentity, delete source/target
 ExternalIdentity, delete migration history, or alter the retained
