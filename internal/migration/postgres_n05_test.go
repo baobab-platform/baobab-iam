@@ -257,6 +257,28 @@ WHERE operation_id=$1`,op).Scan(&events);err!=nil||events<5{
 	}
 }
 
+func TestN05PostgresSameTargetCannotBelongToTwoCanonicalPeople(t *testing.T) {
+	store,_:=n05Database(t)
+	ctx:=context.Background()
+	first:=n05Human(t,store,true)
+	second:=n05Human(t,store,false)
+	svc:=migration.Service{Store:store}
+	for _,state:=range []migration.MigrationState{
+		migration.StateValidated,migration.StateReady,migration.StateProvisioning,
+	}{
+		if _,err:=svc.ApplyTransition(ctx,second.MigrationID,state);err!=nil{t.Fatal(err)}
+	}
+	if _,err:=svc.SetTargetBinding(ctx,second.MigrationID,first.Target);
+		!errors.Is(err,migration.ErrMigrationConflict) {
+		t.Fatalf("same target bound to two different canonical Principals: %v",err)
+	}
+	fresh,err:=store.Get(ctx,second.MigrationID)
+	if err!=nil||fresh.CanonicalIdentityID!=second.CanonicalIdentityID||
+		fresh.Target.Subject!=""{
+		t.Fatal("failed duplicate target reconciliation mutated second Principal")
+	}
+}
+
 func TestN05PostgresImportReconciliationRefusesCanonicalDrift(t *testing.T) {
 	store,_:=n05Database(t)
 	svc:=migration.Service{Store:store}
