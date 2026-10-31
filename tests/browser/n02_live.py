@@ -96,7 +96,7 @@ def load_profile() -> dict[str, Any]:
         raise Denied("UNPINNED_SOURCE")
     if not re.fullmatch(r"[0-9a-f]{32}", data.get("run_id", "")):
         raise Denied("UNBOUNDED_SYNTHETIC_RUN")
-    for key in ("shared_source_sha", "cp_source_sha", "infrastructure_harness_sha"):
+    for key in ("shared_source_sha", "cp_source_sha", "zuribeans_source_sha", "infrastructure_harness_sha"):
         if not isinstance(data.get(key), str) or not re.fullmatch(r"[0-9a-f]{40}", data[key]):
             raise Denied("PEER_SOURCE_PIN_REQUIRED")
     if data.get("require_aal2") is not True:
@@ -337,6 +337,7 @@ def main() -> int:
         "source_sha": profile["iam_source_sha"],
         "shared_source_sha": profile["shared_source_sha"],
         "cp_source_sha": profile["cp_source_sha"],
+        "zuribeans_source_sha": profile["zuribeans_source_sha"],
         "infrastructure_harness_sha": profile["infrastructure_harness_sha"],
         "run_id": profile["run_id"],
         "provider_and_cp_independently_attested": False,
