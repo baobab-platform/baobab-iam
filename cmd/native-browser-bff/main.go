@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/baobab-platform/baobab-iam/internal/assurance"
 	"github.com/baobab-platform/baobab-iam/internal/federation"
 	"github.com/baobab-platform/baobab-iam/internal/nativebff"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
@@ -97,6 +98,22 @@ func loadRoots(file string) (*x509.CertPool, error) {
 		return nil, errors.New("invalid protected CA roots")
 	}
 	return roots, nil
+}
+
+// Missing a real high-risk/privileged risk and CP witness is a DENIAL, not a
+// synthetic low-risk value. The only currently reviewed BFF scope maps to
+// authentication-only buyer.read; native Trade must evaluate buyer.commit.
+type unavailableN08Risk struct{}
+
+func (unavailableN08Risk) CurrentRisk(context.Context, assurance.CurrentSessionKey, assurance.Operation) (assurance.Risk, error) {
+	return assurance.Risk{}, errors.New("independent current risk witness unavailable")
+}
+
+func n08NativeScopePolicy(scope string) (map[string]assurance.Operation, error) {
+	if scope != "openid trade:buy" {
+		return nil, errors.New("unreviewed native scope/assurance policy")
+	}
+	return map[string]assurance.Operation{"trade:buy": assurance.OrdinaryBuyer}, nil
 }
 
 func run(ctx context.Context, listen string, d document, caFile string) error {
@@ -203,6 +220,24 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("confidential token revocation unavailable")
 	}
+	// The N06 safety policy is mandatory in the actual executable, not just
+	// in isolated handler unit tests. Only the registered low-assurance
+	// *authentication* scope is mapped here. Buyer commit/approval still
+	// requires an independent fresh risk and native resource decision.
+	scopePolicy, err := n08NativeScopePolicy(d.Scope)
+	if err != nil {
+		return err
+	}
+	kratosN06, err := nativebff.NewKratosN06Provider(d.KratosPublic, roots, time.Now, false, nil)
+	if err != nil {
+		return errors.New("native current Kratos security proof unavailable")
+	}
+	n06Gate := &nativebff.N06SecurityGate{
+		Provider: kratosN06,
+		Policy: assurance.DefaultDevelopmentPolicy(),
+		Risk: unavailableN08Risk{},
+		Now: time.Now,
+	}
 	handler, err := nativebff.New(nativebff.Config{
 		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer, KratosOrigin: d.KratosPublic,
 		RequireAAL2: d.RequireAAL2, Assurance: handoff, NativeSessions: kratosSessions, OAuthSessions: hydraSessions,
@@ -212,6 +247,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
 		Store: browserStore,
+		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate,
 	})
 	if err != nil {
 		return errors.New("invalid native BFF configuration")
