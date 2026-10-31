@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS iam_migration.containment (
     target_subject text NOT NULL,
     phase text NOT NULL DEFAULT 'PENDING' CHECK (phase IN (
         'PENDING', 'IDENTITY_DISABLED', 'SESSIONS_REVOKED',
-        'CREDENTIALS_REVOKED', 'VERIFIED', 'UNKNOWN')),
+        'CURRENT_TOKENS_DENIED', 'VERIFIED', 'UNKNOWN')),
     created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
     CHECK (length(target_issuer) BETWEEN 1 AND 2048),
