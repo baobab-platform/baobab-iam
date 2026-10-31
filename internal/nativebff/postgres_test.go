@@ -76,6 +76,14 @@ func TestPostgresNativeBrowserAtomicConsumption(t *testing.T) {
 			t.Fatalf("migration: %v", err)
 		}
 	}
+	// Migration 002 drains old unindexed sessions and atomically enables
+	// deployment-wide HMAC lookup; it is idempotent on repeated startup.
+	indexMigration,err:=os.ReadFile("migrations/002_subject_session_revocation.sql")
+	if err!=nil{t.Fatal(err)}
+	for _,statement:=range strings.Split(string(indexMigration),";"){
+		if strings.TrimSpace(statement)==""{continue}
+		if _,err=pool.Exec(ctx,statement);err!=nil{t.Fatalf("global logout migration: %v",err)}
+	}
 	key := make([]byte, 32)
 	if _, err = rand.Read(key); err != nil {
 		t.Fatal(err)
@@ -170,4 +178,18 @@ func TestPostgresNativeBrowserAtomicConsumption(t *testing.T) {
 	if err = a.DeleteSession(ctx, sid); err != nil {
 		t.Fatal(err)
 	}
+	first,err:=randomValue();if err!=nil{t.Fatal(err)}
+	second,err:=randomValue();if err!=nil{t.Fatal(err)}
+	otherID,err:=randomValue();if err!=nil{t.Fatal(err)}
+	if err=a.PutSession(ctx,first,sess);err!=nil{t.Fatal(err)}
+	if err=b.PutSession(ctx,second,sess);err!=nil{t.Fatal(err)}
+	otherSession:=sess
+	otherSession.Subject="unrelated-other-tenant-subject"
+	if err=b.PutSession(ctx,otherID,otherSession);err!=nil{t.Fatal(err)}
+	if err=a.DeleteHumanSessions(ctx,sess.Issuer,sess.Subject);err!=nil{t.Fatal(err)}
+	for _,id:=range []string{first,second}{
+		if _,err=b.ReadSession(ctx,id);err==nil{t.Fatal("global logout left another BFF session active")}
+	}
+	if _,err=b.ReadSession(ctx,otherID);err!=nil{t.Fatal("global logout erased unrelated identity")}
+	if err=b.DeleteSession(ctx,otherID);err!=nil{t.Fatal(err)}
 }
