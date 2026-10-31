@@ -219,6 +219,23 @@ func TestN05PostgresContainmentIsRevocationSafeAndResumable(t *testing.T){
 		t.Fatalf("idempotent exact-operation retry did not prove current deny: %+v %v",res,err)
 	}
 	if res.Classification=="PROTECTED_ACCEPTED" {t.Fatal("mock current veto promoted to protected acceptance")}
+	// A stale database snapshot may say VERIFIED even when Kratos sessions
+	// have been restored. N05 refuses the stale receipt, never resurrects
+	// authority, and must not pretend the previous 0-session readback holds.
+	p.mu.Lock()
+	p.active=1
+	p.mu.Unlock()
+	if _,err:=controller.Contain(ctx,row.MigrationID,op);err==nil{
+		t.Fatal("stale VERIFIED ledger hid restored active Kratos session")
+	}
+	p.mu.Lock()
+	p.active=0
+	p.mu.Unlock()
+	controller.Current=n05Veto{denied:false}
+	if _,err:=controller.Contain(ctx,row.MigrationID,op);err==nil{
+		t.Fatal("stale VERIFIED ledger hid restored CP current-token allowance")
+	}
+	controller.Current=n05Veto{denied:true}
 	replayed,err:=controller.Contain(ctx,row.MigrationID,op)
 	if err!=nil || replayed.Phase!="VERIFIED" || p.disableCalls!=2 || p.revokeCalls!=2 {
 		t.Fatal("verified replay unexpectedly repeated provider side effects")
