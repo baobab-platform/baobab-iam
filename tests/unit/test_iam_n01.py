@@ -100,5 +100,79 @@ class IAMN01Tests(unittest.TestCase):
         self.deny("ADR precedence mismatch")
 
 
+    def test_duplicate_json_governance_keys_are_denied(self):
+        with self.assertRaisesRegex(ValueError, "duplicate JSON key"):
+            n01.load_unique_json('{"development": {"environment":"development"}, "development": {}}')
+
+    def test_duplicate_yaml_governance_keys_are_denied(self):
+        with self.assertRaisesRegex(ValueError, "duplicate YAML key"):
+            n01.load_unique_yaml("source:\\n  commit: first\\nsource:\\n  commit: second\\n".replace("\\n", "\n"))
+
+    def test_duplicate_nested_yaml_provider_keys_are_denied(self):
+        with self.assertRaisesRegex(ValueError, "duplicate YAML key"):
+            n01.load_unique_yaml("providers:\\n  - provider_key: baobab-iam.hydra\\n    provider_key: baobab-iam.shadow\\n".replace("\\n", "\n"))
+
+    def test_shared_pin_is_real_go_declaration_not_comment(self):
+        comment = '// const SharedCommit = "' + n01.PIN + '"'
+        with self.assertRaisesRegex(ValueError, "Go Shared pin declaration"):
+            n01.actual_shared_commit(comment)
+        with self.assertRaisesRegex(ValueError, "Go Shared pin declaration"):
+            n01.actual_shared_commit('const SharedCommit = "' + n01.PIN + '"\n' +
+                                     'const SharedCommit = "' + n01.PIN + '"')
+        self.assertEqual(n01.actual_shared_commit('const SharedCommit = "' + n01.PIN + '"'),
+                         n01.PIN)
+
+    def test_contract_lock_policy_cannot_be_downgraded(self):
+        self.lock["policy"]["updates"] = "automatic"
+        self.deny("Shared contract review policy relaxed")
+
+    def test_duplicate_contract_entry_denied(self):
+        self.lock["contracts"].append(self.lock["contracts"][0])
+        self.deny("duplicate or invalid Shared contracts")
+
+    def test_simulated_provider_is_not_accepted(self):
+        self.declaration["providers"][0]["simulated"] = True
+        self.deny("simulated or non-adapter")
+
+    def test_provider_must_remain_reviewed_adapter(self):
+        self.declaration["providers"][0]["provider_type"] = "ENGINE"
+        self.deny("simulated or non-adapter")
+
+    def test_provider_provenance_repository_is_pinned(self):
+        self.declaration["providers"][1]["provenance"]["authority"]["repository"] = "external/other"
+        self.deny("provider provenance drift")
+
+    def test_provider_eligibility_type_cannot_be_string(self):
+        self.declaration["providers"][0]["production_permitted"] = "true"
+        self.deny("provider eligibility")
+
+    def test_provider_support_must_retain_real_source_evidence(self):
+        self.declaration["providers"][0]["support"][0]["implementation_evidence"] = []
+        self.deny("provider support evidence")
+
+    def test_provider_evidence_path_must_exist(self):
+        self.declaration["providers"][1]["support"][0]["implementation_evidence"][0]["path"] = (
+            "internal/provider/ory/nonexistent.go")
+        self.deny("provider support evidence")
+
+    def test_provider_evidence_must_include_integration_test(self):
+        support = self.declaration["providers"][2]["support"][0]
+        support["implementation_evidence"] = support["implementation_evidence"][:1]
+        self.deny("provider support evidence")
+
+    def test_duplicate_planned_capability_cannot_be_hidden(self):
+        self.declaration["planned_capabilities"].append(
+            copy.deepcopy(self.declaration["planned_capabilities"][0]))
+        self.deny("duplicated or invalid planned capability")
+
+    def test_planned_capability_cannot_target_unreviewed_provider(self):
+        self.declaration["planned_capabilities"][0]["target_provider_key"] = "baobab-iam.shadow"
+        self.deny("planned capability targets unreviewed provider")
+
+    def test_invalid_governance_root_is_denied(self):
+        with self.assertRaisesRegex(ValueError, "invalid governance document structure"):
+            n01.check(record=[], lock=self.lock, declaration=self.declaration)
+
+
 if __name__ == "__main__":
     unittest.main()
