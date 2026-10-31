@@ -75,7 +75,7 @@ def c403_readback(doc: dict, iam_sha: str) -> None:
 
 
 def engine_readback(receipt: dict, expected_engine: str,
-                    iam_sha: str, shared_sha: str, cp_sha: str) -> None:
+                    iam_sha: str, shared_sha: str, cp_sha: str, infrastructure_sha: str) -> None:
     """Read the original Infrastructure completed/receipt.json, not a new claim."""
     require(receipt.get("schema") == "infrastructure.dev01.lifecycle.observed.v1"
             and RUN.fullmatch(receipt.get("run_id", "")) is not None
@@ -90,7 +90,7 @@ def engine_readback(receipt: dict, expected_engine: str,
             and pins.get("baobab-iam") == iam_sha
             and pins.get("shared") == shared_sha
             and pins.get("baobab-cp") == cp_sha
-            and SHA.fullmatch(receipt.get("harness_sha", "")) is not None,
+            and receipt.get("harness_sha") == infrastructure_sha,
             "ENGINE_IMMUTABLE_SOURCE_DRIFT")
     report = receipt.get("engine_integration")
     require(isinstance(report, dict)
@@ -137,12 +137,13 @@ def readback(argv: list[str] | None = None) -> str:
     parser.add_argument("--iam-sha", required=True)
     parser.add_argument("--shared-sha", required=True)
     parser.add_argument("--cp-sha", required=True)
+    parser.add_argument("--infrastructure-sha", required=True)
     for kind in ("browser", "int03c", "c403", "pulse", "payments"):
         parser.add_argument(f"--{kind}", required=True)
         parser.add_argument(f"--{kind}-digest", required=True)
     args = parser.parse_args(argv)
     require(all(SHA.fullmatch(x) for x in
-                (args.iam_sha, args.shared_sha, args.cp_sha)),
+                (args.iam_sha, args.shared_sha, args.cp_sha, args.infrastructure_sha)),
             "IMMUTABLE_REVIEWED_SOURCE_PINS_REQUIRED")
     browser = original(args.browser, args.browser_digest)
     int03c = original(args.int03c, args.int03c_digest)
@@ -158,9 +159,13 @@ def readback(argv: list[str] | None = None) -> str:
     require(isinstance(pins, dict) and pins.get("shared") == args.shared_sha
             and pins.get("baobab-cp") == args.cp_sha,
             "N02_DEV04_DEPENDENCY_SOURCE_DRIFT")
+    require(int03c.get("harness_sha") == args.infrastructure_sha,
+            "N02_DEV04_INFRASTRUCTURE_SOURCE_DRIFT")
     c403_readback(c403, args.iam_sha)
-    engine_readback(pulse, "baobab-pulse", args.iam_sha, args.shared_sha, args.cp_sha)
-    engine_readback(payments, "baobab-payments", args.iam_sha, args.shared_sha, args.cp_sha)
+    engine_readback(pulse, "baobab-pulse", args.iam_sha, args.shared_sha, args.cp_sha,
+                    args.infrastructure_sha)
+    engine_readback(payments, "baobab-payments", args.iam_sha, args.shared_sha, args.cp_sha,
+                    args.infrastructure_sha)
     require(len({run_id, pulse["run_id"], payments["run_id"]}) == 3,
             "ENGINE_DISPOSABLE_RUN_COLLISION")
     # C4-04A's existing read-only current CP/health command emits no
