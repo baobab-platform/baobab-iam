@@ -119,7 +119,7 @@ def current_executive_context(reply: dict[str, Any], expect: dict[str, str]) -> 
 
 
 def actual_estates(profile: dict[str, Any]) -> dict[str, str]:
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import Error as PlaywrightError, sync_playwright
 
     results: dict[str, str] = {}
     with sync_playwright() as p:
@@ -188,7 +188,7 @@ def actual_estates(profile: dict[str, Any]) -> dict[str, str]:
                                                 max_redirects=0, timeout=5000)
                     if after.status in (401, 403):
                         results[prefix + "_LOCAL_LOGOUT"] = "OBSERVED"
-                except (n07.Blocked, OSError, UnicodeError, ValueError):
+                except (n07.Blocked, OSError, UnicodeError, ValueError, PlaywrightError):
                     pass
                 finally:
                     context.close()
