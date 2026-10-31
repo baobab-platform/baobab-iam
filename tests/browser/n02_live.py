@@ -90,6 +90,9 @@ def load_profile() -> dict[str, Any]:
         raise Denied("UNPINNED_SOURCE")
     if not re.fullmatch(r"[0-9a-f]{32}", data.get("run_id", "")):
         raise Denied("UNBOUNDED_SYNTHETIC_RUN")
+    for key in ("shared_source_sha", "cp_source_sha", "infrastructure_harness_sha"):
+        if not isinstance(data.get(key), str) or not re.fullmatch(r"[0-9a-f]{40}", data[key]):
+            raise Denied("PEER_SOURCE_PIN_REQUIRED")
     if data.get("require_aal2") is not True:
         raise Denied("AAL2_REQUIRED_FOR_QUALIFICATION")
     # Profile SHA alone is not executable provenance; verify actual clean checkout.
@@ -317,6 +320,9 @@ def main() -> int:
         "schema": "baobab.iam.n02.browser-observation.v1",
         "classification": "REAL_BROWSER_SYNTHETIC_DATA",
         "source_sha": profile["iam_source_sha"],
+        "shared_source_sha": profile["shared_source_sha"],
+        "cp_source_sha": profile["cp_source_sha"],
+        "infrastructure_harness_sha": profile["infrastructure_harness_sha"],
         "run_id": profile["run_id"],
         "provider_and_cp_independently_attested": False,
         "protected_accepted": False,
@@ -335,6 +341,8 @@ def main() -> int:
         f.flush()
         os.fsync(f.fileno())
     target = destination / "browser-observation.json"
+    if target.exists() or (destination / "browser-observation.sha256").exists():
+        raise Denied("ORIGINAL_EVIDENCE_ALREADY_EXISTS")
     os.replace(temporary,target)
     # Gate requires 0600 original sidecars. Path.write_text may create 0644.
     digest_temp = destination / ".browser-observation.sha256.tmp"
