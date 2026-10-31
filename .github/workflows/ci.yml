@@ -40,11 +40,11 @@ jobs:
           gofmt -d cmd internal
           test -z "$(gofmt -l cmd internal)"
       - name: Build packages
-        run: go build ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
+        run: go build ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
       - name: Test packages
-        run: go test ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
-      - name: Test federation consumption with race detector
-        run: go test -race ./internal/federation/... -count=1
+        run: go test ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
+      - name: Test federation and native browser boundaries with race detector
+        run: go test -race ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
         run: python3 -m pip install PyYAML==6.0.3
       - name: Verify IAM-N01 ADR precedence, immutable Shared pin and development boundary
@@ -321,3 +321,7 @@ jobs:
           TEST_FEDERATION_DATABASE_URL: postgres://postgres@localhost:5432/federation_ci?sslmode=disable
           POSTGRES_TOOLS_CONTAINER: ${{ job.services.postgres.id }}
         run: go test -race ./internal/federation -run TestPostgres -count=1 -v
+      - name: Encrypted BFF PostgreSQL 17 session and replay qualification
+        env:
+          TEST_NATIVE_BFF_DATABASE_URL: postgres://postgres@localhost:5432/federation_ci?sslmode=disable
+        run: go test -race ./internal/nativebff -run TestPostgres -count=1 -v
