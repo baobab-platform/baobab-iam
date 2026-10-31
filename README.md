@@ -24,6 +24,17 @@ token-visible scope is present in the exact pinned registry, and
 description limit. The targeted unit test refuses implicit scope allocation.
 None of these static checks establishes live IAM/CP staging acceptance.
 
+## IAM-N01 source-only architecture and contract convergence
+
+The [N01 reconciliation](docs/governance/iam-n01-convergence.md) documents
+accepted ADR-IAM-0033 allocation, the accepted ADR-SHARED-043 development
+exception, and a deliberate hold on re-pinning newer Shared development-only
+workloads until issuer/consumer qualification. The negative
+scripts/check_iam_n01.py CI guard checks ADR source statuses, immutable Shared
+pin, PARTIAL capability declarations and synthetic-development versus
+protected-environment boundaries. N01 grants no scopes or provider support;
+native/consumer C4-03 and C4-04 acceptance is still outstanding.
+
 ## Provider migration status
 
 Accepted ADR-IAM-0033 defines the multi-provider target: **Kratos for native
