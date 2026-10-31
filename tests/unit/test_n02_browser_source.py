@@ -35,6 +35,7 @@ class BrowserSourceAndCustodyTests(unittest.TestCase):
             "iam_source_sha": self.sha,
             "shared_source_sha": "c" * 40,
             "cp_source_sha": "d" * 40,
+            "zuribeans_source_sha": "e" * 40,
             "infrastructure_harness_sha": "e" * 40,
             "bff_origin": "https://bff.example.invalid",
             "kratos_origin": "https://bff.example.invalid",
@@ -131,6 +132,7 @@ class BrowserSourceAndCustodyTests(unittest.TestCase):
                          hashlib.sha256(receipt.read_bytes()).hexdigest())
         actual = json.loads(receipt.read_text())
         self.assertEqual(actual["cp_source_sha"], self.profile["cp_source_sha"])
+        self.assertEqual(actual["zuribeans_source_sha"], self.profile["zuribeans_source_sha"])
         self.assertEqual(actual["shared_source_sha"], self.profile["shared_source_sha"])
         self.assertFalse(actual["provider_and_cp_independently_attested"])
         self.assertFalse(actual["protected_accepted"])
