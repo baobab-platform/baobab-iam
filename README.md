@@ -1,5 +1,8 @@
 # Baobab IAM (`baobab-iam`)
 
+**N04 actual resource admission path (development source):** `pkg/workloadresource.NewCPRegisteredBinding` reads CP-owned current provider/instance/scope/facet/artifact state over independently authenticated HTTPS; `NewRegisteredGate` rechecks that binding both before and after the N03 issuer→CP→domain PEP request, and `NewMiddleware` supports the composite gate. Tests cover revoked bindings, stale profiles, mixed organisation/estate, signed resource/CP and artifact drift. See [N04 development owner runbook](docs/operations/n04-provider-support-development-qualification.md). **These tests exercise a local TLS CP fixture, not an accepted external CP engine; real D-N04 qualification is still HELD.**
+
+
 **IAM-N04 — registered support/consumer development qualification (stacked draft):** [N04 owner runbook and source-bound evidence verifier](docs/operations/n04-provider-support-development-qualification.md) adds fail-closed readback of original N02/DEV-04, C4-03B–E, Pulse/Payments ENG-ONB development receipts and immutably reviewed IAM/Shared/CP pins; negative fixture tests run in CI. **It never registers CP providers, activates a binding, verifies a runtime producer independently or certifies development completion.** Actual owner CP support readback, genuine registered C4-04B/C consumption and N01–N03 outstanding development qualification remain mandatory; Kratos/Hydra/Keycloak support remains PARTIAL. N04 is a draft implementation increment, not staging/production acceptance.
 
 
