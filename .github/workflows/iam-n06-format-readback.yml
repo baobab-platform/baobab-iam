@@ -1,0 +1,50 @@
+name: IAM-N06 read-only gofmt source readback
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  n06-format-readback:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feat/iam-n06-assurance-security-controls-20261031' && github.event.pull_request.base.ref == 'feat/iam-n02-connected-browser-qualification'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+        env:
+          POSTGRES_DB: n06_ci
+          POSTGRES_USER: n06_ci
+          POSTGRES_PASSWORD: "n06-disposable-${{ github.run_id }}"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U n06_ci -d n06_ci"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      IAM_N06_DISPOSABLE_PG: "1"
+      IAM_N06_TEST_DATABASE_URL: "postgres://n06_ci:n06-disposable-${{ github.run_id }}@127.0.0.1:5432/n06_ci?sslmode=disable"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Format only reviewed IAM-N06 new Go files and native BFF gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          gofmt -w internal/assurance/*.go internal/securityops/*.go internal/nativebff/n06_*.go internal/nativebff/handler.go
+          for f in internal/assurance/*.go internal/securityops/*.go internal/nativebff/n06_*.go internal/nativebff/handler.go; do
+            printf 'N06_FORMAT_BEGIN:%s\n' "$f"
+            base64 -w0 "$f"
+            printf '\nN06_FORMAT_END:%s\n' "$f"
+          done
+      - name: Compile N06 owner sources and execute source-negative tests
+        run: |
+          go test ./internal/assurance ./internal/nativebff ./internal/securityops -run '^TestN06' -count=1 -v
