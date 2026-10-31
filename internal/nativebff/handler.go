@@ -56,6 +56,7 @@ type Revoker interface {
 
 type AssuranceInspector interface {
 	AuthenticatorAAL(context.Context, ory.NativeSessionCredential) (string, error)
+	AuthenticatorSubjectAAL(context.Context, ory.NativeSessionCredential) (string, string, error)
 }
 
 type NativeSessionRevoker interface {
@@ -540,6 +541,15 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.fail(w, 403)
 		return
+	}
+	if h.c.RequireAAL2 {
+		credential, e := h.kratos(r)
+		if e != nil || h.c.Assurance == nil {h.fail(w,http.StatusForbidden);return}
+		currentSubject,currentAAL,e := h.c.Assurance.AuthenticatorSubjectAAL(r.Context(),credential)
+		if e != nil || currentSubject != sub || currentAAL != "aal2" {
+			h.fail(w,http.StatusForbidden)
+			return
+		}
 	}
 	if _, err = h.access.Verify(r.Context(), tokens.AccessToken, sub); err != nil {
 		h.fail(w, 403)
