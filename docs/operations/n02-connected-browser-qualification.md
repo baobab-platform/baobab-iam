@@ -88,6 +88,45 @@ The signed protected packet must be independently authored **after** the actual 
 
 Protected staging execution additionally needs the exact Infrastructure #49 approval packet, real private service credentials, independently authorized CP maker/checker, secret/network boundary, explicit protected topology, retained provider and privacy compliance, image hashes, reviewer identity/trust anchor and external custody witness. **None of those authorities or protected observations is supplied by this PR.** After a real authorized execution a reviewer must download originals independently, verify chain+signature+expiry, and decide acceptance; no source CLI auto-promotes C4-03B–E or C4-04B/C.
 
+## Estate-owner integration reconciliation (31 October 2026)
+
+A current-source review of `baobab-platform/zuribeans` found an independently
+implemented **Next.js estate IAM BFF** at `src/app/api/iam/{login,callback,
+session,logout}`, with protocol/session logic under
+`src/lib/iam/oidc/handlers.ts`. ZuriBeans also retains a separate Medusa
+customer SSO path at `src/app/api/auth/callback`. These are **not** the
+same runtime/HTTP contract as the Go IAM-N02 `cmd/native-browser-bff` paths
+`/auth/{start,login,consent,callback,session,logout-all,recovery}`.
+The Next.js `/api/iam/session` summary currently returns
+`authenticated/expiresAt/csrfToken` after issuer introspection, while
+the N02 Go browser contract requires current CP Principal evidence
+(`authenticated/principal_id/csrf`). The existing Next.js `buyerContext`
+calls Trade separately and does not turn its sign-in into automatic CP
+admission. Therefore **no legacy Medusa login, Next.js IAM session or
+standalone Go BFF fixture may be relabeled as the complete N02 run**.
+
+An estate-owner-reviewed decision is required for the disposable **real**
+browser run: either deploy the audited Go N02 BFF behind an explicit,
+first-party ZuriBeans-owned TLS ingress with real Kratos UI/recovery, or
+qualify the existing Next.js IAM BFF against the *unchanged* N02 semantic
+cases with an independent CP current-Principal and session-wide logout
+implementation. Do **not** silently rewrite case IDs, make a browser
+JavaScript proxy for CP authority, copy privileged bearer tokens into
+browser state or claim the production ZuriBeans login is switched over.
+
+For the Go path, the canonical Shared development ZuriBeans BFF identity is
+`baobab-dev-zuribeans-bff`. Hydra's N02 disposable client currently
+exercises the **authorization-code human path only**; it does not prove
+the same registered client can obtain the separately fenced
+`client_credentials` + `trade:buyer-handoff` caller profile. The latter
+needs owner-verified grant-specific issuer-hook policy and native Trade
+resource negatives; do not broaden the development client without those
+proofs. Shared #421 proposes an **additional**, separate **PROVISIONED**
+CP-audience Principal reader, not an ACTIVE credential. CP remains
+authoritative over its registration/grants. The latest N01 Shared lock stays
+held until both distinct caller and human-client profiles are fully
+reconciled with real Hydra and CP evidence.
+
 ## Open engineering gates
 
 - Cross-repository consumer adoption: actual approved estate-owned Kratos UI/ingress, CP delegated buyer caller and registered BFF binding, genuine Hydra hook, provider-specific login/consent URLs and user-friendly recovery/step-up. Nabhold executive and Thamani B2B require their *own* approved audience profiles; they must not reuse Trade buyer grants.
