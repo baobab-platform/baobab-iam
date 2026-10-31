@@ -2,6 +2,7 @@ package securityops
 
 import (
 	"context"
+	"crypto/hmac"
 	"errors"
 	"slices"
 	"time"
@@ -71,21 +72,33 @@ VALUES ($1,$2,$3,$4,$5,$6,$7)`,id,principal,issuer,r.Kind,requester,approver,r.R
 // self-service/administrative ceremony must occur under its own verified
 // original and the old sessions must be revoked. Repeating the same phase
 // cannot make a provider-side failure look like a new success.
-func (s *Store) MarkRebind(ctx context.Context,id string,to string,w RebindWitness)(*Rebind,error){
-	if s==nil||ctx==nil||ctx.Err()!=nil||w==nil||!uuidPattern.MatchString(id) {
+func (s *Store) MarkRebind(ctx context.Context,request Rebind,to string,w RebindWitness)(*Rebind,error){
+	if s==nil||ctx==nil||ctx.Err()!=nil||w==nil||!uuidPattern.MatchString(request.RequestID) {
 		return nil,errors.New("securityops: original rebind request and witness required")
 	}
 	tx,err:=s.pool.BeginTx(ctx,pgx.TxOptions{IsoLevel:pgx.Serializable})
 	if err!=nil{return nil,errConflict(err)}
 	defer tx.Rollback(ctx)
-	out:=&Rebind{RequestID:id}
+	out:=&Rebind{RequestID:request.RequestID,Principal:request.Principal,Issuer:request.Issuer,Requester:request.Requester,Approver:request.Approver}
 	var principalKey,issuerKey,requesterKey,approverKey []byte
 	err=tx.QueryRow(ctx,`SELECT principal_key,issuer_key,credential_kind,
 requester_key,approver_key,reason,phase,revision
-FROM iam_security.credential_rebind WHERE request_id=$1 FOR UPDATE`,id).Scan(
+FROM iam_security.credential_rebind WHERE request_id=$1 FOR UPDATE`,request.RequestID).Scan(
 		&principalKey,&issuerKey,&out.Kind,&requesterKey,&approverKey,
 		&out.Reason,&out.Phase,&out.Revision)
 	if err!=nil{return nil,errConflict(err)}
+	// Compare every user-supplied reference with its persisted, keyed
+	// immutable value BEFORE invoking the independent proof port.
+	pk,e1:=s.tag("principal",request.Principal)
+	ik,e2:=s.tag("issuer",request.Issuer)
+	rk,e3:=s.tag("review-actor",request.Requester)
+	ak,e4:=s.tag("review-actor",request.Approver)
+	if e1!=nil||e2!=nil||e3!=nil||e4!=nil||
+		!hmac.Equal(pk,principalKey)||!hmac.Equal(ik,issuerKey)||
+		!hmac.Equal(rk,requesterKey)||!hmac.Equal(ak,approverKey)||
+		(request.Kind!=""&&request.Kind!=out.Kind) {
+		return nil,errors.New("securityops: original rebind Principal/issuer/approval mismatch")
+	}
 	allowed:=map[string]string{
 		"PENDING":"PROVIDER_VERIFIED",
 		"PROVIDER_VERIFIED":"COMMITTED",
