@@ -337,8 +337,7 @@ func (h *Handler) callback(w http.ResponseWriter,r *http.Request) {
 }
 func (h *Handler) exchange(ctx context.Context,code string,tx Transaction)(humanauth.Response,error) {
 	var zero humanauth.Response
-	if len(code)<8||len(code)>4096||strings.ContainsAny(code," 
-") {return zero,errors.New("invalid authorization code")}
+	if len(code)<8||len(code)>4096||strings.ContainsAny(code," \r\n") {return zero,errors.New("invalid authorization code")}
 	form:=url.Values{"grant_type":{"authorization_code"},"code":{code},"redirect_uri":{h.c.RedirectURI},"code_verifier":{tx.Verifier}}
 	req,err:=http.NewRequestWithContext(ctx,"POST",strings.TrimRight(h.c.Issuer,"/")+"/oauth2/token",strings.NewReader(form.Encode()))
 	if err!=nil {return zero,err}
