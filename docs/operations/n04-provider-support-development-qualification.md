@@ -72,6 +72,24 @@ This read-only SDK **does not insert provider rows**, certify a capability, crea
 
 **Development blocker remains:** no N04 evidence currently proves a real CP-governed ProviderCapabilitySupport activation/withdrawal with the current IAM client, nor actual Pulse/Payments external-engine resource operation. Do not rewrite this source implementation as a live PASS.
 
+## Independent CI producer/archive identity (N04-D05 source increment)
+
+`scripts/n04_github_archive_readback.py` provides a **separate trusted provenance check** for an original *private* GitHub Actions artifact archive. It obtains the actual workflow run and artifact digest from GitHub's authenticated HTTPS API, verifies the exact allowlisted repository/workflow name, immutable executed source SHA, completed/**successful** run, artifact-to-run relation, unexpired artifact and SHA-256 of the **original ZIP archive**. It uses a read-only `GH_TOKEN` from the runtime environment, refuses HTTP redirects, proxies, foreign repositories, missing digest or silently paginated artifact results, and never logs a token. Retained output is `GITHUB_ACTIONS_ORIGINAL_ARCHIVE_DIGEST_ONLY` with every support/production/consumer acceptance flag **false**.
+
+```sh
+# Private owner-only original GitHub Actions artifact archive, 0600.
+# GH_TOKEN is supplied by a dedicated read-only secret boundary.
+python3 -B scripts/n04_github_archive_readback.py \
+  --repository baobab-platform/infrastructure \
+  --workflow .github/workflows/dev15-connected.yml \
+  --run-id "$REVIEWED_RUN_ID" \
+  --artifact-id "$REVIEWED_ARTIFACT_ID" \
+  --run-source-sha "$REVIEWED_INFRASTRUCTURE_SHA" \
+  --original-archive "$PRIVATE_RUN/original-actions-artifact.zip"
+```
+
+A GitHub artifact hash independently anchors the archive and its claimed *CI job*, **not** the authenticity of a particular extracted runtime observation, current CP permission, accepted engine outcome or self-asserted receipt booleans. The N04 original-receipt check, producer-specific semantics, actual CP/engine execution and independent reviewer/teardown evidence remain additional compulsory gates. In particular, existing Infrastructure DEV-15 connected CI may correctly exit successfully while Payments cases remain **BLOCKED**; a successful job alone must never change those case results to PASS. The N04 source-negative tests are in `tests/unit/test_n04_github_archive_readback.py`. 
+
 ## N04 remaining mandatory *development* work
 
 - **N04-D01**: Reconcile N01's held Shared workload/scope registry. Validate the real compiled Kratos/Hydra/Keycloak adapters and the new profiles' exact registration bundles against the current immutable Shared checkout. No support-state promotion or synthetic provider grant.
