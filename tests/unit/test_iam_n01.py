@@ -155,6 +155,11 @@ class IAMN01Tests(unittest.TestCase):
             "internal/provider/ory/nonexistent.go")
         self.deny("provider support evidence")
 
+    def test_provider_evidence_cannot_escape_reviewed_directory(self):
+        self.declaration["providers"][0]["support"][0]["implementation_evidence"][0]["path"] = (
+            "internal/provider/../federation/consume.go")
+        self.deny("provider support evidence")
+
     def test_provider_evidence_must_include_integration_test(self):
         support = self.declaration["providers"][2]["support"][0]
         support["implementation_evidence"] = support["implementation_evidence"][:1]
