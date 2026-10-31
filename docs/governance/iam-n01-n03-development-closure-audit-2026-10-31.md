@@ -1,5 +1,11 @@
 # IAM-N01 → IAM-N03 — Development completion audit (31 October 2026)
 
+> **AUTHORITATIVE CLOSURE STATUS OF THIS AUDIT: DEVELOPMENT PARTIAL / NOT CERTIFIED.**
+> The Platform Owner's explicit exit condition is **development complete with only staging/production outstanding**. That condition is **NOT MET**. Keep `D-N01-01`, `D-N02-01..03`, `D-N03-01..02` and `D-CI-01` open as **DEVELOPMENT** blockers. A future CI completion alone does not close them: record *actual* same-run issuer/CP/estate/engine positive and negative executions and immutable teardown receipts, with reviewer verification. Never substitute staging approval for missing development tests, or describe source candidates as runtime proof. Protected staging/production approvals alone are permitted to remain after development closure.
+>
+> This is a **dated evidence snapshot**, not an automatically updating dashboard. Refresh exact SHA, checks, cases, receipts and status in a new reviewed audit after the required execution; do not rewrite historical evidence.
+
+
 **Decision: NOT DEVELOPMENT-COMPLETE.** This is a **current-source audit**, not a live provider/CP/estate execution and not a protected staging or production gate. The Platform Owner's requested definition is strict: **only protected-environment work may remain outstanding after development closure**. Consequently, a source implementation, a passing isolated package test, an opt-in but skipped test, or a registered Hydra client without a current CP/engine consumer does **not** close a development obligation.
 
 This report is kept in the top stacked IAM PR [#148](https://github.com/baobab-platform/baobab-iam/pull/148) without altering historical receipt files. The following source heads were observed through GitHub:
