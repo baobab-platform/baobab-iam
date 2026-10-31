@@ -237,8 +237,13 @@ func TestN05PostgresContainmentIsRevocationSafeAndResumable(t *testing.T){
 	}
 	controller.Current=n05Veto{denied:true}
 	replayed,err:=controller.Contain(ctx,row.MigrationID,op)
-	if err!=nil || replayed.Phase!="VERIFIED" || p.disableCalls!=2 || p.revokeCalls!=2 {
-		t.Fatal("verified replay unexpectedly repeated provider side effects")
+	if err!=nil || replayed.Phase!="VERIFIED" || p.disableCalls<4 || p.revokeCalls<4 {
+		t.Fatal("restored sessions were not re-contained with same fenced operation")
+	}
+	beforeDisable,beforeRevoke:=p.disableCalls,p.revokeCalls
+	if _,err:=controller.Contain(ctx,row.MigrationID,op);err!=nil ||
+		p.disableCalls!=beforeDisable || p.revokeCalls!=beforeRevoke {
+		t.Fatal("clean verified readback caused new provider mutations")
 	}
 	if _,err:=controller.Contain(ctx,row.MigrationID,"n05-other-operation-123456789"); !errors.Is(err,migration.ErrMigrationConflict) {
 		t.Fatalf("different run took over original disabled account: %v",err)
