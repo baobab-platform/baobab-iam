@@ -1,5 +1,8 @@
 # C4-03 — live Kratos/Hydra–CP qualification programme
 
+**N02 source qualification:** [native BFF integration](native-browser-bff.md) supplies an additional browser transaction, consent, server-side code exchange, encrypted session, CP delegated Principal and issuer revocation component. These tests do not close C4-03B–E without actual protected runtime proof, an approved client, CP active binding and independent evidence. Keep the existing exact A–E case meanings, withdrawal and cross-tenant negatives, teardown and protected reviewer requirements unchanged.
+
+
 **Status: C4-03A–E source qualification implemented, live B–E acceptance pending protected provider/CP evidence.** This implementation builds on IAM #122's
 independent browser passkey qualification. ADR-IAM-0033 and the accepted
 assurance/identity-proofing boundaries remain authoritative. The runner uses
