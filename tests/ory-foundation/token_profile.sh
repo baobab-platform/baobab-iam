@@ -157,7 +157,163 @@ for attempt in $(seq 1 20); do
   sleep 1
 done
 kill -0 "$hook_pid"
-go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials|TestLiveTokenProfileFederatedAudienceBoundary|TestLiveCPConsumerVerifier|TestLiveCPContextRoute)$' -count=1 | tee ory-foundation-evidence/token-profile/tests.jsonl
+go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials|TestLiveTokenProfileFederatedAudienceBoundary|TestLiveCPConsumerVerifier|TestLiveCPContextRoute)
+python3 - <<'PY'
+import json, os
+from pathlib import Path
+root = Path('ory-foundation-evidence/token-profile')
+events = [json.loads(line) for line in (root / 'tests.jsonl').read_text().splitlines()]
+required = ('TestLiveWorkloadClientCredentials',
+            'TestLiveWorkloadClientCredentials/signed-token-and-shared-scopes',
+            'TestLiveWorkloadClientCredentials/wrong-and-missing-resource-audience',
+            'TestLiveWorkloadClientCredentials/rotation-invalidates-old-credential',
+            'TestLiveWorkloadClientCredentials/suspend-denies-future-issuance',
+            'TestLiveTokenProfileFederatedAudienceBoundary',
+            'TestLiveCPConsumerVerifier',
+            'TestLiveCPConsumerVerifier/accept-governed-workload',
+            'TestLiveCPConsumerVerifier/reject-wrong-audience',
+            'TestLiveCPConsumerVerifier/reject-wrong-issuer',
+            'TestLiveCPConsumerVerifier/missing-required-scope',
+            'TestLiveCPConsumerVerifier/reject-tampered-token',
+            'TestLiveCPConsumerVerifier/reject-expired-provider-token')
+for name in required:
+    if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit(f'{name}: missing live PASS evidence')
+if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1':
+    for workload in ('baobab-cp-workload', 'baobab-subscriptions-workload'):
+        name='TestLiveTokenProfileFederatedAudienceBoundary/'+workload
+        if not any(e.get('Test')==name and e.get('Action')=='pass' for e in events):
+            raise SystemExit(f'{name}: missing candidate PASS evidence')
+        receipt=json.loads((root/('candidate-'+workload+'.json')).read_text())
+        if (not receipt['fixture_only'] or not receipt['signature_verified'] or not receipt['logical_audience_matches']
+                or not receipt['cp_consumer_verified'] or receipt['canonical_activation_proven'] or receipt['production_accepted']):
+            raise SystemExit('Candidate proof incomplete or claims deployment acceptance')
+proof = json.loads((root / 'baobab-trade-workload.json').read_text())
+if not proof['logical_audience_matches'] or not proof['actor_type_is_workload']:
+    raise SystemExit('Governed signed workload profile not proven')
+if proof['canonical_activation_proven'] or proof['actual_consumer_tested']:
+    raise SystemExit('Provider token profile cannot establish canonical activation')
+route = json.loads((root / 'cp-context-route.json').read_text())
+expected_cases = {
+    'accept-context-without-tenant-claim', 'accept-refreshed-subject',
+    'reject-wrong-subject-audience', 'reject-tampered-subject',
+    'reject-expired-subject', 'reject-missing-validator',
+    'reject-validator-without-scope', 'reject-unregistered-validator',
+    'reject-revoked-validator', 'reject-other-owner', 'reject-validator-owner',
+    'reject-unknown-context', 'reject-expired-context', 'reject-unbounded-context',
+    'reject-revoked-external-link', 'reject-suspended-tenant'}
+for name in expected_cases:
+    if not any(e.get('Test') == 'TestLiveCPContextRoute/' + name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit(f'{name}: missing current route PASS evidence')
+if (route['consumer_commit'] != 'c84063cb07dce76e1ffac4b12fa29c5e4e5ec855'
+        or set(route['scenarios']) != expected_cases
+        or not route['actual_protected_route_tested_in_fixture']
+        or not route['fixture_only'] or not route['credentials_absent']
+        or route['deployed_resource_route_tested'] or route['canonical_activation_proven']):
+    raise SystemExit('Current route proof is incomplete or exceeds fixture scope')
+consumer = json.loads((root / 'cp-consumer-verifier.json').read_text())
+if not consumer['actual_consumer_verifier_tested'] or consumer['deployed_resource_route_tested'] or consumer['canonical_activation_proven']:
+    raise SystemExit('Consumer verifier proof must not claim route acceptance or activation')
+print('M4-F candidate audience and CP verifier checks passed' if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1' else 'M4-F released audience mismatch fails closed')
+PY
+ -count=1 | tee ory-foundation-evidence/token-profile/tests.jsonl
+# IAM-N03: true Hydra-signed JWT + RFC7662 current issuer state + pinned CP
+# production router (with disposable synthetic CP source fixtures). The test
+# itself performs unexpired issuer revocation, independent inactive readback,
+# wrong-audience, external-owner and current-Principal negative checks.
+go test -json ./pkg/workloadresource -run '^TestLiveN03HydraCPResourceAcceptance
+python3 - <<'PY'
+import json, os
+from pathlib import Path
+root = Path('ory-foundation-evidence/token-profile')
+events = [json.loads(line) for line in (root / 'tests.jsonl').read_text().splitlines()]
+required = ('TestLiveWorkloadClientCredentials',
+            'TestLiveWorkloadClientCredentials/signed-token-and-shared-scopes',
+            'TestLiveWorkloadClientCredentials/wrong-and-missing-resource-audience',
+            'TestLiveWorkloadClientCredentials/rotation-invalidates-old-credential',
+            'TestLiveWorkloadClientCredentials/suspend-denies-future-issuance',
+            'TestLiveTokenProfileFederatedAudienceBoundary',
+            'TestLiveCPConsumerVerifier',
+            'TestLiveCPConsumerVerifier/accept-governed-workload',
+            'TestLiveCPConsumerVerifier/reject-wrong-audience',
+            'TestLiveCPConsumerVerifier/reject-wrong-issuer',
+            'TestLiveCPConsumerVerifier/missing-required-scope',
+            'TestLiveCPConsumerVerifier/reject-tampered-token',
+            'TestLiveCPConsumerVerifier/reject-expired-provider-token')
+for name in required:
+    if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit(f'{name}: missing live PASS evidence')
+if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1':
+    for workload in ('baobab-cp-workload', 'baobab-subscriptions-workload'):
+        name='TestLiveTokenProfileFederatedAudienceBoundary/'+workload
+        if not any(e.get('Test')==name and e.get('Action')=='pass' for e in events):
+            raise SystemExit(f'{name}: missing candidate PASS evidence')
+        receipt=json.loads((root/('candidate-'+workload+'.json')).read_text())
+        if (not receipt['fixture_only'] or not receipt['signature_verified'] or not receipt['logical_audience_matches']
+                or not receipt['cp_consumer_verified'] or receipt['canonical_activation_proven'] or receipt['production_accepted']):
+            raise SystemExit('Candidate proof incomplete or claims deployment acceptance')
+proof = json.loads((root / 'baobab-trade-workload.json').read_text())
+if not proof['logical_audience_matches'] or not proof['actor_type_is_workload']:
+    raise SystemExit('Governed signed workload profile not proven')
+if proof['canonical_activation_proven'] or proof['actual_consumer_tested']:
+    raise SystemExit('Provider token profile cannot establish canonical activation')
+route = json.loads((root / 'cp-context-route.json').read_text())
+expected_cases = {
+    'accept-context-without-tenant-claim', 'accept-refreshed-subject',
+    'reject-wrong-subject-audience', 'reject-tampered-subject',
+    'reject-expired-subject', 'reject-missing-validator',
+    'reject-validator-without-scope', 'reject-unregistered-validator',
+    'reject-revoked-validator', 'reject-other-owner', 'reject-validator-owner',
+    'reject-unknown-context', 'reject-expired-context', 'reject-unbounded-context',
+    'reject-revoked-external-link', 'reject-suspended-tenant'}
+for name in expected_cases:
+    if not any(e.get('Test') == 'TestLiveCPContextRoute/' + name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit(f'{name}: missing current route PASS evidence')
+if (route['consumer_commit'] != 'c84063cb07dce76e1ffac4b12fa29c5e4e5ec855'
+        or set(route['scenarios']) != expected_cases
+        or not route['actual_protected_route_tested_in_fixture']
+        or not route['fixture_only'] or not route['credentials_absent']
+        or route['deployed_resource_route_tested'] or route['canonical_activation_proven']):
+    raise SystemExit('Current route proof is incomplete or exceeds fixture scope')
+consumer = json.loads((root / 'cp-consumer-verifier.json').read_text())
+if not consumer['actual_consumer_verifier_tested'] or consumer['deployed_resource_route_tested'] or consumer['canonical_activation_proven']:
+    raise SystemExit('Consumer verifier proof must not claim route acceptance or activation')
+print('M4-F candidate audience and CP verifier checks passed' if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1' else 'M4-F released audience mismatch fails closed')
+PY
+ -count=1 | tee ory-foundation-evidence/token-profile/n03-resource-tests.jsonl
+python3 - <<'PY_N03'
+import json
+from pathlib import Path
+root = Path('ory-foundation-evidence/token-profile')
+events = [json.loads(line) for line in (root / 'n03-resource-tests.jsonl').read_text().splitlines()]
+parent = 'TestLiveN03HydraCPResourceAcceptance'
+subcases = (
+    'real-issued-token-and-CP-current-route-accepted',
+    'real-wrong-audience-refused',
+    'CP-other-owner-denied-with-unexpired-bearer',
+    'CP-revoked-external-link-denied-while-issuer-active',
+    'CP-suspended-tenant-denied',
+    'real-issuer-revocation-before-expiry',
+    'fresh-token-after-specific-revocation-accepted',
+)
+for name in (parent,) + tuple(parent + '/' + suffix for suffix in subcases):
+    if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit('N03 genuine issuer/CP route consumer case missing PASS')
+    if any(e.get('Test') == name and e.get('Action') == 'skip' for e in events):
+        raise SystemExit('N03 genuine issuer/CP route case skipped')
+proof = json.loads((root / 'n03-resource-acceptance.json').read_text())
+if (proof.get('classification') != 'REAL_COMPONENT_SYNTHETIC_DATA' or
+        not proof.get('actual_provider_issuer') or
+        not proof.get('actual_cp_router_from_immutable_consumer') or
+        not proof.get('issuer_revocation_before_expiry') or
+        not proof.get('cross_tenant_cp_denial_observed') or
+        proof.get('deployed_resource_tested') is not False or
+        proof.get('protected_accepted') is not False or
+        proof.get('canonical_provider_support_promoted') is not False or
+        not proof.get('credentials_absent')):
+    raise SystemExit('N03 fixture evidence exceeded provenance or omitted live cases')
+print('N03 live issuer and CP source consumer qualified as synthetic fixture only')
+PY_N03
 python3 - <<'PY'
 import json, os
 from pathlib import Path
