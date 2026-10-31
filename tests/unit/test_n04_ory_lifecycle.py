@@ -32,6 +32,33 @@ class N04FoundationRunner(unittest.TestCase):
         self.assertLess(content.index("native-bff-client.jsonl"),
                         content.index("go test -json ./internal/provider/ory -run"))
 
+    def test_token_profile_real_mechanics_and_n03_not_injected_into_regex(self):
+        content = PROFILE.read_text(encoding="utf-8")
+        self.assertEqual(content.count(
+            "go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials"), 1)
+        self.assertEqual(content.count(
+            "go test -json ./pkg/workloadresource -run '^TestLiveN03HydraCPResourceAcceptance
+        for path in (RUN, PROFILE):
+            result = subprocess.run(["bash", "-n", str(path)],
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    check=False, timeout=10)
+            self.assertEqual(result.returncode, 0, path.name)
+
+
+if __name__ == "__main__":
+    unittest.main()
+"), 1)
+        self.assertEqual(content.count("python3 - <<'PY_N03'"), 1)
+        self.assertEqual(content.count("tee ory-foundation-evidence/token-profile/tests.jsonl"), 1)
+        self.assertEqual(content.count("tee ory-foundation-evidence/token-profile/n03-resource-tests.jsonl"), 1)
+        self.assertNotIn("TestLiveN03HydraCPResourceAcceptance\\npython3", content)
+        for line in content.splitlines():
+            self.assertFalse(line.strip().startswith("-count="),
+                             "dangling go test argument is a shell command")
+        self.assertLess(
+            content.index("tee ory-foundation-evidence/token-profile/tests.jsonl"),
+            content.index("go test -json ./pkg/workloadresource -run"))
+
     def test_both_live_scripts_parse(self):
         for path in (RUN, PROFILE):
             result = subprocess.run(["bash", "-n", str(path)],
