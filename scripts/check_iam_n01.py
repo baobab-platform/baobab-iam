@@ -130,6 +130,11 @@ def check(root=ROOT, record=None, lock=None, declaration=None):
 
     require(all(isinstance(item, dict) for item in (record, lock, declaration)),
             "invalid governance document structure")
+    require(set(record) == {"schema", "purpose", "governing", "shared",
+                            "providers", "development"} and
+            record.get("purpose") ==
+            "Source-only drift guard, not an issuer, provider registry, grant, deployment or approval.",
+            "N01 record gained an unreviewed authority or changed purpose")
     require(record.get("schema") == "baobab.iam.n01.convergence.v1", "N01 schema mismatch")
     require(record.get("governing") == GOVERNING, "ADR precedence mismatch")
     require(record.get("development") == DEVELOPMENT, "development/protected boundary mismatch")
