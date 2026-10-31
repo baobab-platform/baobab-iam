@@ -44,10 +44,10 @@ export ORY_SMOKE=1 ORY_FOUNDATION=1 ORY_WORKLOAD=1
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
 # Test output contains only statuses, never fixture credential or response bodies.
-# N02 real disposable Hydra estate-client registration is tested in its
-# owning package. Its output is separate from provider workload mechanics, and
-# a skipped/failed test cannot be promoted to provider- or CP-support evidence.
-go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistrationgo test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
+# N02 native-browser client registration is a distinct actual Hydra lifecycle.
+# It must not replace the existing provider's required live suite, nor may a
+# skipped test or its provider-only evidence promote N02/CP support.
+go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistration
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -94,13 +94,54 @@ import json
 from pathlib import Path
 events = [json.loads(line) for line in Path('ory-foundation-evidence/native-bff-client.jsonl').read_text().splitlines()]
 name = 'TestLiveDevelopmentHydraEstateClientRegistration'
-if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
-    raise SystemExit('N02 actual Hydra client register/readback/teardown not proven')
-if any(e.get('Test') == name and e.get('Action') == 'skip' for e in events):
-    raise SystemExit('N02 actual Hydra client test skipped')
-print('N02 genuine disposable Hydra client lifecycle observed (provider-only)')
+if any(event.get('Test') == name and event.get('Action') == 'skip' for event in events):
+    raise SystemExit('N02 native-client test was skipped')
+if not any(event.get('Test') == name and event.get('Action') == 'pass' for event in events):
+    raise SystemExit('N02 native Hydra registration and run-owned teardown missing')
+print('N02 real Hydra development client lifecycle observed; CP and browser not certified')
 PY_N02_CLIENT
-go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
+go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)
+python3 - <<'PY'
+import json
+from pathlib import Path
+events = [json.loads(line) for line in Path('ory-foundation-evidence/tests.jsonl').read_text().splitlines()]
+for name in ('TestSmoke_ProviderInfoAgainstLocalStack', 'TestLiveFoundation',
+             'TestLiveNativeHumanCanonicalHandoff',
+             'TestLiveFoundation/authorized-human-migration-and-lifecycle',
+             'TestLiveFoundation/real-session-revocation',
+             'TestLiveWorkloadClientCredentials', 'TestLiveWorkloadFederated',
+             'TestLiveWorkloadClientCredentials/signed-token-and-shared-scopes',
+             'TestLiveWorkloadClientCredentials/invalid-credential-and-scope',
+             'TestLiveWorkloadClientCredentials/rotation-invalidates-old-credential',
+             'TestLiveWorkloadClientCredentials/suspend-denies-future-issuance'):
+    if not any(event.get('Test') == name and event.get('Action') == 'pass' for event in events):
+        raise SystemExit(f'{name}: missing live PASS evidence (skips are not success)')
+print('All required live tests passed without skips')
+PY
+
+python3 - <<'PYPROOF'
+import json
+from pathlib import Path
+root = Path('ory-foundation-evidence')
+events = [json.loads(line) for line in (root / 'tests.jsonl').read_text().splitlines()]
+checks = ('signed-exchange-and-replay-rejected', 'reject-issuer', 'reject-subject',
+          'reject-audience', 'reject-expired', 'reject-not-yet-valid',
+          'reject-signature', 'reject-scope', 'no-static-secret-downgrade',
+          'revoke-denies-future-exchange', 'rotation-replaces-trusted-key')
+for workload in ('baobab-cp-workload', 'baobab-subscriptions-workload', 'baobab-cp-provisioning-evidence-workload'):
+    for check in checks:
+        name = f'TestLiveWorkloadFederated/{workload}/{check}'
+        if not any(event.get('Test') == name and event.get('Action') == 'pass' for event in events):
+            raise SystemExit(f'{name}: missing live PASS evidence')
+for workload in ('baobab-trade-workload', 'baobab-cp-workload', 'baobab-subscriptions-workload', 'baobab-cp-provisioning-evidence-workload'):
+    evidence = json.loads((root / (workload + '.json')).read_text())
+    if not evidence['signature_verified'] or not evidence['requested_shared_scopes_verified']:
+        raise SystemExit(f'{workload}: missing signed token profile proof')
+    if evidence['canonical_activation_proven'] or evidence['actual_consumer_tested']:
+        raise SystemExit('Isolated fixtures must not claim canonical activation')
+print('M4 provider mechanics evidenced; actual-consumer activation remains outside this fixture')
+PYPROOF
+ -count=1 | tee ory-foundation-evidence/tests.jsonl
 python3 - <<'PY'
 import json
 from pathlib import Path
