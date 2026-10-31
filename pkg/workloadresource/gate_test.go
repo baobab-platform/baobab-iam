@@ -138,3 +138,19 @@ func TestGateRequiresAllIndependentAuthoritiesAndTrustedProfile(t *testing.T){
 	if _,err:=New(base,s,p,nil);err==nil{t.Fatal("no CP authority admitted")}
 	if err:=g.Authorize(context.Background(),bearer(),Operation{ContextID:"untrusted"});err==nil{t.Fatal("incomplete resource operation admitted")}
 }
+
+func TestResourceProfileCannotBeMutatedAfterConstruction(t *testing.T) {
+	g, signed, status, authority := fixture(t)
+	clients := []string{"pulse-ci"}
+	scopes := []string{"intelligence:read"}
+	cfg := Profile{Issuer: "https://issuer.invalid",Audience:"baobab-pulse",
+		AllowedClients:clients,RequiredScopes:scopes,MaxTokenAge:15*time.Minute}
+	g,err:=New(cfg,signed,status,authority)
+	if err!=nil{t.Fatal(err)}
+	clients[0]="attacker"
+	scopes[0]="billing:manage"
+	if err:=g.Authorize(context.Background(),bearer(),op());err!=nil{
+		t.Fatal("caller mutation changed trusted resource policy")
+	}
+	_ = g
+}
