@@ -1,0 +1,26 @@
+name: IAM-N02 temporary connected-source gofmt readback
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  format-readback:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feat/iam-n02-connected-browser-qualification' && github.event.pull_request.base.ref == 'feat/iam-n02-native-browser-bff'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: gofmt reviewed N02 Go scope and read back without write permission
+        shell: bash
+        run: |
+          set -euo pipefail
+          gofmt -w cmd/native-browser-bff/*.go internal/nativebff/*.go internal/provider/ory/governed_human_handoff.go internal/provider/ory/governed_human_assurance_test.go
+          for f in cmd/native-browser-bff/*.go internal/nativebff/*.go internal/provider/ory/governed_human_handoff.go internal/provider/ory/governed_human_assurance_test.go; do
+            printf 'N02_FORMAT_BEGIN:%s\n' "$f"
+            base64 -w0 "$f"
+            printf '\nN02_FORMAT_END:%s\n' "$f"
+          done
