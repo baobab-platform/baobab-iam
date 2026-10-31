@@ -202,6 +202,14 @@ def run_browser(profile: dict[str, Any]) -> dict[str, str]:
             STAGE = "EXPLICIT_CONSENT"
             page.get_by_role("button", name="Allow").click()
             page.wait_for_url(bff + "/", wait_until="domcontentloaded")
+            # Successful OAuth callback is not enough: the ZuriBeans-owned
+            # first-party estate must actually serve a real landing document.
+            # Standalone IAM /auth-only fixtures return 404 at "/" and are
+            # deliberately NOT accepted as connected estate-browser proof.
+            landing = context.request.get(bff + "/", max_redirects=0)
+            if (landing.status != 200 or
+                    not landing.headers.get("content-type", "").lower().startswith("text/html")):
+                raise Denied("FIRST_PARTY_ESTATE_UI_UNAVAILABLE")
             session = context.request.get(bff + "/auth/session", max_redirects=0)
             if session.status != 200:
                 raise Denied("CP_CURRENT_PRINCIPAL_SESSION_REFUSED")
@@ -281,6 +289,10 @@ def run_browser(profile: dict[str, Any]) -> dict[str, str]:
                 raise Denied("POST_RECOVERY_AAL2_NOT_OBSERVED")
             page.get_by_role("button", name="Allow").click()
             page.wait_for_url(bff + "/", wait_until="domcontentloaded")
+            recovered_page = context.request.get(bff + "/", max_redirects=0)
+            if (recovered_page.status != 200 or
+                    not recovered_page.headers.get("content-type", "").lower().startswith("text/html")):
+                raise Denied("POST_RECOVERY_ESTATE_UI_UNAVAILABLE")
             recovered = context.request.get(bff + "/auth/session", max_redirects=0)
             if recovered.status != 200:
                 raise Denied("POST_RECOVERY_FRESH_SESSION_MISSING")
