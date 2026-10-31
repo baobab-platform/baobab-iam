@@ -176,10 +176,10 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 	})
 	t.Run("real-issuer-revocation-before-expiry",func(t *testing.T){
 		if !time.Now().Before(claims.ExpiresAt){t.Fatal("fixture expired before revocation")}
-		form:=url.Values{"token":{raw},"token_type_hint":{"access_token"}}
+		form:=url.Values{"token":{raw},"token_type_hint":{"access_token"},
+			"client_id":{"m4-ci-subject"},"client_secret":{subjectSecret}}
 		request,err:=http.NewRequestWithContext(ctx,http.MethodPost,issuer+"/oauth2/revoke",strings.NewReader(form.Encode()))
 		if err!=nil{t.Fatal("invalid real revocation request")}
-		request.SetBasicAuth("m4-ci-subject",subjectSecret)
 		request.Header.Set("Content-Type","application/x-www-form-urlencoded")
 		response,err:=client.Do(request)
 		if err!=nil{t.Fatal("Hydra real revocation unavailable")}
