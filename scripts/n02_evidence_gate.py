@@ -119,7 +119,7 @@ def browser_readback(browser: dict, iam_sha: str) -> str:
     cases = browser.get("cases")
     if not isinstance(cases, dict) or set(cases) != CASE_IDS or any(v != "OBSERVED" for v in cases.values()):
         raise Blocked("MANDATORY_BROWSER_CASE_MISSING")
-    for name in ("shared_source_sha", "cp_source_sha", "infrastructure_harness_sha"):
+    for name in ("shared_source_sha", "cp_source_sha", "zuribeans_source_sha", "infrastructure_harness_sha"):
         if not isinstance(browser.get(name), str) or not SHA.fullmatch(browser[name]):
             raise Blocked("BROWSER_PEER_SOURCE_UNPINNED")
     return browser["run_id"]
@@ -131,6 +131,7 @@ def joined_source_readback(browser: dict, dev04: dict) -> None:
     if (not isinstance(pins, dict) or
             browser.get("shared_source_sha") != pins.get("shared") or
             browser.get("cp_source_sha") != pins.get("baobab-cp") or
+            browser.get("zuribeans_source_sha") != pins.get("zuribeans") or
             browser.get("infrastructure_harness_sha") != dev04.get("harness_sha")):
         raise Blocked("CONNECTED_SOURCE_PROVENANCE_MISMATCH")
 
@@ -178,7 +179,7 @@ def checkpoint_readback(browser_raw: bytes, dev04: dict, iam_sha: str,
     checkpoint = dev04.get("n02_browser_checkpoint")
     if not isinstance(checkpoint, dict) or set(checkpoint) != {
         "schema", "run_id", "browser_sha256", "source_sha",
-        "shared_source_sha", "cp_source_sha", "harness_sha", "phase",
+        "shared_source_sha", "cp_source_sha", "zuribeans_source_sha", "harness_sha", "phase",
         "classification", "provider_independently_attested",
         "protected_accepted",
     }:
@@ -189,6 +190,7 @@ def checkpoint_readback(browser_raw: bytes, dev04: dict, iam_sha: str,
             or checkpoint["source_sha"] != iam_sha
             or checkpoint["shared_source_sha"] != dev04["source_pins"].get("shared")
             or checkpoint["cp_source_sha"] != dev04["source_pins"].get("baobab-cp")
+            or checkpoint["zuribeans_source_sha"] != dev04["source_pins"].get("zuribeans")
             or checkpoint["harness_sha"] != dev04["harness_sha"]
             or checkpoint["phase"] != "BEFORE_INT03C_DEACTIVATION"
             or checkpoint["classification"] != "ORIGINAL_BROWSER_RECONCILED_UNATTESTED"
