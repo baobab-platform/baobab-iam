@@ -193,6 +193,10 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("confidential token revocation unavailable")
 	}
+	limiter, err := nativebff.NewPostgresAdmissionLimiter(pool, vaultKey)
+	if err != nil {
+		return errors.New("native browser admission ledger unavailable")
+	}
 	handler, err := nativebff.New(nativebff.Config{
 		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer,
 		ClientID: d.ClientID, ClientSecret: string(secret),
@@ -200,7 +204,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		Scope:       d.Scope, AccessAudience: d.AccessAudience, AccessScope: d.AccessScope, TrustedRoots: roots,
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
-		Store: browserStore,
+		Store: browserStore, Limiter: limiter,
 	})
 	if err != nil {
 		return errors.New("invalid native BFF configuration")
