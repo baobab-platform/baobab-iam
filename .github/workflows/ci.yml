@@ -246,7 +246,7 @@ jobs:
           go mod verify
           go vet ./internal/nativebff/... ./internal/securityops/... ./cmd/native-browser-bff/...
           go test -race ./internal/nativebff ./cmd/native-browser-bff -run '^TestN08' -count=1
-          go test ./internal/nativebff -run '^
+          go test ./internal/nativebff -run '^N08_NO_MATCHING_TEST' -bench '^BenchmarkN08SourceOnly' -benchmem -benchtime=200x
       - name: Reproduce two independent same-source native image builds
         run: |
           docker build --pull=false --no-cache --build-arg SOURCE_DATE_EPOCH=0 -f Dockerfile.native-browser-bff -t baobab-iam-native:n08-first .
