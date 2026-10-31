@@ -7,9 +7,9 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -97,7 +97,7 @@ type Config struct {
 	Verifier                                                         IDVerifier
 	AccessVerifier                                                   IDVerifier // disposable loopback test fixture only
 	AccessAudience, AccessScope                                      string
-	TrustedRoots                                                    *x509.CertPool
+	TrustedRoots                                                     *x509.CertPool
 	// Only disposable loopback tests may inject an ID verifier or use HTTP.
 	AllowTestLoopback bool
 }

@@ -26,9 +26,9 @@ type CallerTokenSource interface {
 }
 
 type PrincipalResolutionConfig struct {
-	CPOrigin string
-	Caller   CallerTokenSource
-	Now      func() time.Time
+	CPOrigin     string
+	Caller       CallerTokenSource
+	Now          func() time.Time
 	TrustedRoots *x509.CertPool
 	// Test-only: production never accepts an injected proxy/TLS transport.
 	TestClient        *http.Client
