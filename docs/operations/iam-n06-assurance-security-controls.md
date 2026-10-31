@@ -67,12 +67,21 @@ schema. It requires independently verified recovery event evidence.
 Holds cannot be shortened or deleted by the online runtime, and
 issuer/security-domain ownership cannot be reassigned.
 
+A dedicated `credential_rebind` journal now requires a fresh A3
+witness, exact canonical Principal and issuer identity, a distinct
+independently approved second reviewer, and a reviewed credential
+kind (PASSKEY/TOTP/RECOVERY_FACTOR). It is pseudonymous, append-only
+and does not store a new credential secret. Completion requires real
+Kratos authenticator readback, proof that previous sessions were
+revoked, and the exact unchanged CP Principal. An alternate issuer,
+self-approval, missing A3, or an unobserved provider operation fails
+closed. A COMMITTED rebind cannot be reopened.
+
 This **does not** automatically rebind a CP Principal, legal entity,
 workforce role, supplier representative or payment mandate. Sensitive
-rebindings still require independent identity/relationship proof,
-A3 with recent authentication, current CP approval and the
-required independent human review. The default source policy
-denies the operation where those witnesses are missing.
+rebindings require independent identity/relationship proof and
+Kratos-owned self-service execution. The source policy denies any
+operation where the mandatory witnesses are missing.
 
 ### 4. Cryptographic rotation
 
