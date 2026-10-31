@@ -31,6 +31,13 @@ func testDB(t *testing.T)(*Store,*pgxpool.Pool){
 	if err!=nil{t.Fatal(err)}
 	return s,pool
 }
+type recoveryEvidenceTest struct{}
+func (recoveryEvidenceTest) VerifyRecovery(_ context.Context,_ RecoveryAction)(RecoveryEvidence,error){
+	return RecoveryEvidence{
+		ExactProviderSession:true,RecoveryCompleted:true,
+		ObservedAt:time.Now().UTC(),OriginalReference:"test-only-provider-recovery-original",
+	},nil
+}
 func TestN06RecoveryHoldCannotShortenOrCrossIssuer(t *testing.T){
 	s,pool:=testDB(t);ctx:=context.Background()
 	id,_:=uuid()
@@ -40,15 +47,15 @@ func TestN06RecoveryHoldCannotShortenOrCrossIssuer(t *testing.T){
 		Reason:"RECOVERY_COMPLETE",ObservedAt:now.Add(-time.Second),
 		HoldUntil:now.Add(24*time.Hour),
 	}
-	if err:=s.RecordRecovery(ctx,profile);err!=nil{t.Fatal(err)}
+	if err:=s.RecordRecovery(ctx,profile,recoveryEvidenceTest{});err!=nil{t.Fatal(err)}
 	until,found,err:=s.RecoveryHoldUntil(ctx,id,profile.Issuer,profile.SecurityDomain)
 	if err!=nil||!found||until.Before(now.Add(23*time.Hour)){t.Fatal("new recovery hold missing")}
 	shorter:=profile;shorter.HoldUntil=now.Add(time.Hour)
-	if err:=s.RecordRecovery(ctx,shorter);err!=nil{t.Fatal(err)}
+	if err:=s.RecordRecovery(ctx,shorter,recoveryEvidenceTest{});err!=nil{t.Fatal(err)}
 	until,found,err=s.RecoveryHoldUntil(ctx,id,profile.Issuer,profile.SecurityDomain)
 	if err!=nil||!found||until.Before(now.Add(23*time.Hour)){t.Fatal("replay shortened recovery risk hold")}
 	second:=profile;second.Issuer="https://other-issuer.test"
-	if err:=s.RecordRecovery(ctx,second);err==nil{t.Fatal("foreign issuer owned prior recovery row")}
+	if err:=s.RecordRecovery(ctx,second,recoveryEvidenceTest{});err==nil{t.Fatal("foreign issuer owned prior recovery row")}
 	principalKey,_:=s.tag("principal",id)
 	if _,err:=pool.Exec(ctx,`DELETE FROM iam_security.recovery_hold WHERE principal_key=$1`,principalKey);err==nil{
 		t.Fatal("direct SQL deleted recent recovery hold")
