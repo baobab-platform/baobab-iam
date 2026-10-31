@@ -148,6 +148,33 @@ CREATE TABLE IF NOT EXISTS iam_migration.containment (
     CHECK (length(target_issuer) BETWEEN 1 AND 2048),
     CHECK (length(target_subject) BETWEEN 1 AND 512)
 );
+-- Same-transaction append-only control chronology; a resumed UNKNOWN
+-- provider call never erases the earlier failure or side-effect ambiguity.
+CREATE TABLE IF NOT EXISTS iam_migration.containment_history (
+    event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    operation_id text NOT NULL REFERENCES iam_migration.containment(operation_id),
+    phase text NOT NULL,
+    occurred_at timestamptz NOT NULL DEFAULT statement_timestamp()
+);
+DROP TRIGGER IF EXISTS n05_containment_history_immutable
+    ON iam_migration.containment_history;
+CREATE TRIGGER n05_containment_history_immutable
+BEFORE UPDATE OR DELETE ON iam_migration.containment_history
+FOR EACH ROW EXECUTE FUNCTION iam_migration.prevent_history_change();
+CREATE OR REPLACE FUNCTION iam_migration.append_containment_history()
+RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+  INSERT INTO iam_migration.containment_history(operation_id,phase)
+  VALUES (NEW.operation_id,NEW.phase);
+  RETURN NULL;
+END;
+$;
+DROP TRIGGER IF EXISTS n05_containment_history
+    ON iam_migration.containment;
+CREATE TRIGGER n05_containment_history AFTER INSERT OR UPDATE
+ON iam_migration.containment
+FOR EACH ROW EXECUTE FUNCTION iam_migration.append_containment_history();
+
 -- Persist a durable DENY until explicitly reviewed and resolved. An
 -- attacker cannot clear the tombstone by restoring an old user snapshot.
 CREATE TABLE IF NOT EXISTS iam_migration.deny_fence (
