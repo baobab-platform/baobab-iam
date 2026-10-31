@@ -97,11 +97,14 @@ def evidence_paths_valid(root, items):
         kind, path = item["type"], item["path"]
         if kind not in ("source", "integration-test") or not isinstance(path, str):
             return False
-        if path in seen or not path.startswith("internal/provider/") or not path.endswith(".go"):
+        if (path in seen or not path.startswith("internal/provider/")
+                or not path.endswith(".go") or "." in Path(path).parts
+                or ".." in Path(path).parts):
             return False
         seen.add(path)
         types.add(kind)
-        if not (root / path).is_file():
+        candidate = root / path
+        if candidate.is_symlink() or not candidate.is_file():
             return False
     return types == {"source", "integration-test"}
 
