@@ -62,7 +62,7 @@ type IssuerStatusReader interface {
 // the requested resource operation; implementations cannot use JWT tenant
 // fields, a static YAML grant or a local fabricated allowlist as authority.
 type CurrentAuthority interface {
-	AuthorizeCurrent(context.Context, Claims, Operation) error
+	AuthorizeCurrent(context.Context, string, Claims, Operation) error
 }
 
 // Operation data must originate from an application-controlled resource
@@ -189,7 +189,7 @@ func (g *Gate) Authorize(ctx context.Context, bearer string, operation Operation
 	if g.current(ctx, bearer, signed) != nil {
 		return ErrDenied
 	}
-	if err := g.authority.AuthorizeCurrent(ctx, signed, operation); err != nil || ctx.Err() != nil {
+	if err := g.authority.AuthorizeCurrent(ctx, bearer, signed, operation); err != nil || ctx.Err() != nil {
 		return ErrDenied
 	}
 	if g.current(ctx, bearer, signed) != nil {
