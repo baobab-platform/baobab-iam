@@ -64,6 +64,7 @@ func NewCPRegisteredBinding(origin string, roots *x509.CertPool, target CPBindin
 	u, err := url.Parse(origin)
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" ||
 		u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" ||
+		roots == nil || len(roots.Subjects()) == 0 ||
 		token == nil || !validCPBindingTarget(target) {
 		return nil, ErrDenied
 	}
