@@ -3,16 +3,14 @@ package workloadresource
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -214,9 +212,21 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 		if err:=gate.Authorize(ctx,fresh,operation);err!=nil{t.Fatal("fresh issuer/CP control denied")}
 	})
 	if t.Failed(){return}
-	var marker [32]byte
-	if _,err:=rand.Read(marker[:]);err!=nil{t.Fatal("evidence nonce unavailable")}
+	// Record the exact executed checkout, not the requested branch or an
+	// invented run identifier. CI pull_request may check out a merge SHA.
+	currentSource:=strings.TrimSpace(os.Getenv("GITHUB_SHA"))
+	if currentSource=="" {
+		actual,err:=exec.Command("git","rev-parse","HEAD").Output()
+		if err!=nil{t.Fatal("actual executed source cannot be determined")}
+		currentSource=strings.TrimSpace(string(actual))
+	}
+	if !regexp.MustCompile("^[a-f0-9]{40}$").MatchString(currentSource){
+		t.Fatal("immutable executed source SHA unavailable")
+	}
 	report:=map[string]any{
+		"executed_source_sha":currentSource,
+		"cp_consumer_source_sha":"c84063cb07dce76e1ffac4b12fa29c5e4e5ec855",
+		"fixture_only":true,
 		"classification":"REAL_COMPONENT_SYNTHETIC_DATA",
 		"scope":"N03_NATIVE_HYDRA_CP_SOURCE_FIXTURE",
 		"actual_provider_issuer":true,
@@ -227,7 +237,6 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 		"issuer_revocation_before_expiry":true,
 		"cross_tenant_cp_denial_observed":true,
 		"credentials_absent":true,
-		"run_nonce_digest":base64.RawURLEncoding.EncodeToString(marker[:]),
 	}
 	if root:=os.Getenv("ORY_M4_EVIDENCE_DIR");root!=""{
 		payload,err:=json.MarshalIndent(report,"","  ")
@@ -237,4 +246,3 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 		}
 	}
 }
-var _ = errors.New
