@@ -552,7 +552,16 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 403)
 		return
 	}
-	id, s, err := h.authenticated(r)
+	// Logout is a local destructive operation, never a CP-grant check.
+	// Users must still be able to remove their browser session when CP is
+	// unavailable or their canonical Principal was just deactivated.
+	browser, err := r.Cookie(sessionCookie)
+	if err != nil || len(browser.Value) != 43 {
+		h.fail(w, 401)
+		return
+	}
+	id := browser.Value
+	s, err := h.c.Store.ReadSession(r.Context(), id)
 	if err != nil {
 		h.fail(w, 401)
 		return
