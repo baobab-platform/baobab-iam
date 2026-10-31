@@ -15,6 +15,16 @@ CREATE TABLE IF NOT EXISTS native_bff_sessions (
     expires_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS native_bff_sessions_expires ON native_bff_sessions(expires_at);
+-- HMAC-pseudonymised, per-peer/operation fixed-minute admission ledger.
+-- A single row per key is atomically updated across all native BFF replicas.
+CREATE TABLE IF NOT EXISTS native_bff_rate_limits (
+    id_hash BYTEA PRIMARY KEY CHECK (octet_length(id_hash) = 32),
+    window_start TIMESTAMPTZ NOT NULL,
+    attempts INTEGER NOT NULL CHECK (attempts BETWEEN 1 AND 1000000)
+);
+CREATE INDEX IF NOT EXISTS native_bff_rate_limits_window ON native_bff_rate_limits(window_start);
+-- Purge old windows in the IAM-owned bounded maintenance task; never retain
+-- pseudonymous source data beyond the approved abuse-prevention purpose.
 -- Maintenance: purge expired rows in a bounded scheduled IAM-owned job.
 -- Do not TRUNCATE during a running OAuth transaction or before retention review.
 -- Key material must be supplied by the approved secret store and rotated only
