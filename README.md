@@ -1,5 +1,8 @@
 # Baobab IAM (`baobab-iam`)
 
+**IAM-N04 — registered support/consumer development qualification (stacked draft):** [N04 owner runbook and source-bound evidence verifier](docs/operations/n04-provider-support-development-qualification.md) adds fail-closed readback of original N02/DEV-04, C4-03B–E, Pulse/Payments ENG-ONB development receipts and immutably reviewed IAM/Shared/CP pins; negative fixture tests run in CI. **It never registers CP providers, activates a binding, verifies a runtime producer independently or certifies development completion.** Actual owner CP support readback, genuine registered C4-04B/C consumption and N01–N03 outstanding development qualification remain mandatory; Kratos/Hydra/Keycloak support remains PARTIAL. N04 is a draft implementation increment, not staging/production acceptance.
+
+
 > **DEVELOPMENT COMPLETION HOLD — N01–N03 NOT CERTIFIED (audited 31 October 2026).**
 > **Do not report “development complete”, “only staging/production outstanding”, or “ready for protected handoff”.**
 > Open **development** gates are: (N01) newer Shared workload/scope pin and real consumer qualification; (N02) connected estate/browser–Kratos–Hydra–CP tests, original DEV-04 seven-case same-run evidence, recovery/logout and teardown; (N03) final-head CI, genuine issuer/CP HTTP-resource results and actual owner-engine DEV-14/15 consumer acceptance, including mandatory negatives.
