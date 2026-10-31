@@ -666,5 +666,28 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+
+
+// logoutAll is an explicit Kratos-native session-wide revocation request.
+// It does NOT claim federation-wide SLO or revoke unrelated Hydra clients:
+// those remain independent identity-provider and resource-server gates.
+func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
+	if !h.postOrigin(r) || r.URL.RawQuery!="" {h.fail(w,http.StatusForbidden);return}
+	c,err:=r.Cookie(sessionCookie)
+	if err!=nil || len(c.Value)!=43 {h.fail(w,http.StatusUnauthorized);return}
+	s,err:=h.c.Store.ReadSession(r.Context(),c.Value)
+	if err!=nil || s.Subject=="" || s.CSRF=="" {h.fail(w,http.StatusUnauthorized);return}
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")),[]byte(s.CSRF))!=1 {
+		h.fail(w,http.StatusForbidden);return
+	}
+	// Never make the local session live again after a provider timeout.
+	if h.c.Store.DeleteSession(r.Context(),c.Value)!=nil {h.fail(w,http.StatusServiceUnavailable);return}
+	expireCookie(w,sessionCookie,http.SameSiteStrictMode)
+	kratosOk:=h.c.NativeSessions!=nil && h.c.NativeSessions.RevokeNativeSessions(r.Context(),s.Subject)==nil
+	hydraOk:=h.c.Revoker.Revoke(r.Context(),s.Tokens)==nil
+	if !kratosOk || !hydraOk {h.fail(w,http.StatusServiceUnavailable);return}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 var _ http.Handler = (*Handler)(nil)
 var _ Handoff = (*ory.GovernedNativeHumanHandoff)(nil)
