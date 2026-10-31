@@ -37,6 +37,14 @@ class IAMN01Tests(unittest.TestCase):
         self.record["shared"]["pin"] = self.record["shared"]["reviewed_head"]
         self.deny("re-pin was not independently reviewed")
 
+    def test_source_record_cannot_claim_staging_acceptance(self):
+        self.record["staging_accepted"] = True
+        self.deny("N01 record gained an unreviewed authority")
+
+    def test_source_only_purpose_cannot_be_overwritten(self):
+        self.record["purpose"] = "PROTECTED_STAGING_APPROVED"
+        self.deny("N01 record gained an unreviewed authority")
+
     def test_no_staging_bootstrap(self):
         self.record["development"]["environment"] = "staging"
         self.deny("development/protected boundary")
