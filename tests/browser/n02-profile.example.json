@@ -4,7 +4,7 @@
   "run_id": "REPLACE_WITH_ORIGINAL_32_LOWERCASE_HEX_RUN_NONCE",
   "iam_source_sha": "REPLACE_WITH_IMMUTABLE_40_HEX_IAM_N02_SHA",
   "bff_origin": "https://APPROVED_FIRST_PARTY_ESTATE_ORIGIN",
-  "kratos_origin": "https://APPROVED_KRATOS_BROWSER_ORIGIN",
+  "kratos_origin": "https://APPROVED_FIRST_PARTY_ESTATE_ORIGIN",
   "hydra_origin": "https://APPROVED_HYDRA_PUBLIC_ISSUER",
   "synthetic_identifier": "REPLACE_WITH_ACTUAL_SYNTHETIC_IDENTITY",
   "password_file": "/run/secrets/synthetic-identity-password",
