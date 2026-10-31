@@ -238,3 +238,69 @@ func TestN06IncidentRequiresIndependentActorAndCurrentResourceDenial(t *testing.
 		t.Fatal("global issuer shutdown representable")
 	}
 }
+
+type rebindWitnessTest struct {
+	strong bool
+	provider bool
+	sessions bool
+	cp bool
+}
+func (w rebindWitnessTest) VerifyRebind(_ context.Context,_ Rebind,_ string)(RebindProof,error){
+	return RebindProof{
+		CurrentPrincipalBound:true,
+		RecentA3Verified:w.strong,
+		IndependentApproverVerified:true,
+		AuthorizedScopeVerified:true,
+		RealKratosChangeReadback:w.provider,
+		AllOldSessionsRevoked:w.sessions,
+		CPPrincipalUnchanged:w.cp,
+		ObservedAt:time.Now().UTC(),
+		OriginalReference:"development-witness-fixture-not-original-provider-proof",
+	},nil
+}
+func TestN06CredentialRebindNeedsA3IndependentReviewAndOldSessionRevocation(t *testing.T){
+	s,pool:=testDB(t)
+	ctx:=context.Background()
+	actor:=Rebind{
+		Principal:"same-canonical-human",Issuer:"https://ory-issuer.example.invalid",
+		Kind:"PASSKEY",Reason:"LOST_DEVICE",Requester:"requester-one",Approver:"approver-two",
+	}
+	if _,err:=s.RequestRebind(ctx,actor,nil);err==nil{
+		t.Fatal("missing approved rebind verifier accepted")
+	}
+	if _,err:=s.RequestRebind(ctx,actor,rebindWitnessTest{});err==nil{
+		t.Fatal("AAL2 or unknown A3 rebind admitted")
+	}
+	actor.Approver=actor.Requester
+	if _,err:=s.RequestRebind(ctx,actor,rebindWitnessTest{strong:true});err==nil{
+		t.Fatal("self-approved native recovery rebind admitted")
+	}
+	actor.Approver="approver-two"
+	id,err:=s.RequestRebind(ctx,actor,rebindWitnessTest{strong:true})
+	if err!=nil{t.Fatal(err)}
+	actor.RequestID=id
+	foreign:=actor;foreign.Issuer="https://another-issuer.invalid"
+	if _,err:=s.MarkRebind(ctx,foreign,"PROVIDER_VERIFIED",
+		rebindWitnessTest{strong:true,provider:true});err==nil{
+		t.Fatal("foreign issuer used an existing credential-rebind operation")
+	}
+	if _,err:=s.MarkRebind(ctx,actor,"PROVIDER_VERIFIED",
+		rebindWitnessTest{strong:true});err==nil {
+		t.Fatal("provider response absent but rebinding succeeded")
+	}
+	if _,err:=s.MarkRebind(ctx,actor,"PROVIDER_VERIFIED",
+		rebindWitnessTest{strong:true,provider:true});err!=nil{t.Fatal(err)}
+	if _,err:=s.MarkRebind(ctx,actor,"COMMITTED",
+		rebindWitnessTest{strong:true,provider:true});err==nil {
+		t.Fatal("old sessions survived sensitive passkey replacement")
+	}
+	if _,err:=s.MarkRebind(ctx,actor,"COMMITTED",
+		rebindWitnessTest{strong:true,provider:true,sessions:true,cp:true});err!=nil{t.Fatal(err)}
+	if _,err:=s.MarkRebind(ctx,actor,"PROVIDER_VERIFIED",
+		rebindWitnessTest{strong:true,provider:true});err==nil {
+		t.Fatal("committed credential rebinding reopened")
+	}
+	if _,err:=pool.Exec(ctx,"DELETE FROM iam_security.rebind_history WHERE request_id=$1",id);err==nil{
+		t.Fatal("credential rebinding evidence deletable")
+	}
+}
