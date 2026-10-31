@@ -91,6 +91,7 @@ type Store interface {
 	PutSession(context.Context, string, Session) error
 	ReadSession(context.Context, string) (Session, error)
 	DeleteSession(context.Context, string) error
+	DeleteHumanSessions(context.Context, string, string) error
 }
 
 type Config struct {
@@ -681,11 +682,12 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 		h.fail(w,http.StatusForbidden);return
 	}
 	// Never make the local session live again after a provider timeout.
-	if h.c.Store.DeleteSession(r.Context(),c.Value)!=nil {h.fail(w,http.StatusServiceUnavailable);return}
+	localOk := h.c.Store.DeleteSession(r.Context(), c.Value)==nil
+	allOk := h.c.Store.DeleteHumanSessions(r.Context(), s.Issuer, s.Subject)==nil
 	expireCookie(w,sessionCookie,http.SameSiteStrictMode)
 	kratosOk:=h.c.NativeSessions!=nil && h.c.NativeSessions.RevokeNativeSessions(r.Context(),s.Subject)==nil
 	hydraOk:=h.c.Revoker.Revoke(r.Context(),s.Tokens)==nil
-	if !kratosOk || !hydraOk {h.fail(w,http.StatusServiceUnavailable);return}
+	if !localOk || !allOk || !kratosOk || !hydraOk {h.fail(w,http.StatusServiceUnavailable);return}
 	w.WriteHeader(http.StatusNoContent)
 }
 
