@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -91,7 +90,7 @@ func makeFixture(t *testing.T)fixture{
 		PublicOrigin:"http://127.0.0.1:3000",Issuer:"http://127.0.0.1:4444",
 		ClientID:"synthetic-estate-bff",ClientSecret:strings.Repeat("s",32),
 		RedirectURI:"http://127.0.0.1:3000/auth/callback",Scope:"openid trade:buy",
-		KratosSessionCookieName:"ory_kratos_session",Now:time.Now,Handoff:handoff,
+		KratosSessionCookieName:"ory_kratos_session",AccessAudience:"baobab-trade",AccessScope:"trade:buy",Now:time.Now,Handoff:handoff,
 		CP:cp,Revoker:revoker,Store:store,AllowTestLoopback:true,
 		Verifier:fixtureVerifier{subject:"synthetic-subject"},
 		AccessVerifier:fixtureVerifier{subject:"synthetic-subject"},
@@ -225,4 +224,3 @@ func TestAtomicTestTransactionConsumption(t *testing.T){
 	n:=0;for ok:=range good{if ok{n++}}
 	if n!=1{t.Fatalf("transaction consumed %d times",n)}
 }
-var _ = fmt.Sprintf
