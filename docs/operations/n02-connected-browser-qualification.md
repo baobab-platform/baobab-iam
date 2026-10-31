@@ -47,7 +47,7 @@ the SAME disposable private network and run. There is no source-only PASS.
 A complete original receipt is still an **unattested development candidate**,
 not protected or production acceptance.
 
-The current Infrastructure DEV-04 driver and IAM-N02 Playwright runner are **separate executable tools**. A single supervised orchestration workflow binding their *actual* source+runtime+run identity is not yet demonstrated, so the connected acceptance gate remains **BLOCKED**. This limitation cannot be resolved by renaming an artifact or weakening the evidence validator.
+The current Infrastructure DEV-04 driver and IAM-N02 Playwright runner are **separate executable tools**. Infrastructure #69 now has an opt-in supervised orchestration path binding the actual immutable IAM script source and same-run credentials, but an executed and independently witnessed common original is not yet demonstrated, so the connected acceptance gate remains **BLOCKED**. This limitation cannot be resolved by renaming an artifact or weakening the evidence validator.
 
 ### Private runtime commands
 
@@ -137,3 +137,38 @@ reconciled with real Hydra and CP evidence.
 - N01 Shared re-pin review and canonical registration; C4-03B–E, C4-04B/C and provider support `PARTIAL` remain unchanged.
 
 **Release rule:** Until actual protected evidence and independent owner approval, every staging/production N02 result is **HELD**. Do not merge IAM #145/#146/#147 or alter existing provider support/approval gates based on this source increment.
+
+## ZuriBeans owner-convergence correction (31 October)
+
+The current estate's `/api/iam/*` Next.js BFF and IAM's `/auth/*`
+Go BFF are distinct session owners. **Never** adopt the existing
+`baobab-dev-zuribeans-bff` workload buyer-handoff OAuth registration as a
+native browser-only registration: it has different trade grants and a Next
+`/api/iam/callback` redirect. The new isolated candidate browser client is
+`baobab-dev-zuribeans-native-browser-bff` under Shared #421's exact
+`identity/v1/native-browser-client-registry.yaml`. Its developer status
+remains `PROVISIONED`; provider-only Hydra test registration and teardown
+do not activate any CP or Trade authority.
+
+IAM's real Hydra developer registration now checks the exact owner-selected
+first-party `PublicOrigin + /auth/callback`. Verified private **HTTPS**
+first-party hosts are permitted; plain HTTP is allowed only at exact
+`127.0.0.1:3000` in the isolated component fixture. Never reuse
+`/api/iam/callback` and never silently adopt another development run's
+client ID/lease or secret.
+
+ZuriBeans draft PR #141 supplies the first-party
+`/identity/native-qualification` UI with a normal browser POST to
+`/auth/start`, genuine `/auth/session` checking and CSRF-bound
+`/auth/logout-all`. IAM's real Playwright producer clicks this **real
+estate-owned UI**, not a synthetic injected browser form. Same-origin
+`/auth/*` routing still requires a reviewed exact Host/TLS-preserving
+ingress owned by Infrastructure and current CP-provisioned caller evidence;
+a plaintext Next.js proxy or any assumption that the two BFF cookies are
+interchangeable is forbidden.
+
+**Development qualifier:** Latest IAM and Shared draft source heads must
+be explicitly repinned by the Infrastructure #69 candidate lock after
+review. No unreviewed main-line Shared re-pin, issuer registration, CP
+client permission, protected deployment or N04 support promotion occurs
+through this source-only increment.
