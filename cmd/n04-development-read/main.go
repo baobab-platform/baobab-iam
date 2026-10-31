@@ -59,11 +59,77 @@ func privateFile(path string, max int64) ([]byte, error) {
 	return data, nil
 }
 
+// requireUniqueObject rejects ambiguous duplicate keys both at the envelope
+// and the only nested JSON object (target). Arbitrary nested structures are
+// refused by the later DisallowUnknownFields decode.
+func requireUniqueObject(content []byte) error {
+	decoder := json.NewDecoder(strings.NewReader(string(content)))
+	start, err := decoder.Token()
+	if err != nil || start != json.Delim('{') {
+		return errors.New("malformed object")
+	}
+	seen := make(map[string]struct{})
+	for decoder.More() {
+		raw, err := decoder.Token()
+		name, ok := raw.(string)
+		if err != nil || !ok {
+			return errors.New("invalid property")
+		}
+		if _, exists := seen[name]; exists {
+			return errors.New("duplicate property")
+		}
+		seen[name] = struct{}{}
+		var value json.RawMessage
+		if decoder.Decode(&value) != nil {
+			return errors.New("invalid property value")
+		}
+		if name == "target" {
+			nested := json.NewDecoder(strings.NewReader(string(value)))
+			open, err := nested.Token()
+			if err != nil || open != json.Delim('{') {
+				return errors.New("target must be an object")
+			}
+			keys := make(map[string]struct{})
+			for nested.More() {
+				key, err := nested.Token()
+				k, ok := key.(string)
+				if err != nil || !ok {
+					return errors.New("target has invalid key")
+				}
+				if _, exists := keys[k]; exists {
+					return errors.New("duplicate target field")
+				}
+				keys[k] = struct{}{}
+				var nestedValue json.RawMessage
+				if nested.Decode(&nestedValue) != nil {
+					return errors.New("invalid target field")
+				}
+			}
+			if close, err := nested.Token(); err != nil || close != json.Delim('}') {
+				return errors.New("invalid target closing delimiter")
+			}
+			if _, err := nested.Token(); err != io.EOF {
+				return errors.New("trailing target data")
+			}
+		}
+	}
+	if close, err := decoder.Token(); err != nil || close != json.Delim('}') {
+		return errors.New("invalid object closing delimiter")
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return errors.New("trailing JSON")
+	}
+	return nil
+}
+
 func checkedConfig(path string) (config, error) {
 	var out config
 	content, err := privateFile(path, 16384)
 	if err != nil {
 		return out, err
+	}
+	if err := requireUniqueObject(content); err != nil {
+		return config{}, err
 	}
 	decoder := json.NewDecoder(strings.NewReader(string(content)))
 	decoder.DisallowUnknownFields()
