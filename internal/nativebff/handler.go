@@ -7,6 +7,8 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -95,6 +97,7 @@ type Config struct {
 	Verifier                                                         IDVerifier
 	AccessVerifier                                                   IDVerifier // disposable loopback test fixture only
 	AccessAudience, AccessScope                                      string
+	TrustedRoots                                                    *x509.CertPool
 	// Only disposable loopback tests may inject an ID verifier or use HTTP.
 	AllowTestLoopback bool
 }
@@ -157,7 +160,8 @@ func New(c Config) (*Handler, error) {
 	if (c.Verifier != nil || c.AccessVerifier != nil) && !c.AllowTestLoopback {
 		return nil, errors.New("production requires cryptographic ID and access token verification")
 	}
-	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: c.TrustedRoots}, Proxy: nil}}
 	if c.AllowTestLoopback && c.HTTPClient != nil {
 		client.Transport = c.HTTPClient.Transport
 	}
