@@ -25,5 +25,6 @@
   "post_recovery_password_file": "/run/secrets/synthetic-post-recovery-password",
   "shared_source_sha": "REPLACE_WITH_PINNED_40_HEX_SHARED_SOURCE",
   "cp_source_sha": "REPLACE_WITH_PINNED_40_HEX_CP_SOURCE",
+  "zuribeans_source_sha": "REPLACE_WITH_PINNED_40_HEX_FIRST_PARTY_ESTATE_SOURCE",
   "infrastructure_harness_sha": "REPLACE_WITH_ORIGINAL_40_HEX_INFRASTRUCTURE_SOURCE"
 }
