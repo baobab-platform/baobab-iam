@@ -29,7 +29,25 @@ N02 extends the owner components without inventing CP authority:
 5. Run the real browser with the *private* profile below. The synthetic identity must be supplied by the actual Kratos/CP lease. AAL2 needs a **real enrolled second factor**, real Kratos recovery courier and an approved estate frontend form. A missing factor or courier is BLOCKED, not a passing negative. Run the full suite before applying DEV-04's destructive Principal-deactivation/revocation steps and before teardown.
 6. Complete the original DEV-04 owner-led negative/withdrawal checks and independently witnessed cleanup; check both results from their original producers. If the browser and DEV-04 do not share the same exact synthetic run ID, reviewed IAM SHA, providers and CP evidence chain, do not claim connected N02 acceptance. Use a separate protected execution only after its own approval and records.
 
-**31 October N02 qualification correction:** The browser producer now checks the running immutable clean IAM checkout rather than trusting a profile SHA, requires real Kratos `aal2` session readback, verifies that recovery does not create a CP session and that a separate post-recovery OAuth login resolves the **same** CP Principal. The approved synthetic recovery journey must provide a private `post_recovery_password_file` (0600), representing the actual post-recovery credential. Original observation and SHA-256 sidecar are both atomically written as owner-private 0600 files and fsynced; an original browser report is never emitted on a partial case. These changes are source-level corrections, not connected acceptance evidence. Retain all seven immutable case IDs and mandatory same-run Infrastructure receipt.\n\nThe current Infrastructure DEV-04 driver and IAM-N02 Playwright runner are **separate executable tools**. A single supervised orchestration workflow binding their *actual* source+runtime+run identity is not yet demonstrated, so the connected acceptance gate remains **BLOCKED**. This limitation cannot be resolved by renaming an artifact or weakening the evidence validator.
+**31 October N02 qualification correction:** The browser producer now checks the running immutable clean IAM checkout rather than trusting a profile SHA, requires real Kratos `aal2` session readback, verifies that recovery does not create a CP session and that a separate post-recovery OAuth login resolves the **same** CP Principal. The approved synthetic recovery journey must provide a private `post_recovery_password_file` (0600), representing the actual post-recovery credential. Original observation and SHA-256 sidecar are both atomically written as owner-private 0600 files and fsynced; an original browser report is never emitted on a partial case. These changes are source-level corrections, not connected acceptance evidence. Retain all seven immutable case IDs and mandatory same-run Infrastructure receipt.\n\nA new **opt-in Infrastructure DEV-04/N02 original-browser checkpoint** is under review on
+the Infrastructure companion branch. It requires the original browser receipt
+**before** the destructive INT-03C Principal/issuer case, verifies the current
+real CP/IAM runtime health and embeds the browser's source-bound SHA-256 in
+the original Infrastructure completed teardown receipt. The IAM gate now
+requires this pre-deactivation checkpoint in addition to the original seven
+browser and seven DEV-04 cases. The browser profile/observation must contain
+the exact 40-hex `shared_source_sha`, `cp_source_sha` and
+`infrastructure_harness_sha`, bound to the independent DEV-04 receipt.
+The original sidecar must be owner-only 0600.
+
+**Important:** This is executable orchestration/custody source only until an
+owner-provisioned real estate UX, development BFF/CP caller, Kratos/Hydra
+credential, real recovery courier and Playwright runner actually execute in
+the SAME disposable private network and run. There is no source-only PASS.
+A complete original receipt is still an **unattested development candidate**,
+not protected or production acceptance.
+
+The current Infrastructure DEV-04 driver and IAM-N02 Playwright runner are **separate executable tools**. A single supervised orchestration workflow binding their *actual* source+runtime+run identity is not yet demonstrated, so the connected acceptance gate remains **BLOCKED**. This limitation cannot be resolved by renaming an artifact or weakening the evidence validator.
 
 ### Private runtime commands
 
