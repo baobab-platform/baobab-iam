@@ -47,6 +47,12 @@ corridor clearance, shipment booking or legal compliance.
   The issuer's request-time `iat` need not equal JWT signing-time `iat`,
   as documented for the pinned Hydra implementation; the expiry and status
   must agree. No stale positive status cache is allowed.
+- `pkg/workloadresource/http.go`: provider-neutral HTTP resource middleware
+  accepts exactly one Bearer authorization header, derives the operation
+  from the owning application's trusted resolver, and calls the complete
+  issuer → CP → native veto chain on each request. Before forwarding to
+  native application code, it strips raw Authorization and Cookie headers.
+  It cannot replace a resource's transaction-commit policy.
 - `pkg/workloadresource/cp_context.go`: production CP
   `POST /v1/platform-context/validate` HTTP adapter using a **different**
   independently registered `context:validate` workload credential, the
@@ -69,7 +75,7 @@ corridor clearance, shipment booking or legal compliance.
   fixture**, tests foreign-owner/revoked external-link/suspended Tenant,
   performs RFC 7009 token revocation **before expiry** and requires
   independent inactive introspection read-back plus resource denial of the
-  exact same unexpired bearer. Fresh issuance is the control.
+  exact same unexpired bearer, including at an actual in-process HTTP resource middleware boundary. A tampered real signature and a genuine wrong-audience bearer are denied at that HTTP boundary. Fresh issuance is the control; an in-process fixture cannot be relabelled as a separately deployed resource.
 - `tests/ory-foundation/token_profile.sh`: appends this live proof only
   while the actual Ory hook and immutable CP consumer are running, and
   refuses skipped/missing live subcases. The sanitized report remains
