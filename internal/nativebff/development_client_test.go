@@ -24,6 +24,7 @@ func devLease(t *testing.T)DevelopmentEstateClient{
 	return DevelopmentEstateClient{
 		Environment:"development",Estate:"zuribeans",RunID:hex.EncodeToString(run[:]),
 		RedirectURI:"http://127.0.0.1:3000/auth/callback",
+        PublicOrigin:"http://127.0.0.1:3000",
 		ClientSecret:base64.RawURLEncoding.EncodeToString(key[:]),
 		ExpiresAt:time.Now().Add(15*time.Minute),
 	}
@@ -37,7 +38,7 @@ func TestDevClientRegistrationRefusesNonDevelopmentAndUnsafeOrigins(t *testing.T
 	}
 	r,err:=NewDevelopmentClientRegistry("http://127.0.0.1:4445",nil,time.Now)
 	if err!=nil{t.Fatal(err)}
-	for _,kind:=range []string{"production","late","redirect","wrong-estate","wildcard","wrong-run"}{
+	for _,kind:=range []string{"production","late","redirect","wrong-estate","wildcard","wrong-run","wrong-origin"}{
 		c:=lease
 		switch kind{
 		case "production":c.Environment="production"
@@ -46,10 +47,23 @@ func TestDevClientRegistrationRefusesNonDevelopmentAndUnsafeOrigins(t *testing.T
 		case "wrong-estate":c.Estate="nabhold"
 		case "wildcard":c.RedirectURI="http://127.0.0.1:3000/*"
 		case "wrong-run":c.RunID="test"
+        case "wrong-origin":c.PublicOrigin="https://foreign.example.invalid"
 		}
 		if _,err=r.name(c);err==nil{t.Fatal("unapproved client accepted",kind)}
 	}
-	if err=r.DeleteDevelopment(context.Background(),"production-nabhold-client",lease.RunID);err==nil{
+	// Current HTTPS estates must use their exact reviewed public first-party
+    // origin. Go cannot silently rewrite to the older Next buyer BFF callback.
+    httpsLease:=lease
+    httpsLease.PublicOrigin="https://zuribeans.dev.example.test"
+    httpsLease.RedirectURI=httpsLease.PublicOrigin+"/auth/callback"
+    if id,err:=r.name(httpsLease);err!=nil||id!="baobab-dev-zuribeans-native-browser-bff"{
+        t.Fatal("reviewed native HTTPS first-party client rejected")
+    }
+    httpsLease.RedirectURI="https://zuribeans.dev.example.test/api/iam/callback"
+    if _,err:=r.name(httpsLease);err==nil{
+        t.Fatal("Next buyer-BFF callback treated as native IAM browser callback")
+    }
+    if err=r.DeleteDevelopment(context.Background(),"production-nabhold-client",lease.RunID);err==nil{
 		t.Fatal("protected client teardown accepted")
 	}
 }
@@ -84,7 +98,7 @@ func TestLiveDevelopmentHydraEstateClientRegistration(t *testing.T){
 	if err:=r.Readback(ctx,id,"http://127.0.0.1:3000/unapproved",lease.RunID);err==nil{
 		t.Fatal("Hydra unapproved redirect mistakenly qualified")
 	}
-	if id!="baobab-dev-zuribeans-bff" {t.Fatal("actual client differs from Shared identity")}
+	if id!="baobab-dev-zuribeans-native-browser-bff" {t.Fatal("actual client differs from Shared identity")}
 	if err:=r.Readback(ctx,id,lease.RedirectURI,strings.Repeat("f",32));err==nil {
 		t.Fatal("foreign development lease adopted canonical client")
 	}
