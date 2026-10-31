@@ -68,6 +68,11 @@ func (m *memoryStore) ReadSession(_ context.Context, id string) (Session, error)
 	}
 	return v, nil
 }
+func (m *memoryStore) DeleteHumanSessions(_ context.Context, issuer, subject string) error {
+	m.mu.Lock(); defer m.mu.Unlock()
+	for id,s := range m.sessions { if s.Issuer == issuer && s.Subject == subject {delete(m.sessions,id)} }
+	return nil
+}
 func (m *memoryStore) DeleteSession(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
