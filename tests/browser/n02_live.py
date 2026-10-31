@@ -254,6 +254,8 @@ def main() -> int:
     output = {
         "schema": "baobab.iam.n02.browser-observation.v1",
         "classification": "REAL_BROWSER_SYNTHETIC_DATA",
+        "source_sha": profile["iam_source_sha"],
+        "run_id": profile["run_id"],
         "provider_and_cp_independently_attested": False,
         "protected_accepted": False,
         "cases": report,
