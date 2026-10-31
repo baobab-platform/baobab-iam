@@ -154,7 +154,7 @@ func (c *NativeContainment) markPhase(ctx context.Context, id, phase string) err
 	}
 	_, err := c.Store.pool.Exec(ctx, `UPDATE iam_migration.containment
 SET phase=$2, updated_at=statement_timestamp()
-WHERE operation_id=$1 AND phase <> 'VERIFIED'`, id, phase)
+WHERE operation_id=$1 AND (phase <> 'VERIFIED' OR $2='UNKNOWN')`, id, phase)
 	return n05PhaseError(err)
 }
 func n05PhaseError(err error) error {
@@ -191,6 +191,11 @@ func (c *NativeContainment) Contain(ctx context.Context, migrationID, operationI
 			!proof.CanonicalUnchanged || proof.OriginalReference == "" ||
 			proof.ObservedAt.IsZero() || proof.ObservedAt.After(now) ||
 			now.Sub(proof.ObservedAt) > time.Minute {
+			// An old VERIFIED event remains immutable history. The *current*
+			// state becomes UNKNOWN, never a resurrected trusted session.
+			recovery, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = c.markPhase(recovery, operationID, "UNKNOWN")
 			return nil, errors.New("migration: current containment drift after restore/replay")
 		}
 		return receipt, nil
