@@ -178,6 +178,10 @@ func (o *OAuthRevoker) Revoke(ctx context.Context, tokens humanauth.Response) er
 	if o == nil || ctx == nil || tokens.AccessToken == "" {
 		return errors.New("missing issuer revocation boundary")
 	}
+	// A failure to revoke access MUST NOT suppress the refresh-token attempt.
+	// Neither a partial success nor a transport error is confirmation of
+	// complete provider revocation. Do not return token or provider details.
+	unknown := false
 	for _, item := range []struct{ token, kind string }{
 		{tokens.AccessToken, "access_token"}, {tokens.RefreshToken, "refresh_token"},
 	} {
@@ -187,19 +191,24 @@ func (o *OAuthRevoker) Revoke(ctx context.Context, tokens humanauth.Response) er
 		form := url.Values{"token": {item.token}, "token_type_hint": {item.kind}}
 		req, err := http.NewRequestWithContext(ctx, "POST", o.issuer+"/oauth2/revoke", strings.NewReader(form.Encode()))
 		if err != nil {
-			return err
+			unknown = true
+			continue
 		}
 		req.SetBasicAuth(o.clientID, o.secret)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		resp, err := o.client.Do(req)
 		if err != nil {
-			return errors.New("issuer revocation outcome unknown")
+			unknown = true
+			continue
 		}
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 2048))
 		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return errors.New("issuer revocation not confirmed")
+			unknown = true
 		}
+	}
+	if unknown {
+		return errors.New("issuer revocation outcome unconfirmed")
 	}
 	return nil
 }
