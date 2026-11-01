@@ -22,13 +22,13 @@ type AdmissionLimiter interface {
 }
 
 var limits = map[string]int32{
-	"POST /auth/start":    20,
-	"GET /auth/login":     60,
-	"GET /auth/consent":   60,
-	"POST /auth/consent":  30,
-	"GET /auth/callback":  60,
-	"GET /auth/session":   120,
-	"POST /auth/logout":   30,
+	"POST /auth/start":   20,
+	"GET /auth/login":    60,
+	"GET /auth/consent":  60,
+	"POST /auth/consent": 30,
+	"GET /auth/callback": 60,
+	"GET /auth/session":  120,
+	"POST /auth/logout":  30,
 }
 
 // PostgresAdmissionLimiter uses a private HMAC digest of the observed TCP
