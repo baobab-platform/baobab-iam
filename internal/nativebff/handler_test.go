@@ -77,8 +77,9 @@ func (m *memoryStore) DeleteSession(_ context.Context, id string) error {
 
 type allowAdmission struct {
 	reject error
-	calls int
+	calls  int
 }
+
 func (a *allowAdmission) Admit(_ context.Context, operation, remote string) error {
 	a.calls++
 	if remote == "" || operation == "" {
@@ -270,6 +271,7 @@ func TestStateSubstitutionAndCPUnavailableFailClosed(t *testing.T) {
 		t.Fatal("CP failure issued session")
 	}
 }
+
 // failSessionStore simulates a vault failure after a real code exchange.
 type failSessionStore struct{ Store }
 
@@ -279,7 +281,7 @@ func (f failSessionStore) PutSession(context.Context, string, Session) error {
 
 func TestCallbackFailuresRevokeExchangedTokens(t *testing.T) {
 	for _, tc := range []struct {
-		name string
+		name               string
 		breakAfterExchange func(f *fixture)
 	}{
 		{"ID token verification", func(f *fixture) {
