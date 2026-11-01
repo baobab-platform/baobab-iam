@@ -132,9 +132,9 @@ func TestOAuthRevokerAttemptsRefreshAfterAccessRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	credential := humanauth.Response{
-		AccessToken: strings.Repeat("a", 40),
+		AccessToken:  strings.Repeat("a", 40),
 		RefreshToken: strings.Repeat("r", 40),
-		TokenType: "Bearer", ExpiresIn: 300,
+		TokenType:    "Bearer", ExpiresIn: 300,
 	}
 	if err := revoker.Revoke(context.Background(), credential); err == nil {
 		t.Fatal("partial issuer revocation cannot be reported as complete")
