@@ -1,5 +1,8 @@
 # ADR-IAM-0033 programme status
 
+**N02 source increment (31 October 2026):** [Native browser/BFF integration](../operations/native-browser-bff.md) implements browser-bound PKCE/state/nonce, explicit consent/CSRF, independent ID and human access token checking, CP delegated Principal resolution, encrypted PostgreSQL sessions and issuer revocation with negative component tests. Real branded Kratos UX, approved BFF/workload allocations, hosted CP runtime and C4-03/C4-04 protected evidence are **not yet demonstrated**. N02 remains source/component qualified only; PARTIAL support and N01 immutable pin unchanged.
+
+
 **N01 source-only note, 31 October 2026:** The [current convergence
 record](iam-n01-convergence.md) addresses ADR precedence, the exact Shared
 contract pin and the accepted synthetic development boundary. The historical

@@ -1,5 +1,8 @@
 # Native human canonical handoff
 
+**N02 consumer integration (source only):** [native browser/BFF](native-browser-bff.md) adds a server-only state/PKCE/nonce and explicit browser consent boundary, persistent encrypted PostgreSQL transaction/session vault, real CP delegated Principal resolver protocol, issuer token revocation and negative component tests around this existing handoff. It calls the governed handoff; it does **not** replace its durable challenge fence, current CP capability check or independent signed-token verification. The new package is not a deployed branded Kratos UX or certified real provider/CP estate acceptance. Only the registered Trade-buyer subject token profile is currently admitted by CP delegated resolution; do not infer general Nabhold executive or Thamani logistics authority.
+
+
 `internal/provider/ory.NativeHumanHandoff` verifies a current Kratos session
 before accepting Hydra login or consent. The estate/BFF retains the canonical
 Shared request inside its browser-bound, CSRF-protected transaction. Pass that
