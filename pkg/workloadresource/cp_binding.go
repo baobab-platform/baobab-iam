@@ -88,23 +88,23 @@ func NewCPRegisteredBinding(origin string, roots *x509.CertPool, target CPBindin
 }
 
 type cpBindingSnapshot struct {
-	ProviderID             string    `json:"provider_id"`
-	EngineInstanceID       string    `json:"engine_instance_id"`
-	Scope                  struct {
+	ProviderID       string `json:"provider_id"`
+	EngineInstanceID string `json:"engine_instance_id"`
+	Scope            struct {
 		OrganisationID string `json:"organisation_id"`
 		EstateID       string `json:"estate_id"`
 	} `json:"scope"`
-	ProviderStatus         string    `json:"provider_status"`
-	InstanceStatus         string    `json:"instance_status"`
-	BindingStatus          string    `json:"binding_status"`
-	RuntimeCapability      string    `json:"runtime_capability"`
-	SupportStatus          string    `json:"support_status"`
-	ArtifactDigest         string    `json:"artifact_digest"`
-	DeployedArtifactDigest string    `json:"deployed_artifact_digest"`
-	ProfileRevision        uint64    `json:"profile_revision"`
-	EvidenceExpiresAt      time.Time `json:"evidence_expires_at"`
-	ConfigurationReference string    `json:"configuration_reference"`
-	SecurityDomainReference string   `json:"security_domain_reference"`
+	ProviderStatus          string    `json:"provider_status"`
+	InstanceStatus          string    `json:"instance_status"`
+	BindingStatus           string    `json:"binding_status"`
+	RuntimeCapability       string    `json:"runtime_capability"`
+	SupportStatus           string    `json:"support_status"`
+	ArtifactDigest          string    `json:"artifact_digest"`
+	DeployedArtifactDigest  string    `json:"deployed_artifact_digest"`
+	ProfileRevision         uint64    `json:"profile_revision"`
+	EvidenceExpiresAt       time.Time `json:"evidence_expires_at"`
+	ConfigurationReference  string    `json:"configuration_reference"`
+	SecurityDomainReference string    `json:"security_domain_reference"`
 }
 
 // CheckCapability re-reads the exact CP-owned registration every time.
