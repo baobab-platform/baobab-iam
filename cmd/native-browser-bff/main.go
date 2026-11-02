@@ -146,7 +146,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("invalid BFF TLS identity")
 	}
-	providerTLS := &http.Client{Timeout: 8 * time.Second, Transport: &http.Transport{TLSClientConfig: trust.Clone(), Proxy: nil}}
+	providerTLS := &http.Client{Timeout: 8 * time.Second, Transport: nativebff.N08TraceTransport{Base: &http.Transport{TLSClientConfig: trust.Clone(), Proxy: nil}}}
 	secret, err := privateBytes(d.ClientSecretFile)
 	if err != nil {
 		return err
