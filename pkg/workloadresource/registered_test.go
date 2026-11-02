@@ -9,9 +9,10 @@ import (
 )
 
 type n04Provider struct {
-	calls int
+	calls  int
 	onRead func(int) error
 }
+
 func (p *n04Provider) CheckCapability(_ context.Context, key string) error {
 	p.calls++
 	if key != WorkloadIssueCapability {
@@ -24,9 +25,10 @@ func (p *n04Provider) CheckCapability(_ context.Context, key string) error {
 }
 
 type n04Resource struct {
-	calls int
+	calls  int
 	onCall func() error
 }
+
 func (r *n04Resource) Authorize(_ context.Context, bearer string, op Operation) error {
 	r.calls++
 	if bearer != "signed-test-bearer-valid-for-control" || op.ContextID != "ctx_source" {
@@ -39,16 +41,17 @@ func (r *n04Resource) Authorize(_ context.Context, bearer string, op Operation) 
 }
 
 type n04Operation struct{}
+
 func (n04Operation) ResolveOperation(_ context.Context, _ *http.Request) (Operation, error) {
 	return Operation{ContextID: "ctx_source", TenantID: "tn_owner", ResourceOperation: "evidence.search"}, nil
 }
 
 func TestN04RegisteredGateRechecksCurrentCPBeforeAndAfterResource(t *testing.T) {
 	for _, tc := range []struct {
-		name string
+		name                                      string
 		firstDenied, secondDenied, resourceDenied bool
-		wantCalls, wantResourceCalls int
-		wantAllow bool
+		wantCalls, wantResourceCalls              int
+		wantAllow                                 bool
 	}{
 		{"current CP and native authorizer", false, false, false, 2, 1, true},
 		{"CP registration absent", true, false, false, 1, 0, false},
@@ -98,7 +101,7 @@ func TestN04GateDeniesMissingAndCancelledDependencies(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if gate.Authorize(ctx, "signed-test-bearer-valid-for-control", Operation{ContextID:"ctx_source"}) == nil ||
+	if gate.Authorize(ctx, "signed-test-bearer-valid-for-control", Operation{ContextID: "ctx_source"}) == nil ||
 		cp.calls != 0 || native.calls != 0 {
 		t.Fatal("cancelled context reached CP or native gate")
 	}
@@ -152,7 +155,9 @@ func TestN04HTTPRefusesUnregisteredNilAuthorizer(t *testing.T) {
 		t.Fatal("unverified unsigned fake resource was accepted as middleware")
 	}
 	internalOnly, err := newRegisteredGate(&n04Resource{}, &n04Provider{})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := NewMiddleware(internalOnly, n04Operation{},
 		http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})); err == nil {
 		t.Fatal("unsigned internal fixture got deployed HTTP admission")

@@ -16,10 +16,10 @@ import (
 // OIDCSignedVerifier uses the standard issuer JWKS endpoint with pinned trust.
 // It is a replaceable standards adapter, NOT an Ory-specific identity model.
 type OIDCSignedVerifier struct {
-	issuer string
+	issuer   string
 	audience string
-	client *http.Client
-	keys oidc.KeySet
+	client   *http.Client
+	keys     oidc.KeySet
 }
 
 func newSignedVerifier(issuer, audience string, client *http.Client, fixture bool) (*OIDCSignedVerifier, error) {
@@ -39,7 +39,7 @@ func newSignedVerifier(issuer, audience string, client *http.Client, fixture boo
 // cannot accidentally inject an accepting transport into a protected consumer.
 func NewOIDCSignedVerifier(issuer, audience string, roots *x509.CertPool) (*OIDCSignedVerifier, error) {
 	return newSignedVerifier(issuer, audience, &http.Client{
-		Timeout: 8*time.Second,
+		Timeout:       8 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		Transport: &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12, RootCAs: roots,
@@ -58,10 +58,10 @@ func (v *OIDCSignedVerifier) VerifySigned(ctx context.Context, raw string) (Clai
 		return Claims{}, ErrDenied
 	}
 	var extra struct {
-		ClientID string `json:"azp"`
+		ClientID  string `json:"azp"`
 		ActorType string `json:"actor_type"`
-		Scope string `json:"scope"`
-		NotBefore int64 `json:"nbf"`
+		Scope     string `json:"scope"`
+		NotBefore int64  `json:"nbf"`
 	}
 	if id.Claims(&extra) != nil || extra.ClientID == "" || extra.ActorType != "workload" {
 		return Claims{}, errors.Join(ErrDenied, errors.New("invalid workload claims"))

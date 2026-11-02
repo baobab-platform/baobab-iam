@@ -32,11 +32,11 @@ func n04LiveProviderComponentFixture(t *testing.T, ctx context.Context,
 		t.Fatal("real signed CP-audience fixture caller missing")
 	}
 	target := CPBindingTarget{
-		ProviderID: "provider_aaaaaaaa",
-		EngineInstanceID: "ei_aaaaaaaa",
-		OrganisationID: "org_fixture",
-		EstateID: "estate_nabhold",
-		ConfigurationReference: "ref_cfgfixture",
+		ProviderID:              "provider_aaaaaaaa",
+		EngineInstanceID:        "ei_aaaaaaaa",
+		OrganisationID:          "org_fixture",
+		EstateID:                "estate_nabhold",
+		ConfigurationReference:  "ref_cfgfixture",
 		SecurityDomainReference: "ref_secfixture",
 	}
 	mode := ""
@@ -66,20 +66,20 @@ func n04LiveProviderComponentFixture(t *testing.T, ctx context.Context,
 			return
 		}
 		payload := map[string]any{
-			"provider_id": target.ProviderID,
+			"provider_id":        target.ProviderID,
 			"engine_instance_id": target.EngineInstanceID,
 			"scope": map[string]string{
 				"organisation_id": target.OrganisationID, "estate_id": target.EstateID,
 			},
 			"provider_status": "ACTIVE", "instance_status": "ACTIVE",
-			"binding_status": "ACTIVE",
-			"runtime_capability": "WORKLOAD_TOKEN_ISSUANCE",
-			"support_status": "VERIFIED",
-			"artifact_digest": "sha256:" + strings.Repeat("a", 64),
-			"deployed_artifact_digest": "sha256:" + strings.Repeat("a", 64),
-			"profile_revision": 2,
-			"evidence_expires_at": time.Now().Add(time.Minute),
-			"configuration_reference": target.ConfigurationReference,
+			"binding_status":            "ACTIVE",
+			"runtime_capability":        "WORKLOAD_TOKEN_ISSUANCE",
+			"support_status":            "VERIFIED",
+			"artifact_digest":           "sha256:" + strings.Repeat("a", 64),
+			"deployed_artifact_digest":  "sha256:" + strings.Repeat("a", 64),
+			"profile_revision":          2,
+			"evidence_expires_at":       time.Now().Add(time.Minute),
+			"configuration_reference":   target.ConfigurationReference,
 			"security_domain_reference": target.SecurityDomainReference,
 		}
 		switch mode {
