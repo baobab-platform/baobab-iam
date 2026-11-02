@@ -209,11 +209,15 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	kratosSessions, err := nativebff.NewKratosAdminSessionRevoker(nativebff.KratosAdminRevokeConfig{
 		Origin: d.KratosAdmin, TrustedRoots: roots,
 	})
-	if err != nil {return errors.New("Kratos global logout authority unavailable")}
+	if err != nil {
+		return errors.New("Kratos global logout authority unavailable")
+	}
 	hydraSessions, err := nativebff.NewHydraSubjectSessionsRevoker(nativebff.HydraSubjectSessionsConfig{
 		AdminOrigin: d.HydraAdmin, Roots: roots,
 	})
-	if err != nil {return errors.New("Hydra all-subject logout authority unavailable")}
+	if err != nil {
+		return errors.New("Hydra all-subject logout authority unavailable")
+	}
 	revoker, err := nativebff.NewOAuthRevoker(nativebff.OAuthRevokeConfig{
 		Issuer: d.Issuer, ClientID: d.ClientID, ClientSecret: string(secret), TrustedRoots: roots,
 	})
@@ -234,9 +238,9 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	}
 	n06Gate := &nativebff.N06SecurityGate{
 		Provider: kratosN06,
-		Policy: assurance.DefaultDevelopmentPolicy(),
-		Risk: unavailableN08Risk{},
-		Now: time.Now,
+		Policy:   assurance.DefaultDevelopmentPolicy(),
+		Risk:     unavailableN08Risk{},
+		Now:      time.Now,
 	}
 	handler, err := nativebff.New(nativebff.Config{
 		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer, KratosOrigin: d.KratosPublic,
@@ -246,7 +250,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		Scope:       d.Scope, AccessAudience: d.AccessAudience, AccessScope: d.AccessScope, TrustedRoots: roots,
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
-		Store: browserStore,
+		Store:       browserStore,
 		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate,
 	})
 	if err != nil {
