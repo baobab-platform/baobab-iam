@@ -20,17 +20,18 @@ import (
 )
 
 type config struct {
-	Schema         string `json:"schema"`
-	Environment    string `json:"environment"`
-	RunID          string `json:"run_id"`
-	IAMSourceSHA   string `json:"iam_source_sha"`
-	SharedSourceSHA string `json:"shared_source_sha"`
-	CPSourceSHA    string `json:"cp_source_sha"`
-	CPOrigin       string `json:"cp_origin"`
-	CARootFile     string `json:"ca_root_file"`
-	TokenFile      string `json:"token_file"`
-	Target         workloadresource.CPBindingTarget `json:"target"`
+	Schema          string                           `json:"schema"`
+	Environment     string                           `json:"environment"`
+	RunID           string                           `json:"run_id"`
+	IAMSourceSHA    string                           `json:"iam_source_sha"`
+	SharedSourceSHA string                           `json:"shared_source_sha"`
+	CPSourceSHA     string                           `json:"cp_source_sha"`
+	CPOrigin        string                           `json:"cp_origin"`
+	CARootFile      string                           `json:"ca_root_file"`
+	TokenFile       string                           `json:"token_file"`
+	Target          workloadresource.CPBindingTarget `json:"target"`
 }
+
 var shaPattern = regexp.MustCompile("^[0-9a-f]{40}$")
 var runPattern = regexp.MustCompile("^[0-9a-f]{32}$")
 
@@ -193,29 +194,29 @@ func main() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	if err := probe(ctx,c); err != nil {
+	if err := probe(ctx, c); err != nil {
 		// Do not print provider details, token contents, transport URLs or
 		// potentially sensitive CP status/error bodies.
 		fmt.Fprintln(os.Stderr, "N04_CURRENT_CP_REGISTERED_READ_HELD")
 		os.Exit(2)
 	}
-	result := struct{
-		Schema string `json:"schema"`
-		RunID string `json:"run_id"`
-		IAMSHA string `json:"iam_source_sha"`
-		SharedSHA string `json:"shared_source_sha"`
-		CPSHA string `json:"cp_source_sha"`
-		ProviderID string `json:"provider_id"`
-		InstanceID string `json:"engine_instance_id"`
-		Classification string `json:"classification"`
-		CPReadObserved bool `json:"cp_current_registered_read_observed"`
-		NativeEngineQualified bool `json:"native_engine_qualified"`
-		IndependentWitness bool `json:"independent_witness"`
-		ProtectedAccepted bool `json:"protected_accepted"`
-	}{Schema:"baobab.iam.n04.cp-read-observation.v1",RunID:c.RunID,IAMSHA:c.IAMSourceSHA,
-		SharedSHA:c.SharedSourceSHA,CPSHA:c.CPSourceSHA,ProviderID:c.Target.ProviderID,
-		InstanceID:c.Target.EngineInstanceID,
-		Classification:"UNATTESTED_LIVE_CP_READ_ONLY",
-		CPReadObserved:true,NativeEngineQualified:false,IndependentWitness:false,ProtectedAccepted:false}
+	result := struct {
+		Schema                string `json:"schema"`
+		RunID                 string `json:"run_id"`
+		IAMSHA                string `json:"iam_source_sha"`
+		SharedSHA             string `json:"shared_source_sha"`
+		CPSHA                 string `json:"cp_source_sha"`
+		ProviderID            string `json:"provider_id"`
+		InstanceID            string `json:"engine_instance_id"`
+		Classification        string `json:"classification"`
+		CPReadObserved        bool   `json:"cp_current_registered_read_observed"`
+		NativeEngineQualified bool   `json:"native_engine_qualified"`
+		IndependentWitness    bool   `json:"independent_witness"`
+		ProtectedAccepted     bool   `json:"protected_accepted"`
+	}{Schema: "baobab.iam.n04.cp-read-observation.v1", RunID: c.RunID, IAMSHA: c.IAMSourceSHA,
+		SharedSHA: c.SharedSourceSHA, CPSHA: c.CPSourceSHA, ProviderID: c.Target.ProviderID,
+		InstanceID:     c.Target.EngineInstanceID,
+		Classification: "UNATTESTED_LIVE_CP_READ_ONLY",
+		CPReadObserved: true, NativeEngineQualified: false, IndependentWitness: false, ProtectedAccepted: false}
 	_ = json.NewEncoder(os.Stdout).Encode(result)
 }
