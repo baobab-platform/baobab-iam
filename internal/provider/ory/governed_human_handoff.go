@@ -48,7 +48,6 @@ func (h *GovernedNativeHumanHandoff) AcceptConsent(ctx context.Context, challeng
 	return h.mechanics.AcceptConsent(ctx, challenge, credential, intent, consented)
 }
 
-
 // AuthenticatorSubjectAAL resolves an exact **current** Kratos subject and AAL
 // within two current CP routing checks. The browser cannot supply a subject or
 // an assurance result. A changed/revoked session denies callback binding.
