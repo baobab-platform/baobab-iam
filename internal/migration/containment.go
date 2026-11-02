@@ -31,8 +31,8 @@ type CurrentVetoEvidence struct {
 	SourceIssuerDenied bool
 	TargetIssuerDenied bool
 	CanonicalUnchanged bool
-	ObservedAt time.Time
-	OriginalReference string
+	ObservedAt         time.Time
+	OriginalReference  string
 }
 type CurrentVetoReader interface {
 	VerifyCurrentDenial(ctx context.Context,
@@ -45,18 +45,18 @@ type CurrentVetoReader interface {
 // enterprise federation) is NOT globally disabled/retired by this action;
 // the CP current-veto witness MUST deny it for the affected exact principal.
 type NativeContainment struct {
-	Store *PostgresStore
+	Store    *PostgresStore
 	Provider NativeContainmentProvider
-	Current CurrentVetoReader
+	Current  CurrentVetoReader
 }
 
 type ContainmentReceipt struct {
-	OperationID string
-	MigrationID string
-	Phase string
-	Classification string
-	Source provider.ExternalSubject
-	Target provider.ExternalSubject
+	OperationID          string
+	MigrationID          string
+	Phase                string
+	Classification       string
+	Source               provider.ExternalSubject
+	Target               provider.ExternalSubject
 	CanonicalPrincipalID string
 }
 
@@ -66,7 +66,9 @@ func (c *NativeContainment) begin(ctx context.Context, migrationID, operationID 
 		return nil, errors.New("migration: bounded N05 containment input required")
 	}
 	tx, err := c.Store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
-	if err != nil { return nil, n05WriteError(err) }
+	if err != nil {
+		return nil, n05WriteError(err)
+	}
 	defer tx.Rollback(ctx)
 	var state MigrationState
 	var category IdentityClass
@@ -77,8 +79,12 @@ source_issuer, source_subject, target_issuer, target_subject
 FROM iam_migration.record WHERE migration_id=$1 FOR UPDATE`, migrationID).Scan(
 		&state, &category, &canonicalID,
 		&source.Issuer, &source.Subject, &target.Issuer, &target.Subject)
-	if errors.Is(err, pgx.ErrNoRows) { return nil, ErrNotFound }
-	if err != nil { return nil, n05WriteError(err) }
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, n05WriteError(err)
+	}
 	if category != ClassHuman && category != ClassPrivilegedHuman &&
 		category != ClassFederatedHuman && category != ClassTestOrNonProd {
 		return nil, errors.New("migration: N05 human containment cannot impersonate workload lifecycle")
@@ -96,7 +102,9 @@ FROM iam_migration.record WHERE migration_id=$1 FOR UPDATE`, migrationID).Scan(
 	var prior string
 	err = tx.QueryRow(ctx, `SELECT operation_id FROM iam_migration.containment
 WHERE migration_id=$1 LIMIT 1 FOR UPDATE`, migrationID).Scan(&prior)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) { return nil, n05WriteError(err) }
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, n05WriteError(err)
+	}
 	if err == nil && prior != operationID {
 		return nil, ErrMigrationConflict
 	}
@@ -128,18 +136,22 @@ FROM iam_migration.deny_fence WHERE migration_id=$1`, migrationID).Scan(
 	if state != StateQuarantined {
 		if _, err = tx.Exec(ctx, `UPDATE iam_migration.record
 SET migration_state='QUARANTINED', revision=revision+1
-WHERE migration_id=$1`, migrationID); err != nil { return nil, n05WriteError(err) }
+WHERE migration_id=$1`, migrationID); err != nil {
+			return nil, n05WriteError(err)
+		}
 	}
 	var phase string
 	if err = tx.QueryRow(ctx, `SELECT phase FROM iam_migration.containment
 WHERE operation_id=$1`, operationID).Scan(&phase); err != nil {
 		return nil, n05WriteError(err)
 	}
-	if err = tx.Commit(ctx); err != nil { return nil, n05WriteError(err) }
+	if err = tx.Commit(ctx); err != nil {
+		return nil, n05WriteError(err)
+	}
 	return &ContainmentReceipt{
 		OperationID: operationID, MigrationID: migrationID, Phase: phase,
 		Classification: "DURABLE_IAM_DENY_FENCE_NOT_RESOURCE_ATTESTATION",
-		Source: source, Target: target, CanonicalPrincipalID: canonicalID,
+		Source:         source, Target: target, CanonicalPrincipalID: canonicalID,
 	}, nil
 }
 
@@ -158,7 +170,9 @@ WHERE operation_id=$1 AND (phase <> 'VERIFIED' OR $2='UNKNOWN')`, id, phase)
 	return n05PhaseError(err)
 }
 func n05PhaseError(err error) error {
-	if err == nil { return nil }
+	if err == nil {
+		return nil
+	}
 	return fmt.Errorf("migration: containment journal unavailable: %w", err)
 }
 
@@ -168,7 +182,9 @@ func n05PhaseError(err error) error {
 // database is unavailable). No success is inferred from HTTP 2xx alone.
 func (c *NativeContainment) Contain(ctx context.Context, migrationID, operationID string) (*ContainmentReceipt, error) {
 	receipt, err := c.begin(ctx, migrationID, operationID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	if receipt.Phase == "VERIFIED" {
 		// A restored provider snapshot can resurrect a previously revoked
 		// session. A historical VERIFIED row is NOT a current authority
@@ -253,7 +269,9 @@ func (c *NativeContainment) Contain(ctx context.Context, migrationID, operationI
 	if err = c.markPhase(ctx, operationID, "CURRENT_TOKENS_DENIED"); err != nil {
 		return nil, err
 	}
-	if err = c.markPhase(ctx, operationID, "VERIFIED"); err != nil { return nil, err }
+	if err = c.markPhase(ctx, operationID, "VERIFIED"); err != nil {
+		return nil, err
+	}
 	receipt.Phase = "VERIFIED"
 	receipt.Classification = "IAM_PROVIDER_CP_WITNESSES_REPORTED_NOT_INDEPENDENTLY_ATTESTED"
 	return receipt, nil
@@ -273,11 +291,11 @@ SELECT 1 FROM iam_migration.deny_fence WHERE migration_id=$1)`, migrationID).Sca
 // original provider and unchanged-Principal verification. It does not
 // authorize reenabling credentials or deleting a deny tombstone.
 type RollbackWitness struct {
-	SourceFallbackConfirmed bool
-	TargetActorDenied bool
-	CanonicalUnchanged bool
+	SourceFallbackConfirmed    bool
+	TargetActorDenied          bool
+	CanonicalUnchanged         bool
 	LegacyRevocationsPreserved bool
-	OriginalReference string
+	OriginalReference          string
 }
 type RollbackVerifier interface {
 	VerifyPreCutoverRollback(ctx context.Context, r *Record) (RollbackWitness, error)
@@ -289,12 +307,20 @@ type RollbackVerifier interface {
 func (s *PostgresStore) RollbackPreCutover(
 	ctx context.Context, id string, verifier RollbackVerifier,
 ) (*Record, error) {
-	if s == nil || verifier == nil || ctx == nil { return nil, errors.New("migration: rollback verifier required") }
+	if s == nil || verifier == nil || ctx == nil {
+		return nil, errors.New("migration: rollback verifier required")
+	}
 	fenced, err := s.DeniedByFence(ctx, id)
-	if err != nil { return nil, err }
-	if fenced { return nil, errors.New("migration: rollback cannot restore revoked authority") }
+	if err != nil {
+		return nil, err
+	}
+	if fenced {
+		return nil, errors.New("migration: rollback cannot restore revoked authority")
+	}
 	current, err := s.Get(ctx, id)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	if current.MigrationState == StateCutover ||
 		current.MigrationState == StateLegacyRetired ||
 		!CanTransition(current.MigrationState, StateRolledBack) {
