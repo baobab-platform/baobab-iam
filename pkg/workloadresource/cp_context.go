@@ -28,10 +28,10 @@ type ValidatorCredential func(context.Context) (string, error)
 // reads CP's database. An IAM workload token cannot acquire tenant authority
 // by carrying a tenant/organisation/market claim.
 type CPContextAuthority struct {
-	endpoint string
+	endpoint  string
 	validator ValidatorCredential
-	native ResourceOperationPolicy
-	client *http.Client
+	native    ResourceOperationPolicy
+	client    *http.Client
 }
 
 func NewCPContextAuthority(origin string, roots *x509.CertPool,
@@ -43,9 +43,9 @@ func NewCPContextAuthority(origin string, roots *x509.CertPool,
 		return nil, ErrDenied
 	}
 	return &CPContextAuthority{
-		endpoint: strings.TrimRight(origin, "/") + "/v1/platform-context/validate",
+		endpoint:  strings.TrimRight(origin, "/") + "/v1/platform-context/validate",
 		validator: validator, native: native,
-		client: &http.Client{Timeout: 8*time.Second,
+		client: &http.Client{Timeout: 8 * time.Second,
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 			Transport: &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12, RootCAs: roots,
@@ -64,32 +64,42 @@ func (a *CPContextAuthority) AuthorizeCurrent(ctx context.Context, raw string, c
 		return ErrDenied
 	}
 	payload, err := json.Marshal(struct {
-		ContextID string `json:"context_id"`
+		ContextID    string `json:"context_id"`
 		SubjectToken string `json:"subject_token"`
 	}{operation.ContextID, raw})
-	if err != nil { return ErrDenied }
+	if err != nil {
+		return ErrDenied
+	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, a.endpoint, bytes.NewReader(payload))
-	if err != nil { return ErrDenied }
+	if err != nil {
+		return ErrDenied
+	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Cache-Control", "no-store")
 	request.Header.Set("Authorization", "Bearer "+caller)
 	response, err := a.client.Do(request)
-	if err != nil { return ErrDenied }
+	if err != nil {
+		return ErrDenied
+	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK || response.Header.Get("Cache-Control") != "no-store" {
 		return ErrDenied
 	}
 	rawBody, err := io.ReadAll(io.LimitReader(response.Body, 8193))
-	if err != nil || len(rawBody) > 8192 { return ErrDenied }
+	if err != nil || len(rawBody) > 8192 {
+		return ErrDenied
+	}
 	// Validate current CP identity/context, but never interpret the positive
 	// context response as native authorization to perform the operation.
 	var contextData struct {
-		ContextID string `json:"context_id"`
-		TenantID string `json:"tenant_id"`
+		ContextID string    `json:"context_id"`
+		TenantID  string    `json:"tenant_id"`
 		ExpiresAt time.Time `json:"expires_at"`
 	}
-	if _,err:=decodeUnique(rawBody);err!=nil{return ErrDenied}
+	if _, err := decodeUnique(rawBody); err != nil {
+		return ErrDenied
+	}
 	if json.Unmarshal(rawBody, &contextData) != nil ||
 		contextData.ContextID != operation.ContextID ||
 		contextData.TenantID != operation.TenantID ||

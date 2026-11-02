@@ -10,8 +10,8 @@ package workloadresource
 import (
 	"context"
 	"errors"
-	"reflect"
 	"net/url"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -22,13 +22,13 @@ var ErrDenied = errors.New("workload resource admission denied")
 // Claims contains only verified security claims; no Tenant, Organisation,
 // Market, external business partner or derived canonical entitlements.
 type Claims struct {
-	Issuer string
-	Subject string
-	ClientID string
-	Audience []string
-	Scopes []string
+	Issuer    string
+	Subject   string
+	ClientID  string
+	Audience  []string
+	Scopes    []string
 	ActorType string
-	IssuedAt time.Time
+	IssuedAt  time.Time
 	NotBefore time.Time
 	ExpiresAt time.Time
 }
@@ -37,12 +37,12 @@ type Claims struct {
 // Time zero for IssuedAt is allowed: Hydra signs JWT and timestamps its
 // introspection requester at different instants.
 type LiveStatus struct {
-	Active bool
-	Issuer string
-	Subject string
-	ClientID string
-	Audience []string
-	Scopes []string
+	Active    bool
+	Issuer    string
+	Subject   string
+	ClientID  string
+	Audience  []string
+	Scopes    []string
 	ExpiresAt time.Time
 }
 
@@ -69,8 +69,8 @@ type CurrentAuthority interface {
 // Operation data must originate from an application-controlled resource
 // operation and its canonical CP context, never token content.
 type Operation struct {
-	ContextID string
-	TenantID string
+	ContextID         string
+	TenantID          string
 	ResourceOperation string
 }
 
@@ -78,17 +78,17 @@ type Operation struct {
 // are independently adopted from the reviewed Shared/CP registry. Missing
 // or broad/ambiguous trusted profile parameters are refused.
 type Profile struct {
-	Issuer string
-	Audience string
+	Issuer         string
+	Audience       string
 	RequiredScopes []string
 	AllowedClients []string
-	MaxTokenAge time.Duration
+	MaxTokenAge    time.Duration
 }
 
 type Gate struct {
-	p Profile
-	verified SignedTokenVerifier
-	issuer IssuerStatusReader
+	p         Profile
+	verified  SignedTokenVerifier
+	issuer    IssuerStatusReader
 	authority CurrentAuthority
 }
 
@@ -101,7 +101,9 @@ func New(p Profile, verified SignedTokenVerifier, issuer IssuerStatusReader, aut
 // consumers can only call New, which requires an HTTPS issuer.
 func newGate(p Profile, verified SignedTokenVerifier, issuer IssuerStatusReader, authority CurrentAuthority, loopbackFixture bool) (*Gate, error) {
 	parsed, parseErr := url.Parse(p.Issuer)
-	if parseErr != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" { return nil, ErrDenied }
+	if parseErr != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return nil, ErrDenied
+	}
 	if absent(verified) || absent(issuer) || absent(authority) ||
 		(!strings.HasPrefix(p.Issuer, "https://") &&
 			!(loopbackFixture && p.Issuer == "http://127.0.0.1:4444")) || p.Audience == "" ||
@@ -124,7 +126,9 @@ func newGate(p Profile, verified SignedTokenVerifier, issuer IssuerStatusReader,
 }
 
 func absent(v any) bool {
-	if v == nil { return true }
+	if v == nil {
+		return true
+	}
 	r := reflect.ValueOf(v)
 	switch r.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
@@ -136,19 +140,33 @@ func absent(v any) bool {
 func distinct(values []string) bool {
 	seen := make(map[string]struct{}, len(values))
 	for _, value := range values {
-		if _, ok := seen[value]; ok { return false }
+		if _, ok := seen[value]; ok {
+			return false
+		}
 		seen[value] = struct{}{}
 	}
 	return true
 }
 func sameSet(a, b []string) bool {
-	if !distinct(a) || !distinct(b) || len(a) != len(b) { return false }
-	for _, v := range a { if !slices.Contains(b, v) { return false } }
+	if !distinct(a) || !distinct(b) || len(a) != len(b) {
+		return false
+	}
+	for _, v := range a {
+		if !slices.Contains(b, v) {
+			return false
+		}
+	}
 	return true
 }
 func containsAll(actual, needed []string) bool {
-	if !distinct(actual) { return false }
-	for _, v := range needed { if !slices.Contains(actual, v) { return false } }
+	if !distinct(actual) {
+		return false
+	}
+	for _, v := range needed {
+		if !slices.Contains(actual, v) {
+			return false
+		}
+	}
 	return true
 }
 
