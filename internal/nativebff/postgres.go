@@ -22,8 +22,8 @@ import (
 // Schema: internal/nativebff/migrations/001_native_browser_bff.sql.
 // The database must be a separately permissioned IAM-owned PostgreSQL 17 DB.
 type PostgresStore struct {
-	pool *pgxpool.Pool
-	aead cipher.AEAD
+	pool     *pgxpool.Pool
+	aead     cipher.AEAD
 	indexKey []byte
 }
 
@@ -123,13 +123,15 @@ func (s *PostgresStore) ReadTransaction(ctx context.Context, id string) (Transac
 func (s *PostgresStore) TakeTransaction(ctx context.Context, id string) (Transaction, error) {
 	return s.getTx(ctx, id, true)
 }
-func (s *PostgresStore) subjectHash(issuer,subject string)([]byte,error){
-	if s==nil||issuer==""||subject==""||len(issuer)>2048||len(subject)>512 {return nil,errors.New("invalid subject index")}
-	mac:=hmac.New(sha256.New,s.indexKey)
+func (s *PostgresStore) subjectHash(issuer, subject string) ([]byte, error) {
+	if s == nil || issuer == "" || subject == "" || len(issuer) > 2048 || len(subject) > 512 {
+		return nil, errors.New("invalid subject index")
+	}
+	mac := hmac.New(sha256.New, s.indexKey)
 	mac.Write([]byte(issuer))
 	mac.Write([]byte{0})
 	mac.Write([]byte(subject))
-	return mac.Sum(nil),nil
+	return mac.Sum(nil), nil
 }
 func (s *PostgresStore) PutSession(ctx context.Context, id string, t Session) error {
 	if s == nil || t.Issuer == "" || t.Subject == "" || t.PrincipalID == "" || t.CSRF == "" || t.Tokens.Validate() != nil ||
@@ -144,9 +146,11 @@ func (s *PostgresStore) PutSession(ctx context.Context, id string, t Session) er
 	if err != nil {
 		return err
 	}
-	subjectIndex,err:=s.subjectHash(t.Issuer,t.Subject)
-	if err!=nil{return err}
-	_, err = s.pool.Exec(ctx, "INSERT INTO native_bff_sessions (id_hash,subject_hash,sealed,expires_at) VALUES ($1,$2,$3,$4)", hash,subjectIndex, sealed, t.ExpiresAt)
+	subjectIndex, err := s.subjectHash(t.Issuer, t.Subject)
+	if err != nil {
+		return err
+	}
+	_, err = s.pool.Exec(ctx, "INSERT INTO native_bff_sessions (id_hash,subject_hash,sealed,expires_at) VALUES ($1,$2,$3,$4)", hash, subjectIndex, sealed, t.ExpiresAt)
 	return err
 }
 func (s *PostgresStore) ReadSession(ctx context.Context, id string) (Session, error) {
@@ -186,11 +190,16 @@ func (s *PostgresStore) DeleteSession(ctx context.Context, id string) error {
 // DeleteHumanSessions atomically removes every IAM BFF session for the exact
 // issuer+subject on this deployment, without storing plaintext identity
 // indexes. It does not revoke unrelated Hydra client grants or Keycloak SSO.
-func (s *PostgresStore) DeleteHumanSessions(ctx context.Context,issuer,subject string) error {
-	if s==nil||ctx==nil||ctx.Err()!=nil{return errors.New("native BFF store unavailable")}
-	h,err:=s.subjectHash(issuer,subject)
-	if err!=nil{return err}
-	_,err=s.pool.Exec(ctx,"DELETE FROM native_bff_sessions WHERE subject_hash=$1",h)
+func (s *PostgresStore) DeleteHumanSessions(ctx context.Context, issuer, subject string) error {
+	if s == nil || ctx == nil || ctx.Err() != nil {
+		return errors.New("native BFF store unavailable")
+	}
+	h, err := s.subjectHash(issuer, subject)
+	if err != nil {
+		return err
+	}
+	_, err = s.pool.Exec(ctx, "DELETE FROM native_bff_sessions WHERE subject_hash=$1", h)
 	return err
 }
+
 var _ Store = (*PostgresStore)(nil)
