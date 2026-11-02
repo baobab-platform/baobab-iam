@@ -47,9 +47,12 @@ func TestDEV11N08NativeRealHTTPSChildAndDeniedAuthority(t *testing.T) {
 		w.WriteHeader(result.StatusCode)
 	}), metrics)
 
-	for _, tc := range []struct{ incoming string; expected string }{
+	for _, tc := range []struct {
+		incoming string
+		expected string
+	}{
 		{"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", "4bf92f3577b34da6a3ce929d0e0e4736"},
-		{"00-"+strings.Repeat("0", 32)+"-00f067aa0ba902b7-01", ""},
+		{"00-" + strings.Repeat("0", 32) + "-00f067aa0ba902b7-01", ""},
 	} {
 		request := httptest.NewRequest(http.MethodPost, "https://estate.example.test/auth/start?token=secret", nil)
 		request.Header.Set("traceparent", tc.incoming)
