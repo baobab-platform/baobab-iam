@@ -27,12 +27,16 @@ func (a *Adapter) ActiveSessionCount(ctx context.Context, subject provider.Exter
 	endpoint := a.kratos.baseURL + "/admin/identities/" +
 		url.PathEscape(subject.Subject) + "/sessions?active=true&page_size=2"
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil { return 0, errors.New("ory: Kratos session readback unavailable") }
+	if err != nil {
+		return 0, errors.New("ory: Kratos session readback unavailable")
+	}
 	request.Header.Set("Accept", "application/json")
 	client := *a.http
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	response, err := client.Do(request)
-	if err != nil { return 0, errors.New("ory: Kratos session readback unavailable") }
+	if err != nil {
+		return 0, errors.New("ory: Kratos session readback unavailable")
+	}
 	defer response.Body.Close()
 	media, _, mediaErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
 	if response.StatusCode != http.StatusOK || mediaErr != nil || media != "application/json" {
@@ -43,8 +47,8 @@ func (a *Adapter) ActiveSessionCount(ctx context.Context, subject provider.Exter
 		return 0, errors.New("ory: Kratos session readback size refused")
 	}
 	var entries []struct {
-		ID string `json:"id"`
-		Active *bool `json:"active"`
+		ID         string `json:"id"`
+		Active     *bool  `json:"active"`
 		IdentityID string `json:"identity_id"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
