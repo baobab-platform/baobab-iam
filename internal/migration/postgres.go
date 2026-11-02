@@ -21,8 +21,8 @@ var n05Schema string
 func N05Schema() string { return n05Schema }
 
 var (
-	ErrMigrationConflict = errors.New("migration: concurrent revision, reassignment or duplicate external binding")
-	ErrImmutableLedger   = errors.New("migration: durable ledger cannot delete history")
+	ErrMigrationConflict  = errors.New("migration: concurrent revision, reassignment or duplicate external binding")
+	ErrImmutableLedger    = errors.New("migration: durable ledger cannot delete history")
 	ErrCutoverNotApproved = errors.New("migration: N05 never performs protected issuer cutover")
 )
 
@@ -30,7 +30,7 @@ var (
 // database history is inserted by triggers in the SAME transaction as changes.
 // It uses versioned FOR UPDATE row locking; no last-writer-wins or email
 // matching. It does NOT make CP CanonicalIdentity/issuer-trust decisions.
-type PostgresStore struct { pool *pgxpool.Pool }
+type PostgresStore struct{ pool *pgxpool.Pool }
 
 func NewPostgresStore(ctx context.Context, pool *pgxpool.Pool) (*PostgresStore, error) {
 	if ctx == nil || pool == nil {
@@ -58,8 +58,12 @@ func scanN05(row pgx.Row) (*Record, error) {
 		&r.VerificationState, &r.CutoverState, &r.SourceSnapshotReference,
 		&r.AttemptCount, &r.LastErrorCode,
 		&r.CreatedAt, &r.StartedAt, &r.VerifiedAt, &r.CutoverAt, &r.RetiredAt)
-	if errors.Is(err, pgx.ErrNoRows) { return nil, ErrNotFound }
-	if err != nil { return nil, fmt.Errorf("migration: database read unavailable: %w", err) }
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("migration: database read unavailable: %w", err)
+	}
 	if err := r.ValidateStructural(); err != nil {
 		return nil, fmt.Errorf("migration: invalid durable row: %w", err)
 	}
@@ -100,7 +104,9 @@ func (s *PostgresStore) Put(ctx context.Context, r *Record) error {
 	if s == nil || s.pool == nil || ctx == nil || r == nil {
 		return errors.New("migration: PostgreSQL store/record required")
 	}
-	if err := r.ValidateStructural(); err != nil { return err }
+	if err := r.ValidateStructural(); err != nil {
+		return err
+	}
 	if len(r.MigrationID) > 160 || len(r.CanonicalIdentityID) > 160 ||
 		len(r.MigrationBatchID) > 160 || len(r.Source.Issuer) > 2048 ||
 		len(r.Source.Subject) > 512 || len(r.Source.Provider) > 40 {
@@ -113,7 +119,9 @@ func (s *PostgresStore) Put(ctx context.Context, r *Record) error {
 		return ErrCutoverNotApproved
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
-	if err != nil { return fmt.Errorf("migration: start ledger transaction: %w", err) }
+	if err != nil {
+		return fmt.Errorf("migration: start ledger transaction: %w", err)
+	}
 	defer tx.Rollback(ctx)
 	old, err := scanN05(tx.QueryRow(ctx, "SELECT "+n05Columns+
 		" FROM iam_migration.record WHERE migration_id=$1 FOR UPDATE", r.MigrationID))
@@ -129,25 +137,33 @@ identity_class, credential_strategy, migration_state, verification_state, cutove
 source_snapshot_reference, attempt_count, last_error_code, created_at,
 started_at, verified_at, cutover_at, retired_at)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`, args...)
-		if err != nil { return n05WriteError(err) }
-		if err := tx.Commit(ctx); err != nil { return n05WriteError(err) }
+		if err != nil {
+			return n05WriteError(err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return n05WriteError(err)
+		}
 		r.Revision = 1
 		return nil
 	}
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	if old.Revision != r.Revision || !immutableN05(old, r) ||
 		(!emptyTargetN05(old.Target) && !sameTargetN05(old.Target, r.Target)) {
 		return ErrMigrationConflict
 	}
 	if !sameTargetN05(old.Target, r.Target) &&
 		(r.MigrationState != StateProvisioning || old.MigrationState != StateProvisioning ||
-		 emptyTargetN05(r.Target)) {
+			emptyTargetN05(r.Target)) {
 		return ErrMigrationConflict
 	}
 	if old.MigrationState != r.MigrationState && !CanTransition(old.MigrationState, r.MigrationState) {
 		return ErrMigrationConflict
 	}
-	if reflect.DeepEqual(old, r) { return nil }
+	if reflect.DeepEqual(old, r) {
+		return nil
+	}
 	args := []any{
 		r.Target.Provider, r.Target.Issuer, r.Target.Subject,
 		r.MigrationState, r.VerificationState, r.CutoverState,
@@ -163,9 +179,15 @@ source_snapshot_reference=$7, attempt_count=$8, last_error_code=$9,
 started_at=$10, verified_at=$11, cutover_at=$12, retired_at=$13,
 revision=revision+1
 WHERE migration_id=$14 AND revision=$15 RETURNING revision`, args...).Scan(&newRevision)
-	if errors.Is(err, pgx.ErrNoRows) { return ErrMigrationConflict }
-	if err != nil { return n05WriteError(err) }
-	if err := tx.Commit(ctx); err != nil { return n05WriteError(err) }
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrMigrationConflict
+	}
+	if err != nil {
+		return n05WriteError(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return n05WriteError(err)
+	}
 	r.Revision = newRevision
 	return nil
 }
@@ -180,14 +202,18 @@ func n05WriteError(err error) error {
 }
 
 func (s *PostgresStore) Get(ctx context.Context, id string) (*Record, error) {
-	if s == nil || s.pool == nil || ctx == nil { return nil, errors.New("migration: PostgreSQL required") }
+	if s == nil || s.pool == nil || ctx == nil {
+		return nil, errors.New("migration: PostgreSQL required")
+	}
 	return scanN05(s.pool.QueryRow(ctx, "SELECT "+n05Columns+
 		" FROM iam_migration.record WHERE migration_id=$1", id))
 }
 
 func (s *PostgresStore) list(ctx context.Context, filter, value string) ([]*Record, error) {
-	if s == nil || s.pool == nil || ctx == nil { return nil, errors.New("migration: PostgreSQL required") }
-	statement := "SELECT "+n05Columns+" FROM iam_migration.record "
+	if s == nil || s.pool == nil || ctx == nil {
+		return nil, errors.New("migration: PostgreSQL required")
+	}
+	statement := "SELECT " + n05Columns + " FROM iam_migration.record "
 	var args []any
 	switch filter {
 	case "": // all rows
@@ -199,27 +225,39 @@ func (s *PostgresStore) list(ctx context.Context, filter, value string) ([]*Reco
 	}
 	statement += "ORDER BY migration_id LIMIT 10001"
 	rows, err := s.pool.Query(ctx, statement, args...)
-	if err != nil { return nil, fmt.Errorf("migration: ledger list unavailable: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("migration: ledger list unavailable: %w", err)
+	}
 	defer rows.Close()
 	result := make([]*Record, 0)
 	for rows.Next() {
 		r, err := scanN05(rows)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		result = append(result, r)
-		if len(result) > 10000 { return nil, errors.New("migration: pagination required; refusing silent truncation") }
+		if len(result) > 10000 {
+			return nil, errors.New("migration: pagination required; refusing silent truncation")
+		}
 	}
-	if err := rows.Err(); err != nil { return nil, err }
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 func (s *PostgresStore) List(ctx context.Context) ([]*Record, error) {
 	return s.list(ctx, "", "")
 }
 func (s *PostgresStore) ListByState(ctx context.Context, state MigrationState) ([]*Record, error) {
-	if !state.Valid() { return nil, errors.New("migration: invalid state") }
+	if !state.Valid() {
+		return nil, errors.New("migration: invalid state")
+	}
 	return s.list(ctx, "migration_state", string(state))
 }
 func (s *PostgresStore) ListByClass(ctx context.Context, class IdentityClass) ([]*Record, error) {
-	if !class.Valid() { return nil, errors.New("migration: invalid class") }
+	if !class.Valid() {
+		return nil, errors.New("migration: invalid class")
+	}
 	return s.list(ctx, "identity_class", string(class))
 }
 func (s *PostgresStore) Delete(context.Context, string) error { return ErrImmutableLedger }
@@ -227,27 +265,35 @@ func (s *PostgresStore) Delete(context.Context, string) error { return ErrImmuta
 // History is a provider-independent audit of every persisted revision.
 // No actor claim is asserted without separately verified IAM audit evidence.
 type History struct {
-	EventID int64
-	Revision int64
+	EventID   int64
+	Revision  int64
 	FromState *MigrationState
-	ToState MigrationState
+	ToState   MigrationState
 	EventType string
-	At time.Time
+	At        time.Time
 }
+
 func (s *PostgresStore) History(ctx context.Context, id string) ([]History, error) {
 	rows, err := s.pool.Query(ctx, `SELECT event_id, revision, from_state,
 to_state, event_type, occurred_at FROM iam_migration.history
 WHERE migration_id=$1 ORDER BY revision LIMIT 10001`, id)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 	var events []History
 	for rows.Next() {
 		var h History
 		if err := rows.Scan(&h.EventID, &h.Revision, &h.FromState,
-			&h.ToState, &h.EventType, &h.At); err != nil { return nil, err }
-		events = append(events,h)
-		if len(events)>10000 { return nil, errors.New("migration: history pagination required") }
+			&h.ToState, &h.EventType, &h.At); err != nil {
+			return nil, err
+		}
+		events = append(events, h)
+		if len(events) > 10000 {
+			return nil, errors.New("migration: history pagination required")
+		}
 	}
-	return events,rows.Err()
+	return events, rows.Err()
 }
+
 var _ RecordStore = (*PostgresStore)(nil)
