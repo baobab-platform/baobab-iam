@@ -192,11 +192,15 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	kratosSessions, err := nativebff.NewKratosAdminSessionRevoker(nativebff.KratosAdminRevokeConfig{
 		Origin: d.KratosAdmin, TrustedRoots: roots,
 	})
-	if err != nil {return errors.New("Kratos global logout authority unavailable")}
+	if err != nil {
+		return errors.New("Kratos global logout authority unavailable")
+	}
 	hydraSessions, err := nativebff.NewHydraSubjectSessionsRevoker(nativebff.HydraSubjectSessionsConfig{
 		AdminOrigin: d.HydraAdmin, Roots: roots,
 	})
-	if err != nil {return errors.New("Hydra all-subject logout authority unavailable")}
+	if err != nil {
+		return errors.New("Hydra all-subject logout authority unavailable")
+	}
 	revoker, err := nativebff.NewOAuthRevoker(nativebff.OAuthRevokeConfig{
 		Issuer: d.Issuer, ClientID: d.ClientID, ClientSecret: string(secret), TrustedRoots: roots,
 	})
