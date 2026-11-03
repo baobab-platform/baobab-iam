@@ -63,7 +63,12 @@ def secure_read(path: str, limit: int = 1_048_576) -> bytes:
     file = Path(path)
     if not file.is_absolute():
         raise Blocked("PRIVATE_PATH_REQUIRED")
-    fd = os.open(file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    # A missing, unreadable or symlinked original is an expected DENIAL, not
+    # an uncaught filesystem exception or a reason to relax private custody.
+    try:
+        fd = os.open(file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        raise Blocked("ORIGINAL_PRIVATE_FILE_REQUIRED") from None
     with os.fdopen(fd, "rb") as stream:
         info = os.fstat(stream.fileno())
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
