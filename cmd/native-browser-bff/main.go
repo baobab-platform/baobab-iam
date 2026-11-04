@@ -262,7 +262,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		Scope:       d.Scope, AccessAudience: d.AccessAudience, AccessScope: d.AccessScope, TrustedRoots: roots,
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
-		Store: browserStore,
+		Store:       browserStore,
 		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate,
 	})
 	if err != nil {
