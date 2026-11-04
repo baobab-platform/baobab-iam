@@ -167,13 +167,15 @@ CREATE TRIGGER n05_containment_history_immutable
 BEFORE UPDATE OR DELETE ON iam_migration.containment_history
 FOR EACH ROW EXECUTE FUNCTION iam_migration.prevent_history_change();
 CREATE OR REPLACE FUNCTION iam_migration.append_containment_history()
-RETURNS trigger LANGUAGE plpgsql AS $
+-- Use one matching PostgreSQL dollar-quote tag around the trigger body.
+-- A lone dollar sign made the complete embedded migration unparseable.
+RETURNS trigger LANGUAGE plpgsql AS $containment$
 BEGIN
   INSERT INTO iam_migration.containment_history(operation_id,phase)
   VALUES (NEW.operation_id,NEW.phase);
   RETURN NULL;
 END;
-$;
+$containment$;
 DROP TRIGGER IF EXISTS n05_containment_history
     ON iam_migration.containment;
 CREATE TRIGGER n05_containment_history AFTER INSERT OR UPDATE

@@ -23,6 +23,20 @@ Keycloak global retirement or protected approval.
 
 ## One-time reviewed PostgreSQL 17 installation
 
+### 4 November 2026 parser correction
+
+Run `41559772514` failed when PostgreSQL 17 parsed the full embedded migration:
+the containment-history trigger body used lone dollar signs rather than a
+matching dollar-quote delimiter. It now uses `$containment$` at both ends.
+The trigger logic, immutable history, transaction boundaries, cutover vetoes
+and explicit externally owned migration installation are unchanged.
+
+The existing disposable PostgreSQL suite installs the complete embedded SQL
+before testing import/reconciliation and revocation. It is the required real
+regression; passing Go tests without the disposable PostgreSQL opt-in is only
+source evidence. Requalify the corrected head against PG17. Do not mark the
+native ledger or protected migration accepted from a parser/source check.
+
 DBA/infrastructure installs reviewed
 `internal/migration/migrations/001_n05_ledger.sql` against an isolated
 PostgreSQL 17 database. Creating `PostgresStore` verifies that schema
