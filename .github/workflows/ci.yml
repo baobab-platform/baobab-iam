@@ -41,6 +41,8 @@ jobs:
           test -z "$(gofmt -l cmd internal)"
       - name: Build packages
         run: go build ./cmd/native-browser-bff/ ./internal/assurance/... ./internal/securityops/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
+      - name: Enforce required N06 live executable gate and deny unknown assurance
+        run: go test ./cmd/native-browser-bff -run '^TestN06' -count=1 -v
       - name: Test packages
         run: go test ./internal/assurance/... ./internal/securityops/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
       - name: Validate IAM-N02 browser/evidence source and negative custody gates
