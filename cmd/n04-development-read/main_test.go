@@ -97,6 +97,18 @@ func TestN04DevelopmentReaderPrivateFilesCannotBeSymlinksOrWorldReadable(t *test
 	if _, err := privateFile(symlink, 128); err == nil {
 		t.Fatal("symlink private credential accepted")
 	}
+	// A second hardlink aliases the same inode without involving a symlink.
+	// Refuse multiply linked secret files regardless of which name is used.
+	hardlink := filepath.Join(t.TempDir(), "attacker-hardlink")
+	if err := os.Link(path, hardlink); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := privateFile(hardlink, 128); err == nil {
+		t.Fatal("multiply linked private credential accepted")
+	}
+	if _, err := privateFile(path, 128); err == nil {
+		t.Fatal("private source with multiple hardlinks accepted")
+	}
 }
 
 func TestN04DevelopmentReaderContactsActualTLSCPResourceNotFixtureSuccessFlag(t *testing.T) {
