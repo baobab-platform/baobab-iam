@@ -37,17 +37,7 @@ class N04FoundationRunner(unittest.TestCase):
         self.assertEqual(content.count(
             "go test -json ./internal/provider/ory -run '^(TestLiveWorkloadClientCredentials"), 1)
         self.assertEqual(content.count(
-            "go test -json ./pkg/workloadresource -run '^TestLiveN03HydraCPResourceAcceptance
-        for path in (RUN, PROFILE):
-            result = subprocess.run(["bash", "-n", str(path)],
-                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                    check=False, timeout=10)
-            self.assertEqual(result.returncode, 0, path.name)
-
-
-if __name__ == "__main__":
-    unittest.main()
-"), 1)
+            "go test -json ./pkg/workloadresource -run '^TestLiveN03HydraCPResourceAcceptance$'"), 1)
         self.assertEqual(content.count("python3 - <<'PY_N03'"), 1)
         self.assertEqual(content.count("tee ory-foundation-evidence/token-profile/tests.jsonl"), 1)
         self.assertEqual(content.count("tee ory-foundation-evidence/token-profile/n03-resource-tests.jsonl"), 1)
