@@ -164,6 +164,25 @@ class N07SourceTests(unittest.TestCase):
         self.assertEqual(result["cases"]["N07_BAOBAB_PAYMENTS_ALLOWED"], "OBSERVED")
         self.assertEqual(result["cases"]["N07_BAOBAB_PAYMENTS_WRONG_AUDIENCE"], "BLOCKED")
 
+    def test_expired_negative_token_cannot_masquerade_as_native_policy_denial(self):
+        # The fake HTTP resource rejects an expired bearer with 403. That
+        # observation must NOT qualify a wrong-audience or policy-boundary case.
+        def token_for(path):
+            return unit_jwt(path, expires_in=-30 if "wrong_audience" in path else 300)
+
+        def resource_response(_origin, _path, bearer):
+            if bearer is None:
+                return 401, True
+            return (403, True) if "wrong_audience" in bearer else (200, True)
+
+        with patch.object(n07, "token", side_effect=token_for):
+            result = n07.observe(example(), "before", resource_response)
+
+        self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_ALLOWED"], "OBSERVED")
+        self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_WRONG_AUDIENCE"], "BLOCKED")
+        self.assertEqual(result["cases"]["N07_BAOBAB_PAYMENTS_WRONG_AUDIENCE"], "BLOCKED")
+        self.assertFalse(result["fully_qualified"])
+
     def test_expired_or_oversized_jwt_fails_without_proving_signature(self):
         for value in (unit_jwt(expires_in=-10), unit_jwt(expires_in=10),
                       "not.a.valid.token", unit_jwt(expires_in=3600)):
