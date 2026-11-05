@@ -279,8 +279,12 @@ def observe(p: dict[str, Any], phase: str,
                 try:
                     original = token(c[f"{case}_token_file"])
                     digest = hashlib.sha256(original.encode("ascii")).digest()
+                    # Every denied JWT must still be a current, unexpired
+                    # credential. Otherwise a generic expiry rejection can be
+                    # mistaken for wrong-audience, foreign-tenant or absent-grant
+                    # enforcement by the native resource policy.
+                    unexpired_jwt(original)
                     if case == "allowed":
-                        unexpired_jwt(original)
                         fingerprints[name] = fingerprint(p["run_id"], original)
                     if digest in observed_tokens:
                         raise Blocked("REUSED_INDEPENDENT_NEGATIVE_TOKEN")
