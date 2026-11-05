@@ -43,6 +43,7 @@ type document struct {
 	CPCallerTokenFile       string                           `json:"cp_caller_token_file"`
 	BrowserDatabaseDSNFile  string                           `json:"browser_database_dsn_file"`
 	BrowserVaultKeyFile     string                           `json:"browser_vault_key_file"`
+	BrowserRateKeyFile      string                           `json:"browser_rate_key_file"`
 	ChallengeStorage        federation.PostgresStorageConfig `json:"challenge_storage"`
 	HumanTokenProfilesFile  string                           `json:"human_token_profiles_file"`
 	HumanConsentSealKeyFile string                           `json:"human_consent_seal_key_file"`
@@ -157,8 +158,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return err
 	}
-	// Reject unreviewed browser scopes and absent current assurance services
-	// before opening any durable transaction/provider session.
+	// Mandatory reviewed N06 gate, independent of the N02 PostgreSQL admission limiter.
 	scopePolicy, n06Gate, err := n06ExecutableSecurity(d.Scope, d.KratosPublic, roots)
 	if err != nil {
 		return err
@@ -254,6 +254,14 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("confidential token revocation unavailable")
 	}
+	rateKey, err := privateBytes(d.BrowserRateKeyFile)
+	if err != nil || len(rateKey) != 32 {
+		return errors.New("separate 256-bit admission HMAC key required")
+	}
+	limiter, err := nativebff.NewPostgresAdmissionLimiter(pool, rateKey)
+	if err != nil {
+		return errors.New("native browser admission ledger unavailable")
+	}
 	handler, err := nativebff.New(nativebff.Config{
 		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer, KratosOrigin: d.KratosPublic,
 		RequireAAL2: d.RequireAAL2, Assurance: handoff, NativeSessions: kratosSessions, OAuthSessions: hydraSessions,
@@ -262,7 +270,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		Scope:       d.Scope, AccessAudience: d.AccessAudience, AccessScope: d.AccessScope, TrustedRoots: roots,
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
-		Store:       browserStore,
+		Store: browserStore, Limiter: limiter,
 		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate,
 	})
 	if err != nil {

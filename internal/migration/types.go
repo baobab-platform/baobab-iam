@@ -114,6 +114,10 @@ type ProviderBinding struct {
 // password hashes, TOTP secrets, WebAuthn payloads, OAuth client secrets,
 // recovery codes, session tokens.
 type Record struct {
+	// Revision is PostgreSQL's monotonically increasing optimistic concurrency
+	// token. New rows start at zero; a persisted row starts at one.
+	// In-memory Phase C pilots may leave this as zero.
+	Revision         int64  `json:"revision,omitempty"`
 	MigrationID      string `json:"migration_id"`
 	MigrationBatchID string `json:"migration_batch_id,omitempty"`
 	// CanonicalIdentityID is the CP Principal / canonical id. It MUST come from
@@ -163,6 +167,9 @@ func (r *Record) ValidateStructural() error {
 	}
 	if strings.TrimSpace(r.MigrationID) == "" {
 		return fmt.Errorf("migration: migration_id is required")
+	}
+	if r.Revision < 0 {
+		return fmt.Errorf("migration: negative revision")
 	}
 	// CanonicalIdentityID MUST come from an authoritative mapping (ADR-IAM-0022).
 	// ORPHAN_CANDIDATE is the only class allowed to have an empty value.
