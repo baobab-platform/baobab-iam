@@ -19,6 +19,7 @@ SHARED = "b" * 40
 CP = "c" * 40
 INFRA = "d" * 40
 PULSE_SHA = "9" * 40
+ZURI = "1" * 40
 R = "e" * 32
 PR = "f" * 32
 PAY = "0" * 32
@@ -74,6 +75,8 @@ def n02_browser():
         "schema": "baobab.iam.n02.browser-observation.v1",
         "classification": "REAL_BROWSER_SYNTHETIC_DATA",
         "source_sha": IAM, "run_id": R,
+        "shared_source_sha": SHARED, "cp_source_sha": CP,
+        "zuribeans_source_sha": ZURI, "infrastructure_harness_sha": INFRA,
         "protected_accepted": False,
         "provider_and_cp_independently_attested": False,
         "cases": {case: "OBSERVED" for case in n04.n02.CASE_IDS},
@@ -85,6 +88,7 @@ def dev04():
         "schema": "infrastructure.dev01.lifecycle.observed.v1",
         "run_id": R, "source_pins": {
             "baobab-iam": IAM, "baobab-cp": CP, "shared": SHARED,
+            "zuribeans": ZURI,
         },
         "harness_sha": INFRA,
         "evidence_class": "REAL_COMPONENT_SYNTHETIC_DATA",
@@ -229,6 +233,19 @@ class N04Gate(unittest.TestCase):
                     "--infrastructure-sha", INFRA, "--pulse-source-sha", PULSE_SHA] + files
             self.assertEqual(n04.readback(args),
                              "N04_ORIGINAL_EVIDENCE_RECONCILED_UNATTESTED")
+            # The original browser source must match the DEV-04 producer,
+            # not merely contain syntactically valid but unrelated pins.
+            models["browser"]["zuribeans_source_sha"] = "2" * 40
+            browser_path = root / "browser.json"
+            browser_raw = (json.dumps(models["browser"], sort_keys=True) + "\n").encode()
+            browser_path.write_bytes(browser_raw)
+            (root / "browser.sha256").write_text(hashlib.sha256(browser_raw).hexdigest() + "\n")
+            with self.assertRaises(n04.Held):
+                n04.readback(args)
+            models["browser"]["zuribeans_source_sha"] = ZURI
+            browser_raw = (json.dumps(models["browser"], sort_keys=True) + "\n").encode()
+            browser_path.write_bytes(browser_raw)
+            (root / "browser.sha256").write_text(hashlib.sha256(browser_raw).hexdigest() + "\n")
             # No acceptance if two independent owner runs reuse one run ID.
             models["payments"]["run_id"] = PR
             models["payments"]["engine_integration"]["run_id"] = PR
