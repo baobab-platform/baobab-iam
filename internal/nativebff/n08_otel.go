@@ -23,6 +23,8 @@ func n08Collector() string {
  if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "/v1/traces" { return "" }
  env := os.Getenv("BAOBAB_ENVIRONMENT")
  if env == "" { env = "development" }
+ // Do not synchronously export on protected traffic; this is disposable L4 only.
+ if env != "development" && env != "test" && env != "integration" { return "" }
  if u.Scheme != "https" && !(u.Scheme == "http" && (env == "development" || env == "test" || env == "integration")) { return "" }
  return u.String()
 }
