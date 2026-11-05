@@ -1,5 +1,8 @@
 # Native human canonical handoff
 
+**N02 connected-source follow-up:** The [browser qualification runbook](n02-connected-browser-qualification.md) adds owner-verified AAL2/step-up, Kratos-owned recovery routing and explicit native session revocation while preserving this handoff's original one-use Hydra challenge and fresh CP dispatch tests. A genuine Kratos session whoami and real signed Hydra/CP consumer acceptance remain mandatory; synthetic fixture responses are insufficient for protected acceptance. No AAL2 result is automatically a BAOBAB-A3 grant, nor does a recovery flow automatically register a CP Principal.
+
+
 **N02 consumer integration (source only):** [native browser/BFF](native-browser-bff.md) adds a server-only state/PKCE/nonce and explicit browser consent boundary, persistent encrypted PostgreSQL transaction/session vault, real CP delegated Principal resolver protocol, issuer token revocation and negative component tests around this existing handoff. It calls the governed handoff; it does **not** replace its durable challenge fence, current CP capability check or independent signed-token verification. The new package is not a deployed branded Kratos UX or certified real provider/CP estate acceptance. Only the registered Trade-buyer subject token profile is currently admitted by CP delegated resolution; do not infer general Nabhold executive or Thamani logistics authority.
 
 

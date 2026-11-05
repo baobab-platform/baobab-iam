@@ -45,7 +45,7 @@ func NewHTTPPrincipalResolver(c PrincipalResolutionConfig) (*HTTPPrincipalResolv
 	if _, err := originURL(c.CPOrigin, c.AllowTestLoopback); err != nil {
 		return nil, err
 	}
-	if c.Caller == nil || c.Now == nil || (!c.AllowTestLoopback && c.TestClient != nil) {
+	if c.Caller == nil || c.Now == nil || (!c.AllowTestLoopback && (c.TestClient != nil || c.TrustedRoots == nil || len(c.TrustedRoots.Subjects()) == 0)) {
 		return nil, errors.New("current CP workload authority required")
 	}
 	httpClient := &http.Client{

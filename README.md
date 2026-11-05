@@ -1,5 +1,10 @@
 # Baobab IAM (`baobab-iam`)
 
+## IAM-N02 connected browser implementation (stacked review)
+
+[Connected browser/CP qualification and protected evidence gates](docs/operations/n02-connected-browser-qualification.md) are implemented as a **draft stacked source increment**, not actual protected approval: genuine disposable Hydra client registration with exact readback and teardown, the real Kratos recovery entrypoint, current CP-gated AAL2 step-up, explicit Kratos all-session revocation and HMAC-indexed PostgreSQL browser-session invalidation, a Chromium Playwright runner requiring an installed *real* estate UI and genuine isolated runtime, plus independently signed evidence packet verification. All three canonical support declarations remain PARTIAL. The current Infrastructure DEV-04 seven-case run is not a N02 browser receipt; its original SHA, run ID, source pins and teardown must be independently reconciled. Neither passkeys/A3, federation-wide Keycloak SLO, an approved Nabhold/Thamani client nor staging/production acceptance is asserted.
+
+
 > **Baobab IAM** is the central authentication and identity provider for the Baobab platform. It implements **who** you are, while the Control Plane (`baobab-cp`) determines **where** and **what** you are entitled to, and domain engines enforce business authorization.
 
 ---

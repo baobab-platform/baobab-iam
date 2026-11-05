@@ -1,5 +1,8 @@
 # C4-04 — Governed native/workload dispatch and operational readiness
 
+**N02 runtime qualification status (source):** The [TLS-only native browser/CP consumer](n02-connected-browser-qualification.md) requires real approved provider/instance bindings and issuer/subject evidence; development Hydra client creation alone registers **no** CP provider support, consumer/estate binding, workload mandate, legal actor or resource grant. Real protected C4-04B/C registration/activation and consumer negative acceptance remain outstanding. Keep canonical provider supports PARTIAL and CRITICAL AdministrativeGrant restrictions unchanged.
+
+
 **N02 source qualification:** the [new native browser/BFF handler](native-browser-bff.md) relies on the existing real CP-governed Kratos/Hydra composition and checks fresh CP Principal resolution for an already signed buyer token. A unit-test Principal resolver is not runtime activation, current resource acceptance or support publication. C4-04B/C remain pending and provider-support declarations remain PARTIAL.
 
 

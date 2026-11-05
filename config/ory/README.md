@@ -1,5 +1,10 @@
 # config/ory — Ory configuration as code (Gate IAM-M2/M3)
 
+## IAM-N02 actual browser integration (no checked-in production origins)
+
+[Connected N02 runbook](../../docs/operations/n02-connected-browser-qualification.md) explains the reviewed private Hydra/estate/CP setup. This Ory Compose config remains **nonproduction**: the committed Hydra login/consent URLs and Kratos UI/return URLs are placeholders and must not be silently treated as an authenticated estate browser application. A disposable owner-run profile can register a real scoped confidential ZuriBeans client through Hydra Admin, independently GET it and finally DELETE/GET404. It creates neither a CP Principal nor authorization. Actual first-party cookie routing, approved estate UI, recovery courier, Kratos AAL2, CP workload registration and immutable evidence from a common bounded run remain separate. Never insert real client secrets, SMTP credentials, CP authority or protected deployment domains into the committed foundation config.
+
+
 Versioned Kratos and Hydra configuration for the non-production foundation
 stack in `docker-compose.ory.yml`.
 

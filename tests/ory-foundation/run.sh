@@ -45,6 +45,18 @@ export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
 # Test output contains only statuses, never fixture credential or response bodies.
 go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
+# N02 native-browser Hydra client registration is ADDITIONAL to all
+# provider live tests. No skipped/unexecuted case can satisfy its gate.
+go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistration$' -count=1 | tee ory-foundation-evidence/nativebff-tests.jsonl
+python3 - <<'PYNATIVE'
+import json
+from pathlib import Path
+name = 'TestLiveDevelopmentHydraEstateClientRegistration'
+events = [json.loads(line) for line in Path('ory-foundation-evidence/nativebff-tests.jsonl').read_text().splitlines()]
+if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+    raise SystemExit('Native Hydra estate client registration did not pass')
+print('Real native Hydra estate-client registration passed without skips')
+PYNATIVE
 python3 - <<'PY'
 import json
 from pathlib import Path
