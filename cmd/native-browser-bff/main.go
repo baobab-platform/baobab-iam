@@ -43,6 +43,7 @@ type document struct {
 	CPCallerTokenFile       string                           `json:"cp_caller_token_file"`
 	BrowserDatabaseDSNFile  string                           `json:"browser_database_dsn_file"`
 	BrowserVaultKeyFile     string                           `json:"browser_vault_key_file"`
+	BrowserRateKeyFile      string                           `json:"browser_rate_key_file"`
 	ChallengeStorage        federation.PostgresStorageConfig `json:"challenge_storage"`
 	HumanTokenProfilesFile  string                           `json:"human_token_profiles_file"`
 	HumanConsentSealKeyFile string                           `json:"human_consent_seal_key_file"`
@@ -100,20 +101,52 @@ func loadRoots(file string) (*x509.CertPool, error) {
 	return roots, nil
 }
 
-// Missing a real high-risk/privileged risk and CP witness is a DENIAL, not a
-// synthetic low-risk value. The only currently reviewed BFF scope maps to
-// authentication-only buyer.read; native Trade must evaluate buyer.commit.
-type unavailableN08Risk struct{}
+// unavailableN06Risk intentionally provides no invented low-risk decision. A
+// privileged, purchasing or high-risk operation needs a genuinely independent
+// current risk/CP/native witness before any broader scope policy is approved.
+type unavailableN06Risk struct{}
 
-func (unavailableN08Risk) CurrentRisk(context.Context, assurance.CurrentSessionKey, assurance.Operation) (assurance.Risk, error) {
+func (unavailableN06Risk) CurrentRisk(context.Context, assurance.CurrentSessionKey, assurance.Operation) (assurance.Risk, error) {
 	return assurance.Risk{}, errors.New("independent current risk witness unavailable")
 }
 
-func n08NativeScopePolicy(scope string) (map[string]assurance.Operation, error) {
+// n06NativeScopePolicy is the reviewed authentication-only profile. A
+// browser-supplied scope, unknown extra scope or native buyer commitment must
+// never be mapped into an implicit lower-assurance operation.
+func n06NativeScopePolicy(scope string) (map[string]assurance.Operation, error) {
 	if scope != "openid trade:buy" {
 		return nil, errors.New("unreviewed native scope/assurance policy")
 	}
 	return map[string]assurance.Operation{"trade:buy": assurance.OrdinaryBuyer}, nil
+}
+
+// n06ExecutableSecurity builds the REQUIRED current-session gate for the
+// production command. This is not an optional unit-test-only handler option.
+// Kratos AAL1/AAL2 are read live; no synthetic WebAuthn A3/A4 or risk data.
+func n06ExecutableSecurity(scope, kratos string, roots *x509.CertPool) (map[string]assurance.Operation, nativebff.N06Gate, error) {
+	operations, err := n06NativeScopePolicy(scope)
+	if err != nil {
+		return nil, nil, err
+	}
+	provider, err := nativebff.NewKratosN06Provider(kratos, roots, time.Now, false, nil)
+	if err != nil {
+		return nil, nil, errors.New("native current Kratos security proof unavailable")
+	}
+	gate := &nativebff.N06SecurityGate{
+		Provider: provider,
+		Policy:   assurance.DefaultDevelopmentPolicy(),
+		Risk:     unavailableN06Risk{},
+		Now:      time.Now,
+	}
+	return operations, gate, nil
+}
+
+// Compatibility with the reviewed N08 negative tests: reuse the exact
+// mandatory N06 assurance policy; do not create a competing weaker gate.
+type unavailableN08Risk = unavailableN06Risk
+
+func n08NativeScopePolicy(scope string) (map[string]assurance.Operation, error) {
+	return n06NativeScopePolicy(scope)
 }
 
 func run(ctx context.Context, listen string, d document, caFile string) error {
@@ -130,6 +163,11 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		return errors.New("unregistered human resource audience")
 	}
 	roots, err := loadRoots(caFile)
+	if err != nil {
+		return err
+	}
+	// Mandatory reviewed N06 gate, independent of the N02 PostgreSQL admission limiter.
+	scopePolicy, n06Gate, err := n06ExecutableSecurity(d.Scope, d.KratosPublic, roots)
 	if err != nil {
 		return err
 	}
@@ -224,23 +262,13 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("confidential token revocation unavailable")
 	}
-	// The N06 safety policy is mandatory in the actual executable, not just
-	// in isolated handler unit tests. Only the registered low-assurance
-	// *authentication* scope is mapped here. Buyer commit/approval still
-	// requires an independent fresh risk and native resource decision.
-	scopePolicy, err := n08NativeScopePolicy(d.Scope)
-	if err != nil {
-		return err
+	rateKey, err := privateBytes(d.BrowserRateKeyFile)
+	if err != nil || len(rateKey) != 32 {
+		return errors.New("separate 256-bit admission HMAC key required")
 	}
-	kratosN06, err := nativebff.NewKratosN06Provider(d.KratosPublic, roots, time.Now, false, nil)
+	limiter, err := nativebff.NewPostgresAdmissionLimiter(pool, rateKey)
 	if err != nil {
-		return errors.New("native current Kratos security proof unavailable")
-	}
-	n06Gate := &nativebff.N06SecurityGate{
-		Provider: kratosN06,
-		Policy:   assurance.DefaultDevelopmentPolicy(),
-		Risk:     unavailableN08Risk{},
-		Now:      time.Now,
+		return errors.New("native browser admission ledger unavailable")
 	}
 	handler, err := nativebff.New(nativebff.Config{
 		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer, KratosOrigin: d.KratosPublic,
@@ -250,15 +278,14 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		Scope:       d.Scope, AccessAudience: d.AccessAudience, AccessScope: d.AccessScope, TrustedRoots: roots,
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
-		Store:       browserStore,
+		Store: browserStore, Limiter: limiter,
 		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate,
 	})
 	if err != nil {
 		return errors.New("invalid native BFF configuration")
 	}
-	// Operational labels are server-owned enumerations only. This does not
-	// authenticate a user or change CP authority. Emit a bounded aggregate on
-	// shutdown rather than logging sensitive per-request paths or credentials.
+	// Server-owned bounded operational counters; no principal, token, path
+	// or buyer data is emitted. This is diagnostics, not issuer authority.
 	n08Metrics := nativebff.NewN08OperationalMetrics()
 	defer func() { fmt.Fprintln(os.Stderr, n08Metrics.SnapshotJSON()) }()
 	server := &http.Server{

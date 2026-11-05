@@ -1,5 +1,14 @@
 # C4-04 — Governed native/workload dispatch and operational readiness
 
+**IAM-N04 workstream started (31 October 2026):** [N04 development original-receipt gate](n04-provider-support-development-qualification.md) checks exact existing N02/DEV-04, C4-03B–E and Pulse/Payments ENG-ONB receipt semantics and source pins; it never authorises a provider. `c4-04-readiness` remains a transient live CP+Ory observation (C4-04A), **not** a CP registration, C4-04B health/support publication, C4-04C registered consumer operation or independently trusted development acceptance. Actual CP-owner support lifecycle, issuer+resource negatives and real engine/estate original receipts remain pending **development** obligations. No provider activation or protected admission is implied.
+
+
+> **DEVELOPMENT FIRST — N01–N03 NOT CERTIFIED (31 October 2026).** Real development CP-governed provider/client/binding and issuer→CP→resource registration/consumption, native denial, withdrawal and independent teardown remain unqualified. An IAM/CP code path or isolated source fixture is not a current registered consumer. Those development obligations **cannot be postponed as protected staging**; protected C4-04B/C approval, support promotion and production acceptance remain separate. [Development closure audit](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md). All canonical provider-support declarations remain PARTIAL.
+
+
+**N03 current consumer boundary:** [Provider-neutral workload resource acceptance](n03-workload-resource-qualification.md) requires exact signed issuer/subject/client/audience, live RFC7662 status at both sides of current CP + native operation authorization, and real post-revocation denial. It cannot register or activate a CP provider/capability binding; temporary Hydra registration and CP fixture acceptance do not change the canonical PARTIAL provider support declarations. Protected C4-04B/C onboarding and negative consumer execution remain pending.
+
+
 **N02 runtime qualification status (source):** The [TLS-only native browser/CP consumer](n02-connected-browser-qualification.md) requires real approved provider/instance bindings and issuer/subject evidence; development Hydra client creation alone registers **no** CP provider support, consumer/estate binding, workload mandate, legal actor or resource grant. Real protected C4-04B/C registration/activation and consumer negative acceptance remain outstanding. Keep canonical provider supports PARTIAL and CRITICAL AdministrativeGrant restrictions unchanged.
 
 

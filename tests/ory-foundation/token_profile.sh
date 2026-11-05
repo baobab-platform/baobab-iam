@@ -216,3 +216,63 @@ if not consumer['actual_consumer_verifier_tested'] or consumer['deployed_resourc
     raise SystemExit('Consumer verifier proof must not claim route acceptance or activation')
 print('M4-F candidate audience and CP verifier checks passed' if os.environ.get('ORY_HYDRA_AUDIENCE_CANDIDATE') == '1' else 'M4-F released audience mismatch fails closed')
 PY
+# IAM-N03: live Hydra-signed JWT, current issuer, and immutable CP router fixture.
+# This is NOT a deployed or protected consumer acceptance receipt.
+go test -json ./pkg/workloadresource -run '^TestLiveN03HydraCPResourceAcceptance$' -count=1 | tee ory-foundation-evidence/token-profile/n03-resource-tests.jsonl
+python3 - <<'PY_N03'
+import json
+from pathlib import Path
+root = Path('ory-foundation-evidence/token-profile')
+events = [json.loads(line) for line in (root / 'n03-resource-tests.jsonl').read_text().splitlines()]
+parent = 'TestLiveN03HydraCPResourceAcceptance'
+subcases = (
+    'real-issued-token-and-CP-current-route-accepted',
+    'real-issued-token-HTTP-resource-accepted',
+    'real-wrong-audience-refused',
+    'real-tampered-signature-denied-by-resource',
+    'CP-other-owner-denied-with-unexpired-bearer',
+    'CP-revoked-external-link-denied-while-issuer-active',
+    'CP-suspended-tenant-denied',
+    'real-issuer-revocation-before-expiry',
+    'fresh-token-after-specific-revocation-accepted',
+)
+for name in (parent,) + tuple(parent + '/' + suffix for suffix in subcases):
+    if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit('N03 genuine issuer/CP route consumer case missing PASS')
+    if any(e.get('Test') == name and e.get('Action') == 'skip' for e in events):
+        raise SystemExit('N03 genuine issuer/CP route case skipped')
+# N04 fixture executes REAL Hydra access-token issuance/JWKS/introspection and
+# the unchanged CP current-router fixture. Private CP registration itself is
+# a TLS test server, NOT a real CP owner/AdministrativeGrant/PG17 admission.
+n04_fixture_cases = (
+    'N04-real-Hydra-and-CP-source-fixture-accepted',
+    'N04-real-Hydra-CP-binding-withdraw-first-denied',
+    'N04-real-Hydra-CP-binding-withdraw-second-denied',
+    'N04-real-Hydra-CP-binding-wrong-tenant-denied',
+    'N04-real-Hydra-CP-binding-stale-source-denied',
+    'N04-real-Hydra-CP-binding-changed-artifact-denied',
+    'N04-real-Hydra-CP-binding-unverified-denied',
+)
+for case in n04_fixture_cases:
+    name = parent + '/' + case
+    if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit('N04 real-Hydra/local-CP-TLS-source fixture case missing PASS')
+    if any(e.get('Test') == name and e.get('Action') == 'skip' for e in events):
+        raise SystemExit('N04 real-Hydra/local-CP-TLS-source fixture case SKIPPED')
+print('N04 provider component fixture PASSED; NOT CP registration or native acceptance')
+proof = json.loads((root / 'n03-resource-acceptance.json').read_text())
+if (proof.get('classification') != 'REAL_COMPONENT_SYNTHETIC_DATA' or
+        proof.get('fixture_only') is not True or
+        proof.get('cp_consumer_source_sha') != 'c84063cb07dce76e1ffac4b12fa29c5e4e5ec855' or
+        not __import__('re').fullmatch(r'[a-f0-9]{40}', proof.get('executed_source_sha', '')) or
+        not proof.get('actual_provider_issuer') or
+        not proof.get('actual_cp_router_from_immutable_consumer') or
+        not proof.get('issuer_revocation_before_expiry') or
+        not proof.get('cross_tenant_cp_denial_observed') or
+        proof.get('deployed_resource_tested') is not False or
+        proof.get('protected_accepted') is not False or
+        proof.get('canonical_provider_support_promoted') is not False or
+        not proof.get('credentials_absent')):
+    raise SystemExit('N03 fixture evidence exceeded provenance or omitted live cases')
+print('N03 live issuer and CP source consumer qualified as synthetic fixture only')
+PY_N03

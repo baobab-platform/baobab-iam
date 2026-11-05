@@ -1,5 +1,10 @@
 # internal/provider — Provider-neutral IdP contract (ADR-IAM-0020)
 
+## IAM-N03 receiving-resource contract
+
+`pkg/workloadresource` adds a provider-neutral standards consumer **candidate**, not another provider adapter, registry or IAM token proxy. It combines JWT/JWKS, current RFC7662, CP-owned context and separately enforced native PEP and uses existing Hydra/CP fixture tests. See [N03 operations](../../docs/operations/n03-workload-resource-qualification.md). Accepted ADR-IAM-0020/0033 still allow other reviewed providers implementing the identical standards/authority semantics; the library is not a newly accepted Shared contract. No vendor-specific business authority, protected status or production support is declared here.
+
+
 This package is the **Baobab Identity Provider Contract** introduced under
 **Gate IAM-M1**. It is independent of the top-level `providers/` directory,
 which holds retained Keycloak SPI JARs, including the permanent federation evidence bridge.

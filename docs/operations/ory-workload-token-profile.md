@@ -1,5 +1,10 @@
 # M4 workload token-profile integration
 
+## IAM-N03 receiving-resource boundary
+
+The actual issuer's signed workload token and its pinned Shared projection must now be **consumed**, not merely minted. [N03](n03-workload-resource-qualification.md) adds standards-based direct JWKS and RFC7662 issuer status, independent current CP context readback, native engine veto and unexpired-token revocation negatives. The current Ory Foundation harness tests real Hydra credentials with the existing pinned CP production router source and retains `REAL_COMPONENT_SYNTHETIC_DATA` classification. It does not certify deployed resource revocation or provider-support activation; the released-versus-backport federated audience limitations stay explicit.
+
+
 PR #59 stacks on #58. This is an opt-in, private provider integration, not a public token endpoint or a resource-server proxy.
 
 The Accepted ADR-0006 token profile, ADR-0007 workload boundaries, ADR-IAM-0020 provider boundary and ADR-IAM-0021 workload path govern this implementation. The exact Shared pin remains `10810e20473709d4626da310fc9a84680f8efddd`. Registry identity, credential profile, lifecycle, scopes and audiences remain Shared-owned. Separately governed deployment configuration supplies exact projected assertion issuer/subject bindings; request payload does not select them.

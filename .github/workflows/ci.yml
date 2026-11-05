@@ -37,12 +37,22 @@ jobs:
           python3 -m unittest discover -s tests/unit -p 'test_nabhold_human_cp.py'
       - name: Enforce Go formatting across release source
         run: |
-          gofmt -d cmd internal
-          test -z "$(gofmt -l cmd internal)"
+          gofmt -d cmd internal pkg
+          test -z "$(gofmt -l cmd internal pkg)"
       - name: Build packages
-        run: go build ./cmd/native-browser-bff/ ./internal/assurance/... ./internal/securityops/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
+        run: go build ./pkg/workloadresource/... ./internal/assurance/... ./internal/securityops/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
+      - name: Enforce mandatory live N06 executable BFF gate (no handler-only security)
+        run: go test ./cmd/native-browser-bff -run '^TestN06' -count=1 -v
       - name: Test packages
-        run: go test ./internal/assurance/... ./internal/securityops/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
+        run: go test ./cmd/n04-development-read ./pkg/workloadresource/... ./internal/assurance/... ./internal/securityops/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
+      - name: Validate IAM-N04 original development gate and registered provider negatives
+        run: |
+          python3 -m py_compile scripts/n04_development_gate.py scripts/n04_github_archive_readback.py
+          python3 -B -m unittest discover -s tests/unit -p 'test_n04_development_gate.py' -v
+          python3 -B -m unittest discover -s tests/unit -p 'test_n04_ory_lifecycle.py' -v
+          python3 -B -m unittest discover -s tests/unit -p 'test_n04_github_archive_readback.py' -v
+          bash -n tests/ory-foundation/run.sh tests/ory-foundation/token_profile.sh
+          # No synthetic provider acceptance or automatic support promotion.
       - name: Validate IAM-N02 browser/evidence source and negative custody gates
         run: |
           python3 -m py_compile tests/browser/n02_live.py scripts/n02_evidence_gate.py scripts/n02_development_clients.py
@@ -60,7 +70,7 @@ jobs:
           python3 -B -m unittest discover -s tests/unit -p 'test_n08_native_supply_chain.py' -v
           go test -race ./internal/nativebff ./cmd/native-browser-bff -run '^TestN08' -count=1
       - name: Test federation and native browser boundaries with race detector
-        run: go test -race ./internal/federation/... ./internal/nativebff/... -count=1
+        run: go test -race ./cmd/n04-development-read ./pkg/workloadresource/... ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
         run: python3 -m pip install PyYAML==6.0.3
       - name: Verify IAM-N01 ADR precedence, immutable Shared pin and development boundary
@@ -116,6 +126,40 @@ jobs:
         run: ./scripts/check-issued-scopes.sh
       - name: Every client and scope description fits Keycloak's 255-character limit
         run: ./scripts/check-config-limits.sh
+
+  iam-n05-postgres17-lifecycle:
+    name: IAM-N05 disposable PostgreSQL 17 ledger + revocation negatives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+        env:
+          POSTGRES_DB: n05_ci
+          POSTGRES_USER: n05_ci
+          POSTGRES_PASSWORD: "n05-disposable-${{ github.run_id }}"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U n05_ci -d n05_ci"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      IAM_N05_DISPOSABLE_PG: "1"
+      IAM_N05_TEST_DATABASE_URL: "postgres://n05_ci:n05-disposable-${{ github.run_id }}@127.0.0.1:5432/n05_ci?sslmode=disable"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Check N05 Go source formatting and SQL embedded migration
+        run: |
+          test -z "$(gofmt -l internal/migration internal/provider/ory/n05_session_readback.go)"
+          go test ./internal/migration -run '^TestN05' -count=1 -v
+      - name: N05 concurrent durable database and revocation replay under race detector
+        run: go test -race ./internal/migration -run '^TestN05' -count=1
 
   iam-n06-postgres17-security:
     name: IAM-N06 isolated PostgreSQL 17 security and assurance negatives
@@ -210,7 +254,7 @@ jobs:
           format: cyclonedx
           output: federation-authority.cyclonedx.json
       - name: Upload federation authority SBOM
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: federation-authority-sbom
           path: federation-authority.cyclonedx.json
@@ -225,7 +269,7 @@ jobs:
         run: scripts/keycloak-baseline.sh
       - name: Upload baseline evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: keycloak-baseline-evidence
           path: keycloak-baseline-evidence/
@@ -258,7 +302,7 @@ jobs:
           format: cyclonedx
           output: sbom.cyclonedx.json
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: baobab-iam-sbom
           path: sbom.cyclonedx.json
@@ -281,7 +325,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Node for real WebAuthn browser qualification
-        uses: actions/setup-node@db0fb3a98ed314b69026b6e8c9be26a7e2fe65a8
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
       - name: Install pinned passkey qualification runtime and Chromium
@@ -329,7 +373,7 @@ jobs:
         run: ./tests/integration/run.sh
       - name: Retain sanitized passkey ceremony evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: passkey-browser-${{ matrix.browser_fixture }}
           path: tests/integration/.runtime/passkey-evidence/run-*/receipt*
