@@ -14,9 +14,11 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/pkg/workloadresource"
+	"golang.org/x/sys/unix"
 )
 
 type config struct {
@@ -36,26 +38,29 @@ var shaPattern = regexp.MustCompile("^[0-9a-f]{40}$")
 var runPattern = regexp.MustCompile("^[0-9a-f]{32}$")
 
 func privateFile(path string, max int64) ([]byte, error) {
-	if path == "" || !strings.HasPrefix(path, "/") {
+	if path == "" || !strings.HasPrefix(path, "/") || max < 1 {
 		return nil, errors.New("absolute private path required")
 	}
-	info, err := os.Lstat(path)
+	// Open exactly once without following a symlink. A path-based Lstat
+	// followed by os.ReadFile is vulnerable to replacement between the two.
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("untrusted private file")
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 ||
+	file := os.NewFile(uintptr(fd), path)
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 ||
 		info.Size() < 1 || info.Size() > max {
 		return nil, errors.New("untrusted private file")
 	}
-	data, err := os.ReadFile(path)
-	if err != nil || int64(len(data)) != info.Size() {
-		return nil, errors.New("private file read failed")
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || stat.Uid != uint32(os.Geteuid()) || stat.Nlink != 1 {
+		return nil, errors.New("private file custody invalid")
 	}
-	// Do not permit an ordinary file to become a different underlying inode
-	// while the reader is contacting a network service.
-	again, err := os.Lstat(path)
-	if err != nil || !os.SameFile(info, again) {
-		return nil, errors.New("private file identity changed")
+	data, err := io.ReadAll(io.LimitReader(file, max+1))
+	if err != nil || len(data) == 0 || int64(len(data)) != info.Size() {
+		return nil, errors.New("private file read failed")
 	}
 	return data, nil
 }
