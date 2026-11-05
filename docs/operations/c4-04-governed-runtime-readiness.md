@@ -1,5 +1,8 @@
 # C4-04 — Governed native/workload dispatch and operational readiness
 
+**N02 source qualification:** the [new native browser/BFF handler](native-browser-bff.md) relies on the existing real CP-governed Kratos/Hydra composition and checks fresh CP Principal resolution for an already signed buyer token. A unit-test Principal resolver is not runtime activation, current resource acceptance or support publication. C4-04B/C remain pending and provider-support declarations remain PARTIAL.
+
+
 **Status:** C4-04A executable readiness observation implemented; C4-04B/C
 registration, activation and protected acceptance pending. **Not** evidence that
 C4-03's real registered-provider → protected-CP B–E chain has passed.

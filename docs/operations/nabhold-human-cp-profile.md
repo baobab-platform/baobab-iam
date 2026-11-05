@@ -1,5 +1,8 @@
 # G04B-04 — Nabhold human client, CP audience and protected observations
 
+**N02 reconciliation:** [IAM's new server-only native BFF library](native-browser-bff.md) is a source component, not a replacement approved Nabhold executive confidential client. CP's existing delegated Principal endpoint currently requires Trade-buyer audience and scope; it cannot silently accept the Nabhold authority:self audience or create executive entitlements. Keep this dormant Keycloak client profile and protected readback gates unchanged until the actual native Nabhold CP consumer profile and Kratos browser UX are separately implemented and approved. Keycloak remains the enterprise federation provider under ADR-IAM-0033.
+
+
 **Status:** SOURCE PROFILE / ACCEPTANCE TOOLING ONLY. No real client approval,
 staging observation or G17 acceptance is claimed by this change. Governance:
 Nabhold Go-Live Master Plan v2.0 G04/G17 and ADR-NAB-0004/0014; accepted IAM
