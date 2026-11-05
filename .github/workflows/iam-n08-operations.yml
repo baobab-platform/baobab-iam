@@ -56,8 +56,13 @@ jobs:
           test "$code" -eq 2
           grep -q 'DENIED N02 missing reviewed runtime' /tmp/n08-native-denial.log
           rm -f /tmp/n08-native-denial.log
+      # Fetch the real vulnerability database from its authoritative GHCR mirror.
+      # The default mirror.gcr.io endpoint returned HTTP 429 in final-head CI;
+      # no scan, severity or exit-code gate is waived by this source override.
       - name: Scan native image for high and critical vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
         with:
           image-ref: baobab-iam-native:n08-first
           severity: CRITICAL,HIGH
