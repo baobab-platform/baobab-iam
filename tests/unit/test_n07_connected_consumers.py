@@ -173,7 +173,9 @@ class N07SourceTests(unittest.TestCase):
         def resource_response(_origin, _path, bearer):
             if bearer is None:
                 return 401, True
-            return (403, True) if "wrong_audience" in bearer else (200, True)
+            payload = bearer.split(".")[1]
+            original = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+            return (200, True) if original["unit"].endswith("-allowed") else (403, True)
 
         with patch.object(n07, "token", side_effect=token_for):
             result = n07.observe(example(), "before", resource_response)
