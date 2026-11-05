@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // N08Trace is diagnostic request context, never a verified actor/tenant/grant.
@@ -91,6 +92,10 @@ func (t N08TraceTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		if childID, ready := n08Fresh(8); ready {
 			child := N08Trace{TraceID: trace.TraceID, SpanID: childID, ParentSpanID: trace.SpanID, Flags: trace.Flags}
 			clone.Header.Set("traceparent", child.Traceparent())
+			// The span is exported only around this real transport RoundTrip;
+			// a generated header without an HTTP attempt is never evidence.
+			started := time.Now()
+			defer n08ExportSpan(child, started, "baobab.iam.issuer.client")
 		}
 	}
 	return base.RoundTrip(clone)
