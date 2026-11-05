@@ -86,8 +86,9 @@ func TestN06ActualNativeExecutableCannotOmitGate(t *testing.T) {
 		}
 		if fields["N06Required"] != "true" ||
 			fields["N06ScopeOperations"] != "scopePolicy" ||
-			fields["N06Gate"] != "n06Gate" {
-			t.Fatal("executable native BFF must enable the current N06 assurance gate")
+			fields["N06Gate"] != "n06Gate" ||
+			fields["Limiter"] != "limiter" {
+			t.Fatal("executable native BFF must enable current N06 assurance AND PostgreSQL admission rate fence")
 		}
 		matched++
 		return true
