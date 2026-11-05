@@ -1,5 +1,10 @@
 # Canonical workload request admission
 
+## IAM-N03 resource-side follow-on
+
+[Workload resource verification](n03-workload-resource-qualification.md) is a distinct receiving-resource concern: a token response, admissible issuer profile or successful Hydra client credential exchange is not an authorized resource operation. The consumer must verify the original signed JWT, current RFC7662 status and current CP Principal/context, with separate owner-native PEP. Resource scopes, issuer, audience and allowed clients are server-registered, not requester-controlled. An unexpired token denied after real issuer revocation is mandatory. The source harness proves only real Hydra / CP production source fixture until a deployed engine consumer and protected evidence are executed. Canonical Shared ACTIVE is independent from provider mechanics.
+
+
 ADR-IAM-0033 MP3/MP4; pinned Shared
 `identity/v1/workload-token-request.schema.json`.
 

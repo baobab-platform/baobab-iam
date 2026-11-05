@@ -1,5 +1,8 @@
 # IAM-N01 — ADR, Shared-contract and development convergence
 
+> **N01 source gate verified; N01–N03 development closure still HELD (31 October 2026).** N01's last exact-head source CI succeeded, but the newer Shared development-only workload/scope re-pin and actual issuer/CP registered-consumer qualification remain a **development dependency**, not a reason to wait for protected staging. Do not mark N01–N03 development complete or elevate PARTIAL provider support on the basis of N01's source-only decision record. [N01–N03 closure audit](iam-n01-n03-development-closure-audit-2026-10-31.md).
+
+
 **Review date:** 31 October 2026
 **IAM audited baseline:** 7958a93808bf23dca8752598ca97fb0292a7ac4d
 **Immutable Shared consumer pin:** 1517429bcae601a1b0288ca0279e524ce48a3d77
@@ -46,6 +49,32 @@ All three provider declarations remain PARTIAL: Kratos identity.authentication.p
 - **N02**: real Kratos → Hydra → BFF → CP human journey with current context, callback, session and revocation negatives.
 - **N03**: real signed Hydra issuance → current CP runtime/authority → protected resource acceptance with wrong-audience, foreign-tenant and unexpired-token withdrawal.
 - **N04**: registered CP support/binding/artifact acceptance, full C4-03 and C4-04 qualification, then independently reviewed canonical-support promotion.
+
+## N01 audit correction — governance guard hardening (31 October 2026)
+
+This PR has been re-audited as a **source-only** governance change.
+The original source guard compared selected YAML/JSON values after using parsers
+that silently permitted duplicate keys. Inconsistent parsers can therefore
+interpret ambiguous source documents differently. It also did not check the
+provider adapter/simulation flag, full provenance, evidence existence, planned
+provider targets or an actual Go pin declaration rather than a matching comment.
+
+The guard now fails closed on duplicate YAML and JSON mapping keys; enforces
+the unchanged reviewed Shared pin and lock review policy; checks exactly one
+Go SharedCommit declaration; requires genuine PARTIAL provider adapter
+declarations with non-simulated support, repository-owned ADR-IAM-0033
+provenance, actual source and integration-test paths, and reviewed planned
+capability targets. The regression tests include positive source acceptance,
+ambiguous input, comment spoofing, provenance drift, simulated provider
+promotion, invalid evidence paths, duplicate planned capabilities and
+protected-environment restrictions.
+
+**Boundary:** these are offline source-integrity and contract-drift checks,
+not real provider tokens, CP provenance, issuer activation, credential
+issuance or live C4-03/C4-04 acceptance. Future intentional changes to
+provider capabilities, Shared registry or contract pins require a separately
+reviewed source update and actual consumer qualification. The narrow
+development exception in ADR-SHARED-043 remains unchanged.
 
 ## Verification and rollback
 

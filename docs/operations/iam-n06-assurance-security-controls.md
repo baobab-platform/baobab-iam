@@ -59,6 +59,25 @@ hardware-bound/A4 witness before A3/A4 are accepted. Existing Keycloak
 passkey browser qualification is distinct and is not silently promoted
 into the Ory-native path.
 
+**Executable binding correction (4 November 2026, PR #151):** The actual
+`cmd/native-browser-bff` constructor now sets `N06Required=true`, supplies
+an exact server-owned `openid trade:buy` → `OrdinaryBuyer` authentication
+policy, and instantiates `N06SecurityGate` with a TLS-verified current Kratos
+session reader. A high-risk/privileged/current-risk witness is intentionally
+unavailable and therefore denied rather than fabricated. The scope mapping
+supports authentication only: neither `trade:buy` nor a successful A1/A2
+login authorises a native buyer commitment. CP Principal, market mandate,
+spend limits and Trade's native fence remain independently mandatory.
+
+`cmd/native-browser-bff/n06_main_test.go` defends the actual command
+constructor with an AST-based regression check: the concrete
+`nativebff.New(nativebff.Config{...})` call must retain all three live
+N06 fields. It additionally rejects extra/duplicated/unreviewed scopes
+and an invented risk result. CI runs this executable check explicitly,
+not just isolated handler tests. This is SOURCE_QUALIFIED only until the
+same-run native Kratos/Hydra/CP/first-party browser negative and
+independent original evidence/teardown is obtained.
+
 ### 3. Recovery and high-risk identity rebinding
 
 `internal/securityops` records only **witnessed** Kratos recovery
