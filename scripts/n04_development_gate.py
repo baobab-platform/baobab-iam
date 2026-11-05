@@ -195,6 +195,7 @@ def readback(argv: list[str] | None = None) -> str:
     payments = original(args.payments, args.payments_digest)
     try:
         run_id = n02.browser_readback(browser, args.iam_sha)
+        n02.joined_source_readback(browser, int03c)
         n02.dev04_readback(int03c, args.iam_sha, run_id)
     except (n02.Blocked, ValueError, KeyError, TypeError) as err:
         raise Held("N02_DEV04_CONNECTED_ORIGINAL_EVIDENCE_MISSING") from None
