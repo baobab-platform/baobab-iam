@@ -119,9 +119,9 @@ type Config struct {
 	N06Required        bool
 	N06ScopeOperations map[string]assurance.Operation
 	N06Gate            N06Gate
-	NativeSessions                                                   NativeSessionRevoker
-	OAuthSessions                                                    OAuthSubjectSessionRevoker
-	TrustedRoots                                                     *x509.CertPool
+	NativeSessions     NativeSessionRevoker
+	OAuthSessions      OAuthSubjectSessionRevoker
+	TrustedRoots       *x509.CertPool
 	// Only disposable loopback tests may inject an ID verifier or use HTTP.
 	AllowTestLoopback bool
 }
