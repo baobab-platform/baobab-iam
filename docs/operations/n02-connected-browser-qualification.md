@@ -32,7 +32,25 @@ N02 extends the owner components without inventing CP authority:
 5. Run the real browser with the *private* profile below. The synthetic identity must be supplied by the actual Kratos/CP lease. AAL2 needs a **real enrolled second factor**, real Kratos recovery courier and an approved estate frontend form. A missing factor or courier is BLOCKED, not a passing negative. Run the full suite before applying DEV-04's destructive Principal-deactivation/revocation steps and before teardown.
 6. Complete the original DEV-04 owner-led negative/withdrawal checks and independently witnessed cleanup; check both results from their original producers. If the browser and DEV-04 do not share the same exact synthetic run ID, reviewed IAM SHA, providers and CP evidence chain, do not claim connected N02 acceptance. Use a separate protected execution only after its own approval and records.
 
-The current Infrastructure DEV-04 driver and IAM-N02 Playwright runner are **separate executable tools**. A single supervised orchestration workflow binding their *actual* source+runtime+run identity is not yet demonstrated, so the connected acceptance gate remains **BLOCKED**. This limitation cannot be resolved by renaming an artifact or weakening the evidence validator.
+**31 October N02 qualification correction:** The browser producer now checks the running immutable clean IAM checkout rather than trusting a profile SHA, requires real Kratos `aal2` session readback, verifies that recovery does not create a CP session and that a separate post-recovery OAuth login resolves the **same** CP Principal. The approved synthetic recovery journey must provide a private `post_recovery_password_file` (0600), representing the actual post-recovery credential. Original observation and SHA-256 sidecar are both atomically written as owner-private 0600 files and fsynced; an original browser report is never emitted on a partial case. These changes are source-level corrections, not connected acceptance evidence. Retain all seven immutable case IDs and mandatory same-run Infrastructure receipt.\n\nA new **opt-in Infrastructure DEV-04/N02 original-browser checkpoint** is under review on
+the Infrastructure companion branch. It requires the original browser receipt
+**before** the destructive INT-03C Principal/issuer case, verifies the current
+real CP/IAM runtime health and embeds the browser's source-bound SHA-256 in
+the original Infrastructure completed teardown receipt. The IAM gate now
+requires this pre-deactivation checkpoint in addition to the original seven
+browser and seven DEV-04 cases. The browser profile/observation must contain
+the exact 40-hex `shared_source_sha`, `cp_source_sha` and
+`infrastructure_harness_sha`, bound to the independent DEV-04 receipt.
+The original sidecar must be owner-only 0600.
+
+**Important:** This is executable orchestration/custody source only until an
+owner-provisioned real estate UX, development BFF/CP caller, Kratos/Hydra
+credential, real recovery courier and Playwright runner actually execute in
+the SAME disposable private network and run. There is no source-only PASS.
+A complete original receipt is still an **unattested development candidate**,
+not protected or production acceptance.
+
+The current Infrastructure DEV-04 driver and IAM-N02 Playwright runner are **separate executable tools**. Infrastructure #69 now has an opt-in supervised orchestration path binding the actual immutable IAM script source and same-run credentials, but an executed and independently witnessed common original is not yet demonstrated, so the connected acceptance gate remains **BLOCKED**. This limitation cannot be resolved by renaming an artifact or weakening the evidence validator.
 
 ### Private runtime commands
 
@@ -57,7 +75,7 @@ python3 -B scripts/n02_evidence_gate.py \
   --iam-sha EXACT_REVIEWED_40_HEX_COMMIT
 ```
 
-The browser profile schema is `baobab.iam.n02.browser-qualification.v1`. Its owner-only file is mode 0600 with owner-private 0700 parents. It names three distinct reviewed browser origins, exact source SHA and 32-character run nonce, synthetic identifier, owner-private password and recovery-code file paths, optional owner-private TOTP seed, and selectors for the *real* estate UI. Browser traces, downloads, storage state, screenshots, identity attributes, tokens, OTP, passwords and HTTP payloads are never uploaded. Use [the structural example](../../tests/browser/n02-profile.example.json) only as a worksheet; it contains no credentials.
+The browser profile schema is `baobab.iam.n02.browser-qualification.v1`. Its owner-only file is mode 0600 with owner-private 0700 parents. It names three distinct reviewed browser origins, exact source SHA and 32-character run nonce, synthetic identifier, owner-private password, *post-recovery password*, recovery-code and enrolled TOTP seed file paths, and selectors for the *real* estate UI. Browser traces, downloads, storage state, screenshots, identity attributes, tokens, OTP, passwords and HTTP payloads are never uploaded. Use [the structural example](../../tests/browser/n02-profile.example.json) only as a worksheet; it contains no credentials.
 
 ### Observations and evidence classification
 
@@ -73,6 +91,45 @@ The signed protected packet must be independently authored **after** the actual 
 
 Protected staging execution additionally needs the exact Infrastructure #49 approval packet, real private service credentials, independently authorized CP maker/checker, secret/network boundary, explicit protected topology, retained provider and privacy compliance, image hashes, reviewer identity/trust anchor and external custody witness. **None of those authorities or protected observations is supplied by this PR.** After a real authorized execution a reviewer must download originals independently, verify chain+signature+expiry, and decide acceptance; no source CLI auto-promotes C4-03B–E or C4-04B/C.
 
+## Estate-owner integration reconciliation (31 October 2026)
+
+A current-source review of `baobab-platform/zuribeans` found an independently
+implemented **Next.js estate IAM BFF** at `src/app/api/iam/{login,callback,
+session,logout}`, with protocol/session logic under
+`src/lib/iam/oidc/handlers.ts`. ZuriBeans also retains a separate Medusa
+customer SSO path at `src/app/api/auth/callback`. These are **not** the
+same runtime/HTTP contract as the Go IAM-N02 `cmd/native-browser-bff` paths
+`/auth/{start,login,consent,callback,session,logout-all,recovery}`.
+The Next.js `/api/iam/session` summary currently returns
+`authenticated/expiresAt/csrfToken` after issuer introspection, while
+the N02 Go browser contract requires current CP Principal evidence
+(`authenticated/principal_id/csrf`). The existing Next.js `buyerContext`
+calls Trade separately and does not turn its sign-in into automatic CP
+admission. Therefore **no legacy Medusa login, Next.js IAM session or
+standalone Go BFF fixture may be relabeled as the complete N02 run**.
+
+An estate-owner-reviewed decision is required for the disposable **real**
+browser run: either deploy the audited Go N02 BFF behind an explicit,
+first-party ZuriBeans-owned TLS ingress with real Kratos UI/recovery, or
+qualify the existing Next.js IAM BFF against the *unchanged* N02 semantic
+cases with an independent CP current-Principal and session-wide logout
+implementation. Do **not** silently rewrite case IDs, make a browser
+JavaScript proxy for CP authority, copy privileged bearer tokens into
+browser state or claim the production ZuriBeans login is switched over.
+
+For the Go path, the canonical Shared development ZuriBeans BFF identity is
+`baobab-dev-zuribeans-bff`. Hydra's N02 disposable client currently
+exercises the **authorization-code human path only**; it does not prove
+the same registered client can obtain the separately fenced
+`client_credentials` + `trade:buyer-handoff` caller profile. The latter
+needs owner-verified grant-specific issuer-hook policy and native Trade
+resource negatives; do not broaden the development client without those
+proofs. Shared #421 proposes an **additional**, separate **PROVISIONED**
+CP-audience Principal reader, not an ACTIVE credential. CP remains
+authoritative over its registration/grants. The latest N01 Shared lock stays
+held until both distinct caller and human-client profiles are fully
+reconciled with real Hydra and CP evidence.
+
 ## Open engineering gates
 
 - Cross-repository consumer adoption: actual approved estate-owned Kratos UI/ingress, CP delegated buyer caller and registered BFF binding, genuine Hydra hook, provider-specific login/consent URLs and user-friendly recovery/step-up. Nabhold executive and Thamani B2B require their *own* approved audience profiles; they must not reuse Trade buyer grants.
@@ -83,3 +140,58 @@ Protected staging execution additionally needs the exact Infrastructure #49 appr
 - N01 Shared re-pin review and canonical registration; C4-03B–E, C4-04B/C and provider support `PARTIAL` remain unchanged.
 
 **Release rule:** Until actual protected evidence and independent owner approval, every staging/production N02 result is **HELD**. Do not merge IAM #145/#146/#147 or alter existing provider support/approval gates based on this source increment.
+
+## ZuriBeans owner-convergence correction (31 October)
+
+The current estate's `/api/iam/*` Next.js BFF and IAM's `/auth/*`
+Go BFF are distinct session owners. **Never** adopt the existing
+`baobab-dev-zuribeans-bff` workload buyer-handoff OAuth registration as a
+native browser-only registration: it has different trade grants and a Next
+`/api/iam/callback` redirect. The new isolated candidate browser client is
+`baobab-dev-zuribeans-native-browser-bff` under Shared #421's exact
+`identity/v1/native-browser-client-registry.yaml`. Its developer status
+remains `PROVISIONED`; provider-only Hydra test registration and teardown
+do not activate any CP or Trade authority.
+
+IAM's real Hydra developer registration now checks the exact owner-selected
+first-party `PublicOrigin + /auth/callback`. Verified private **HTTPS**
+first-party hosts are permitted; plain HTTP is allowed only at exact
+`127.0.0.1:3000` in the isolated component fixture. Never reuse
+`/api/iam/callback` and never silently adopt another development run's
+client ID/lease or secret.
+
+ZuriBeans draft PR #141 supplies the first-party
+`/identity/native-qualification` UI with a normal browser POST to
+`/auth/start`, genuine `/auth/session` checking and CSRF-bound
+`/auth/logout-all`. IAM's real Playwright producer clicks this **real
+estate-owned UI**, not a synthetic injected browser form. Same-origin
+`/auth/*` routing still requires a reviewed exact Host/TLS-preserving
+ingress owned by Infrastructure and current CP-provisioned caller evidence;
+a plaintext Next.js proxy or any assumption that the two BFF cookies are
+interchangeable is forbidden.
+
+**Development qualifier:** Latest IAM and Shared draft source heads must
+be explicitly repinned by the Infrastructure #69 candidate lock after
+review. No unreviewed main-line Shared re-pin, issuer registration, CP
+client permission, protected deployment or N04 support promotion occurs
+through this source-only increment.
+
+
+### Current Kratos host-only session / same-origin N02 contract
+
+The qualified browser profile now requires
+`bff_origin == kratos_origin` and a **separate** `hydra_origin`.
+Kratos public `/self-service/*` and `/sessions/whoami` must use
+the exact first-party estate host, so a Kratos host-only `Secure`
+session cookie is presented to IAM's `/auth/login` and `/auth/consent`
+without a shared subdomain cookie. Infrastructure #69 carries the
+source-only, TLS-preserving NGINX ingress candidate and closed unit tests.
+ZuriBeans #141 supplies the private first-party Next UI. Neither source
+PR deploys the real Kratos flow UI, private CA, courier or IAM BFF; actual
+reviewed, running service and current CP readback remain mandatory.
+
+The candidate Infrastructure #69 lock currently cannot be run while
+CP's embedded workload-registry source is older than Shared #421.
+CP #455 is the separate **draft** projection companion; its complete
+Shared consumer-pin review, current registry admission and N02 original
+evidence are required before declaring connected acceptance.

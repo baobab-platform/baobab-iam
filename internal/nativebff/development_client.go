@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -25,6 +24,7 @@ type DevelopmentEstateClient struct {
 	Estate       string
 	RunID        string
 	RedirectURI  string
+	PublicOrigin string
 	ClientSecret string
 	ExpiresAt    time.Time
 }
@@ -75,11 +75,19 @@ func (r *DevelopmentClientRegistry) name(l DevelopmentEstateClient) (string, err
 		return "", errors.New("unapproved bounded synthetic estate lease")
 	}
 	redirect, err := url.Parse(l.RedirectURI)
-	if err != nil || redirect.Scheme != "http" || redirect.Host != "127.0.0.1:3000" ||
-		redirect.Path != "/auth/callback" || redirect.RawQuery != "" || redirect.Fragment != "" || redirect.User != nil {
+	if err != nil || redirect.Hostname() == "" || redirect.Path != "/auth/callback" ||
+		redirect.RawQuery != "" || redirect.Fragment != "" || redirect.User != nil ||
+		redirect.Scheme != "https" && !(redirect.Scheme == "http" &&
+			redirect.Host == "127.0.0.1:3000") {
 		return "", errors.New("unapproved development estate callback")
 	}
-	return fmt.Sprintf("baobab-dev-%s-bff-%s", l.Estate, l.RunID), nil
+	// The lease is issued by the development owner, not from a request URL.
+	// The exact deployed first-party origin is required to match the callback.
+	// HTTPS may use a private development host; plaintext is strict loopback.
+	if l.PublicOrigin == "" || l.PublicOrigin+"/auth/callback" != l.RedirectURI {
+		return "", errors.New("reviewed first-party callback origin mismatch")
+	}
+	return "baobab-dev-zuribeans-native-browser-bff", nil
 }
 func (r *DevelopmentClientRegistry) request(ctx context.Context, method, path string, in any) (int, []byte, error) {
 	var payload []byte
@@ -122,6 +130,8 @@ func (r *DevelopmentClientRegistry) CreateDevelopment(ctx context.Context, l Dev
 	}
 	body := map[string]any{
 		"client_id": id, "client_secret": l.ClientSecret,
+		"metadata": map[string]string{"development_run_id": l.RunID,
+			"environment": "development", "estate": "zuribeans"},
 		"grant_types":                []string{"authorization_code"},
 		"response_types":             []string{"code"},
 		"scope":                      "openid trade:buy",
@@ -136,15 +146,14 @@ func (r *DevelopmentClientRegistry) CreateDevelopment(ctx context.Context, l Dev
 		return "", errors.New("Hydra client not registered")
 	}
 	// A partially created/ambiguous client cannot be silently adopted.
-	if err = r.Readback(ctx, id, l.RedirectURI); err != nil {
+	if err = r.Readback(ctx, id, l.RedirectURI, l.RunID); err != nil {
 		return "", errors.New("Hydra client readback failed; explicit teardown required")
 	}
 	return id, nil
 }
 
-func (r *DevelopmentClientRegistry) Readback(ctx context.Context, id, redirect string) error {
-	if r == nil || !strings.HasPrefix(id, "baobab-dev-zuribeans-bff-") ||
-		!validRunID(strings.TrimPrefix(id, "baobab-dev-zuribeans-bff-")) {
+func (r *DevelopmentClientRegistry) Readback(ctx context.Context, id, redirect, runID string) error {
+	if r == nil || id != "baobab-dev-zuribeans-native-browser-bff" || !validRunID(runID) {
 		return errors.New("outside synthetic development client scope")
 	}
 	status, raw, err := r.request(ctx, http.MethodGet, "/admin/clients/"+url.PathEscape(id), nil)
@@ -152,15 +161,16 @@ func (r *DevelopmentClientRegistry) Readback(ctx context.Context, id, redirect s
 		return errors.New("registered client unreadable")
 	}
 	var v struct {
-		ID            string   `json:"client_id"`
-		GrantTypes    []string `json:"grant_types"`
-		ResponseTypes []string `json:"response_types"`
-		Scope         string   `json:"scope"`
-		Audience      []string `json:"audience"`
-		RedirectURIs  []string `json:"redirect_uris"`
-		Method        string   `json:"token_endpoint_auth_method"`
-		SubjectType   string   `json:"subject_type"`
-		SkipConsent   bool     `json:"skip_consent"`
+		ID            string            `json:"client_id"`
+		GrantTypes    []string          `json:"grant_types"`
+		ResponseTypes []string          `json:"response_types"`
+		Scope         string            `json:"scope"`
+		Audience      []string          `json:"audience"`
+		RedirectURIs  []string          `json:"redirect_uris"`
+		Method        string            `json:"token_endpoint_auth_method"`
+		SubjectType   string            `json:"subject_type"`
+		SkipConsent   bool              `json:"skip_consent"`
+		Metadata      map[string]string `json:"metadata"`
 	}
 	if json.Unmarshal(raw, &v) != nil || v.ID != id ||
 		!slices.Equal(v.GrantTypes, []string{"authorization_code"}) ||
@@ -168,7 +178,9 @@ func (r *DevelopmentClientRegistry) Readback(ctx context.Context, id, redirect s
 		v.Scope != "openid trade:buy" ||
 		!slices.Equal(v.Audience, []string{"baobab-trade"}) ||
 		!slices.Equal(v.RedirectURIs, []string{redirect}) ||
-		v.Method != "client_secret_basic" || v.SkipConsent || v.SubjectType != "public" {
+		v.Method != "client_secret_basic" || v.SkipConsent || v.SubjectType != "public" ||
+		len(v.Metadata) != 3 || v.Metadata["environment"] != "development" ||
+		v.Metadata["estate"] != "zuribeans" || v.Metadata["development_run_id"] != runID {
 		return errors.New("Hydra client profile drift")
 	}
 	return nil
@@ -176,12 +188,27 @@ func (r *DevelopmentClientRegistry) Readback(ctx context.Context, id, redirect s
 
 // DeleteDevelopment performs actual Hydra Delete plus independent 404 readback.
 // Only this run-owned name is accepted; it cannot remove protected clients.
-func (r *DevelopmentClientRegistry) DeleteDevelopment(ctx context.Context, id string) error {
-	if r == nil || !strings.HasPrefix(id, "baobab-dev-zuribeans-bff-") ||
-		!validRunID(strings.TrimPrefix(id, "baobab-dev-zuribeans-bff-")) {
+func (r *DevelopmentClientRegistry) DeleteDevelopment(ctx context.Context, id, runID string) error {
+	if r == nil || id != "baobab-dev-zuribeans-native-browser-bff" || !validRunID(runID) {
 		return errors.New("development client teardown outside scope")
 	}
-	status, _, err := r.request(ctx, http.MethodDelete, "/admin/clients/"+url.PathEscape(id), nil)
+	// A globally canonical client ID is safe only inside one isolated Hydra
+	// development issuer. Do not delete a client owned by another lease.
+	status, raw, err := r.request(ctx, http.MethodGet, "/admin/clients/"+url.PathEscape(id), nil)
+	if err != nil || status != http.StatusOK {
+		return errors.New("Hydra client lease unreadable")
+	}
+	var current struct {
+		ID       string            `json:"client_id"`
+		Metadata map[string]string `json:"metadata"`
+	}
+	if json.Unmarshal(raw, &current) != nil || current.ID != id ||
+		len(current.Metadata) != 3 || current.Metadata["environment"] != "development" ||
+		current.Metadata["estate"] != "zuribeans" ||
+		current.Metadata["development_run_id"] != runID {
+		return errors.New("Hydra client owned by another lease")
+	}
+	status, _, err = r.request(ctx, http.MethodDelete, "/admin/clients/"+url.PathEscape(id), nil)
 	if err != nil || status != http.StatusNoContent && status != http.StatusOK {
 		return errors.New("Hydra client teardown unconfirmed")
 	}

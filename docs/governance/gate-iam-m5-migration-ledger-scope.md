@@ -1,6 +1,6 @@
 # Gate IAM-M5 — Migration ledger and human identity path
 
-**Status:** Phase C design active — domain model landed; **no production cutover**  
+**Status:** Phase C implemented; IAM-N05 PostgreSQL/lifecycle candidate review-held — **no production cutover**  
 **Date:** 2026-09-30  
 **Gate:** IAM-M5 (ADR-IAM-0019; ADR-IAM-0022 §7–23)  
 **Depends on:** M1 contracts; M2/M3 foundation healthy; M4 non-prod workload path proven  
@@ -45,7 +45,7 @@ The ledger records **provider bindings**, not business authority.
 
 See `internal/migration/types.go` `Record` and Phase C design note.
 
-**Persistence:** in-memory pilot store only under Phase C. Durable store is deferred.
+**Current implementation candidate:** Phase C's `MemoryStore` remains non-durable. IAM-N05 draft PR #150 adds a PostgreSQL 17 `PostgresStore`, immutable source/target mapping, versioned append-only history, real Kratos disable/session readback and a durable revocation fence. No protected or connected acceptance is asserted; CP current-token denial witness, N05 development execution and independent review remain mandatory.
 
 ---
 

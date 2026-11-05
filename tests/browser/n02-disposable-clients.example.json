@@ -1,0 +1,16 @@
+{
+  "schema": "baobab.iam.n02.disposable-clients.v1",
+  "environment": "development",
+  "protected_acceptance": false,
+  "run_id": "REPLACE_WITH_RESERVED_ORIGINAL_32_LOWERCASE_HEX_RUN_ID",
+  "iam_source_sha": "REPLACE_WITH_EXACT_CLEAN_IAM_N02_SOURCE_SHA40",
+  "shared_source_sha": "REPLACE_WITH_EXACT_PINNED_SHARED_SHA40",
+  "cp_source_sha": "REPLACE_WITH_EXACT_PINNED_CP_SHA40",
+  "zuribeans_source_sha": "REPLACE_WITH_EXACT_PINNED_ZURIBEANS_SHA40",
+  "infrastructure_harness_sha": "REPLACE_WITH_EXACT_CURRENT_INFRASTRUCTURE_SHA40",
+  "estate_origin": "https://REVIEWED_FIRST_PARTY_N02_HOSTNAME",
+  "hydra_admin_origin": "http://127.0.0.1:4445",
+  "expires_at_unix": 0,
+  "browser_secret_file": "/absolute/run-owned-private/browser-secret",
+  "cp_reader_secret_file": "/absolute/run-owned-private/cp-reader-secret"
+}

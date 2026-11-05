@@ -106,6 +106,7 @@ type Config struct {
 	CP                                                               PrincipalResolver
 	Revoker                                                          Revoker
 	Store                                                            Store
+	Limiter                                                          AdmissionLimiter
 	HTTPClient                                                       *http.Client
 	Verifier                                                         IDVerifier
 	AccessVerifier                                                   IDVerifier // disposable loopback test fixture only
@@ -163,7 +164,8 @@ func New(c Config) (*Handler, error) {
 	redirect := strings.TrimRight(c.PublicOrigin, "/") + "/auth/callback"
 	if c.RedirectURI != redirect || c.ClientID == "" || len(c.ClientID) > 255 || len(c.ClientSecret) < 32 ||
 		c.Now == nil || c.Handoff == nil || c.CP == nil || c.Revoker == nil || c.Store == nil ||
-		c.KratosSessionCookieName != "ory_kratos_session" || c.AccessAudience == "" || c.AccessScope == "" {
+		c.KratosSessionCookieName != "ory_kratos_session" || c.AccessAudience == "" || c.AccessScope == "" ||
+		c.Limiter == nil {
 		return nil, errors.New("incomplete confidential native BFF configuration")
 	}
 	scopes := strings.Fields(c.Scope)
@@ -339,6 +341,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.TLS != nil {
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+	}
+	// Rate admission is independent of authentication and runs before any
+	// challenge, provider request, CP lookup or new session allocation.
+	// Only the actual TLS TCP peer is considered; forwarded headers are not trusted.
+	operation := r.Method + " " + r.URL.Path
+	if _, known := limits[operation]; known {
+		if err := h.c.Limiter.Admit(r.Context(), operation, r.RemoteAddr); err != nil {
+			if errors.Is(err, ErrRateLimited) {
+				w.Header().Set("Retry-After", "60")
+				h.fail(w, http.StatusTooManyRequests)
+			} else {
+				h.fail(w, http.StatusServiceUnavailable)
+			}
+			return
+		}
 	}
 	h.router.ServeHTTP(w, r)
 }
@@ -570,6 +587,18 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 403)
 		return
 	}
+	// A code exchange can succeed even when subsequent signature, CP or vault
+	// checks fail. The BFF must not simply abandon those provider credentials.
+	// Revoke best-effort with a bounded independent context even if the original
+	// browser request has been cancelled. Failure is still UNKNOWN, not success.
+	committed := false
+	defer func() {
+		if !committed {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = h.c.Revoker.Revoke(cleanupCtx, tokens)
+		}
+	}()
 	sub, err := h.verify.Verify(r.Context(), tokens.IDToken, tx.Intent.Nonce)
 	if err != nil {
 		h.fail(w, 403)
@@ -615,6 +644,7 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 503)
 		return
 	}
+	committed = true
 	cookie(w, sessionCookie, sessionID, int(lifetime.Seconds()), http.SameSiteStrictMode)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
