@@ -182,6 +182,8 @@ func ObserveN08Native(next http.Handler, m *N08OperationalMetrics) http.Handler 
 		traced := n08BeginTrace(r.Context(), r.Header.Get("traceparent"))
 		if trace, ok := n08CurrentTrace(traced); ok {
 			w.Header().Set("traceparent", trace.Traceparent())
+			// Only a real handled N08 HTTP request can export this server span.
+			defer n08ExportSpan(trace, start, "baobab.iam.http")
 		}
 		observed := &n08Response{ResponseWriter: w}
 		next.ServeHTTP(observed, r.WithContext(traced))
