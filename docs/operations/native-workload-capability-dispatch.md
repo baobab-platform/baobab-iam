@@ -1,5 +1,10 @@
 # Native and workload dispatch — C4 IAM composition increment
 
+## IAM-N03 workload receiver, not issuer dispatch
+
+[Receiver-side source implementation](n03-workload-resource-qualification.md) extends the existing governed Hydra issuance dispatch without replacing it. Resource consumers verify signed JWT, independent current issuer status, current CP Context/Principal through their registered `context:validate` caller and owner-native PEP, with no cached fallback, token-exchange proxy or local tenant authority. After issuer withdrawal, a still-unexpired bearer must be refused at the actual owner resource. The opt-in Hydra/CP source fixture is not protected C4-03B–E, provider support stays PARTIAL.
+
+
 This increment provides fail-closed operation gates, not production activation
 or completed C4 acceptance. All three canonical provider declarations remain
 PARTIAL. It introduces no tenant membership, local provider registry, or new

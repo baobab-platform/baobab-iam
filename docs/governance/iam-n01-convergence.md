@@ -1,5 +1,8 @@
 # IAM-N01 — ADR, Shared-contract and development convergence
 
+> **N01 source gate verified; N01–N03 development closure still HELD (31 October 2026).** N01's last exact-head source CI succeeded, but the newer Shared development-only workload/scope re-pin and actual issuer/CP registered-consumer qualification remain a **development dependency**, not a reason to wait for protected staging. Do not mark N01–N03 development complete or elevate PARTIAL provider support on the basis of N01's source-only decision record. [N01–N03 closure audit](iam-n01-n03-development-closure-audit-2026-10-31.md).
+
+
 **Review date:** 31 October 2026
 **IAM audited baseline:** 7958a93808bf23dca8752598ca97fb0292a7ac4d
 **Immutable Shared consumer pin:** 1517429bcae601a1b0288ca0279e524ce48a3d77
