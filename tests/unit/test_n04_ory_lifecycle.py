@@ -23,14 +23,18 @@ class N04FoundationRunner(unittest.TestCase):
             1,
         )
         self.assertEqual(content.count("tee ory-foundation-evidence/tests.jsonl"), 1)
-        self.assertEqual(content.count("tee ory-foundation-evidence/native-bff-client.jsonl"), 1)
+        self.assertEqual(content.count("tee ory-foundation-evidence/nativebff-tests.jsonl"), 1)
+        self.assertEqual(content.count("Path('ory-foundation-evidence/nativebff-tests.jsonl').read_text()"), 1)
         self.assertIn("missing live PASS evidence", content)
-        self.assertIn("N02 actual Hydra client test skipped", content)
+        self.assertIn("Native Hydra estate client registration did not pass", content)
+        self.assertIn("e.get('Test') == name and e.get('Action') == 'pass'", content)
         for line in content.splitlines():
             self.assertFalse(line.strip().startswith("-count="),
                              "dangling go test arguments became a shell command")
-        self.assertLess(content.index("native-bff-client.jsonl"),
-                        content.index("go test -json ./internal/provider/ory -run"))
+        self.assertLess(content.index("go test -json ./internal/provider/ory -run"),
+                        content.index("go test -json ./internal/nativebff -run"))
+        self.assertLess(content.index("go test -json ./internal/nativebff -run"),
+                        content.index("python3 - <<'PYNATIVE'"))
 
     def test_token_profile_real_mechanics_and_n03_not_injected_into_regex(self):
         content = PROFILE.read_text(encoding="utf-8")
