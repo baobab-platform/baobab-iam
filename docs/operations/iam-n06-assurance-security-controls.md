@@ -207,3 +207,23 @@ staging/production changes require their own approvals. **Do not merge.**
 - **Deliberate fail-closed current runtime:** `n06NativeScopePolicy` allows only authentication-level `openid trade:buy`; `unavailableN06Risk` refuses privileged/high-risk action without independent live evidence. Neither an A1/A2 session nor a valid bearer creates CP buyer commitment, spend authority, or a native Trade execution right.
 
 The six connected qualifications listed above remain **HELD** until original exact-head provider/CP/estate/resource evidence, negative tests, independently verified teardown and owner review exist. Do not classify any PASS from source-only Go/Python tests as a live A3/A4 operation.
+
+## N06 real developer recovery courier test (6 November 2026)
+
+A new **disposable, memory-only** Python SMTP trap is started on the CI host,
+with the SMTP port accessible only to the Ory Foundation Docker guest through
+the development-only `host.docker.internal` mapping. Message inspection uses
+an unrelated loopback-only HTTP endpoint protected by an ephemeral per-run
+random key. It emits no codes, mail bodies, passwords, cookies or bearer
+secrets into test output or uploaded evidence, and is killed on runner exit.
+
+`TestLiveN06KratosRecoveryCourier` registers a synthetic human with real
+Kratos, obtains a live native session, starts Kratos' real recovery API,
+observes actual courier delivery, rejects a wrong code, redeems the original
+code only once, and demands independent denial of the **old** provider session.
+The Ory Foundation runner requires the exact Go PASS event. If the pinned
+Kratos runtime fails any semantic condition, this test must stay red: never
+replace the server result with an HTTP fixture or downgrade the stale-session
+assertion. The separate Postgres securityops recovery hold and independent
+credential rebinding remain distinct requirements. A passing source test
+alone is not an original live-provider execution receipt.
