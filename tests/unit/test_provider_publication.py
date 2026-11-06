@@ -61,6 +61,10 @@ class PublicationTests(unittest.TestCase):
         declaration['providers'][2]['implementation_key'] = 'kratos'
         with self.assertRaisesRegex(ValueError, 'role mismatch'):
             publication.prepare(self.module, self.checkout, declaration)
+        declaration = copy.deepcopy(self.declaration)
+        declaration['providers'][2]['provider_key'] = 'baobab-iam.keycloak-alias'
+        with self.assertRaisesRegex(ValueError, 'unreviewed alias'):
+            publication.prepare(self.module, self.checkout, declaration)
         # No extra business authority is inferred from the permitted PARTIAL.
         publication.validate_native_provider_roles(self.declaration)
 
