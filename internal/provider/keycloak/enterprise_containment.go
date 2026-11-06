@@ -123,7 +123,7 @@ func (c *FederationLocalContainment) sessions(ctx context.Context, bearer, user 
 	}
 	seen := make(map[string]bool, len(data))
 	for _, session := range data {
-		if !brokerUserID.MatchString(session.ID) || session.UserID != user || seen[session.ID] {
+		if !brokerUserID.MatchString(session.ID) || (session.UserID != "" && session.UserID != user) || seen[session.ID] {
 			return nil, errFederatedContainment
 		}
 		seen[session.ID] = true
@@ -192,8 +192,11 @@ func (c *FederationLocalContainment) RevokeBrokerSessions(
 		return fmt.Errorf("federation_link_unverified: %w", errFederatedContainment)
 	}
 	before, err := c.sessions(ctx, token, target.BrokerUserID)
-	if err != nil || len(before) == 0 {
-		return fmt.Errorf("original_broker_session_missing: %w", errFederatedContainment)
+	if err != nil {
+		return fmt.Errorf("original_broker_session_read_invalid: %w", errFederatedContainment)
+	}
+	if len(before) == 0 {
+		return fmt.Errorf("original_broker_session_absent: %w", errFederatedContainment)
 	}
 	_, status, err = c.call(ctx, token, http.MethodPost, prefix+"/logout")
 	if err != nil || status != http.StatusNoContent {
