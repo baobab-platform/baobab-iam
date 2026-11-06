@@ -109,6 +109,12 @@ def resource_path(value: str) -> str:
 
 
 def validate_profile(p: dict[str, Any]) -> dict[str, Any]:
+    # The original no-secret profile is a closed owner contract. Unknown
+    # keys may not smuggle browser credentials, switch run policy or assert
+    # support/acceptance outside the independently governed owners.
+    if not isinstance(p, dict) or set(p) != {
+            "schema", "environment", "run_id", "source_pins", "consumers"}:
+        raise Blocked("UNREVIEWED_PROFILE_FIELDS")
     if p.get("schema") != SCHEMA or p.get("environment") != "development":
         raise Blocked("N07_DEVELOPMENT_PROFILE_REQUIRED")
     if not isinstance(p.get("run_id"), str) or not RUN.fullmatch(p["run_id"]):
@@ -134,11 +140,17 @@ def validate_profile(p: dict[str, Any]) -> dict[str, Any]:
             raise Blocked("CONSUMER_SOURCE_UNPINNED")
         trusted_origin(c.get("origin"))
         if name in ESTATES:
+            if set(c) != {"name", "origin", "kind", "anonymous_path"}:
+                raise Blocked("ESTATE_BROWSER_CREDENTIAL_NOT_TRANSFERABLE")
             if c.get("kind") != "estate" or c.get("anonymous_path") != ESTATES[name]:
                 raise Blocked("ESTATE_SESSION_ROUTE_NOT_OWNED")
             if any(key.endswith("_token_file") for key in c):
                 raise Blocked("ESTATE_BROWSER_CREDENTIAL_NOT_TRANSFERABLE")
         else:
+            expected = {"name", "origin", "kind", "resource_path"} | {
+                f"{case}_token_file" for case in CASES[1:]}
+            if set(c) != expected:
+                raise Blocked("UNREVIEWED_ENGINE_PROBE_FIELDS")
             if c.get("kind") != "engine":
                 raise Blocked("ENGINE_TYPE_REQUIRED")
             resource_path(c.get("resource_path"))
