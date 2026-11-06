@@ -440,7 +440,24 @@ func (c *hydraClient) disableClient(ctx context.Context, ref provider.ProviderWo
 	// Full PUT would wipe fields if we sent a sparse body — preserve the rest.
 	existing.GrantTypes = []string{}
 	existing.ClientSecret = ""
-	return c.putClient(ctx, clientID, *existing)
+	if err := c.putClient(ctx, clientID, *existing); err != nil {
+		return err
+	}
+	// A successful admin PUT does not prove that the OAuth grant ceiling
+	// changed. Independently read the exact client back and deny success if
+	// the issuer still advertises any token-producing grant. Existing JWTs
+	// still require separate CP/resource revocation and expiry enforcement.
+	observed, err := c.getClient(ctx, clientID)
+	if err != nil {
+		return err
+	}
+	if observed == nil || observed.ClientID != clientID || len(observed.GrantTypes) != 0 {
+		return &provider.ProviderError{
+			Kind: provider.ErrConflict, Message: "hydra workload disable not verified",
+			Provider: "ory",
+		}
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
