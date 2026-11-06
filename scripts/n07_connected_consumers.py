@@ -102,6 +102,7 @@ def resource_path(value: str) -> str:
     if (not isinstance(value, str) or not value.startswith("/") or
             value.startswith("//") or "//" in value or ".." in value or
             any(c in value for c in ("?", "#", "%", "\\", "\r", "\n")) or
+            any(ord(c) < 0x21 or ord(c) > 0x7e for c in value) or
             len(value) > 180):
         raise Blocked("READ_ONLY_RESOURCE_PATH_INVALID")
     return value
@@ -110,7 +111,7 @@ def resource_path(value: str) -> str:
 def validate_profile(p: dict[str, Any]) -> dict[str, Any]:
     if p.get("schema") != SCHEMA or p.get("environment") != "development":
         raise Blocked("N07_DEVELOPMENT_PROFILE_REQUIRED")
-    if not RUN.fullmatch(p.get("run_id", "")):
+    if not isinstance(p.get("run_id"), str) or not RUN.fullmatch(p["run_id"]):
         raise Blocked("ORIGINAL_RUN_ID_REQUIRED")
     pins = p.get("source_pins")
     required_pins = {"baobab-iam", "baobab-cp", "shared", *ESTATES, *REQUIRED_ENGINES}
@@ -122,7 +123,8 @@ def validate_profile(p: dict[str, Any]) -> dict[str, Any]:
         raise Blocked("ALL_CORE_CONSUMERS_REQUIRED")
     names = set()
     for c in targets:
-        if not isinstance(c, dict) or c.get("name") in names:
+        if (not isinstance(c, dict) or not isinstance(c.get("name"), str) or
+                c["name"] in names):
             raise Blocked("DUPLICATE_OR_INVALID_CONSUMER")
         name = c.get("name")
         if name not in ESTATES and name not in REQUIRED_ENGINES | OPTIONAL_ENGINES:
@@ -184,7 +186,12 @@ def http_probe(origin: str, path: str, bearer: str | None) -> tuple[int, bool]:
     except (URLError, TimeoutError, OSError, ValueError):
         raise Blocked("REAL_CONSUMER_UNAVAILABLE") from None
     with response:
-        return response.status, "no-store" in response.headers.get("Cache-Control", "").lower()
+        # A 200 HTML login/health page with no-store is not an owner-native
+        # resource read. Require the contracted JSON response as well.
+        safe_resource = ("no-store" in response.headers.get("Cache-Control", "").lower()
+                         and response.headers.get("Content-Type", "").lower()
+                         .split(";", 1)[0].strip() == "application/json")
+        return response.status, safe_resource
 
 
 def token(path: str) -> str:
