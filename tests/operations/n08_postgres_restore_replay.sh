@@ -9,8 +9,34 @@ fi
 ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
 cd "$ROOT"
 tmp="$(mktemp -d)"; chmod 700 "$tmp"
-trap 'rm -rf -- "$tmp"' EXIT
 container="$IAM_N08_PG_CONTAINER"
+restored_owned=0
+corrupt_owned=0
+# This disposable CI run may delete only databases it actually created.
+# Teardown is part of the same execution, including failure and interruptions:
+# a dirty DB is not an independent successful recovery receipt.
+cleanup() {
+  local original_status="$1" cleanup_failed=0
+  trap - EXIT
+  set +e
+  if [[ "$corrupt_owned" == "1" ]]; then
+    docker exec "$container" dropdb --if-exists -U n06_ci n08_corrupt > /dev/null 2>&1 || cleanup_failed=1
+  fi
+  if [[ "$restored_owned" == "1" ]]; then
+    docker exec "$container" dropdb --if-exists -U n06_ci n08_restored > /dev/null 2>&1 || cleanup_failed=1
+  fi
+  if [[ "$corrupt_owned" == "1" || "$restored_owned" == "1" ]]; then
+    remaining="$(docker exec "$container" psql -X -At -U n06_ci -d n06_ci -c       "SELECT count(*) FROM pg_database WHERE datname IN ('n08_restored','n08_corrupt')" 2>/dev/null)"
+    if [[ "$remaining" != "0" ]]; then cleanup_failed=1; fi
+  fi
+  rm -rf -- "$tmp"
+  if [[ "$cleanup_failed" != "0" ]]; then
+    echo N08_DISPOSABLE_DATABASE_TEARDOWN_NOT_VERIFIED >&2
+    exit 2
+  fi
+  exit "$original_status"
+}
+trap 'cleanup "$?"' EXIT
 psql_real() { docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U n06_ci -d "$1"; }
 version="$(docker exec "$container" psql -X -At -U n06_ci -d n06_ci -c 'SHOW server_version_num')"
 if [[ ! "$version" =~ ^17[0-9]{4}$ ]]; then echo N08_BLOCKED_POSTGRES17_REQUIRED >&2; exit 2; fi
@@ -31,6 +57,7 @@ test -s "$tmp/original.dump"
 sha256sum "$tmp/original.dump" > "$tmp/original.sha256"
 ( cd "$tmp" && sha256sum -c original.sha256 ) > /dev/null
 docker exec "$container" createdb -U n06_ci n08_restored
+restored_owned=1
 docker exec -i "$container" pg_restore --exit-on-error --no-owner --no-acl -U n06_ci -d n08_restored < "$tmp/original.dump"
 restored="$(docker exec "$container" psql -X -At -U n06_ci -d n08_restored -c "SELECT count(*) FROM iam_security.event WHERE event_id='10000000-0000-4000-8000-000000000008'")"
 hold="$(docker exec "$container" psql -X -At -U n06_ci -d n08_restored -c "SELECT count(*) FROM iam_security.recovery_hold WHERE hold_until>now() AND revision=1")"
@@ -62,9 +89,10 @@ SQL
 fi
 head -c 24 "$tmp/original.dump" > "$tmp/corrupt.dump"
 docker exec "$container" createdb -U n06_ci n08_corrupt
+corrupt_owned=1
 if docker exec -i "$container" pg_restore --exit-on-error --no-owner --no-acl -U n06_ci -d n08_corrupt < "$tmp/corrupt.dump" > /dev/null 2>&1; then
   echo N08_CORRUPT_RESTORE_ACCEPTED >&2; exit 2
 fi
-docker exec "$container" dropdb -U n06_ci n08_corrupt
-docker exec "$container" dropdb -U n06_ci n08_restored
+# The EXIT trap independently checks that both disposable restored
+# databases were removed before treating the original replay test as clean.
 echo N08_PG17_BACKUP_RESTORE_REPLAY_NEGATIVES_OBSERVED_DEVELOPMENT_ONLY
