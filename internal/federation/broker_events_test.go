@@ -210,6 +210,33 @@ func TestBrokerDownstreamTokenAloneAndWrongEvidenceCannotAuthenticate(t *testing
 		t.Fatal("wrong upstream digest accepted")
 	}
 }
+// GO-2026-6909: signed SAML with no assertion Issuer used to panic in
+// crewjam/saml; its namespace-blind Subject.NameID admitted lookalike
+// elements. This bounded XML denial runs *before* the vulnerable parser and
+// still leaves normal library signature verification mandatory.
+func TestGO20266909SAMLStructuralDenials(t *testing.T) {
+	const original = `<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><saml:Assertion ID="_case"><saml:Issuer>idp</saml:Issuer><saml:Subject><saml:NameID>subject</saml:NameID></saml:Subject><ds:Signature></ds:Signature></saml:Assertion></samlp:Response>`
+	if err := boundedSAMLXML(original); err != nil {
+		t.Fatalf("baseline namespace-bound SAML structure rejected: %v", err)
+	}
+	cases := map[string]string{
+		"missing-assertion-issuer": strings.Replace(original, "<saml:Issuer>idp</saml:Issuer>", "", 1),
+		"duplicate-issuer": strings.Replace(original, "</saml:Issuer>", "</saml:Issuer><saml:Issuer>duplicate</saml:Issuer>", 1),
+		"foreign-namespace-nameid": strings.Replace(original, "<saml:NameID>subject</saml:NameID>", "<evil:NameID xmlns:evil=\"urn:attacker:identity\">subject</evil:NameID>", 1),
+		"duplicate-nameid": strings.Replace(original, "</saml:NameID>", "</saml:NameID><saml:NameID>spoof</saml:NameID>", 1),
+		"nested-nameid": strings.Replace(original, "<saml:NameID>subject</saml:NameID>", "<saml:Group><saml:NameID>spoof</saml:NameID></saml:Group>", 1),
+		"missing-subject": strings.Replace(original, "<saml:Subject><saml:NameID>subject</saml:NameID></saml:Subject>", "", 1),
+		"foreign-subject": strings.Replace(strings.Replace(original, "<saml:Subject>", "<evil:Subject xmlns:evil=\"urn:attacker:identity\">", 1), "</saml:Subject>", "</evil:Subject>", 1),
+	}
+	for name, raw := range cases {
+		t.Run(name, func(t *testing.T) {
+			if err := boundedSAMLXML(raw); err == nil {
+				t.Fatal("ambiguous assertion structure was admitted")
+			}
+		})
+	}
+}
+
 func TestSAMLSignaturesNameIDAuthnContextAndProtocolConstraints(t *testing.T) {
 	_, f, s, _ := brokerSetup(t, "saml2")
 	cases := map[string]func(*saml.Assertion){"email-nameid": func(a *saml.Assertion) {
