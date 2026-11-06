@@ -72,6 +72,11 @@ func (s *PGWebAuthnChallengeStore) Create(ctx context.Context, challenge WebAuth
 		challenge.ExpiresAt.Sub(challenge.CreatedAt)>2*time.Minute {
 		return errA3Denied
 	}
+	// PostgreSQL timestamps retain microseconds: encode and store the SAME
+	// microsecond-truncated instant, otherwise real independent readback
+	// would compare a nanosecond JSON value to a rounded database time.
+	challenge.CreatedAt=challenge.CreatedAt.UTC().Truncate(time.Microsecond)
+	challenge.ExpiresAt=challenge.ExpiresAt.UTC().Truncate(time.Microsecond)
 	plaintext,err:=json.Marshal(challenge)
 	if err!=nil || len(plaintext)>8192 {return errA3Denied}
 	iv:=make([]byte,s.aead.NonceSize())
