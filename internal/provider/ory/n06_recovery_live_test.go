@@ -79,9 +79,9 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 		t.Fatal("Kratos recovery flow not created")
 	}
 	target := public + "/self-service/recovery?flow=" + url.QueryEscape(start.ID)
-	status := submitN06Recovery(ctx, client, target, map[string]any{"method": "code", "email": email})
-	if status != http.StatusOK {
-		t.Fatal("Kratos did not accept recovery courier initiation")
+	started := submitN06Recovery(ctx, client, target, map[string]any{"method": "code", "email": email})
+	if started.HTTP != http.StatusOK || started.State != "sent_email" {
+		t.Fatalf("Kratos recovery courier was not initiated: http=%d state=%s", started.HTTP, started.State)
 	}
 	// Only the test-run secret allows reading one disposable in-memory
 	// synthetic message through the host-loopback API.
@@ -105,20 +105,24 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 		}
 		t.Fatalf("Kratos recovery code absent: smtp_delivered=%t expected_plaintext_marker=%t", seen, template)
 	}
-	if status = submitN06Recovery(ctx, client, target,
-		map[string]any{"method": "code", "code": "00000000"}); status < 400 {
-		t.Fatal("invalid recovery proof was accepted")
+	wrong := submitN06Recovery(ctx, client, target,
+		map[string]any{"method": "code", "code": "00000000"})
+	if wrong.State == "passed_challenge" || wrong.HTTP == http.StatusSeeOther ||
+		(wrong.HTTP == http.StatusOK && wrong.State == "") {
+		t.Fatal("invalid recovery code yielded an ambiguous or successful provider flow")
 	}
-	status = submitN06Recovery(ctx, client, target,
+	correct := submitN06Recovery(ctx, client, target,
 		map[string]any{"method": "code", "code": code})
-	if status != http.StatusOK {
-		t.Fatal("real Kratos recovery code was not accepted")
+	if correct.HTTP != http.StatusOK || correct.State != "passed_challenge" {
+		t.Fatalf("actual provider recovery challenge not passed: http=%d state=%s",
+			correct.HTTP, correct.State)
 	}
-	// Same flow must never redeem the consumed one-time recovery code twice.
-	status = submitN06Recovery(ctx, client, target,
+	// A second use of this original recovery flow cannot be evidence of
+	// another successfully completed user-recovery transaction.
+	replay := submitN06Recovery(ctx, client, target,
 		map[string]any{"method": "code", "code": code})
-	if status < 400 {
-		t.Fatal("completed recovery flow was replayable")
+	if replay.HTTP == http.StatusOK && replay.State == "passed_challenge" {
+		t.Fatal("original recovery proof was replayed as another accepted challenge")
 	}
 	// A successful recovery must not leave an old session trusted. This is
 	// independently queried from the real running Kratos service.
@@ -127,24 +131,37 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 	t.Log("actual Kratos recovery courier, invalid-code denial, one-use proof and stale-session refusal passed")
 }
 
-func submitN06Recovery(ctx context.Context, client *http.Client, endpoint string, fields map[string]any) int {
+type n06RecoveryDecision struct {
+	HTTP int
+	State string
+}
+
+func submitN06Recovery(ctx context.Context, client *http.Client, endpoint string, fields map[string]any) n06RecoveryDecision {
+	var refusal n06RecoveryDecision
 	content, err := json.Marshal(fields)
-	if err != nil {
-		return 0
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(content))
-	if err != nil {
-		return 0
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
+	if err != nil { return refusal }
+	req, err := http.NewRequestWithContext(ctx,http.MethodPost,endpoint,bytes.NewReader(content))
+	if err != nil { return refusal }
+	req.Header.Set("Accept","application/json")
+	req.Header.Set("Content-Type","application/json")
 	res, err := client.Do(req)
-	if err != nil {
-		return 0
-	}
+	if err != nil { return refusal }
 	defer res.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 65536))
-	return res.StatusCode
+	status:=n06RecoveryDecision{HTTP:res.StatusCode}
+	// Kratos can return 200 for a form containing an error. Only its
+	// *original server-side flow state* has authority for code redemption.
+	if res.Header.Get("Content-Type")!="application/json" {
+		_,_=io.Copy(io.Discard,io.LimitReader(res.Body,65536))
+		return status
+	}
+	var flow struct{ State string `json:"state"` }
+	if json.NewDecoder(io.LimitReader(res.Body,65536)).Decode(&flow)==nil {
+		switch flow.State {
+		case "choose_method","sent_email","passed_challenge":
+			status.State=flow.State
+		}
+	}
+	return status
 }
 
 var n06CodePattern = regexp.MustCompile(`(?m)^BAOBAB_N06_RECOVERY_CODE=([0-9]{6,8})\r?$`)
