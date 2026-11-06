@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/baobab-platform/baobab-iam/internal/assurance"
 	"github.com/baobab-platform/baobab-iam/internal/federation"
 	"github.com/baobab-platform/baobab-iam/internal/nativebff"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
@@ -100,6 +101,46 @@ func loadRoots(file string) (*x509.CertPool, error) {
 	return roots, nil
 }
 
+// unavailableN06Risk intentionally provides no invented low-risk decision. A
+// privileged, purchasing or high-risk operation needs a genuinely independent
+// current risk/CP/native witness before any broader scope policy is approved.
+type unavailableN06Risk struct{}
+
+func (unavailableN06Risk) CurrentRisk(context.Context, assurance.CurrentSessionKey, assurance.Operation) (assurance.Risk, error) {
+	return assurance.Risk{}, errors.New("independent current risk witness unavailable")
+}
+
+// n06NativeScopePolicy is the reviewed authentication-only profile. A
+// browser-supplied scope, unknown extra scope or native buyer commitment must
+// never be mapped into an implicit lower-assurance operation.
+func n06NativeScopePolicy(scope string) (map[string]assurance.Operation, error) {
+	if scope != "openid trade:buy" {
+		return nil, errors.New("unreviewed native scope/assurance policy")
+	}
+	return map[string]assurance.Operation{"trade:buy": assurance.OrdinaryBuyer}, nil
+}
+
+// n06ExecutableSecurity builds the REQUIRED current-session gate for the
+// production command. This is not an optional unit-test-only handler option.
+// Kratos AAL1/AAL2 are read live; no synthetic WebAuthn A3/A4 or risk data.
+func n06ExecutableSecurity(scope, kratos string, roots *x509.CertPool) (map[string]assurance.Operation, nativebff.N06Gate, error) {
+	operations, err := n06NativeScopePolicy(scope)
+	if err != nil {
+		return nil, nil, err
+	}
+	provider, err := nativebff.NewKratosN06Provider(kratos, roots, time.Now, false, nil)
+	if err != nil {
+		return nil, nil, errors.New("native current Kratos security proof unavailable")
+	}
+	gate := &nativebff.N06SecurityGate{
+		Provider: provider,
+		Policy:   assurance.DefaultDevelopmentPolicy(),
+		Risk:     unavailableN06Risk{},
+		Now:      time.Now,
+	}
+	return operations, gate, nil
+}
+
 func run(ctx context.Context, listen string, d document, caFile string) error {
 	if ctx == nil || ctx.Err() != nil || d.PublicOrigin == "" || d.Issuer == "" ||
 		d.ClientID == "" || d.KratosAdmin == "" || d.HydraAdmin == "" || d.CPCallerTokenFile == "" || d.TLSCertificateFile == "" ||
@@ -114,6 +155,11 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		return errors.New("unregistered human resource audience")
 	}
 	roots, err := loadRoots(caFile)
+	if err != nil {
+		return err
+	}
+	// Mandatory reviewed N06 gate, independent of the N02 PostgreSQL admission limiter.
+	scopePolicy, n06Gate, err := n06ExecutableSecurity(d.Scope, d.KratosPublic, roots)
 	if err != nil {
 		return err
 	}
@@ -225,6 +271,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
 		Store: browserStore, Limiter: limiter,
+		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate,
 	})
 	if err != nil {
 		return errors.New("invalid native BFF configuration")

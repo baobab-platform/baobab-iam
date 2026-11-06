@@ -2,6 +2,24 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source tests/ory-foundation/hydra-audience/compose.sh
+# Only local ephemeral recovery emails. Keep codes out of output/artifacts.
+export BAOBAB_TEST_MAIL_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+python3 tests/ory-foundation/smtp_sink.py >/dev/null 2>&1 &
+MAIL_SINK_PID=$!
+cleanup_mail_sink() {
+  kill "$MAIL_SINK_PID" 2>/dev/null || true
+  wait "$MAIL_SINK_PID" 2>/dev/null || true
+  unset BAOBAB_TEST_MAIL_KEY
+}
+trap cleanup_mail_sink EXIT
+for attempt in $(seq 1 30); do
+  if curl -fsS --max-time 1 -o /dev/null http://127.0.0.1:4457/health; then break; fi
+  if ! kill -0 "$MAIL_SINK_PID" 2>/dev/null; then
+    echo "Local disposable SMTP sink terminated" >&2; exit 1
+  fi
+  sleep 1
+done
+curl -fsS --max-time 2 -o /dev/null http://127.0.0.1:4457/health
 mkdir -p ory-foundation-evidence
 # Require lock/Compose agreement before contacting registries or starting services.
 python3 - <<'PY'
@@ -44,7 +62,7 @@ export ORY_SMOKE=1 ORY_FOUNDATION=1 ORY_WORKLOAD=1
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
 # Test output contains only statuses, never fixture credential or response bodies.
-go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
+go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated|TestLiveN06KratosCurrentSessionAndRevocation|TestLiveN06KratosRecoveryCourier|TestLiveN06KratosWebAuthnRegistrationChallenge|TestLiveN06HydraIssuerSigningKeyOverlap)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
 # N02 native-browser Hydra client registration is ADDITIONAL to all
 # provider live tests. No skipped/unexecuted case can satisfy its gate.
 go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistration$' -count=1 | tee ory-foundation-evidence/nativebff-tests.jsonl
@@ -67,6 +85,10 @@ for name in ('TestSmoke_ProviderInfoAgainstLocalStack', 'TestLiveFoundation',
              'TestLiveFoundation/real-session-revocation',
              'TestLiveFoundation/disable-native-revokes-active-session',
              'TestLiveWorkloadClientCredentials', 'TestLiveWorkloadFederated',
+             'TestLiveN06KratosCurrentSessionAndRevocation',
+             'TestLiveN06KratosRecoveryCourier',
+             'TestLiveN06KratosWebAuthnRegistrationChallenge',
+             'TestLiveN06HydraIssuerSigningKeyOverlap',
              'TestLiveWorkloadClientCredentials/signed-token-and-shared-scopes',
              'TestLiveWorkloadClientCredentials/invalid-credential-and-scope',
              'TestLiveWorkloadClientCredentials/rotation-invalidates-old-credential',

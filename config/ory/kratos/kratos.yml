@@ -63,6 +63,17 @@ selfservice:
       enabled: true
     link:
       enabled: true
+    # Development-only RP. Real A3 requires a complete browser ceremony,
+    # Kratos provider credential readback and independent RP-bound witness.
+    # Never use this loopback RP ID/origin in protected environments.
+    webauthn:
+      enabled: true
+      config:
+        passwordless: false
+        rp:
+          display_name: Baobab IAM Disposable Development
+          id: 127.0.0.1
+          origin: http://127.0.0.1:4455
 
   flows:
     error:
@@ -77,6 +88,12 @@ selfservice:
       enabled: true
       ui_url: http://127.0.0.1:4455/recovery
       use: code
+      # Required after original Kratos code verification. A successful
+      # recovery must not leave any pre-recovery browser/API session usable.
+      # Supported explicitly by pinned v26.2.0 selfServiceAfterRecoveryHooks.
+      after:
+        hooks:
+          - hook: revoke_active_sessions
 
     verification:
       enabled: true
@@ -131,11 +148,21 @@ identity:
       url: file:///etc/config/kratos/identity.schema.json
 
 # Courier is required for recovery/verification email. This SMTP URI is a
-# local stub (no real mailer in the foundation overlay). Admin API identity
-# operations used by internal/provider/ory do not depend on successful send.
+# host-owned *disposable SMTP sink* started by tests/ory-foundation/run.sh.
+# Never use this route outside the isolated development foundation.
 courier:
+  # Pinned v26.2.0 RecoveryCodeValidModel exposes .RecoveryCode. This
+  # development-only plaintext template gives the sealed courier proof one
+  # unambiguous code, without parsing incidental digits in HTML content.
+  # Shared/protected mail templates and delivery are separate approvals.
+  templates:
+    recovery_code:
+      valid:
+        email:
+          body:
+            plaintext: file:///etc/config/kratos/n06_recovery.plaintext.gotmpl
   smtp:
-    connection_uri: smtp://127.0.0.1:1025/?disable_starttls=true
+    connection_uri: smtp://host.docker.internal:1025/?disable_starttls=true
     from_address: kratos-local@baobab.invalid
     from_name: Baobab IAM Local
 

@@ -1,0 +1,1 @@
+// Compatibility entrypoint; actual browser code resides with locked Playwright.\nawait import('../integration/passkey/n06-kratos-browser.mjs');\n
