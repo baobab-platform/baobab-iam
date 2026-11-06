@@ -24,20 +24,20 @@ var brokerUserID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 var referenceName = regexp.MustCompile(`^ref_[a-z0-9_-]{8,128}$`)
 
 type FederationContainmentTarget struct {
-	TrustID string
-	UpstreamIssuer string
+	TrustID         string
+	UpstreamIssuer  string
 	UpstreamSubject string
-	BrokerUserID string
+	BrokerUserID    string
 	FederationAlias string
 	ChangeReference string
 }
 type FederationContainmentEvidence struct {
-	Approved bool
-	DistinctReviewer bool
-	CurrentTrust bool
+	Approved           bool
+	DistinctReviewer   bool
+	CurrentTrust       bool
 	ExactBoundIdentity bool
-	ObservedAt time.Time
-	OriginalReference string
+	ObservedAt         time.Time
+	OriginalReference  string
 }
 type FederationContainmentReviewer interface {
 	CurrentFederatedContainment(context.Context, FederationContainmentTarget) (FederationContainmentEvidence, error)
@@ -46,14 +46,15 @@ type FederationAdminTokenSource interface {
 	CurrentAdminBearer(context.Context) (string, error)
 }
 type FederationLocalContainment struct {
-	AdminOrigin string
-	BrokerRealm string
-	Client *http.Client
-	Tokens FederationAdminTokenSource
-	Reviewer FederationContainmentReviewer
-	Now func() time.Time
+	AdminOrigin       string
+	BrokerRealm       string
+	Client            *http.Client
+	Tokens            FederationAdminTokenSource
+	Reviewer          FederationContainmentReviewer
+	Now               func() time.Time
 	AllowTestLoopback bool
 }
+
 func (c *FederationLocalContainment) trusted() bool {
 	if c == nil || c.Client == nil || c.Tokens == nil || c.Reviewer == nil ||
 		c.Now == nil || !realmName.MatchString(c.BrokerRealm) ||
@@ -74,45 +75,59 @@ func (c *FederationLocalContainment) call(ctx context.Context, bearer, method, e
 	// The server must not be allowed to redirect a privileged admin token.
 	client := *c.Client
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	if client.Timeout == 0 || client.Timeout > 10*time.Second { client.Timeout = 10*time.Second }
+	if client.Timeout == 0 || client.Timeout > 10*time.Second {
+		client.Timeout = 10 * time.Second
+	}
 	req, err := http.NewRequestWithContext(ctx, method,
 		strings.TrimRight(c.AdminOrigin, "/")+endpoint, nil)
-	if err != nil { return nil, 0, errFederatedContainment }
+	if err != nil {
+		return nil, 0, errFederatedContainment
+	}
 	req.Header.Set("Authorization", "Bearer "+bearer)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Cache-Control", "no-store")
 	res, err := client.Do(req)
-	if err != nil { return nil, 0, errFederatedContainment }
+	if err != nil {
+		return nil, 0, errFederatedContainment
+	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
 		return nil, res.StatusCode, errFederatedContainment
 	}
-	if res.StatusCode == http.StatusNoContent { return nil, res.StatusCode, nil }
+	if res.StatusCode == http.StatusNoContent {
+		return nil, res.StatusCode, nil
+	}
 	media, _, err := mime.ParseMediaType(res.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
 		return nil, 0, errFederatedContainment
 	}
 	body, err := io.ReadAll(io.LimitReader(res.Body, 65537))
-	if err != nil || len(body) > 65536 { return nil, 0, errFederatedContainment }
+	if err != nil || len(body) > 65536 {
+		return nil, 0, errFederatedContainment
+	}
 	return body, res.StatusCode, nil
 }
-func (c *FederationLocalContainment) sessions(ctx context.Context, bearer, user string) (map[string]bool,error) {
+func (c *FederationLocalContainment) sessions(ctx context.Context, bearer, user string) (map[string]bool, error) {
 	raw, status, err := c.call(ctx, bearer, http.MethodGet,
 		"/admin/realms/"+url.PathEscape(c.BrokerRealm)+"/users/"+url.PathEscape(user)+"/sessions")
-	if err != nil || status != http.StatusOK { return nil, errFederatedContainment }
+	if err != nil || status != http.StatusOK {
+		return nil, errFederatedContainment
+	}
 	var data []struct {
-		ID string `json:"id"`
+		ID     string `json:"id"`
 		UserID string `json:"userId"`
 	}
-	if json.Unmarshal(raw, &data) != nil || len(data) > 100 { return nil, errFederatedContainment }
-	seen := make(map[string]bool,len(data))
+	if json.Unmarshal(raw, &data) != nil || len(data) > 100 {
+		return nil, errFederatedContainment
+	}
+	seen := make(map[string]bool, len(data))
 	for _, session := range data {
 		if !brokerUserID.MatchString(session.ID) || session.UserID != user || seen[session.ID] {
 			return nil, errFederatedContainment
 		}
-		seen[session.ID]=true
+		seen[session.ID] = true
 	}
-	return seen,nil
+	return seen, nil
 }
 
 // RevokeBrokerSessions validates the actual live broker-local federated
@@ -151,13 +166,15 @@ func (c *FederationLocalContainment) RevokeBrokerSessions(
 		strings.ContainsAny(token, " \r\n\t") {
 		return errFederatedContainment
 	}
-	prefix := "/admin/realms/"+url.PathEscape(c.BrokerRealm)+"/users/"+
+	prefix := "/admin/realms/" + url.PathEscape(c.BrokerRealm) + "/users/" +
 		url.PathEscape(target.BrokerUserID)
 	original, status, err := c.call(ctx, token, http.MethodGet, prefix+"/federated-identity")
-	if err != nil || status != http.StatusOK { return errFederatedContainment }
+	if err != nil || status != http.StatusOK {
+		return errFederatedContainment
+	}
 	var federated []struct {
 		IdentityProvider string `json:"identityProvider"`
-		UserID string `json:"userId"`
+		UserID           string `json:"userId"`
 	}
 	if json.Unmarshal(original, &federated) != nil || len(federated) > 20 {
 		return errFederatedContainment
@@ -170,12 +187,20 @@ func (c *FederationLocalContainment) RevokeBrokerSessions(
 			matched++
 		}
 	}
-	if matched != 1 { return errFederatedContainment }
+	if matched != 1 {
+		return errFederatedContainment
+	}
 	before, err := c.sessions(ctx, token, target.BrokerUserID)
-	if err != nil || len(before) == 0 { return errFederatedContainment }
+	if err != nil || len(before) == 0 {
+		return errFederatedContainment
+	}
 	_, status, err = c.call(ctx, token, http.MethodPost, prefix+"/logout")
-	if err != nil || status != http.StatusNoContent { return errFederatedContainment }
+	if err != nil || status != http.StatusNoContent {
+		return errFederatedContainment
+	}
 	after, err := c.sessions(ctx, token, target.BrokerUserID)
-	if err != nil || len(after) != 0 { return errFederatedContainment }
+	if err != nil || len(after) != 0 {
+		return errFederatedContainment
+	}
 	return nil
 }

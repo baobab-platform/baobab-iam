@@ -24,26 +24,26 @@ var rebindUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 var rebindRef = regexp.MustCompile(`^ref_[a-z0-9_-]{8,128}$`)
 
 type NativeCredentialRebindEvidence struct {
-	OriginalRecoveryReference string
-	RequestedByReference string
-	IndependentReviewerReference string
+	OriginalRecoveryReference        string
+	RequestedByReference             string
+	IndependentReviewerReference     string
 	CurrentSecurityDecisionReference string
-	Issuer string
-	Subject string
-	ObservedAt time.Time
-	HoldUntil time.Time
-	Approved bool
-	DistinctReviewer bool
-	CurrentSecurityHold bool
+	Issuer                           string
+	Subject                          string
+	ObservedAt                       time.Time
+	HoldUntil                        time.Time
+	Approved                         bool
+	DistinctReviewer                 bool
+	CurrentSecurityHold              bool
 }
 type NativeCredentialRebindAuthority interface {
-	CurrentWebAuthnRebind(context.Context, provider.ExternalSubject) (NativeCredentialRebindEvidence,error)
+	CurrentWebAuthnRebind(context.Context, provider.ExternalSubject) (NativeCredentialRebindEvidence, error)
 }
 type NativeCredentialRebindResult struct {
-	IdentityDisabled bool
-	AllSessionsRevoked bool
-	OldWebAuthnRemoved bool
-	RecoveryHoldObserved bool
+	IdentityDisabled          bool
+	AllSessionsRevoked        bool
+	OldWebAuthnRemoved        bool
+	RecoveryHoldObserved      bool
 	NativeReenrolmentRequired bool
 }
 
@@ -53,125 +53,138 @@ type NativeCredentialRebindResult struct {
 // credential, approver bool, or browser-selected trust scope.
 func (a *Adapter) BeginNativeWebAuthnRebind(ctx context.Context, subject provider.ExternalSubject,
 	authority NativeCredentialRebindAuthority, now func() time.Time,
-) (NativeCredentialRebindResult,error) {
-	none:=NativeCredentialRebindResult{}
-	if a==nil || ctx==nil || ctx.Err()!=nil || authority==nil || now==nil ||
-		a.requireIssuer(subject)!=nil || !rebindUUID.MatchString(subject.Subject) {
-		return none,errCredentialRebindDenied
+) (NativeCredentialRebindResult, error) {
+	none := NativeCredentialRebindResult{}
+	if a == nil || ctx == nil || ctx.Err() != nil || authority == nil || now == nil ||
+		a.requireIssuer(subject) != nil || !rebindUUID.MatchString(subject.Subject) {
+		return none, errCredentialRebindDenied
 	}
-	witness,err:=authority.CurrentWebAuthnRebind(ctx,subject)
-	current:=now().UTC()
-	if err!=nil || !witness.Approved || !witness.DistinctReviewer ||
+	witness, err := authority.CurrentWebAuthnRebind(ctx, subject)
+	current := now().UTC()
+	if err != nil || !witness.Approved || !witness.DistinctReviewer ||
 		!witness.CurrentSecurityHold ||
-		witness.Issuer!=subject.Issuer || witness.Subject!=subject.Subject ||
+		witness.Issuer != subject.Issuer || witness.Subject != subject.Subject ||
 		!rebindRef.MatchString(witness.OriginalRecoveryReference) ||
 		!rebindRef.MatchString(witness.RequestedByReference) ||
 		!rebindRef.MatchString(witness.IndependentReviewerReference) ||
 		!rebindRef.MatchString(witness.CurrentSecurityDecisionReference) ||
-		witness.RequestedByReference==witness.IndependentReviewerReference ||
+		witness.RequestedByReference == witness.IndependentReviewerReference ||
 		witness.ObservedAt.IsZero() || witness.ObservedAt.After(current) ||
-		current.Sub(witness.ObservedAt)>2*time.Minute ||
+		current.Sub(witness.ObservedAt) > 2*time.Minute ||
 		witness.HoldUntil.Before(current.Add(24*time.Hour)) {
-		return none,errCredentialRebindDenied
+		return none, errCredentialRebindDenied
 	}
-	before,err:=a.currentRebindIdentity(ctx,subject.Subject)
-	if err!=nil || before.State!="active" || !before.hasWebAuthn() ||
-		before.hasPasskey() || before.ID!=subject.Subject {
+	before, err := a.currentRebindIdentity(ctx, subject.Subject)
+	if err != nil || before.State != "active" || !before.hasWebAuthn() ||
+		before.hasPasskey() || before.ID != subject.Subject {
 		// Kratos passkey credentials are not administratively deletable
 		// through this API. Do NOT silently claim that WebAuthn deletion
 		// removes a separate passkey or restores A3.
-		return none,errCredentialRebindDenied
+		return none, errCredentialRebindDenied
 	}
-	if a.kratos.setIdentityActive(ctx,subject.Subject,false)!=nil {
-		return none,errCredentialRebindDenied
+	if a.kratos.setIdentityActive(ctx, subject.Subject, false) != nil {
+		return none, errCredentialRebindDenied
 	}
 	// A failure from here onward is an UNKNOWN security outcome, not
 	// permission to enable the identity again. The security hold persists.
-	if a.kratos.revokeSessions(ctx,subject.Subject)!=nil {
-		return none,errCredentialRebindDenied
+	if a.kratos.revokeSessions(ctx, subject.Subject) != nil {
+		return none, errCredentialRebindDenied
 	}
-	if !a.noCurrentNativeSessions(ctx,subject.Subject) {
-		return none,errCredentialRebindDenied
+	if !a.noCurrentNativeSessions(ctx, subject.Subject) {
+		return none, errCredentialRebindDenied
 	}
-	endpoint:="/admin/identities/"+url.PathEscape(subject.Subject)+"/credentials/webauthn"
-	_,status,err:=a.rebindHTTP(ctx,http.MethodDelete,endpoint)
-	if err!=nil || status!=http.StatusNoContent {
-		return none,errCredentialRebindDenied
+	endpoint := "/admin/identities/" + url.PathEscape(subject.Subject) + "/credentials/webauthn"
+	_, status, err := a.rebindHTTP(ctx, http.MethodDelete, endpoint)
+	if err != nil || status != http.StatusNoContent {
+		return none, errCredentialRebindDenied
 	}
-	after,err:=a.currentRebindIdentity(ctx,subject.Subject)
-	if err!=nil || after.ID!=subject.Subject ||
-		after.State!="inactive" || after.hasWebAuthn() || after.hasPasskey() ||
-		!a.noCurrentNativeSessions(ctx,subject.Subject) {
-		return none,errCredentialRebindDenied
+	after, err := a.currentRebindIdentity(ctx, subject.Subject)
+	if err != nil || after.ID != subject.Subject ||
+		after.State != "inactive" || after.hasWebAuthn() || after.hasPasskey() ||
+		!a.noCurrentNativeSessions(ctx, subject.Subject) {
+		return none, errCredentialRebindDenied
 	}
 	return NativeCredentialRebindResult{
-		IdentityDisabled:true, AllSessionsRevoked:true,
-		OldWebAuthnRemoved:true,RecoveryHoldObserved:true,
-		NativeReenrolmentRequired:true,
-	},nil
+		IdentityDisabled: true, AllSessionsRevoked: true,
+		OldWebAuthnRemoved: true, RecoveryHoldObserved: true,
+		NativeReenrolmentRequired: true,
+	}, nil
 }
 
-type rebindIdentity struct{
-	ID string `json:"id"`
-	State string `json:"state"`
-	Credentials map[string]struct{
-		Config struct{
+type rebindIdentity struct {
+	ID          string `json:"id"`
+	State       string `json:"state"`
+	Credentials map[string]struct {
+		Config struct {
 			Credentials []json.RawMessage `json:"credentials"`
 		} `json:"config"`
 	} `json:"credentials"`
 }
+
 func (r rebindIdentity) hasWebAuthn() bool {
-	c,ok:=r.Credentials["webauthn"]
-	return ok && len(c.Config.Credentials)>0
+	c, ok := r.Credentials["webauthn"]
+	return ok && len(c.Config.Credentials) > 0
 }
 func (r rebindIdentity) hasPasskey() bool {
-	c,ok:=r.Credentials["passkey"]
-	return ok && len(c.Config.Credentials)>0
+	c, ok := r.Credentials["passkey"]
+	return ok && len(c.Config.Credentials) > 0
 }
-func (a *Adapter) currentRebindIdentity(ctx context.Context, id string) (rebindIdentity,error) {
+func (a *Adapter) currentRebindIdentity(ctx context.Context, id string) (rebindIdentity, error) {
 	var item rebindIdentity
-	raw,status,err:=a.rebindHTTP(ctx,http.MethodGet,
+	raw, status, err := a.rebindHTTP(ctx, http.MethodGet,
 		"/admin/identities/"+url.PathEscape(id)+
-		"?include_credential=webauthn&include_credential=passkey")
-	if err!=nil || status!=http.StatusOK || json.Unmarshal(raw,&item)!=nil {
-		return item,errCredentialRebindDenied
+			"?include_credential=webauthn&include_credential=passkey")
+	if err != nil || status != http.StatusOK || json.Unmarshal(raw, &item) != nil {
+		return item, errCredentialRebindDenied
 	}
-	return item,nil
+	return item, nil
 }
 func (a *Adapter) noCurrentNativeSessions(ctx context.Context, id string) bool {
-	raw,status,err:=a.rebindHTTP(ctx,http.MethodGet,
+	raw, status, err := a.rebindHTTP(ctx, http.MethodGet,
 		"/admin/identities/"+url.PathEscape(id)+"/sessions?active=true")
-	if err!=nil || status!=http.StatusOK {
+	if err != nil || status != http.StatusOK {
 		return false
 	}
 	var sessions []json.RawMessage
-	return json.Unmarshal(raw,&sessions)==nil && len(sessions)==0
+	return json.Unmarshal(raw, &sessions) == nil && len(sessions) == 0
 }
-func (a *Adapter) rebindHTTP(ctx context.Context,method,route string)([]byte,int,error) {
+func (a *Adapter) rebindHTTP(ctx context.Context, method, route string) ([]byte, int, error) {
 	// The origin comes exclusively from reviewed adapter config; scope and
 	// ID are encoded, never constructed from browser-controlled URLs.
-	req,err:=http.NewRequestWithContext(ctx,method,
-		strings.TrimRight(a.cfg.KratosAdminURL,"/")+route,nil)
-	if err!=nil {return nil,0,errCredentialRebindDenied}
-	req.Header.Set("Accept","application/json")
-	req.Header.Set("Cache-Control","no-store")
-	client:=*a.http
-	client.CheckRedirect=func(*http.Request,[]*http.Request)error{return http.ErrUseLastResponse}
-	if client.Timeout==0 || client.Timeout>10*time.Second {client.Timeout=10*time.Second}
-	res,err:=client.Do(req)
-	if err!=nil{return nil,0,errCredentialRebindDenied}
+	req, err := http.NewRequestWithContext(ctx, method,
+		strings.TrimRight(a.cfg.KratosAdminURL, "/")+route, nil)
+	if err != nil {
+		return nil, 0, errCredentialRebindDenied
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Cache-Control", "no-store")
+	client := *a.http
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	if client.Timeout == 0 || client.Timeout > 10*time.Second {
+		client.Timeout = 10 * time.Second
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, 0, errCredentialRebindDenied
+	}
 	defer res.Body.Close()
-	if res.StatusCode!=http.StatusOK && res.StatusCode!=http.StatusNoContent {
-		return nil,res.StatusCode,errCredentialRebindDenied
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
+		return nil, res.StatusCode, errCredentialRebindDenied
 	}
 	// Refuse incomplete or paginated active-session reads.
-	if res.Header.Get("Link")!="" {
-		return nil,res.StatusCode,errCredentialRebindDenied
+	if res.Header.Get("Link") != "" {
+		return nil, res.StatusCode, errCredentialRebindDenied
 	}
-	if res.StatusCode==http.StatusNoContent{return nil,res.StatusCode,nil}
-	media,_,err:=mime.ParseMediaType(res.Header.Get("Content-Type"))
-	if err!=nil || media!="application/json" {return nil,0,errCredentialRebindDenied}
-	data,err:=io.ReadAll(io.LimitReader(res.Body,131073))
-	if err!=nil || len(data)>131072 {return nil,0,errCredentialRebindDenied}
-	return data,res.StatusCode,nil
+	if res.StatusCode == http.StatusNoContent {
+		return nil, res.StatusCode, nil
+	}
+	media, _, err := mime.ParseMediaType(res.Header.Get("Content-Type"))
+	if err != nil || media != "application/json" {
+		return nil, 0, errCredentialRebindDenied
+	}
+	data, err := io.ReadAll(io.LimitReader(res.Body, 131073))
+	if err != nil || len(data) > 131072 {
+		return nil, 0, errCredentialRebindDenied
+	}
+	return data, res.StatusCode, nil
 }

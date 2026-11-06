@@ -30,7 +30,7 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	client := &http.Client{Timeout: 10*time.Second}
+	client := &http.Client{Timeout: 10 * time.Second}
 	public := envOr("ORY_KRATOS_PUBLIC_URL", "http://127.0.0.1:4433")
 	admin := envOr("ORY_KRATOS_ADMIN_URL", "http://127.0.0.1:4434")
 	seed := make([]byte, 20)
@@ -66,21 +66,23 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 	})
 	foundationRequest(t, ctx, client, http.MethodGet,
 		public+"/sessions/whoami", nil, created.SessionToken, http.StatusOK, nil)
-	var start struct { ID string `json:"id"` }
+	var start struct {
+		ID string `json:"id"`
+	}
 	foundationRequest(t, ctx, client, http.MethodGet,
 		public+"/self-service/recovery/api", nil, "", http.StatusOK, &start)
 	if start.ID == "" {
 		t.Fatal("Kratos recovery flow not created")
 	}
-	target := public+"/self-service/recovery?flow="+url.QueryEscape(start.ID)
-	status := submitN06Recovery(ctx, client, target, map[string]any{"method":"code", "email":email})
+	target := public + "/self-service/recovery?flow=" + url.QueryEscape(start.ID)
+	status := submitN06Recovery(ctx, client, target, map[string]any{"method": "code", "email": email})
 	if status != http.StatusOK {
 		t.Fatal("Kratos did not accept recovery courier initiation")
 	}
 	// Only the test-run secret allows reading one disposable in-memory
 	// synthetic message through the host-loopback API.
 	code := ""
-	until := time.Now().Add(35*time.Second)
+	until := time.Now().Add(35 * time.Second)
 	for time.Now().Before(until) {
 		s, err := n06RecoveryCode(ctx, client, email, key)
 		if err != nil {
@@ -90,23 +92,23 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 			code = s
 			break
 		}
-		time.Sleep(300*time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 	}
 	if code == "" {
 		t.Fatal("Kratos courier did not deliver a bounded recovery code")
 	}
 	if status = submitN06Recovery(ctx, client, target,
-		map[string]any{"method":"code","code":"00000000"}); status < 400 {
+		map[string]any{"method": "code", "code": "00000000"}); status < 400 {
 		t.Fatal("invalid recovery proof was accepted")
 	}
 	status = submitN06Recovery(ctx, client, target,
-		map[string]any{"method":"code","code":code})
+		map[string]any{"method": "code", "code": code})
 	if status != http.StatusOK {
 		t.Fatal("real Kratos recovery code was not accepted")
 	}
 	// Same flow must never redeem the consumed one-time recovery code twice.
 	status = submitN06Recovery(ctx, client, target,
-		map[string]any{"method":"code","code":code})
+		map[string]any{"method": "code", "code": code})
 	if status < 400 {
 		t.Fatal("completed recovery flow was replayable")
 	}
@@ -119,13 +121,19 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 
 func submitN06Recovery(ctx context.Context, client *http.Client, endpoint string, fields map[string]any) int {
 	content, err := json.Marshal(fields)
-	if err != nil { return 0 }
+	if err != nil {
+		return 0
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(content))
-	if err != nil { return 0 }
+	if err != nil {
+		return 0
+	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 	res, err := client.Do(req)
-	if err != nil { return 0 }
+	if err != nil {
+		return 0
+	}
 	defer res.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 65536))
 	return res.StatusCode
@@ -136,23 +144,35 @@ var n06CodePattern = regexp.MustCompile(`(?i)(?:recovery code|your code|security
 func n06RecoveryCode(ctx context.Context, client *http.Client, email, key string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		"http://127.0.0.1:4457/messages?recipient="+url.QueryEscape(email), nil)
-	if err != nil { return "", err }
+	if err != nil {
+		return "", err
+	}
 	req.Header.Set("X-Baobab-Test-Key", key)
 	res, err := client.Do(req)
-	if err != nil { return "", err }
+	if err != nil {
+		return "", err
+	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "application/json" {
 		return "", errors.New("sealed in-memory courier readback unavailable")
 	}
-	var payload struct { Messages []string `json:"messages"` }
+	var payload struct {
+		Messages []string `json:"messages"`
+	}
 	if err := json.NewDecoder(io.LimitReader(res.Body, 128*1024)).Decode(&payload); err != nil {
 		return "", errors.New("invalid courier message envelope")
 	}
-	if len(payload.Messages) > 4 { return "", errors.New("ambiguous recovery-courier evidence") }
+	if len(payload.Messages) > 4 {
+		return "", errors.New("ambiguous recovery-courier evidence")
+	}
 	for _, text := range payload.Messages {
 		matches := n06CodePattern.FindAllStringSubmatch(text, -1)
-		if len(matches) == 1 { return matches[0][1], nil }
-		if len(matches) > 1 { return "", errors.New("ambiguous recovery code in courier") }
+		if len(matches) == 1 {
+			return matches[0][1], nil
+		}
+		if len(matches) > 1 {
+			return "", errors.New("ambiguous recovery code in courier")
+		}
 	}
 	return "", nil
 }

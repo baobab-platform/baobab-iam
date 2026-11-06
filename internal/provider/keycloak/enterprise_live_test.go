@@ -252,84 +252,108 @@ func TestLiveKeycloakEnterpriseBroker(t *testing.T) {
 			// Verify the real broker-local federation session can be ended by
 			// IAM's bounded, reviewed adapter without turning Keycloak into a
 			// native IdP or claiming upstream SAML/OIDC SLO.
-			t.Run("real-broker-session-containment",func(t *testing.T){
+			t.Run("real-broker-session-containment", func(t *testing.T) {
 				username := "enterprise-user"
-				if protocol == "SAML2" { username = "enterprise-saml-user" }
+				if protocol == "SAML2" {
+					username = "enterprise-saml-user"
+				}
 				adminRead := func(path string, dst any) {
 					t.Helper()
-					req, err := http.NewRequest(http.MethodGet,origin+path,nil)
-					if err != nil {t.Fatal("invalid native Keycloak admin path")}
-					req.Header.Set("Authorization","Bearer "+liveAdminToken(t,client,origin))
-					resp,err:=client.Do(req)
-					if err!=nil {t.Fatal("live Keycloak local session readback failed")}
+					req, err := http.NewRequest(http.MethodGet, origin+path, nil)
+					if err != nil {
+						t.Fatal("invalid native Keycloak admin path")
+					}
+					req.Header.Set("Authorization", "Bearer "+liveAdminToken(t, client, origin))
+					resp, err := client.Do(req)
+					if err != nil {
+						t.Fatal("live Keycloak local session readback failed")
+					}
 					defer resp.Body.Close()
-					if resp.StatusCode!=http.StatusOK ||
-						json.NewDecoder(io.LimitReader(resp.Body,65536)).Decode(dst)!=nil {
+					if resp.StatusCode != http.StatusOK ||
+						json.NewDecoder(io.LimitReader(resp.Body, 65536)).Decode(dst) != nil {
 						t.Fatal("Keycloak broker current identity/session not readable")
 					}
 				}
-				var users []struct{ID string `json:"id"`;Username string `json:"username"`}
-				adminRead("/admin/realms/mp8-broker/users?username="+url.QueryEscape(username)+"&exact=true",&users)
-				if len(users)!=1 || users[0].ID=="" || users[0].Username!=username {
+				var users []struct {
+					ID       string `json:"id"`
+					Username string `json:"username"`
+				}
+				adminRead("/admin/realms/mp8-broker/users?username="+url.QueryEscape(username)+"&exact=true", &users)
+				if len(users) != 1 || users[0].ID == "" || users[0].Username != username {
 					t.Fatal("broker-local federated user not unique")
 				}
-				var links []struct{IdentityProvider string `json:"identityProvider"`;UserID string `json:"userId"`}
-				adminRead("/admin/realms/mp8-broker/users/"+url.PathEscape(users[0].ID)+"/federated-identity",&links)
+				var links []struct {
+					IdentityProvider string `json:"identityProvider"`
+					UserID           string `json:"userId"`
+				}
+				adminRead("/admin/realms/mp8-broker/users/"+url.PathEscape(users[0].ID)+"/federated-identity", &links)
 				var subject string
-				for _,link:=range links {
-					if link.IdentityProvider==alias {
-						if subject!="" {t.Fatal("ambiguous broker enterprise identity links")}
-						subject=link.UserID
+				for _, link := range links {
+					if link.IdentityProvider == alias {
+						if subject != "" {
+							t.Fatal("ambiguous broker enterprise identity links")
+						}
+						subject = link.UserID
 					}
 				}
-				if subject=="" {t.Fatal("federation link absent before broker session containment")}
-				target:=keycloak.FederationContainmentTarget{
-					TrustID:uuid,UpstreamIssuer:upstream,UpstreamSubject:subject,
-					BrokerUserID:users[0].ID,FederationAlias:alias,
-					ChangeReference:"ref_disposableincident",
+				if subject == "" {
+					t.Fatal("federation link absent before broker session containment")
 				}
-				operation:=&keycloak.FederationLocalContainment{
-					AdminOrigin:origin,BrokerRealm:"mp8-broker",Client:client,
-					Reviewer:n06LiveBrokerApproval{trustID:uuid,issuer:upstream,alias:alias},
-					Tokens:n06LiveKeycloakAdmin{client:client,origin:origin,t:t},
-					Now:time.Now,
+				target := keycloak.FederationContainmentTarget{
+					TrustID: uuid, UpstreamIssuer: upstream, UpstreamSubject: subject,
+					BrokerUserID: users[0].ID, FederationAlias: alias,
+					ChangeReference: "ref_disposableincident",
 				}
-				if err:=operation.RevokeBrokerSessions(context.Background(),target);err!=nil {
-					t.Fatal("live Keycloak local broker-session revocation/readback failed",err)
+				operation := &keycloak.FederationLocalContainment{
+					AdminOrigin: origin, BrokerRealm: "mp8-broker", Client: client,
+					Reviewer: n06LiveBrokerApproval{trustID: uuid, issuer: upstream, alias: alias},
+					Tokens:   n06LiveKeycloakAdmin{client: client, origin: origin, t: t},
+					Now:      time.Now,
 				}
-				var remaining []struct{ID string `json:"id"`}
-				adminRead("/admin/realms/mp8-broker/users/"+url.PathEscape(users[0].ID)+"/sessions",&remaining)
-				if len(remaining)!=0 {t.Fatal("revoked enterprise broker sessions survived")}
+				if err := operation.RevokeBrokerSessions(context.Background(), target); err != nil {
+					t.Fatal("live Keycloak local broker-session revocation/readback failed", err)
+				}
+				var remaining []struct {
+					ID string `json:"id"`
+				}
+				adminRead("/admin/realms/mp8-broker/users/"+url.PathEscape(users[0].ID)+"/sessions", &remaining)
+				if len(remaining) != 0 {
+					t.Fatal("revoked enterprise broker sessions survived")
+				}
 				t.Log("real Keycloak OIDC/SAML broker-local sessions revoked and independently denied; upstream SLO and CP auth not claimed")
 			})
 		})
 	}
 }
+
 // A disposable current-trust witness for the REAL Keycloak broker-state
 // test below. It does not represent an independent CP reviewer.
 type n06LiveBrokerApproval struct {
 	trustID string
-	issuer string
-	alias string
+	issuer  string
+	alias   string
 }
+
 func (a n06LiveBrokerApproval) CurrentFederatedContainment(_ context.Context, t keycloak.FederationContainmentTarget) (keycloak.FederationContainmentEvidence, error) {
 	if t.TrustID != a.trustID || t.UpstreamIssuer != a.issuer ||
 		t.FederationAlias != a.alias {
 		return keycloak.FederationContainmentEvidence{}, fmt.Errorf("fixture approval denied")
 	}
 	return keycloak.FederationContainmentEvidence{
-		Approved:true,DistinctReviewer:true,CurrentTrust:true,
-		ExactBoundIdentity:true,ObservedAt:time.Now().UTC(),
-		OriginalReference:"ref_disposablereviewer",
-	},nil
+		Approved: true, DistinctReviewer: true, CurrentTrust: true,
+		ExactBoundIdentity: true, ObservedAt: time.Now().UTC(),
+		OriginalReference: "ref_disposablereviewer",
+	}, nil
 }
+
 type n06LiveKeycloakAdmin struct {
 	client *http.Client
 	origin string
-	t *testing.T
+	t      *testing.T
 }
-func (a n06LiveKeycloakAdmin) CurrentAdminBearer(context.Context) (string,error) {
-	return liveAdminToken(a.t,a.client,a.origin), nil
+
+func (a n06LiveKeycloakAdmin) CurrentAdminBearer(context.Context) (string, error) {
+	return liveAdminToken(a.t, a.client, a.origin), nil
 }
 
 func liveDigest(value string) string {

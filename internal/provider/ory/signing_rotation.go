@@ -22,9 +22,9 @@ var approvedKID = regexp.MustCompile(`^[A-Za-z0-9_-]{8,100}$`)
 var approvedChange = regexp.MustCompile(`^ref_[a-z0-9_-]{8,128}$`)
 
 type HydraSigningRotationPlan struct {
-	SetID string
-	OldKID string
-	NewKID string
+	SetID                   string
+	OldKID                  string
+	NewKID                  string
 	ReviewedChangeReference string
 }
 
@@ -36,10 +36,10 @@ type HydraSigningRotationAuthority interface {
 	ApproveSigningKeyOperation(context.Context, HydraSigningRotationPlan, string) error
 }
 type HydraSigningRotationObservation struct {
-	OldKID string
-	NewKID string
+	OldKID            string
+	NewKID            string
 	OldStillPublished bool
-	NewPublished bool
+	NewPublished      bool
 	// The authoritative issuer JWKS is only applicable to actual signing
 	// sets; a disposable custom set proves only native JWK-admin mechanics.
 	IssuerJWKSObserved bool
@@ -71,7 +71,9 @@ func secureKeyOrigin(raw string) bool {
 		u.RawQuery != "" || u.Path != "" || u.Host == "" {
 		return false
 	}
-	if u.Scheme == "https" { return true }
+	if u.Scheme == "https" {
+		return true
+	}
 	return os.Getenv("ORY_FOUNDATION") == "1" && u.Scheme == "http" &&
 		u.Hostname() == "127.0.0.1"
 }
@@ -80,19 +82,29 @@ func (a *Adapter) keyHTTP(ctx context.Context, method, endpoint string, body any
 	if body != nil {
 		var err error
 		encoded, err = json.Marshal(body)
-		if err != nil { return nil, 0, errJWKSUnverified }
+		if err != nil {
+			return nil, 0, errJWKSUnverified
+		}
 	}
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(encoded))
-	if err != nil { return nil, 0, errJWKSUnverified }
+	if err != nil {
+		return nil, 0, errJWKSUnverified
+	}
 	req.Header.Set("Accept", "application/json")
-	if body != nil { req.Header.Set("Content-Type", "application/json") }
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	client := *a.http
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	res, err := client.Do(req)
-	if err != nil { return nil, 0, errJWKSUnverified }
+	if err != nil {
+		return nil, 0, errJWKSUnverified
+	}
 	defer res.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 128*1024+1))
-	if err != nil || len(raw) > 128*1024 { return nil, 0, errJWKSUnverified }
+	if err != nil || len(raw) > 128*1024 {
+		return nil, 0, errJWKSUnverified
+	}
 	if res.StatusCode != 200 && res.StatusCode != 201 && res.StatusCode != 204 {
 		return nil, res.StatusCode, errJWKSUnverified
 	}
@@ -107,14 +119,17 @@ func (a *Adapter) keyHTTP(ctx context.Context, method, endpoint string, body any
 
 type jwksReadback struct {
 	Keys []struct {
-		KID string `json:"kid"`
+		KID       string `json:"kid"`
 		Algorithm string `json:"alg"`
-		Use string `json:"use"`
+		Use       string `json:"use"`
 	} `json:"keys"`
 }
-func (a *Adapter) inspectKeySet(ctx context.Context, endpoint string) (map[string]bool,error) {
+
+func (a *Adapter) inspectKeySet(ctx context.Context, endpoint string) (map[string]bool, error) {
 	raw, status, err := a.keyHTTP(ctx, "GET", endpoint, nil)
-	if err != nil || status != http.StatusOK { return nil, errJWKSUnverified }
+	if err != nil || status != http.StatusOK {
+		return nil, errJWKSUnverified
+	}
 	var response jwksReadback
 	if json.Unmarshal(raw, &response) != nil || len(response.Keys) > 50 {
 		return nil, errJWKSUnverified
@@ -166,7 +181,7 @@ func (a *Adapter) AddHydraSigningKey(ctx context.Context,
 		return none, errJWKSUnverified
 	}
 	_, status, err := a.keyHTTP(ctx, http.MethodPost, a.keySetURL(plan.SetID),
-		map[string]string{"alg":"RS256","use":"sig","kid":plan.NewKID})
+		map[string]string{"alg": "RS256", "use": "sig", "kid": plan.NewKID})
 	if err != nil || (status != 200 && status != 201) {
 		return none, errJWKSUnverified
 	}
@@ -175,8 +190,8 @@ func (a *Adapter) AddHydraSigningKey(ctx context.Context,
 		return none, errJWKSUnverified
 	}
 	out := HydraSigningRotationObservation{
-		OldKID:plan.OldKID,NewKID:plan.NewKID,
-		OldStillPublished:true,NewPublished:true,
+		OldKID: plan.OldKID, NewKID: plan.NewKID,
+		OldStillPublished: true, NewPublished: true,
 	}
 	if isSigningSet(plan.SetID) {
 		public, err := a.inspectKeySet(ctx, a.issuerJWKSURL())
@@ -208,7 +223,9 @@ func (a *Adapter) RetireHydraSigningKey(ctx context.Context,
 	}
 	_, status, err := a.keyHTTP(ctx, http.MethodDelete,
 		a.keySetURL(plan.SetID)+"/"+url.PathEscape(plan.OldKID), nil)
-	if err != nil || (status != 200 && status != 204) { return errJWKSUnverified }
+	if err != nil || (status != 200 && status != 204) {
+		return errJWKSUnverified
+	}
 	after, err := a.inspectKeySet(ctx, a.keySetURL(plan.SetID))
 	if err != nil || after[plan.OldKID] || !after[plan.NewKID] {
 		return errJWKSUnverified

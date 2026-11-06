@@ -163,7 +163,7 @@ func TestN06UnreviewedOrUnavailableProofFailsClosed(t *testing.T) {
 }
 func TestN06ConsequentialPolicyFloorsCannotBeDowngraded(t *testing.T) {
 	for _, tc := range []struct {
-		op Operation
+		op  Operation
 		req Requirement
 	}{
 		{CommitBuyer, Requirement{Min: A1, MaxAge: time.Hour, RequireCurrentRisk: true}},
@@ -176,11 +176,11 @@ func TestN06ConsequentialPolicyFloorsCannotBeDowngraded(t *testing.T) {
 		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour}},
 		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Minute, RequireCurrentRisk: true}},
 		{CommitBuyer, Requirement{Min: A2, MaxAge: time.Hour, RequireCurrentRisk: true}},
-		{HighValueApproval, Requirement{Min: A3, MaxAge: time.Hour, RecoveryHold: 24*time.Hour, RequireCurrentRisk: true}},
+		{HighValueApproval, Requirement{Min: A3, MaxAge: time.Hour, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true}},
 		{HighValueApproval, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true}},
-		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Hour, RecoveryHold: 24*time.Hour, RequireCurrentRisk: true}},
+		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Hour, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true}},
 		{ChangeCredential, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true}},
-		{GrantPrivileged, Requirement{Min: A4, MaxAge: time.Hour, RecoveryHold: 24*time.Hour, RequireCurrentRisk: true, RequirePrivilegedWitness: true}},
+		{GrantPrivileged, Requirement{Min: A4, MaxAge: time.Hour, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true, RequirePrivilegedWitness: true}},
 		{BreakGlass, Requirement{Min: A4, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true, RequirePrivilegedWitness: true}},
 	} {
 		policy := DefaultDevelopmentPolicy()
@@ -190,7 +190,7 @@ func TestN06ConsequentialPolicyFloorsCannotBeDowngraded(t *testing.T) {
 		}
 	}
 	policy := DefaultDevelopmentPolicy()
-	policy[CommitBuyer] = Requirement{Min: A3, MaxAge: 5*time.Minute, RequireCurrentRisk: true}
+	policy[CommitBuyer] = Requirement{Min: A3, MaxAge: 5 * time.Minute, RequireCurrentRisk: true}
 	if err := policy.Validate(); err != nil {
 		t.Fatalf("stronger risk-bound buyer commitment must remain valid: %v", err)
 	}

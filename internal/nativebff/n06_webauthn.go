@@ -27,35 +27,35 @@ import (
 var errA3Denied = errors.New("N06 RP-bound WebAuthn proof denied")
 
 type WebAuthnAssertion struct {
-	ChallengeID string
-	CredentialID string
-	ClientDataJSON []byte
+	ChallengeID       string
+	CredentialID      string
+	ClientDataJSON    []byte
 	AuthenticatorData []byte
-	SignatureDER []byte
+	SignatureDER      []byte
 }
 
 // A challenge is minted and durably consumed by a trusted IAM server. The
 // browser may only submit ChallengeID; it NEVER selects RP ID, origin, expiry,
 // principal, session or assurance. Consume MUST be atomic and one-use.
 type WebAuthnChallenge struct {
-	ID string
-	Session assurance.CurrentSessionKey
-	RPID string
-	Origin string
-	Nonce []byte
-	CreatedAt time.Time
-	ExpiresAt time.Time
+	ID                  string
+	Session             assurance.CurrentSessionKey
+	RPID                string
+	Origin              string
+	Nonce               []byte
+	CreatedAt           time.Time
+	ExpiresAt           time.Time
 	DevelopmentLoopback bool
 }
 type WebAuthnChallengeStore interface {
 	Consume(context.Context, string) (WebAuthnChallenge, error)
 }
 type KratosWebAuthnCredential struct {
-	ID string
-	Issuer string
-	Subject string
+	ID           string
+	Issuer       string
+	Subject      string
 	PublicKeyDER []byte
-	SignCount uint32
+	SignCount    uint32
 }
 type KratosCredentialReader interface {
 	// This reads the credential from the trusted current Kratos identity,
@@ -69,10 +69,10 @@ type KratosCredentialReader interface {
 // result after an actual Kratos AAL2+WebAuthn session and independent ES256
 // RP-bound assertion. A4 hardware provenance and CP privileges are NOT inferred.
 type WebAuthnA3Verifier struct {
-	Kratos N06ProviderProof
-	Challenges WebAuthnChallengeStore
+	Kratos      N06ProviderProof
+	Challenges  WebAuthnChallengeStore
 	Credentials KratosCredentialReader
-	Now func() time.Time
+	Now         func() time.Time
 }
 
 func (v *WebAuthnA3Verifier) Verify(
@@ -101,7 +101,9 @@ func (v *WebAuthnA3Verifier) Verify(
 		return none, errA3Denied
 	}
 	challenge, err := v.Challenges.Consume(ctx, a.ChallengeID)
-	if err != nil { return none, errA3Denied }
+	if err != nil {
+		return none, errA3Denied
+	}
 	now := v.Now().UTC()
 	if challenge.ID != a.ChallengeID || challenge.Session != key ||
 		challenge.CreatedAt.IsZero() || challenge.ExpiresAt.IsZero() ||
@@ -150,16 +152,18 @@ func (v *WebAuthnA3Verifier) Verify(
 		return none, errA3Denied
 	}
 	return assurance.Evidence{
-		Issuer:key.Issuer, Subject:key.Subject, SessionID:key.SessionID,
-		ObservedAt:now, AuthenticatedAt:now, AAL:"aal2",
-		Methods:[]string{"webauthn"}, PasskeyUsed:true,
-		UserVerified:true, OriginBound:true, HardwareBound:false,
+		Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
+		ObservedAt: now, AuthenticatedAt: now, AAL: "aal2",
+		Methods: []string{"webauthn"}, PasskeyUsed: true,
+		UserVerified: true, OriginBound: true, HardwareBound: false,
 	}, nil
 }
 
 func hasWebAuthn(methods []string) bool {
 	for _, method := range methods {
-		if method == "webauthn" || method == "passkey" { return true }
+		if method == "webauthn" || method == "passkey" {
+			return true
+		}
 	}
 	return false
 }
@@ -170,24 +174,29 @@ func validRelyingParty(c WebAuthnChallenge) bool {
 		u.Hostname() != c.RPID || strings.ContainsAny(c.RPID, "\r\n/@:") {
 		return false
 	}
-	if u.Scheme == "https" && u.Port() != "0" { return true }
+	if u.Scheme == "https" && u.Port() != "0" {
+		return true
+	}
 	return c.DevelopmentLoopback && c.RPID == "127.0.0.1" &&
 		c.Origin == "http://127.0.0.1:4455"
 }
 
 type webAuthnClientData struct {
-	Type string
-	Challenge []byte
-	Origin string
+	Type        string
+	Challenge   []byte
+	Origin      string
 	CrossOrigin bool
-	TopOrigin string
+	TopOrigin   string
 }
+
 func decodeBoundWebAuthnClientData(raw []byte) (webAuthnClientData, error) {
 	var value webAuthnClientData
 	var shape map[string]json.RawMessage
 	d := json.NewDecoder(strings.NewReader(string(raw)))
 	t, err := d.Token()
-	if err != nil || t != json.Delim('{') { return value, errA3Denied }
+	if err != nil || t != json.Delim('{') {
+		return value, errA3Denied
+	}
 	seen := map[string]bool{}
 	shape = map[string]json.RawMessage{}
 	for d.More() {
@@ -198,18 +207,22 @@ func decodeBoundWebAuthnClientData(raw []byte) (webAuthnClientData, error) {
 		}
 		seen[k] = true
 		switch k {
-		case "type","challenge","origin","crossOrigin","topOrigin":
+		case "type", "challenge", "origin", "crossOrigin", "topOrigin":
 		default:
 			return value, errA3Denied
 		}
 		var v json.RawMessage
-		if d.Decode(&v) != nil { return value, errA3Denied }
+		if d.Decode(&v) != nil {
+			return value, errA3Denied
+		}
 		shape[k] = v
 	}
 	if t, err = d.Token(); err != nil || t != json.Delim('}') {
 		return value, errA3Denied
 	}
-	if _, err = d.Token(); err != io.EOF { return value, errA3Denied }
+	if _, err = d.Token(); err != io.EOF {
+		return value, errA3Denied
+	}
 	var encodedChallenge string
 	if json.Unmarshal(shape["type"], &value.Type) != nil ||
 		json.Unmarshal(shape["challenge"], &encodedChallenge) != nil ||
@@ -218,7 +231,9 @@ func decodeBoundWebAuthnClientData(raw []byte) (webAuthnClientData, error) {
 		return value, errA3Denied
 	}
 	value.Challenge, err = base64.RawURLEncoding.DecodeString(encodedChallenge)
-	if err != nil { return value, errA3Denied }
+	if err != nil {
+		return value, errA3Denied
+	}
 	if rawCross, ok := shape["crossOrigin"]; ok {
 		if (string(rawCross) != "true" && string(rawCross) != "false") ||
 			json.Unmarshal(rawCross, &value.CrossOrigin) != nil {
@@ -226,7 +241,9 @@ func decodeBoundWebAuthnClientData(raw []byte) (webAuthnClientData, error) {
 		}
 	}
 	if rawTop, ok := shape["topOrigin"]; ok {
-		if json.Unmarshal(rawTop, &value.TopOrigin) != nil { return value, errA3Denied }
+		if json.Unmarshal(rawTop, &value.TopOrigin) != nil {
+			return value, errA3Denied
+		}
 	}
 	return value, nil
 }
