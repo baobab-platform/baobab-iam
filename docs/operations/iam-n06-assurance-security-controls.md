@@ -3,8 +3,7 @@
 **Status: draft engineering source, connected evidence HELD.**
 **Authority:** EA v2.3/EA-DEV; ADR-IAM-0015–0018, ADR-IAM-0023,
 ADR-IAM-0024, ADR-IAM-0025, ADR-IAM-0028, ADR-IAM-0029 and ADR-IAM-0033.
-Pull request: `baobab-iam#151`, **stacked on IAM #147**. Neither branch
-is approved or merged. Keycloak remains enterprise federation.
+Pull request: `baobab-iam#151`, **now based on IAM-N04 #149**. Source PRs #145–#148 were merged on 5 November 2026; #149 remains the unmerged, separately reviewed N04 dependency. The N06 branch has a non-force merge parent from the current #149 branch, with N04 blobs preserved unchanged. Neither #149 nor #151 is development-certified or authorised for protected deployment. Keycloak remains enterprise federation.
 The Control Plane (not IAM) owns canonical identity, membership,
 tenant privileges and business authorization.
 
@@ -192,3 +191,12 @@ be deleted before merging once final-head formatting is stable.
 requires final-head mandatory CI, provider owner/security review,
 first-party connected evidence and independent custody. Protected
 staging/production changes require their own approvals. **Do not merge.**
+
+## 6 November 2026 — N06 original-component evidence and execution boundary
+
+- **Current-source boundary:** #151's initial 6 November reconciliation merge commit `03fad56f49eaec3601e71f5890e5f09971b03cbe` makes #149 an actual Git ancestor, so its against-#149 diff is limited to N06 runtime, PostgreSQL, assurance and CI additions. This is source ancestry only, not a proof of running provider security operations.
+- **Previous real Ory archive (historical head):** [Actions run 42098366042](https://github.com/baobab-platform/baobab-iam/actions/runs/42098366042), original artifact `13449745313`, ZIP SHA-256 `5d79a05cc149aa62019b36e0a6b1b9788d240517b3bc6335452359cf8ffdaee4`. Its recorded executed merge `89964c5ed0d4f44a893a7a1878280d1961506daf` has the older #151 head `2cc2ac870b2be277a8ca5e17c5260ad65bc0ea0e` as second parent. The native Hydra client and Ory/N03 tests have genuine PASS events. The mandatory isolated PostgreSQL 17 N06 security/race job and provider-contract job passed on this previous head. They do **not** prove Kratos-native RP-authenticated passkey A3, privileged A4, real account-rebinding courier, cross-provider signing rotation or operational containment.
+- **Exact-head real CP candidate:** `.github/workflows/iam-candidate-int02.yml` now performs immutable-source disposable IAM/CP INT-02 using the current PR head and pinned Infrastructure harness `f8edcf4799534efebf35a70e999367e8ce7daaa2`. Its actual provider receipt must be independently inspected when produced. INT-02 is a **separate** Keycloak federation/CP proof and cannot replace required N06 native Kratos passkeys, recovery, security operations or A3/A4.
+- **Deliberate fail-closed current runtime:** `n06NativeScopePolicy` allows only authentication-level `openid trade:buy`; `unavailableN06Risk` refuses privileged/high-risk action without independent live evidence. Neither an A1/A2 session nor a valid bearer creates CP buyer commitment, spend authority, or a native Trade execution right.
+
+The six connected qualifications listed above remain **HELD** until original exact-head provider/CP/estate/resource evidence, negative tests, independently verified teardown and owner review exist. Do not classify any PASS from source-only Go/Python tests as a live A3/A4 operation.
