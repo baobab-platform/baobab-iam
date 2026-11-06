@@ -81,3 +81,38 @@ jobs:
           path: n08-native.cyclonedx.json
           retention-days: 30
 
+
+  native-provider-pg17-restore:
+    name: Real Kratos/Hydra PG17 restore and retained-denial readback
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Validate disposable recovery scripts
+        run: |
+          bash -n tests/ory-foundation/run.sh tests/operations/n08_ory_live_restore.sh
+          python3 -m py_compile tests/operations/n08_ory_restore_state.py
+          python3 -B -m unittest discover -s tests/unit -p 'test_n08_ory_live_restore.py' -v
+      - name: Install locked fixture YAML parser
+        run: python3 -m pip install PyYAML==6.0.3
+      - name: Run actual provider mechanics before restore
+        env:
+          GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
+        run: bash tests/ory-foundation/run.sh
+      - name: Destroy/recreate BOTH disposable provider databases and verify revocation survives
+        env:
+          ORY_FOUNDATION: "1"
+          ORY_KRATOS_ADMIN_URL: http://127.0.0.1:4434
+          ORY_KRATOS_PUBLIC_URL: http://127.0.0.1:4433
+          ORY_HYDRA_ADMIN_URL: http://127.0.0.1:4445
+          ORY_PUBLIC_ISSUER: http://127.0.0.1:4444
+        run: bash tests/operations/n08_ory_live_restore.sh
+      - name: Tear down all disposable provider volumes
+        if: always()
+        run: docker compose -p ory-foundation-ci -f docker-compose.ory.yml down -v --remove-orphans
