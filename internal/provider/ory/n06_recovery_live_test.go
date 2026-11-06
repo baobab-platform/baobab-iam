@@ -38,7 +38,11 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 		t.Fatal("secure fixture seed unavailable")
 	}
 	email := "recovery-" + hex.EncodeToString(seed) + "@baobab.invalid"
-	password := "Aa!9-" + hex.EncodeToString(seed)
+	passwordSeed := make([]byte, 32)
+	if _, err := rand.Read(passwordSeed); err != nil {
+		t.Fatal("independent credential fixture entropy unavailable")
+	}
+	password := "Aa!9-" + hex.EncodeToString(passwordSeed)
 	var registration struct { ID string `json:"id"` }
 	foundationRequest(t, ctx, client, http.MethodGet, public+"/self-service/registration/api",
 		nil, "", http.StatusOK, &registration)
