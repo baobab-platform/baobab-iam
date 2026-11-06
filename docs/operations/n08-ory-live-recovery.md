@@ -31,3 +31,21 @@ a rotated key's old JWT verification, multi-node DR, or protected
 environment recovery. Do not promote to full N08 or IAM completion on this
 test alone. Independent original receipts and dedicated CP/consumer
 recovery remain required.
+
+## Same-run IAM security authority and recovery-hold restoration
+
+The existing actual Kratos+Hydra database drill now creates a **third
+synthetic IAM security database** in its own disposable PostgreSQL 17
+container, applies the owner N06 migration and writes an append-only security
+event and 24-hour recovery hold. All **three** databases are independently
+snapshotted and original SHA256 checksums verified. After deleting and
+recreating all three databases, the script verifies provider-issued session
+and workload denials; independently reads back the original security event
+and active hold; rejects mutation of immutable event history and an attempted
+shortening of the restored hold. Its EXIT trap drops **only** the security DB
+created by this specific run, verifies absence, and scrubs all private dumps.
+
+This is a real, cohesive three-DB development recovery test, *not* a claim
+that CP granted access is gone or that every Redis/BFF cache and enterprise
+IdP session was successfully reconciled. That last cross-component recovery
+boundary remains HELD until separate original witness and runtime readback.
