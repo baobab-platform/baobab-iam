@@ -169,14 +169,24 @@ func n06RecoveryCode(ctx context.Context, client *http.Client, email, key string
 	if len(payload.Messages) > 4 {
 		return "", errors.New("courier_excess_messages")
 	}
-	for _, text := range payload.Messages {
-		matches := n06CodePattern.FindAllStringSubmatch(text, -1)
-		if len(matches) == 1 {
-			return matches[0][1], nil
+	return n06OneDistinctRecoveryCode(payload.Messages)
+}
+
+// Kratos sends the same one-time code in both plain-text and HTML MIME
+// alternatives. Repetition of the IDENTICAL code is not ambiguity.
+// Two different codes, even across separate messages, must fail closed.
+func n06OneDistinctRecoveryCode(messages []string) (string, error) {
+	unique := make(map[string]struct{})
+	for _, message := range messages {
+		for _, match := range n06CodePattern.FindAllStringSubmatch(message, -1) {
+			unique[match[1]] = struct{}{}
+			if len(unique) > 1 {
+				return "", errors.New("courier_conflicting_distinct_codes")
+			}
 		}
-		if len(matches) > 1 {
-			return "", errors.New("courier_multiple_code_patterns")
-		}
+	}
+	for code := range unique {
+		return code, nil
 	}
 	return "", nil
 }
