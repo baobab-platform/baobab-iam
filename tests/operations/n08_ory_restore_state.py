@@ -34,8 +34,9 @@ opener = urllib.request.build_opener(
 
 
 def request(method: str, uri: str, body=None, *, token="", form=False):
-    assert uri.startswith((KRATOS_PUBLIC + "/", KRATOS_ADMIN + "/",
-                           HYDRA_PUBLIC + "/", HYDRA_ADMIN + "/"))
+    if not uri.startswith((KRATOS_PUBLIC + "/", KRATOS_ADMIN + "/",
+                            HYDRA_PUBLIC + "/", HYDRA_ADMIN + "/")):
+        raise Refused("only reviewed local disposable provider origin allowed")
     payload = None
     headers = {"Accept": "application/json"}
     if body is not None:
@@ -44,7 +45,9 @@ def request(method: str, uri: str, body=None, *, token="", form=False):
             headers["Content-Type"] = "application/x-www-form-urlencoded"
         else:
             payload = json.dumps(body, separators=(",", ":")).encode()
-            headers["Content-Type"] = "application/json"
+            headers["Content-Type"] = (
+                "application/json-patch+json" if method == "PATCH" else "application/json"
+            )
     if token:
         headers["X-Session-Token"] = token
     req = urllib.request.Request(uri, payload, headers, method=method)
@@ -123,7 +126,7 @@ def prepare(path: Path):
     observed["client_secret"] = ""
     ok(request("PUT", HYDRA_ADMIN + "/admin/clients/" + client_id, observed), 200)
     readback = ok(request("GET", HYDRA_ADMIN + "/admin/clients/" + client_id), 200)
-    if readback.get("grant_types") or readback.get("client_id") != client_id:
+    if readback.get("grant_types") != [] or readback.get("client_id") != client_id:
         raise Refused("Hydra grant withdrawal not independently observed")
     ok(request("POST", HYDRA_PUBLIC + "/oauth2/token", form, form=True), 400, 401, 403)
     # Never upload this file or put its contents into CI artifacts.
@@ -139,7 +142,7 @@ def verify(path: Path):
         raise Refused("Kratos restore resurrected disabled identity")
     ok(request("GET", KRATOS_PUBLIC + "/sessions/whoami", token=state["session"]), 401)
     client = ok(request("GET", HYDRA_ADMIN + "/admin/clients/" + state["client_id"]), 200)
-    if client.get("client_id") != state["client_id"] or client.get("grant_types"):
+    if client.get("client_id") != state["client_id"] or client.get("grant_types") != []:
         raise Refused("Hydra restore resurrected workload issuance")
     form = {"grant_type":"client_credentials","client_id":state["client_id"],
             "client_secret":state["client_secret"],"scope":"context:resolve"}
