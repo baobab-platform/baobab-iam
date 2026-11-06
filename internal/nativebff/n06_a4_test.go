@@ -71,7 +71,8 @@ func n06A4Fixture(t *testing.T) (*A4Verifier, A4Request) {
 		DevicePublicKeyDER: public, RequesterReference: "ref_independentrequester",
 		IndependentReviewerReference: "ref_differentreviewer",
 	}
-	digest := sha256.Sum256(a4Transcript(request.Session, request.Operation, f.challenges.item.Nonce))
+	digest := sha256.Sum256(a4Transcript(request.Session, request.Operation, f.challenges.item.Nonce,
+		request.RequesterReference, request.IndependentReviewerReference))
 	request.HardwareSignatureDER, err = ecdsa.SignASN1(rand.Reader, private, digest[:])
 	if err != nil {
 		t.Fatal("synthetic device assertion unavailable")
@@ -105,6 +106,9 @@ func TestN06A4DeniesWithoutIndependentHardwareAndPrivilege(t *testing.T) {
 		"not-user-verified":     func(_ *A4Verifier, r *A4Request) { r.A3.UserVerified = false },
 		"wrong-session":         func(_ *A4Verifier, r *A4Request) { r.Session.Subject = "other-subject" },
 		"wrong-operation":       func(_ *A4Verifier, r *A4Request) { r.Operation = assurance.OrdinaryBuyer },
+		"other-privileged-operation": func(_ *A4Verifier, r *A4Request) { r.Operation = assurance.BreakGlass },
+		"substituted-distinct-reviewer": func(_ *A4Verifier, r *A4Request) { r.IndependentReviewerReference = "ref_anotherreviewer" },
+		"substituted-requester": func(_ *A4Verifier, r *A4Request) { r.RequesterReference = "ref_anotherrequester" },
 		"tampered-signature":    func(_ *A4Verifier, r *A4Request) { r.HardwareSignatureDER[6] ^= 0x80 },
 		"wrong-hardware": func(v *A4Verifier, _ *A4Request) {
 			verified := v.Hardware.(n06A4Hardware)

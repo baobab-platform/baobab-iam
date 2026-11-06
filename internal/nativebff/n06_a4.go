@@ -64,11 +64,13 @@ type A4Verifier struct {
 	Now        func() time.Time
 }
 
-func a4Transcript(session assurance.CurrentSessionKey, op assurance.Operation, nonce []byte) []byte {
+func a4Transcript(session assurance.CurrentSessionKey, op assurance.Operation, nonce []byte,
+	requester, reviewer string) []byte {
 	// Explicit length prefixes avoid delimiter and identity ambiguity.
 	result := []byte("baobab-iam-hardware-a4-v1")
 	for _, part := range [][]byte{[]byte(session.Issuer), []byte(session.Subject),
-		[]byte(session.SessionID), []byte(op), nonce} {
+		[]byte(session.SessionID), []byte(op), nonce,
+		[]byte(requester), []byte(reviewer)} {
 		var length [4]byte
 		binary.BigEndian.PutUint32(length[:], uint32(len(part)))
 		result = append(result, length[:]...)
@@ -128,7 +130,8 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.Evidenc
 	if err != nil || !valid || public.Curve != elliptic.P256() {
 		return none, errA4Denied
 	}
-	digest := sha256.Sum256(a4Transcript(r.Session, r.Operation, challenge.Nonce))
+	digest := sha256.Sum256(a4Transcript(r.Session, r.Operation, challenge.Nonce,
+		r.RequesterReference, r.IndependentReviewerReference))
 	if !ecdsa.VerifyASN1(public, digest[:], r.HardwareSignatureDER) {
 		return none, errA4Denied
 	}
