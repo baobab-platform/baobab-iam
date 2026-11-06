@@ -110,8 +110,8 @@ func TestDisableIdentityRequiresCurrentProviderRevocationAndReadback(t *testing.
 		failRevoke  bool
 		failRead    bool
 		stillActive bool
-		want       []string
-		ok         bool
+		want        []string
+		ok          bool
 	}{
 		{name: "success", want: []string{"PATCH", "DELETE", "GET"}, ok: true},
 		{name: "patch-unavailable", failPatch: true, want: []string{"PATCH"}},
@@ -159,9 +159,9 @@ func TestDisableIdentityRequiresCurrentProviderRevocationAndReadback(t *testing.
 			defer server.Close()
 			adapter, err := ory.NewAdapter(ory.Config{
 				KratosAdminURL: server.URL,
-				HydraAdminURL: server.URL,
-				PublicIssuer: "https://native.example.test",
-				HTTPClient: server.Client(),
+				HydraAdminURL:  server.URL,
+				PublicIssuer:   "https://native.example.test",
+				HTTPClient:     server.Client(),
 			})
 			if err != nil {
 				t.Fatal(err)

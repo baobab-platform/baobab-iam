@@ -102,17 +102,21 @@ func TestLiveFoundation(t *testing.T) {
 		}
 	})
 	t.Run("disable-native-revokes-active-session", func(t *testing.T) {
-		var registration struct { ID string `json:"id"` }
+		var registration struct {
+			ID string `json:"id"`
+		}
 		foundationRequest(t, ctx, client, http.MethodGet,
 			public+"/self-service/registration/api", nil, "", http.StatusOK, &registration)
 		var created struct {
 			SessionToken string `json:"session_token"`
-			Identity struct { ID string `json:"id"` } `json:"identity"`
+			Identity     struct {
+				ID string `json:"id"`
+			} `json:"identity"`
 		}
 		foundationRequest(t, ctx, client, http.MethodPost,
 			public+"/self-service/registration?flow="+registration.ID,
-			map[string]any{"method":"password", "password":password,
-				"traits":map[string]any{"email":"disable-"+unique+"@baobab.invalid"}},
+			map[string]any{"method": "password", "password": password,
+				"traits": map[string]any{"email": "disable-" + unique + "@baobab.invalid"}},
 			"", http.StatusOK, &created)
 		if created.Identity.ID == "" || created.SessionToken == "" {
 			t.Fatal("Kratos did not issue a native session before disable")
