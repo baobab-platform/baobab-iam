@@ -5,7 +5,6 @@ package ory_test
 // cryptographically verified from the actual public issuer JWKS. Tokens,
 // private JWKs and client secrets are never logged or written to artifacts.
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -136,4 +135,3 @@ func TestLiveN06HydraIssuerSigningKeyOverlap(t *testing.T) {
 	t.Log("real Hydra signing-key selection, old+new JWKS overlap, bounded expiry and retired KID denial PASS; external securityops approval still required")
 }
 
-var _ = context.Background
