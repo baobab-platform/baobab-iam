@@ -8,19 +8,6 @@
 **Contract Owner:** `baobab-platform/shared`  
 **Scope:** Thamani customer authentication, self-service registration, guest checkout, customer accounts, OIDC integration, Medusa customer mapping, account linking, verification, recovery, social/federated login, privacy, account deletion, order ownership and abuse controls  
 
-> **CURRENT GOVERNING SCOPE (6 November 2026): HISTORICAL PROPOSAL, NOT A CURRENT THAMANI ACCEPTANCE CRITERION.**
-> The B2C storefront/customer premise of this Proposed ADR was superseded by
-> **ADR-THA-0018** and accepted Shared **EA v2.3 / EA-DEV / EA-XB v1.1**:
-> Thamani Global operates **B2B integrated logistics**, with business accounts,
-> authorised human representatives, governed carrier/shipper authority and
-> TMS-native booking/commitment enforcement. Do not use guest checkout,
-> retail customer registration or Medusa B2C customer linking from this
-> historical draft as a mandatory IAM provider-development gate.
-> Protocol-level controls remain applicable where consistent: Kratos native
-> humans, Hydra OAuth/OIDC, Keycloak enterprise federation only, exact
-> issuer+subject canonical mapping through CP, separate owner-native TMS
-> business authorization, and cross-entity isolation. This annotation
-> does **not** approve a new provider, client, workload scope or protected run.
 
 **Supersedes:** None  
 **Superseded by:** None  
@@ -37,6 +24,20 @@
 - ADR-0010 — Zuribeans B2B Identity and Organization Access  
 
 ---
+
+> **CURRENT GOVERNING SCOPE (6 November 2026): HISTORICAL PROPOSAL, NOT A CURRENT THAMANI ACCEPTANCE CRITERION.**
+> The B2C storefront/customer premise of this Proposed ADR was superseded by
+> **ADR-THA-0018** and accepted Shared **EA v2.3 / EA-DEV / EA-XB v1.1**:
+> Thamani Global operates **B2B integrated logistics**, with business accounts,
+> authorised human representatives, governed carrier/shipper authority and
+> TMS-native booking/commitment enforcement. Do not use guest checkout,
+> retail customer registration or Medusa B2C customer linking from this
+> historical draft as a mandatory IAM provider-development gate.
+> Protocol-level controls remain applicable where consistent: Kratos native
+> humans, Hydra OAuth/OIDC, Keycloak enterprise federation only, exact
+> issuer+subject canonical mapping through CP, separate owner-native TMS
+> business authorization, and cross-entity isolation. This annotation
+> does **not** approve a new provider, client, workload scope or protected run.
 
 # 1. Context
 
