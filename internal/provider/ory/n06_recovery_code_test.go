@@ -12,19 +12,19 @@ func TestN06CourierCodeIsOneDistinctValueAcrossMimeAlternatives(t *testing.T) {
 		denied bool
 	}{
 		{name: "plain-and-html-agree",mail: []string{
-			"Your recovery code: 12345678\n",
-			"<p>Your recovery code: <b>12345678</b></p>\n",
+			"BAOBAB_N06_RECOVERY_CODE=12345678\n",
+			"<p>BAOBAB_N06_RECOVERY_CODE=<b>12345678</b></p>\n",
 		},want:"12345678"},
 		{name: "same-code-repeated",mail: []string{
-			"Your recovery code: 12345678\nYour recovery code: 12345678\n",
+			"BAOBAB_N06_RECOVERY_CODE=12345678\nBAOBAB_N06_RECOVERY_CODE=12345678\n",
 		},want:"12345678"},
 		{name: "missing-code",mail: []string{"A recovery attempt happened."}},
 		{name: "two-conflicting-codes",mail: []string{
-			"Your recovery code: 12345678\nYour recovery code: 87654321\n",
+			"BAOBAB_N06_RECOVERY_CODE=12345678\nBAOBAB_N06_RECOVERY_CODE=87654321\n",
 		},denied:true},
 		{name: "disagreeing-mime-alternatives",mail: []string{
-			"Your recovery code: 12345678\n",
-			"<p>Your recovery code: 87654321</p>\n",
+			"BAOBAB_N06_RECOVERY_CODE=12345678\n",
+			"<p>BAOBAB_N06_RECOVERY_CODE=87654321</p>\n",
 		},denied:true},
 	}
 	for _, tc := range testCases {

@@ -145,6 +145,16 @@ identity:
 # host-owned *disposable SMTP sink* started by tests/ory-foundation/run.sh.
 # Never use this route outside the isolated development foundation.
 courier:
+  # Pinned v26.2.0 RecoveryCodeValidModel exposes .RecoveryCode. This
+  # development-only plaintext template gives the sealed courier proof one
+  # unambiguous code, without parsing incidental digits in HTML content.
+  # Shared/protected mail templates and delivery are separate approvals.
+  templates:
+    recovery_code:
+      valid:
+        email:
+          body:
+            plaintext: file:///etc/config/kratos/n06_recovery.plaintext.gotmpl
   smtp:
     connection_uri: smtp://host.docker.internal:1025/?disable_starttls=true
     from_address: kratos-local@baobab.invalid

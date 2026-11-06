@@ -227,3 +227,16 @@ replace the server result with an HTTP fixture or downgrade the stale-session
 assertion. The separate Postgres securityops recovery hold and independent
 credential rebinding remain distinct requirements. A passing source test
 alone is not an original live-provider execution receipt.
+
+## 6 November 2026 — pinned real Kratos recovery courier disambiguation
+
+The pinned Kratos v26.2.0 recovery email model includes the *original*
+`RecoveryCode` field. The disposable development-only Kratos config now
+renders exactly one unmistakable plaintext marker, without applying a
+regex to arbitrary email headers, HTML numeric attributes, expiration
+values or unrelated message codes. The in-memory SMTP sink parses the
+actual MIME and gives the test only its one plaintext part. Exact code
+uniqueness is required; a conflicting second marker fails closed. The
+Kratos server—not a fixture—still issues the code and adjudicates its
+correctness and replay. No code value enters logs, evidence files,
+commit history or a protected email configuration.
