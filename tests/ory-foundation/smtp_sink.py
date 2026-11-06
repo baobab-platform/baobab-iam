@@ -11,6 +11,8 @@ from __future__ import annotations
 import hmac
 import json
 import os
+from email import policy
+from email.parser import BytesParser
 import re
 import socketserver
 import threading
@@ -64,9 +66,33 @@ class SMTP(socketserver.StreamRequestHandler):
                     if size > MAX:
                         return
                     received.append(part)
+                # Select ONLY the authenticated SMTP message's text/plain
+                # part, never HTML markup, URLs, subject headers or MIME
+                # boundaries. Unstructured HTML attributes may contain
+                # unrelated digit sequences mistaken for recovery codes.
+                # Reject malformed/missing plaintext instead of guessing.
+                try:
+                    parsed = BytesParser(policy=policy.default).parsebytes(
+                        b"".join(received)
+                    )
+                    if parsed.defects:
+                        raise ValueError("malformed MIME envelope")
+                    parts = [
+                        part for part in parsed.walk()
+                        if part.get_content_type() == "text/plain"
+                        and part.get_content_disposition() != "attachment"
+                    ]
+                    if len(parts) != 1:
+                        raise ValueError("ambiguous recovery plaintext")
+                    plain = parts[0].get_content()
+                    if not isinstance(plain, str) or not (0 < len(plain) <= MAX):
+                        raise ValueError("invalid recovery plaintext")
+                except (ValueError, TypeError, UnicodeError, LookupError):
+                    self.wfile.write(b"554 invalid disposable MIME body\r\n")
+                    recipient = None
+                    continue
                 with LOCK:
-                    MAIL.append({"recipient": recipient,
-                                 "body": b"".join(received).decode("utf-8", "replace")})
+                    MAIL.append({"recipient": recipient, "body": plain})
                     del MAIL[:-20]
                 self.wfile.write(b"250 stored only in memory\r\n")
                 recipient = None
