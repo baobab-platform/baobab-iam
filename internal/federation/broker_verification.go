@@ -209,7 +209,7 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 	var envelope struct {
 		Assertion *saml.Assertion `xml:"urn:oasis:names:tc:SAML:2.0:assertion Assertion"`
 	}
-	if xml.Unmarshal([]byte(raw), &envelope) != nil || envelope.Assertion == nil || envelope.Assertion.Issuer == nil || envelope.Assertion.Subject == nil || envelope.Assertion.Conditions == nil || envelope.Assertion.Subject.NameID == nil || len(envelope.Assertion.Subject.SubjectConfirmations) != 1 || envelope.Assertion.Subject.SubjectConfirmations[0].SubjectConfirmationData == nil {
+	if xml.Unmarshal([]byte(raw), &envelope) != nil || envelope.Assertion == nil || !exact(envelope.Assertion.Issuer.Value) || envelope.Assertion.Subject == nil || envelope.Assertion.Conditions == nil || envelope.Assertion.Subject.NameID == nil || len(envelope.Assertion.Subject.SubjectConfirmations) != 1 || envelope.Assertion.Subject.SubjectConfirmations[0].SubjectConfirmationData == nil {
 		return ExternalPrincipal{}, Assurance{}, "", ErrDenied
 	}
 	acs, err := brokerURL(c.SAML.ACSURL, false)
@@ -231,7 +231,7 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 		}
 	}
 	// Library errors contain original XML; never return/log them.
-	if assertion == nil || assertion.Issuer == nil || assertion.Subject == nil || assertion.Subject.NameID == nil || assertion.Conditions == nil || assertion.Issuer.Value != s.Trust.UpstreamIssuer || len(assertion.AuthnStatements) != 1 || len(assertion.Subject.SubjectConfirmations) != 1 || len(assertion.Conditions.AudienceRestrictions) != 1 {
+	if assertion == nil || !exact(assertion.Issuer.Value) || assertion.Subject == nil || assertion.Subject.NameID == nil || assertion.Conditions == nil || assertion.Issuer.Value != s.Trust.UpstreamIssuer || len(assertion.AuthnStatements) != 1 || len(assertion.Subject.SubjectConfirmations) != 1 || len(assertion.Conditions.AudienceRestrictions) != 1 {
 		return ExternalPrincipal{}, Assurance{}, "", ErrDenied
 	}
 	name := assertion.Subject.NameID
