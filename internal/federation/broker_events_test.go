@@ -210,6 +210,7 @@ func TestBrokerDownstreamTokenAloneAndWrongEvidenceCannotAuthenticate(t *testing
 		t.Fatal("wrong upstream digest accepted")
 	}
 }
+
 // GO-2026-6909: signed SAML with no assertion Issuer used to panic in
 // crewjam/saml; its namespace-blind Subject.NameID admitted lookalike
 // elements. This bounded XML denial runs *before* the vulnerable parser and
@@ -221,12 +222,12 @@ func TestGO20266909SAMLStructuralDenials(t *testing.T) {
 	}
 	cases := map[string]string{
 		"missing-assertion-issuer": strings.Replace(original, "<saml:Issuer>idp</saml:Issuer>", "", 1),
-		"duplicate-issuer": strings.Replace(original, "</saml:Issuer>", "</saml:Issuer><saml:Issuer>duplicate</saml:Issuer>", 1),
+		"duplicate-issuer":         strings.Replace(original, "</saml:Issuer>", "</saml:Issuer><saml:Issuer>duplicate</saml:Issuer>", 1),
 		"foreign-namespace-nameid": strings.Replace(original, "<saml:NameID>subject</saml:NameID>", "<evil:NameID xmlns:evil=\"urn:attacker:identity\">subject</evil:NameID>", 1),
-		"duplicate-nameid": strings.Replace(original, "</saml:NameID>", "</saml:NameID><saml:NameID>spoof</saml:NameID>", 1),
-		"nested-nameid": strings.Replace(original, "<saml:NameID>subject</saml:NameID>", "<saml:Group><saml:NameID>spoof</saml:NameID></saml:Group>", 1),
-		"missing-subject": strings.Replace(original, "<saml:Subject><saml:NameID>subject</saml:NameID></saml:Subject>", "", 1),
-		"foreign-subject": strings.Replace(strings.Replace(original, "<saml:Subject>", "<evil:Subject xmlns:evil=\"urn:attacker:identity\">", 1), "</saml:Subject>", "</evil:Subject>", 1),
+		"duplicate-nameid":         strings.Replace(original, "</saml:NameID>", "</saml:NameID><saml:NameID>spoof</saml:NameID>", 1),
+		"nested-nameid":            strings.Replace(original, "<saml:NameID>subject</saml:NameID>", "<saml:Group><saml:NameID>spoof</saml:NameID></saml:Group>", 1),
+		"missing-subject":          strings.Replace(original, "<saml:Subject><saml:NameID>subject</saml:NameID></saml:Subject>", "", 1),
+		"foreign-subject":          strings.Replace(strings.Replace(original, "<saml:Subject>", "<evil:Subject xmlns:evil=\"urn:attacker:identity\">", 1), "</saml:Subject>", "</evil:Subject>", 1),
 	}
 	for name, raw := range cases {
 		t.Run(name, func(t *testing.T) {
