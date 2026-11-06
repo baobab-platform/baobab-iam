@@ -21,9 +21,9 @@ permissions:
   packages: read
 jobs:
   int02-real-candidate:
-    uses: baobab-platform/infrastructure/.github/workflows/platform-int02.yml@f8edcf4799534efebf35a70e999367e8ce7daaa2
+    uses: baobab-platform/infrastructure/.github/workflows/platform-int02.yml@47f0c253112a466eb9612f81c6ba5d84a2184207
     with:
-      harness_sha: f8edcf4799534efebf35a70e999367e8ce7daaa2
+      harness_sha: 47f0c253112a466eb9612f81c6ba5d84a2184207
       candidate_repository: baobab-iam
       candidate_sha: ${{ github.event.pull_request.head.sha }}
       dev11_connected_required: false
