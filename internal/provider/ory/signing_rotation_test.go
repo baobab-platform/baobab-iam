@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
@@ -140,5 +139,4 @@ func TestN06HydraSigningRotationRefusesUnreviewedMutations(t *testing.T) {
 	if _,err:=production.AddHydraSigningKey(context.Background(),valid,&n06ReviewedJWKS{});err==nil {
 		t.Fatal("remote insecure provider accepted")
 	}
-	_ = strings.EqualFold // preserve direct vendor-free tests
 }
