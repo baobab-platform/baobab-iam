@@ -1,7 +1,6 @@
 package ory_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -117,14 +116,21 @@ func TestLiveN06KratosWebAuthnRegistrationChallenge(t *testing.T) {
 		UI struct {
 			Nodes []struct {
 				Group string `json:"group"`
-				Attributes struct { Name string `json:"name"` } `json:"attributes"`
+				Attributes struct {
+					Name string `json:"name"`
+					Value string `json:"value"`
+				} `json:"attributes"`
 			} `json:"nodes"`
 		} `json:"ui"`
 	}
 	n06BrowserReadFlow(t, ctx, browser, pub, "settings", settingsID, &settings)
 	found := false
+	settingsCSRF := ""
 	var passwordNodes, passkeyNodes, totpNodes int
 	for _, node := range settings.UI.Nodes {
+		if node.Attributes.Name == "csrf_token" {
+			settingsCSRF = node.Attributes.Value
+		}
 		if node.Group=="webauthn" || strings.HasPrefix(node.Attributes.Name,"webauthn_") {
 			found = true
 		}
@@ -141,12 +147,13 @@ func TestLiveN06KratosWebAuthnRegistrationChallenge(t *testing.T) {
 		t.Fatalf("real Kratos browser WebAuthn challenge missing: password=%d passkey=%d totp=%d",
 			passwordNodes,passkeyNodes,totpNodes)
 	}
+	if len(settingsCSRF) < 20 { t.Fatal("current settings flow CSRF absent") }
 	// A browser must generate real WebAuthn attestation, not a form string.
 	// Invalid registration is refused; the native provider must remain
 	// credential-free under independent Admin API readback below.
 	fields := url.Values{
 		"method":{"webauthn"}, "webauthn_register":{"forged-no-authenticator"},
-		"csrf_token":{csrf},
+		"csrf_token":{settingsCSRF},
 	}
 	negative, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		pub+"/self-service/settings?flow="+url.QueryEscape(settingsID),
