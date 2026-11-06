@@ -85,13 +85,19 @@ func (v *WebAuthnA3Verifier) Verify(
 		len(a.ChallengeID) < 12 || len(a.ChallengeID) > 160 ||
 		len(a.CredentialID) < 16 || len(a.CredentialID) > 1024 ||
 		len(a.ClientDataJSON) < 60 || len(a.ClientDataJSON) > 4096 ||
-		len(a.AuthenticatorData) < 37 || len(a.AuthenticatorData) > 512 ||
+		len(a.AuthenticatorData) != 37 ||
 		len(a.SignatureDER) < 60 || len(a.SignatureDER) > 144 {
 		return none, errA3Denied
 	}
 	key, kratos, err := v.Kratos.CurrentNativeAuthentication(ctx, cookie)
 	if err != nil || key.Issuer == "" || key.Subject == "" || key.SessionID == "" ||
-		kratos.AAL != "aal2" || !hasWebAuthn(kratos.Methods) {
+		kratos.AAL != "aal2" || !hasWebAuthn(kratos.Methods) ||
+		kratos.Issuer != key.Issuer || kratos.Subject != key.Subject ||
+		kratos.SessionID != key.SessionID ||
+		kratos.ObservedAt.IsZero() || kratos.AuthenticatedAt.IsZero() ||
+		kratos.ObservedAt.After(v.Now().UTC()) ||
+		v.Now().UTC().Sub(kratos.ObservedAt) > 30*time.Second ||
+		v.Now().UTC().Sub(kratos.AuthenticatedAt) > 2*time.Minute {
 		return none, errA3Denied
 	}
 	challenge, err := v.Challenges.Consume(ctx, a.ChallengeID)
@@ -214,7 +220,8 @@ func decodeBoundWebAuthnClientData(raw []byte) (webAuthnClientData, error) {
 	value.Challenge, err = base64.RawURLEncoding.DecodeString(encodedChallenge)
 	if err != nil { return value, errA3Denied }
 	if rawCross, ok := shape["crossOrigin"]; ok {
-		if json.Unmarshal(rawCross, &value.CrossOrigin) != nil {
+		if (string(rawCross) != "true" && string(rawCross) != "false") ||
+			json.Unmarshal(rawCross, &value.CrossOrigin) != nil {
 			return value, errA3Denied
 		}
 	}
