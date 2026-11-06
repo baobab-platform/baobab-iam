@@ -29,3 +29,23 @@ implemented reviewer wired to the securityops rotation ledger. A disposable
 custom-set test proves native provider mechanics, **not** an actual live
 issuer-signing-rotation qualification. No staging/production deployment or
 CP activation is required for this development proof.
+
+## Required exact real issuer-signing test
+
+`TestLiveN06HydraIssuerSigningKeyOverlap` provisions a random disposable
+Hydra workload client, obtains and independently verifies a real signed
+60-second access token, finds its **actual** Admin signing set by current
+KID, creates a second signed key under reviewed provider machinery, and
+requires both keys to remain in the issuer's public JWKS. It then verifies
+the old unexpired JWT and a new JWT, demanding the new KID is genuinely
+used for issuance. Premature retirement is denied. After the original
+JWT's explicit expiry, it requires new-token signature verification,
+removes the old key through the native API and verifies the new token
+remains valid and the public old KID disappeared.
+
+The test has no external securityops/CP approver, nor can it prove
+fleet-wide stale JWKS caches. Its reviewer is a **disposable test fixture**;
+real development qualification still requires separate original evidence
+of the approved rotation ledger and representative consumer verification.
+The Ory Foundation runner now makes a missing/skip/fail live test a hard
+failure. No protected runtime or tenant is touched.

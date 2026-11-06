@@ -62,7 +62,7 @@ export ORY_SMOKE=1 ORY_FOUNDATION=1 ORY_WORKLOAD=1
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
 # Test output contains only statuses, never fixture credential or response bodies.
-go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated|TestLiveN06KratosCurrentSessionAndRevocation|TestLiveN06KratosRecoveryCourier)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
+go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated|TestLiveN06KratosCurrentSessionAndRevocation|TestLiveN06KratosRecoveryCourier|TestLiveN06HydraIssuerSigningKeyOverlap)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
 # N02 native-browser Hydra client registration is ADDITIONAL to all
 # provider live tests. No skipped/unexecuted case can satisfy its gate.
 go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistration$' -count=1 | tee ory-foundation-evidence/nativebff-tests.jsonl
@@ -86,6 +86,7 @@ for name in ('TestSmoke_ProviderInfoAgainstLocalStack', 'TestLiveFoundation',
              'TestLiveWorkloadClientCredentials', 'TestLiveWorkloadFederated',
              'TestLiveN06KratosCurrentSessionAndRevocation',
              'TestLiveN06KratosRecoveryCourier',
+             'TestLiveN06HydraIssuerSigningKeyOverlap',
              'TestLiveWorkloadClientCredentials/signed-token-and-shared-scopes',
              'TestLiveWorkloadClientCredentials/invalid-credential-and-scope',
              'TestLiveWorkloadClientCredentials/rotation-invalidates-old-credential',
