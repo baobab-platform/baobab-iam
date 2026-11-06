@@ -188,7 +188,8 @@ async function run() {
   await loginSecondFactor();
   process.stdout.write('N06_KRATOS_CHROMIUM_CTAP2_A3_CEREMONY_AND_REPLAY_PASS_NOT_A4\n');
  } finally {
-  qualificationPhase='RESOURCE_TEARDOWN';
+  // Preserve the failing protocol stage through mandatory cleanup;
+  // cleanup must not conceal a real Kratos/Chromium qualification failure.
   if (session.cdp && session.id) {
    await session.cdp.send('WebAuthn.removeVirtualAuthenticator',{authenticatorId:session.id}).catch(()=>{});
   }
