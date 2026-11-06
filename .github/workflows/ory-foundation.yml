@@ -59,6 +59,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
         run: bash tests/ory-foundation/run.sh
+      - name: Provision pinned Node 24 browser qualification runtime
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+      - name: Install pinned WebAuthn browser and Chromium
+        run: |
+          npm ci --prefix tests/integration/passkey --ignore-scripts
+          tests/integration/passkey/node_modules/.bin/playwright install --with-deps chromium
+      - name: Require real pinned Kratos + Chromium CTAP2 WebAuthn ceremony
+        env:
+          ORY_FOUNDATION: '1'
+          ORY_KRATOS_PUBLIC_URL: http://127.0.0.1:4433
+          ORY_KRATOS_ADMIN_URL: http://127.0.0.1:4434
+        run: node tests/integration/passkey/n06-kratos-browser.mjs
       - name: Check out immutable CP consumer source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
