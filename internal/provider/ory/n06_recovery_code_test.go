@@ -2,8 +2,8 @@ package ory_test
 
 import "testing"
 
-// A MIME multipart/alternative email commonly repeats one one-time code.
-// An unexpected second code must not be chosen by order or by format.
+// The sealed courier returns one plaintext part per original MIME message.
+// A conflicting code in another plaintext delivery must never be guessed.
 func TestN06CourierCodeIsOneDistinctValueAcrossMimeAlternatives(t *testing.T) {
 	testCases := []struct {
 		name string
@@ -11,9 +11,9 @@ func TestN06CourierCodeIsOneDistinctValueAcrossMimeAlternatives(t *testing.T) {
 		want string
 		denied bool
 	}{
-		{name: "plain-and-html-agree",mail: []string{
+		{name: "repeated-plaintext-deliveries-agree",mail: []string{
 			"BAOBAB_N06_RECOVERY_CODE=12345678\n",
-			"<p>BAOBAB_N06_RECOVERY_CODE=<b>12345678</b></p>\n",
+			"BAOBAB_N06_RECOVERY_CODE=12345678\r\n",
 		},want:"12345678"},
 		{name: "same-code-repeated",mail: []string{
 			"BAOBAB_N06_RECOVERY_CODE=12345678\nBAOBAB_N06_RECOVERY_CODE=12345678\n",
@@ -22,9 +22,9 @@ func TestN06CourierCodeIsOneDistinctValueAcrossMimeAlternatives(t *testing.T) {
 		{name: "two-conflicting-codes",mail: []string{
 			"BAOBAB_N06_RECOVERY_CODE=12345678\nBAOBAB_N06_RECOVERY_CODE=87654321\n",
 		},denied:true},
-		{name: "disagreeing-mime-alternatives",mail: []string{
+		{name: "conflicting-plaintext-deliveries",mail: []string{
 			"BAOBAB_N06_RECOVERY_CODE=12345678\n",
-			"<p>BAOBAB_N06_RECOVERY_CODE=87654321</p>\n",
+			"BAOBAB_N06_RECOVERY_CODE=87654321\r\n",
 		},denied:true},
 	}
 	for _, tc := range testCases {
