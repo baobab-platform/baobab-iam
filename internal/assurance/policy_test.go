@@ -175,6 +175,13 @@ func TestN06ConsequentialPolicyFloorsCannotBeDowngraded(t *testing.T) {
 		{ChangeCredential, Requirement{Min: A3, MaxAge: time.Minute, RequireCurrentRisk: true}},
 		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour}},
 		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Minute, RequireCurrentRisk: true}},
+		{CommitBuyer, Requirement{Min: A2, MaxAge: time.Hour, RequireCurrentRisk: true}},
+		{HighValueApproval, Requirement{Min: A3, MaxAge: time.Hour, RecoveryHold: 24*time.Hour, RequireCurrentRisk: true}},
+		{HighValueApproval, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true}},
+		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Hour, RecoveryHold: 24*time.Hour, RequireCurrentRisk: true}},
+		{ChangeCredential, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true}},
+		{GrantPrivileged, Requirement{Min: A4, MaxAge: time.Hour, RecoveryHold: 24*time.Hour, RequireCurrentRisk: true, RequirePrivilegedWitness: true}},
+		{BreakGlass, Requirement{Min: A4, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true, RequirePrivilegedWitness: true}},
 	} {
 		policy := DefaultDevelopmentPolicy()
 		policy[tc.op] = tc.req
