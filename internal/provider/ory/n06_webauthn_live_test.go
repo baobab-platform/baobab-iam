@@ -66,7 +66,20 @@ func TestLiveN06KratosWebAuthnRegistrationChallenge(t *testing.T) {
 			found=true
 		}
 	}
-	if !found {t.Fatal("real Kratos returned no actual WebAuthn registration challenge")}
+	if !found {
+		var password, passkey, totp int
+		for _, node := range settings.UI.Nodes {
+			switch node.Group {
+			case "password":
+				password++
+			case "passkey":
+				passkey++
+			case "totp":
+				totp++
+			}
+		}
+		t.Fatalf("real Kratos WebAuthn challenge missing: webauthn=0 password=%d passkey=%d totp=%d",password,passkey,totp)
+	}
 	fields:=map[string]any{"method":"webauthn","webauthn_register":"tampered-assertion-without-browser-uv"}
 	payload,err:=json.Marshal(fields)
 	if err!=nil {t.Fatal(err)}
