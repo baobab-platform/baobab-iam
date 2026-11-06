@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Disposable original Keycloak broker-local session recovery witness.
 
-A genuine Keycloak token-login establishes a native session; independently
-read it through Admin API, disable+logout its exact user, then require its
-disabled state and absence of sessions after destructive PostgreSQL restore.
+A disposable Keycloak user authenticates through the native endpoint.
+The administrator independently verifies that live user session, terminates
+it, and disables the account. The restored provider must retain both denials.
 This is NOT upstream enterprise SLO or CP/engine authority recovery.
 Never persist passwords, access tokens or session IDs.
 """
