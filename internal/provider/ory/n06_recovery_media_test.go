@@ -46,3 +46,30 @@ func TestN06RecoveryNoSensitiveProviderErrorOrMessageText(t *testing.T) {
 		t.Fatal("provider recovery original errors must remain strictly privacy-safe")
 	}
 }
+
+func TestN06RecoveryBrowserSettingsHandoffIsExactOriginalProviderScope(t *testing.T) {
+	good := "http://127.0.0.1:4455/settings?flow=12345678-1234-1234-1234-123456789abc"
+	for _, tc := range []struct {
+		url string
+		allowed bool
+	}{
+		{good, true},
+		{"http://127.0.0.1:4455/login?flow=12345678-1234-1234-1234-123456789abc", false},
+		{"http://127.0.0.1:4455/settings?flow=12345678-1234-1234-1234-123456789abc&next=https://evil.invalid", false},
+		{"https://example.invalid/settings?flow=12345678-1234-1234-1234-123456789abc", false},
+		{"http://127.0.0.1:4455/settings?flow=bogus", false},
+		{"http://127.0.0.1:4455/settings?flow=12345678-1234-1234-1234-123456789abc#fragment", false},
+	} {
+		if n06TrustedRecoverySettingsURL(tc.url) != tc.allowed {
+			t.Fatal("recovery must not treat a foreign/ambiguous browser redirect as proof")
+		}
+	}
+	response := &http.Response{StatusCode:422,Header:http.Header{},
+		Body:io.NopCloser(strings.NewReader(`{"error":{"id":"browser_location_change_required"},"redirect_browser_to":"`+good+`"}`))}
+	response.Header.Set("Content-Type", "application/json; charset=utf-8")
+	result := n06ReadRecoveryDecision(response)
+	if result.ErrorID != "browser_location_change_required" || !result.RedirectSettings ||
+		result.HTTP != 422 {
+		t.Fatal("provider-owned settings handoff misclassified")
+	}
+}

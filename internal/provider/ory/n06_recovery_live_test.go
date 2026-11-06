@@ -108,15 +108,30 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 	}
 	correct := submitN06Recovery(ctx, client, target,
 		map[string]any{"method": "code", "code": code})
-	if correct.HTTP != http.StatusOK || correct.State != "passed_challenge" {
-		t.Fatalf("actual provider recovery challenge not passed: http=%d state=%s original_error=%s ui_message_ids=%v",
-			correct.HTTP, correct.State, correct.ErrorID, correct.MessageIDs)
+	// A native Kratos API flow may conclude by requiring a browser handoff
+	// to the settings flow (422 browser_location_change_required). Treat that
+	// as eligible ONLY when the provider returned a trusted local settings
+	// origin AND its native recovery hook independently revoked the old
+	// session. A generic 422/error/redirect is never authentication success.
+	const nativePassed = http.StatusOK
+	passedDirectly := correct.HTTP == nativePassed && correct.State == "passed_challenge"
+	settingsHandoff := correct.HTTP == http.StatusUnprocessableEntity &&
+		correct.ErrorID == "browser_location_change_required" && correct.RedirectSettings
+	if !passedDirectly && !settingsHandoff {
+		t.Fatalf("actual provider recovery challenge not passed: http=%d state=%s original_error=%s ui_message_ids=%v settings_handoff=%t",
+			correct.HTTP, correct.State, correct.ErrorID, correct.MessageIDs, correct.RedirectSettings)
 	}
+	// Independently re-read a real pre-recovery Kratos session, even for a
+	// genuine 422 handoff. A location change alone is never recovery proof.
+	foundationRequest(t, ctx, client, http.MethodGet,
+		public+"/sessions/whoami", nil, created.SessionToken, http.StatusUnauthorized, nil)
 	// A second use of this original recovery flow cannot be evidence of
 	// another successfully completed user-recovery transaction.
 	replay := submitN06Recovery(ctx, client, target,
 		map[string]any{"method": "code", "code": code})
-	if replay.HTTP == http.StatusOK && replay.State == "passed_challenge" {
+	if (replay.HTTP == http.StatusOK && replay.State == "passed_challenge") ||
+		(replay.HTTP == http.StatusUnprocessableEntity &&
+			replay.ErrorID == "browser_location_change_required" && replay.RedirectSettings) {
 		t.Fatal("original recovery proof was replayed as another accepted challenge")
 	}
 	// An invalid attempt can permanently invalidate its own native flow.
@@ -150,10 +165,11 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 }
 
 type n06RecoveryDecision struct {
-	HTTP       int
-	State      string
-	ErrorID    string
-	MessageIDs []int64
+	HTTP             int
+	State            string
+	ErrorID          string
+	MessageIDs       []int64
+	RedirectSettings bool
 }
 
 func submitN06Recovery(ctx context.Context, client *http.Client, endpoint string, fields map[string]any) n06RecoveryDecision {
@@ -190,7 +206,8 @@ func n06ReadRecoveryDecision(res *http.Response) n06RecoveryDecision {
 	// diagnostics permitted in job logs. Never print message text, credentials,
 	// email, token, flow body or unreviewed arbitrary response metadata.
 	var flow struct {
-		State string `json:"state"`
+		State             string `json:"state"`
+		RedirectBrowserTo string `json:"redirect_browser_to"`
 		Error struct {
 			ID string `json:"id"`
 		} `json:"error"`
@@ -208,6 +225,7 @@ func n06ReadRecoveryDecision(res *http.Response) n06RecoveryDecision {
 		if n06SafeProviderErrorID.MatchString(flow.Error.ID) {
 			status.ErrorID = flow.Error.ID
 		}
+		status.RedirectSettings = n06TrustedRecoverySettingsURL(flow.RedirectBrowserTo)
 		for _, message := range flow.UI.Messages {
 			if len(status.MessageIDs) >= 3 {
 				break
@@ -220,6 +238,24 @@ func n06ReadRecoveryDecision(res *http.Response) n06RecoveryDecision {
 	return status
 }
 
+func n06TrustedRecoverySettingsURL(raw string) bool {
+	if raw == "" || len(raw) > 384 {
+		return false
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Fragment != "" ||
+		u.Scheme != "http" || u.Host != "127.0.0.1:4455" ||
+		u.Path != "/settings" {
+		return false
+	}
+	values, err := url.ParseQuery(u.RawQuery)
+	if err != nil || len(values) != 1 || len(values["flow"]) != 1 {
+		return false
+	}
+	return n06RecoveryFlowID.MatchString(values.Get("flow"))
+}
+
+var n06RecoveryFlowID = regexp.MustCompile(`^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$`)
 var n06SafeProviderErrorID = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 var n06CodePattern = regexp.MustCompile(`(?m)^BAOBAB_N06_RECOVERY_CODE=([0-9]{6,8})\r?$`)
 
