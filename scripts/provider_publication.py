@@ -112,7 +112,11 @@ def validate_native_provider_roles(declaration):
     for entry in providers:
         key = entry.get('provider_key')
         if key not in roles:
-            continue  # New provider implementations require separate Shared review.
+            # An alias with the same underlying adapter must not bypass the
+            # federation-only rule while masquerading as a new provider.
+            if entry.get('implementation_key') in {'kratos', 'hydra', 'keycloak'}:
+                raise ValueError('unreviewed alias of an ADR-IAM-0033 native provider')
+            continue  # A new implementation still requires separate Shared review.
         implementation, capability = roles[key]
         if entry.get('implementation_key') != implementation:
             raise ValueError('ADR-IAM-0033 provider implementation role mismatch')
