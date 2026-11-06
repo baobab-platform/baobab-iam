@@ -122,7 +122,7 @@ class API(BaseHTTPRequestHandler):
         if path.path == "/health":
             return self.send_json(200, {"ready": True})
         supplied = self.headers.get("X-Baobab-Test-Key", "")
-        if not hmac.compare_digest(supplied, KEY) or path.path != "/messages":
+        if not hmac.compare_digest(supplied, KEY) or path.path not in ("/messages", "/metadata"):
             return self.send_json(403, {"error": "forbidden"})
         qs = parse_qs(path.query)
         target = qs.get("recipient", [""])[0].lower()
@@ -130,6 +130,15 @@ class API(BaseHTTPRequestHandler):
             return self.send_json(400, {"error": "invalid_recipient"})
         with LOCK:
             results = [m["body"] for m in MAIL if m["recipient"] == target]
+        if path.path == "/metadata":
+            # Only privacy-safe booleans; never emit or persist any code,
+            # email, message content or browser credential in CI logs.
+            self.send_json(200, {"delivered": bool(results),
+                                 "template_marker_present": any(
+                                     "BAOBAB_N06_RECOVERY_CODE=" in v
+                                     for v in results[-4:]
+                                 )})
+            return
         self.send_json(200, {"messages": results[-4:]})
 
     def send_json(self, status, payload):
