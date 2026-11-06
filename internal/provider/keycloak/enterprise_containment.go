@@ -23,7 +23,35 @@ var errFederatedContainment = errors.New("keycloak: current independently review
 var realmName = regexp.MustCompile(`^[a-z][a-z0-9-]{1,62}$`)
 // Provider-issued session identifiers may be UUIDs with non-v4 version or
 // variant bits; their opacity is not business authorisation.
-var brokerSessionID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+// Keycloak broker session IDs are opaque (typically base64url), not necessarily UUIDs.
+// Keep a bounded URL-safe alphabet; the exact user/scope is independently
+// checked using the federated-identity link and user-scoped Admin endpoint.
+var brokerSessionID = regexp.MustCompile(`^[A-Za-z0-9_-]{12,160}package keycloak
+
+// Keycloak remains the enterprise OIDC/SAML *federation* broker. This
+// narrow admin operation terminates only one independently bound broker
+// identity's local sessions. It cannot change native Kratos identities,
+// Hydra clients, CP grants, a Tenant or an upstream enterprise IdP session.
+import (
+	"context"
+	"crypto/subtle"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"mime"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+)
+
+var errFederatedContainment = errors.New("keycloak: current independently reviewed federation containment required")
+var realmName = regexp.MustCompile(`^[a-z][a-z0-9-]{1,62}$`)
+// Provider-issued session identifiers may be UUIDs with non-v4 version or
+// variant bits; their opacity is not business authorisation.
+)
 var brokerUserID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var referenceName = regexp.MustCompile(`^ref_[a-z0-9_-]{8,128}$`)
 

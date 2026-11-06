@@ -191,4 +191,12 @@ async function run() {
   }
  }
 }
-await run().catch(()=>{process.stderr.write('N06_KRATOS_CHROMIUM_CTAP2_A3_HELD\n');process.exitCode=2});
+await run().catch(error => {
+ // Only bounded machine-readable gate labels may enter workflow logs.
+ // Do not print native flow bodies, credentials, tokens or exception stacks.
+ const message = String(error?.message ?? '');
+ const safe = /^N06_A3_HELD_[A-Z0-9_]{1,96}$/.test(message)
+  ? message : 'N06_A3_HELD_UNKNOWN_BROWSER_FAILURE';
+ process.stderr.write(safe + '\\n');
+ process.exitCode = 2;
+});

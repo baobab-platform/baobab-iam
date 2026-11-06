@@ -14,7 +14,7 @@ import (
 
 const n06BrokerUser = "11111111-2222-4333-8444-555555555555"
 const n06TrustID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
-const n06SessionID = "22222222-3333-4444-8555-666666666666"
+const n06SessionID = "XnbMW1Kj-6wi3jArVwvjjHIg"
 const n06SubjectID = "dddddddd-eeee-4aaa-8bbb-ffffffffffff"
 const n06Bearer = "fixture-only-restricted-admin-bearer"
 
@@ -48,6 +48,7 @@ func TestN06FederatedBrokerSessionContainmentCurrentIdentityReadback(t *testing.
 		surviving    bool
 		noActive     bool
 		wantSuccess  bool
+		sessionID    string
 	}
 	for _, tc := range []struct {
 		name  string
@@ -59,6 +60,7 @@ func TestN06FederatedBrokerSessionContainmentCurrentIdentityReadback(t *testing.
 		{name: "upstream-subject-replaced", value: config{approved: true, providerLink: "enterprise-oidc", subject: "another-upstream-identity"}},
 		{name: "current-session-survives", value: config{approved: true, providerLink: "enterprise-oidc", subject: n06SubjectID, surviving: true}},
 		{name: "no-actual-broker-session", value: config{approved: true, providerLink: "enterprise-oidc", subject: n06SubjectID, noActive: true}},
+		{name: "malformed-broker-session", value: config{approved: true, providerLink: "enterprise-oidc", subject: n06SubjectID, sessionID: "../other"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			logoutCalls := 0
@@ -77,7 +79,11 @@ func TestN06FederatedBrokerSessionContainmentCurrentIdentityReadback(t *testing.
 				case r.Method == "GET" && r.URL.Path == realm+"/sessions":
 					records := []map[string]string{}
 					if !tc.value.noActive && (logoutCalls == 0 || tc.value.surviving) {
-						records = append(records, map[string]string{"id": n06SessionID, "userId": n06BrokerUser})
+						sid := tc.value.sessionID
+						if sid == "" {
+							sid = n06SessionID
+						}
+						records = append(records, map[string]string{"id": sid, "userId": n06BrokerUser})
 					}
 					_ = json.NewEncoder(w).Encode(records)
 				case r.Method == "POST" && r.URL.Path == realm+"/logout":
@@ -108,7 +114,7 @@ func TestN06FederatedBrokerSessionContainmentCurrentIdentityReadback(t *testing.
 				t.Fatal("native Keycloak logout not invoked")
 			}
 			if !tc.value.approved || tc.value.subject != n06SubjectID ||
-				tc.value.providerLink != "enterprise-oidc" || tc.value.noActive {
+				tc.value.providerLink != "enterprise-oidc" || tc.value.noActive || tc.value.sessionID != "" {
 				if logoutCalls != 0 {
 					t.Fatal("unverified subject or absent sessions caused a native logout")
 				}

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -132,33 +133,47 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 }
 
 type n06RecoveryDecision struct {
-	HTTP int
+	HTTP  int
 	State string
 }
 
 func submitN06Recovery(ctx context.Context, client *http.Client, endpoint string, fields map[string]any) n06RecoveryDecision {
-	var refusal n06RecoveryDecision
+	var refused n06RecoveryDecision
 	content, err := json.Marshal(fields)
-	if err != nil { return refusal }
-	req, err := http.NewRequestWithContext(ctx,http.MethodPost,endpoint,bytes.NewReader(content))
-	if err != nil { return refusal }
-	req.Header.Set("Accept","application/json")
-	req.Header.Set("Content-Type","application/json")
+	if err != nil {
+		return refused
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(content))
+	if err != nil {
+		return refused
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 	res, err := client.Do(req)
-	if err != nil { return refusal }
+	if err != nil {
+		return refused
+	}
 	defer res.Body.Close()
-	status:=n06RecoveryDecision{HTTP:res.StatusCode}
-	// Kratos can return 200 for a form containing an error. Only its
-	// *original server-side flow state* has authority for code redemption.
-	if res.Header.Get("Content-Type")!="application/json" {
-		_,_=io.Copy(io.Discard,io.LimitReader(res.Body,65536))
+	return n06ReadRecoveryDecision(res)
+}
+
+// Kratos commonly includes a charset parameter in JSON Content-Type.
+// A strict string equality silently discarded the real provider flow and
+// incorrectly classified valid courier issuance as a missing state.
+func n06ReadRecoveryDecision(res *http.Response) n06RecoveryDecision {
+	status := n06RecoveryDecision{HTTP: res.StatusCode}
+	media, _, err := mime.ParseMediaType(res.Header.Get("Content-Type"))
+	if err != nil || media != "application/json" {
+		_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 65536))
 		return status
 	}
-	var flow struct{ State string `json:"state"` }
-	if json.NewDecoder(io.LimitReader(res.Body,65536)).Decode(&flow)==nil {
+	var flow struct {
+		State string `json:"state"`
+	}
+	if json.NewDecoder(io.LimitReader(res.Body, 65536)).Decode(&flow) == nil {
 		switch flow.State {
-		case "choose_method","sent_email","passed_challenge":
-			status.State=flow.State
+		case "choose_method", "sent_email", "passed_challenge":
+			status.State = flow.State
 		}
 	}
 	return status
@@ -212,21 +227,27 @@ func n06OneDistinctRecoveryCode(messages []string) (string, error) {
 	return "", nil
 }
 
-func n06RecoveryMailMetadata(ctx context.Context, client *http.Client, email, key string) (bool,bool,error) {
-	req,err:=http.NewRequestWithContext(ctx,http.MethodGet,
-		"http://127.0.0.1:4457/metadata?recipient="+url.QueryEscape(email),nil)
-	if err!=nil{return false,false,errors.New("sealed recovery status unavailable")}
-	req.Header.Set("X-Baobab-Test-Key",key)
-	res,err:=client.Do(req)
-	if err!=nil{return false,false,errors.New("sealed recovery status unavailable")}
+func n06RecoveryMailMetadata(ctx context.Context, client *http.Client, email, key string) (bool, bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		"http://127.0.0.1:4457/metadata?recipient="+url.QueryEscape(email), nil)
+	if err != nil {
+		return false, false, errors.New("sealed recovery status unavailable")
+	}
+	req.Header.Set("X-Baobab-Test-Key", key)
+	res, err := client.Do(req)
+	if err != nil {
+		return false, false, errors.New("sealed recovery status unavailable")
+	}
 	defer res.Body.Close()
-	if res.StatusCode!=http.StatusOK{return false,false,errors.New("sealed recovery status refused")}
-	var value struct{
+	if res.StatusCode != http.StatusOK {
+		return false, false, errors.New("sealed recovery status refused")
+	}
+	var value struct {
 		Delivered bool `json:"delivered"`
 		Marker bool `json:"template_marker_present"`
 	}
-	if json.NewDecoder(io.LimitReader(res.Body,1024)).Decode(&value)!=nil {
-		return false,false,errors.New("sealed recovery status malformed")
+	if json.NewDecoder(io.LimitReader(res.Body, 1024)).Decode(&value) != nil {
+		return false, false, errors.New("sealed recovery status malformed")
 	}
-	return value.Delivered,value.Marker,nil
+	return value.Delivered, value.Marker, nil
 }
