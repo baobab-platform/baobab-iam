@@ -43,17 +43,21 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 		t.Fatal("independent credential fixture entropy unavailable")
 	}
 	password := "Aa!9-" + hex.EncodeToString(passwordSeed)
-	var registration struct { ID string `json:"id"` }
+	var registration struct {
+		ID string `json:"id"`
+	}
 	foundationRequest(t, ctx, client, http.MethodGet, public+"/self-service/registration/api",
 		nil, "", http.StatusOK, &registration)
 	var created struct {
 		SessionToken string `json:"session_token"`
-		Identity struct { ID string `json:"id"` } `json:"identity"`
+		Identity     struct {
+			ID string `json:"id"`
+		} `json:"identity"`
 	}
 	foundationRequest(t, ctx, client, http.MethodPost,
 		public+"/self-service/registration?flow="+url.QueryEscape(registration.ID),
-		map[string]any{"method":"password", "password":password,
-			"traits":map[string]any{"email":email}}, "", http.StatusOK, &created)
+		map[string]any{"method": "password", "password": password,
+			"traits": map[string]any{"email": email}}, "", http.StatusOK, &created)
 	if created.Identity.ID == "" || created.SessionToken == "" {
 		t.Fatal("live Kratos registration/session receipt missing")
 	}
