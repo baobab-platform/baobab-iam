@@ -88,6 +88,12 @@ selfservice:
       enabled: true
       ui_url: http://127.0.0.1:4455/recovery
       use: code
+      # Required after original Kratos code verification. A successful
+      # recovery must not leave any pre-recovery browser/API session usable.
+      # Supported explicitly by pinned v26.2.0 selfServiceAfterRecoveryHooks.
+      after:
+        hooks:
+          - hook: revoke_active_sessions
 
     verification:
       enabled: true
