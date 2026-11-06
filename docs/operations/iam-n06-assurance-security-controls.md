@@ -160,10 +160,10 @@ durable N06 evidence. The required job validates:
 - independent incident approver, source provider confirmation and
   current resource veto required before VERIFIED.
 
-The GitHub Actions *read-only* N06 formatter exists to submit
-reproducible gofmt output without a write-capable workflow token.
-It is a development helper, **not** an acceptance test and should
-be deleted before merging once final-head formatting is stable.
+The temporary read-only N06 formatter workflow was removed on 6 November
+2026 after the mandatory `provider-contract` Go-format check passed on the
+reviewed earlier head. This is housekeeping, **not** acceptance: current-head
+Go formatting, security and connected evidence must still pass independently.
 
 ## Remaining connected qualification (all HELD)
 
