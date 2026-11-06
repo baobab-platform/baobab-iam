@@ -21,6 +21,32 @@ import (
 
 var errFederatedContainment = errors.New("keycloak: current independently reviewed federation containment required")
 var realmName = regexp.MustCompile(`^[a-z][a-z0-9-]{1,62}$`)
+// Provider-issued session identifiers may be UUIDs with non-v4 version or
+// variant bits; their opacity is not business authorisation.
+var brokerSessionID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}package keycloak
+
+// Keycloak remains the enterprise OIDC/SAML *federation* broker. This
+// narrow admin operation terminates only one independently bound broker
+// identity's local sessions. It cannot change native Kratos identities,
+// Hydra clients, CP grants, a Tenant or an upstream enterprise IdP session.
+import (
+	"context"
+	"crypto/subtle"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"mime"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+)
+
+var errFederatedContainment = errors.New("keycloak: current independently reviewed federation containment required")
+var realmName = regexp.MustCompile(`^[a-z][a-z0-9-]{1,62}$`)
+)
 var brokerUserID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var referenceName = regexp.MustCompile(`^ref_[a-z0-9_-]{8,128}$`)
 
@@ -112,19 +138,19 @@ func (c *FederationLocalContainment) sessions(ctx context.Context, bearer, user 
 	raw, status, err := c.call(ctx, bearer, http.MethodGet,
 		"/admin/realms/"+url.PathEscape(c.BrokerRealm)+"/users/"+url.PathEscape(user)+"/sessions")
 	if err != nil || status != http.StatusOK {
-		return nil, errFederatedContainment
+		return nil, fmt.Errorf("broker_sessions_http_or_media_refused: %w", errFederatedContainment)
 	}
 	var data []struct {
 		ID     string `json:"id"`
 		UserID string `json:"userId"`
 	}
 	if json.Unmarshal(raw, &data) != nil || len(data) > 100 {
-		return nil, errFederatedContainment
+		return nil, fmt.Errorf("broker_sessions_json_refused: %w", errFederatedContainment)
 	}
 	seen := make(map[string]bool, len(data))
 	for _, session := range data {
-		if !brokerUserID.MatchString(session.ID) || (session.UserID != "" && session.UserID != user) || seen[session.ID] {
-			return nil, errFederatedContainment
+		if !brokerSessionID.MatchString(session.ID) || (session.UserID != "" && session.UserID != user) || seen[session.ID] {
+			return nil, fmt.Errorf("broker_sessions_identity_or_duplicates_refused: %w", errFederatedContainment)
 		}
 		seen[session.ID] = true
 	}
@@ -193,7 +219,7 @@ func (c *FederationLocalContainment) RevokeBrokerSessions(
 	}
 	before, err := c.sessions(ctx, token, target.BrokerUserID)
 	if err != nil {
-		return fmt.Errorf("original_broker_session_read_invalid: %w", errFederatedContainment)
+		return fmt.Errorf("original_broker_session_read_invalid: %w", err)
 	}
 	if len(before) == 0 {
 		return fmt.Errorf("original_broker_session_absent: %w", errFederatedContainment)
