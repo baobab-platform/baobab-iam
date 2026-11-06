@@ -26,7 +26,9 @@ func TestLiveN06KratosWebAuthnRegistrationChallenge(t *testing.T) {
 	seed:=make([]byte,20)
 	if _,err:=rand.Read(seed);err!=nil { t.Fatal("fixture randomness unavailable") }
 	email:="a3-native-"+hex.EncodeToString(seed)+"@baobab.invalid"
-	password:="Aa!9-"+hex.EncodeToString(seed)
+	passwordSeed:=make([]byte,32)
+	if _,err:=rand.Read(passwordSeed);err!=nil {t.Fatal("independent credential fixture entropy unavailable")}
+	password:="Aa!9-"+hex.EncodeToString(passwordSeed)
 	pub:=envOr("ORY_KRATOS_PUBLIC_URL","http://127.0.0.1:4433")
 	admin:=envOr("ORY_KRATOS_ADMIN_URL","http://127.0.0.1:4434")
 	client:=&http.Client{Timeout:10*time.Second}
