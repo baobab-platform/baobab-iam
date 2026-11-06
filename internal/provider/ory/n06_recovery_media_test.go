@@ -50,7 +50,7 @@ func TestN06RecoveryNoSensitiveProviderErrorOrMessageText(t *testing.T) {
 func TestN06RecoveryBrowserSettingsHandoffIsExactOriginalProviderScope(t *testing.T) {
 	good := "http://127.0.0.1:4455/settings?flow=12345678-1234-1234-1234-123456789abc"
 	for _, tc := range []struct {
-		url string
+		url     string
 		allowed bool
 	}{
 		{good, true},
@@ -64,8 +64,8 @@ func TestN06RecoveryBrowserSettingsHandoffIsExactOriginalProviderScope(t *testin
 			t.Fatal("recovery must not treat a foreign/ambiguous browser redirect as proof")
 		}
 	}
-	response := &http.Response{StatusCode:422,Header:http.Header{},
-		Body:io.NopCloser(strings.NewReader(`{"error":{"id":"browser_location_change_required"},"redirect_browser_to":"`+good+`"}`))}
+	response := &http.Response{StatusCode: 422, Header: http.Header{},
+		Body: io.NopCloser(strings.NewReader(`{"error":{"id":"browser_location_change_required"},"redirect_browser_to":"`+good+`"}`))}
 	response.Header.Set("Content-Type", "application/json; charset=utf-8")
 	result := n06ReadRecoveryDecision(response)
 	if result.ErrorID != "browser_location_change_required" || !result.RedirectSettings ||
