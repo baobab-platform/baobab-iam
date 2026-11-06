@@ -28,7 +28,11 @@ test -s "$temp/keycloak.dump"
 docker exec "$db" psql -X -v ON_ERROR_STOP=1 -U enterprise -d postgres   -c 'DROP DATABASE enterprise WITH (FORCE)' >/dev/null
 docker exec "$db" createdb -U enterprise enterprise
 docker exec -i "$db" pg_restore --exit-on-error --no-owner --no-acl -U enterprise   -d enterprise < "$temp/keycloak.dump"
-"${compose[@]}" start keycloak
+# Start with a *fresh* provider filesystem. The pinned Keycloak entrypoint
+# creates a one-use /tmp truststore on boot; restarting the same container
+# would reuse that truststore and incorrectly fail its import. Recreate only
+# the Keycloak service, retaining the exact just-restored PostgreSQL state.
+"${compose[@]}" up -d --no-deps --force-recreate keycloak
 ready=0
 for attempt in $(seq 1 45); do
   if curl --cacert tests/enterprise/tls/ca.crt --max-time 4 -fsS     -o /dev/null https://localhost:9000/health/ready; then
