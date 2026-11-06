@@ -2,6 +2,24 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source tests/ory-foundation/hydra-audience/compose.sh
+# Only local ephemeral recovery emails. Keep codes out of output/artifacts.
+export BAOBAB_TEST_MAIL_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+python3 tests/ory-foundation/smtp_sink.py >/dev/null 2>&1 &
+MAIL_SINK_PID=$!
+cleanup_mail_sink() {
+  kill "$MAIL_SINK_PID" 2>/dev/null || true
+  wait "$MAIL_SINK_PID" 2>/dev/null || true
+  unset BAOBAB_TEST_MAIL_KEY
+}
+trap cleanup_mail_sink EXIT
+for attempt in $(seq 1 30); do
+  if curl -fsS --max-time 1 -o /dev/null http://127.0.0.1:4457/health; then break; fi
+  if ! kill -0 "$MAIL_SINK_PID" 2>/dev/null; then
+    echo "Local disposable SMTP sink terminated" >&2; exit 1
+  fi
+  sleep 1
+done
+curl -fsS --max-time 2 -o /dev/null http://127.0.0.1:4457/health
 mkdir -p ory-foundation-evidence
 # Require lock/Compose agreement before contacting registries or starting services.
 python3 - <<'PY'

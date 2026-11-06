@@ -131,11 +131,11 @@ identity:
       url: file:///etc/config/kratos/identity.schema.json
 
 # Courier is required for recovery/verification email. This SMTP URI is a
-# local stub (no real mailer in the foundation overlay). Admin API identity
-# operations used by internal/provider/ory do not depend on successful send.
+# host-owned *disposable SMTP sink* started by tests/ory-foundation/run.sh.
+# Never use this route outside the isolated development foundation.
 courier:
   smtp:
-    connection_uri: smtp://127.0.0.1:1025/?disable_starttls=true
+    connection_uri: smtp://host.docker.internal:1025/?disable_starttls=true
     from_address: kratos-local@baobab.invalid
     from_name: Baobab IAM Local
 
