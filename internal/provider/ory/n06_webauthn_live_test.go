@@ -155,23 +155,29 @@ func TestLiveN06KratosWebAuthnRegistrationChallenge(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("real Kratos browser WebAuthn challenge missing: password=%d passkey=%d totp=%d",
-			passwordNodes,passkeyNodes,totpNodes)
+			passwordNodes, passkeyNodes, totpNodes)
 	}
-	if len(settingsCSRF) < 20 { t.Fatal("current settings flow CSRF absent") }
+	if len(settingsCSRF) < 20 {
+		t.Fatal("current settings flow CSRF absent")
+	}
 	// A browser must generate real WebAuthn attestation, not a form string.
 	// Invalid registration is refused; the native provider must remain
 	// credential-free under independent Admin API readback below.
 	fields := url.Values{
-		"method":{"webauthn"}, "webauthn_register":{"forged-no-authenticator"},
-		"csrf_token":{settingsCSRF},
+		"method": {"webauthn"}, "webauthn_register": {"forged-no-authenticator"},
+		"csrf_token": {settingsCSRF},
 	}
 	negative, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		pub+"/self-service/settings?flow="+url.QueryEscape(settingsID),
 		strings.NewReader(fields.Encode()))
-	if err != nil { t.Fatal("invalid browser negative construction") }
-	negative.Header.Set("Content-Type","application/x-www-form-urlencoded")
+	if err != nil {
+		t.Fatal("invalid browser negative construction")
+	}
+	negative.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	reply, err := browser.Do(negative)
-	if err != nil { t.Fatal("real browser WebAuthn negative transport failed") }
+	if err != nil {
+		t.Fatal("real browser WebAuthn negative transport failed")
+	}
 	reply.Body.Close()
 	if reply.StatusCode < 300 && reply.StatusCode != http.StatusOK {
 		t.Fatal("unexpected Kratos malformed WebAuthn protocol response")
