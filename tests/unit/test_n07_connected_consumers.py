@@ -88,6 +88,25 @@ class N07SourceTests(unittest.TestCase):
         with self.assertRaises(n07.Blocked):
             n07.validate_profile(p)
 
+    def test_closed_profile_rejects_authentication_and_authority_smuggling(self):
+        for extra, value in (("production_authorized", True),
+                             ("browser_session", "secret"),
+                             ("support_status", "IMPLEMENTED")):
+            p = example()
+            p[extra] = value
+            with self.assertRaises(n07.Blocked):
+                n07.validate_profile(p)
+        for key in ("cookie_file", "password_file", "client_secret", "cp_admin_token"):
+            p = example()
+            p["consumers"][0][key] = "/run/private/secret"
+            with self.assertRaises(n07.Blocked):
+                n07.validate_profile(p)
+        for key in ("resource_body", "grant_approved", "callback_url"):
+            p = example()
+            p["consumers"][-1][key] = "inert"
+            with self.assertRaises(n07.Blocked):
+                n07.validate_profile(p)
+
     def test_no_browser_cookie_or_bearer_custody_in_profile(self):
         for key in ("session_token_file", "browser_token_file"):
             p = example()
