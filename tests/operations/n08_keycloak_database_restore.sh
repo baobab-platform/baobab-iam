@@ -21,6 +21,10 @@ curl --cacert tests/enterprise/tls/ca.crt -fsS -o /dev/null   --max-time 4 https
 # of provider PostgreSQL. Never place a synthetic positive in a trace.
 before="$(docker exec "$db" psql -X -At -v ON_ERROR_STOP=1 -U enterprise -d enterprise   -c 'SELECT count(*) FROM realm WHERE name = '\''master'\''' )"
 test "$before" = 1
+# Establish and revoke a real disposable broker-local user session before
+# the exact provider database is snapshotted. Never persist the password,
+# bearer or session identifier into the recovery archive.
+python3 tests/operations/n08_keycloak_session_restore.py prepare "$temp/keycloak-session.json"
 "${compose[@]}" stop keycloak
 docker exec "$db" pg_dump -U enterprise -d enterprise -Fc --no-owner > "$temp/keycloak.dump"
 test -s "$temp/keycloak.dump"
@@ -43,4 +47,5 @@ done
 test "$ready" = 1
 after="$(docker exec "$db" psql -X -At -v ON_ERROR_STOP=1 -U enterprise -d enterprise   -c 'SELECT count(*) FROM realm WHERE name = '\''master'\''' )"
 test "$after" = "$before"
+python3 tests/operations/n08_keycloak_session_restore.py verify "$temp/keycloak-session.json"
 echo N08_ACTUAL_KEYCLOAK_PG17_PROVIDER_RESTORE_OBSERVED

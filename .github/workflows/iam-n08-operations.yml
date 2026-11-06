@@ -126,7 +126,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate destructive test is explicit and syntax-valid
-        run: bash -n tests/operations/n08_keycloak_database_restore.sh
+        run: |
+          bash -n tests/operations/n08_keycloak_database_restore.sh
+          python3 -m py_compile tests/operations/n08_keycloak_session_restore.py
       - name: Create disposable TLS keys for Keycloak
         run: bash tests/enterprise/prepare.sh
       - name: Start the original pinned enterprise federation runtime

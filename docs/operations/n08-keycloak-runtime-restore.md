@@ -19,3 +19,22 @@ security three-database test. It does NOT demonstrate upstream SAML/OIDC
 trust rotation, retained broker sessions, CP provider/support records,
 BFF/Redis session cache, or a **same-transaction distributed snapshot**.
 True whole-service disaster recovery and protected deployments remain HELD.
+
+## Original native session revocation across restore
+
+The disposable Keycloak restore job now uses a separate TLS-authenticated Admin
+client to provision an isolated realm, an ephemeral direct-grant client and a
+random native user. It witnesses a **real Keycloak password-grant login and
+active user-scoped broker session**, disables that exact identity and revokes
+its broker sessions, and checks the original current Admin state. Only the
+synthetic subject binding (never the password, bearer or session ID) enters
+private test custody. After the actual Keycloak PostgreSQL 17 destroy/restore
+and server restart, the job independently rereads the **same** account as
+disabled and its sessions as empty. Any lost original, ambiguous identity,
+failed logout or session resurrection fails the qualification job.
+
+This is a *provider-local* recovery component. It does not yet prove actual
+federated upstream trust termination, a single consistent four-database
+snapshot, BFF/Redis custody, CP grants or consumer-denial readbacks. The
+cross-service N08 gate remains HELD until those separately owned effects
+are tested in one immutable witnessed recovery transaction.
