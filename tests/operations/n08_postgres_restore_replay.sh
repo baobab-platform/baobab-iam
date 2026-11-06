@@ -34,6 +34,9 @@ cleanup() {
     echo N08_DISPOSABLE_DATABASE_TEARDOWN_NOT_VERIFIED >&2
     exit 2
   fi
+  if [[ "$original_status" == "0" ]]; then
+    echo N08_PG17_BACKUP_RESTORE_REPLAY_NEGATIVES_OBSERVED_DEVELOPMENT_ONLY
+  fi
   exit "$original_status"
 }
 trap 'cleanup "$?"' EXIT
@@ -93,6 +96,6 @@ corrupt_owned=1
 if docker exec -i "$container" pg_restore --exit-on-error --no-owner --no-acl -U n06_ci -d n08_corrupt < "$tmp/corrupt.dump" > /dev/null 2>&1; then
   echo N08_CORRUPT_RESTORE_ACCEPTED >&2; exit 2
 fi
-# The EXIT trap independently checks that both disposable restored
-# databases were removed before treating the original replay test as clean.
-echo N08_PG17_BACKUP_RESTORE_REPLAY_NEGATIVES_OBSERVED_DEVELOPMENT_ONLY
+# The EXIT trap, not the body of the script, prints the success marker
+# only AFTER both disposable restored databases have been independently
+# removed and absence read back.
