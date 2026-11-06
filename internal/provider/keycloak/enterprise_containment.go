@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -188,19 +189,19 @@ func (c *FederationLocalContainment) RevokeBrokerSessions(
 		}
 	}
 	if matched != 1 {
-		return errFederatedContainment
+		return fmt.Errorf("federation_link_unverified: %w", errFederatedContainment)
 	}
 	before, err := c.sessions(ctx, token, target.BrokerUserID)
 	if err != nil || len(before) == 0 {
-		return errFederatedContainment
+		return fmt.Errorf("original_broker_session_missing: %w", errFederatedContainment)
 	}
 	_, status, err = c.call(ctx, token, http.MethodPost, prefix+"/logout")
 	if err != nil || status != http.StatusNoContent {
-		return errFederatedContainment
+		return fmt.Errorf("provider_broker_logout_unverified: %w", errFederatedContainment)
 	}
 	after, err := c.sessions(ctx, token, target.BrokerUserID)
 	if err != nil || len(after) != 0 {
-		return errFederatedContainment
+		return fmt.Errorf("provider_broker_session_survived: %w", errFederatedContainment)
 	}
 	return nil
 }
