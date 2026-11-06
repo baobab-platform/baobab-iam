@@ -86,7 +86,7 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 	for time.Now().Before(until) {
 		s, err := n06RecoveryCode(ctx, client, email, key)
 		if err != nil {
-			t.Fatal("sealed recovery-mail readback refused")
+			t.Fatalf("sealed recovery-mail readback refused: %v", err)
 		}
 		if s != "" {
 			code = s
@@ -154,16 +154,16 @@ func n06RecoveryCode(ctx context.Context, client *http.Client, email, key string
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "application/json" {
-		return "", errors.New("sealed in-memory courier readback unavailable")
+		return "", errors.New("courier_http_or_media_denied")
 	}
 	var payload struct {
 		Messages []string `json:"messages"`
 	}
 	if err := json.NewDecoder(io.LimitReader(res.Body, 128*1024)).Decode(&payload); err != nil {
-		return "", errors.New("invalid courier message envelope")
+		return "", errors.New("courier_json_refused")
 	}
 	if len(payload.Messages) > 4 {
-		return "", errors.New("ambiguous recovery-courier evidence")
+		return "", errors.New("courier_excess_messages")
 	}
 	for _, text := range payload.Messages {
 		matches := n06CodePattern.FindAllStringSubmatch(text, -1)
@@ -171,7 +171,7 @@ func n06RecoveryCode(ctx context.Context, client *http.Client, email, key string
 			return matches[0][1], nil
 		}
 		if len(matches) > 1 {
-			return "", errors.New("ambiguous recovery code in courier")
+			return "", errors.New("courier_multiple_code_patterns")
 		}
 	}
 	return "", nil
