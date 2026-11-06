@@ -65,3 +65,15 @@ individually declare `IMPLEMENTED` against the exact accepted Shared key and
 major contract. Actual CP provider/facet activation and consumer bindings are
 later owner-controlled decisions. Never treat an IAM-go-green status as
 permission to execute a commerce, payment or logistics commitment.
+
+## Genuine Kratos JML disable and session invalidation
+
+`TestLiveFoundation/disable-native-revokes-active-session` creates a disposable
+Kratos identity and issued session, then executes the real native adapter
+`DisableIdentity`: PATCH inactive, revoke sessions, read back inactive. The
+old token is tested against the running Kratos `/sessions/whoami` endpoint
+and must return 401 both before **and after** re-enabling the identity.
+The original Ory Foundation CI test event must show PASS for this exact
+subtest; a source fixture or green workflow without its PASS is insufficient.
+The test proves Kratos-local JML disable semantics only, not CP Principal
+deactivation or cross-provider signed-token containment.
