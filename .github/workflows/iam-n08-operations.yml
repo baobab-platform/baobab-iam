@@ -116,3 +116,34 @@ jobs:
       - name: Tear down all disposable provider volumes
         if: always()
         run: docker compose -p ory-foundation-ci -f docker-compose.ory.yml down -v --remove-orphans
+
+  retained-keycloak-provider-pg17-restore:
+    name: Real Keycloak enterprise-provider database restore
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate destructive test is explicit and syntax-valid
+        run: bash -n tests/operations/n08_keycloak_database_restore.sh
+      - name: Create disposable TLS keys for Keycloak
+        run: bash tests/enterprise/prepare.sh
+      - name: Start the original pinned enterprise federation runtime
+        run: docker compose -p iam-n08-enterprise-recovery -f tests/enterprise/docker-compose.yml up -d --build
+      - name: Wait for enterprise issuer readiness
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --cacert tests/enterprise/tls/ca.crt -fsS --max-time 3                  -o /dev/null https://localhost:9000/health/ready; then exit 0; fi
+            sleep 3
+          done
+          exit 1
+      - name: Destructively restore original Keycloak PostgreSQL 17 state and restart provider
+        env:
+          IAM_N08_ENTERPRISE_DISPOSABLE: '1'
+        run: bash tests/operations/n08_keycloak_database_restore.sh
+      - name: Destroy test-only Keycloak volumes and private TLS
+        if: always()
+        run: |
+          docker compose -p iam-n08-enterprise-recovery -f tests/enterprise/docker-compose.yml down -v --remove-orphans
+          sudo rm -rf tests/enterprise/tls
