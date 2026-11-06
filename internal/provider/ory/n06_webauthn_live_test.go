@@ -170,12 +170,19 @@ func TestLiveN06KratosWebAuthnRegistrationChallenge(t *testing.T) {
 		t.Fatal("forged browser registration returned a success status")
 	}
 	var current struct {
-		Credentials map[string]json.RawMessage `json:"credentials"`
+		Credentials map[string]struct {
+			Config struct {
+				Credentials []json.RawMessage `json:"credentials"`
+			} `json:"config"`
+		} `json:"credentials"`
 	}
 	foundationRequest(t,ctx,client,http.MethodGet,admin+"/admin/identities/"+url.PathEscape(created.Identity.ID),
 		nil,"",http.StatusOK,&current)
-	if _, exists:=current.Credentials["webauthn"];exists {
-		t.Fatal("forged browser WebAuthn registration persisted a credential")
+	// Kratos may provision an empty method envelope before a browser user
+	// enrols any authenticator. Only persisted credential records qualify.
+	if recorded, exists:=current.Credentials["webauthn"];exists &&
+		len(recorded.Config.Credentials)>0 {
+		t.Fatal("forged browser WebAuthn registration persisted a usable credential")
 	}
 	t.Log("real pinned Kratos browser settings WebAuthn challenge, forged browser denial and credential absence verified; A3 positive not claimed")
 }
