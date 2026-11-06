@@ -44,6 +44,26 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn('Shared checkout outside the IAM worktree', errors.getvalue())
 
+    def test_adr0033_provider_roles_cannot_be_reassigned(self):
+        # Partial Keycloak federation implementation is not a complete
+        # identity.authentication.perform native Kratos replacement.
+        for index, capability, status in (
+            (2, 'identity.authentication.perform', 'IMPLEMENTED'),
+            (0, 'identity.workload-token.issue', 'PARTIAL'),
+            (1, 'identity.authentication.perform', 'PARTIAL'),
+        ):
+            declaration = copy.deepcopy(self.declaration)
+            declaration['providers'][index]['support'][0]['capability_key'] = capability
+            declaration['providers'][index]['support'][0]['implementation_status'] = status
+            with self.assertRaisesRegex(ValueError, 'Keycloak|Kratos|Hydra'):
+                publication.prepare(self.module, self.checkout, declaration)
+        declaration = copy.deepcopy(self.declaration)
+        declaration['providers'][2]['implementation_key'] = 'kratos'
+        with self.assertRaisesRegex(ValueError, 'role mismatch'):
+            publication.prepare(self.module, self.checkout, declaration)
+        # No extra business authority is inferred from the permitted PARTIAL.
+        publication.validate_native_provider_roles(self.declaration)
+
     def test_canonical_generation_draft_only(self):
         _, registrations, excluded = self.generated_fixture()
         self.assertEqual(len(registrations), 1)
