@@ -192,6 +192,13 @@ requires final-head mandatory CI, provider owner/security review,
 first-party connected evidence and independent custody. Protected
 staging/production changes require their own approvals. **Do not merge.**
 
+## 6 November 2026 — additional actual Kratos session/revocation qualification
+
+- `internal/provider/ory/n06_assurance_live_test.go` now creates a synthetic identity against a **real disposable Kratos Foundation instance**, performs the genuine CSRF-bound browser login, uses `nativebff.NewKratosN06Provider` on the issued session cookie, confirms current issuer/subject/session/AAL evidence, and verifies that password authentication cannot be upgraded to RP-bound A3 or hardware-bound A4.
+- The same test executes `nativebff.N06SecurityGate`: authentication-only `OrdinaryBuyer` may pass with live A1/A2, while `CommitBuyer` must remain denied without an independent current risk witness. It denies unissued bearer/cookie inputs and independently revokes Kratos sessions through the actual Ory adapter, re-reading current session and assurance to prove post-revocation refusal.
+- `tests/ory-foundation/run.sh` now executes this case inside the **original** provider suite and requires the exact Go JSON `PASS` event alongside all original checks. A skip or missing case cannot qualify. Its execution result and SHA must be independently checked after this branch's latest CI; the source change alone is not a PASS.
+- The Ory Foundation uses isolated loopback provider HTTP; the test is **real Kratos component behaviour** but **not** deployed TLS BFF/CP/native Trade, real WebAuthn A3/A4, high-risk recovery/rebinding, protected environment admission or production acceptance.
+
 ## 6 November 2026 — N06 original-component evidence and execution boundary
 
 - **Current-source boundary:** #151's initial 6 November reconciliation merge commit `03fad56f49eaec3601e71f5890e5f09971b03cbe` makes #149 an actual Git ancestor, so its against-#149 diff is limited to N06 runtime, PostgreSQL, assurance and CI additions. This is source ancestry only, not a proof of running provider security operations.
