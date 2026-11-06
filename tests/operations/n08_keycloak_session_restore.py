@@ -27,6 +27,13 @@ CLIENT = "n08-restore-native-client"
 CA = "tests/enterprise/tls/ca.crt"
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
+STAGE = "INITIAL"
+LAST_HTTP = 0
+
+def stage(name: str):
+    global STAGE
+    STAGE = name
+
 class Denied(Exception):
     pass
 
@@ -59,10 +66,13 @@ def request(method: str, path: str, payload=None, *, bearer="", form=False):
             raw = response.read(131073)
             if len(raw) > 131072:
                 raise Denied("oversized Keycloak provider receipt")
+            global LAST_HTTP
+            LAST_HTTP = code
             return code, json.loads(raw) if raw else None
     except HTTPError as error:
         # Never surface returned bodies, credentials, session IDs or provider
         # messages. An error status cannot silently become accepted evidence.
+        LAST_HTTP = error.code
         return error.code, None
 
 def required(response, *codes):
@@ -123,20 +133,26 @@ def state_file(path: Path, payload=None):
         json.dump(payload, handle, separators=(",", ":"))
 
 def prepare(path: Path):
+    stage("ORIGINAL_ADMIN_LOGIN")
     token = admin_token()
+    stage("ORIGINAL_REALM_CREATE")
     required(request("POST", "/admin/realms",
        {"realm":REALM, "enabled":True}, bearer=token), 201)
+    stage("ORIGINAL_CLIENT_CREATE")
     required(request("POST", "/admin/realms/" + REALM + "/clients",
        {"clientId":CLIENT, "enabled":True, "publicClient":True,
         "standardFlowEnabled":False, "directAccessGrantsEnabled":True},
        bearer=token), 201)
     username = "n08-restore-" + secrets.token_hex(10)
     password = "Aa!9-" + secrets.token_urlsafe(35)
+    stage("ORIGINAL_USER_CREATE")
     required(request("POST", "/admin/realms/" + REALM + "/users",
         {"username":username, "enabled":True, "emailVerified":True,
          "credentials":[{"type":"password","value":password,"temporary":False}]},
         bearer=token), 201)
+    stage("ORIGINAL_USER_READBACK")
     ident = user_record(token, username)
+    stage("ORIGINAL_USER_LOGIN")
     session_token = required(request("POST",
         "/realms/" + REALM + "/protocol/openid-connect/token",
         {"grant_type":"password", "client_id":CLIENT, "username":username,
@@ -144,33 +160,44 @@ def prepare(path: Path):
     if not isinstance(session_token, dict) or not isinstance(
         session_token.get("access_token"), str):
         raise Denied("genuine native Keycloak login not established")
+    stage("ORIGINAL_SESSION_READBACK")
     if sessions(token, ident) < 1:
         raise Denied("original authenticated native session absent")
+    stage("ORIGINAL_IDENTITY_DISABLE")
     required(request("PUT", "/admin/realms/" + REALM + "/users/" + ident,
                      {"enabled":False}, bearer=token), 204)
+    stage("ORIGINAL_SESSION_LOGOUT")
     required(request("POST", "/admin/realms/" + REALM + "/users/" + ident
                      + "/logout", bearer=token), 204)
+    stage("ORIGINAL_LOGOUT_READBACK")
     if sessions(token, ident) != 0:
         raise Denied("revoked native Keycloak session survived before snapshot")
+    stage("ORIGINAL_DISABLED_READBACK")
     record = required(request("GET", "/admin/realms/" + REALM + "/users/"
                               + ident, bearer=token), 200)
     if not isinstance(record, dict) or record.get("enabled") is not False:
         raise Denied("native Keycloak user disablement not persisted")
+    stage("ORIGINAL_PRIVATE_CUSTODY")
     state_file(path, {"realm":REALM, "username":username, "user_id":ident})
     print("N08_ORIGINAL_KEYCLOAK_LOGIN_REVOKED_AND_DISABLED")
 
 def verify(path: Path):
+    stage("RESTORED_PRIVATE_CUSTODY")
     item = state_file(path)
     if not isinstance(item, dict) or item.get("realm") != REALM or not UUID.fullmatch(
         str(item.get("user_id", ""))):
         raise Denied("original Keycloak restore witness invalid")
+    stage("RESTORED_ADMIN_LOGIN")
     token = admin_token()
+    stage("RESTORED_SUBJECT_READBACK")
     if user_record(token, item["username"]) != item["user_id"]:
         raise Denied("restored broker identity differs from original")
+    stage("RESTORED_DISABLED_READBACK")
     state = required(request("GET", "/admin/realms/" + REALM + "/users/"
                              + item["user_id"], bearer=token), 200)
     if not isinstance(state, dict) or state.get("enabled") is not False:
         raise Denied("Keycloak restore resurrected disabled identity")
+    stage("RESTORED_SESSIONS_READBACK")
     if sessions(token, item["user_id"]) != 0:
         raise Denied("Keycloak restore resurrected revoked native session")
     print("N08_RESTORED_KEYCLOAK_USER_DISABLED_AND_NO_REVOKED_SESSION")
@@ -187,5 +214,5 @@ if __name__ == "__main__":
             raise Denied("private recovery working directory required")
         (prepare if sys.argv[1] == "prepare" else verify)(target)
     except (Denied, ValueError, OSError, KeyError, TypeError):
-        print("N08_KEYCLOAK_ORIGINAL_SESSION_RESTORE_HELD", file=sys.stderr)
+        print("N08_KEYCLOAK_ORIGINAL_SESSION_RESTORE_HELD_" + STAGE + "_HTTP_" + str(LAST_HTTP), file=sys.stderr)
         sys.exit(2)
