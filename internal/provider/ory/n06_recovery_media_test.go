@@ -21,6 +21,7 @@ func TestN06RecoveryOriginalProviderMediaAndState(t *testing.T) {
 		{"unreviewed-media", "text/html", `{"state":"passed_challenge"}`, ""},
 		{"invalid-state", "application/json", `{"state":"unreviewed"}`, ""},
 		{"invalid-json", "application/json", `{"state":`, ""},
+		{"safe-422-message-id", "application/json; charset=utf-8", `{"state":"unreviewed","ui":{"messages":[{"id":4060004,"text":"SECRET MUST NEVER LEAK"}]}}`, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			res := &http.Response{StatusCode: http.StatusOK, Header: http.Header{},
@@ -31,5 +32,17 @@ func TestN06RecoveryOriginalProviderMediaAndState(t *testing.T) {
 				t.Fatal("original provider state misclassified")
 			}
 		})
+	}
+}
+
+func TestN06RecoveryNoSensitiveProviderErrorOrMessageText(t *testing.T) {
+	body := `{"error":{"id":"unreviewed.with.dots","message":"SECRET"},"ui":{"messages":[{"id":4060004,"text":"SECRET"},{"id":-22,"text":"SECRET"}]}}`
+	res := &http.Response{StatusCode: http.StatusUnprocessableEntity, Header: http.Header{},
+		Body: io.NopCloser(strings.NewReader(body))}
+	res.Header.Set("Content-Type", "application/json; charset=utf-8")
+	result := n06ReadRecoveryDecision(res)
+	if result.HTTP != 422 || result.State != "" || result.ErrorID != "" ||
+		len(result.MessageIDs) != 1 || result.MessageIDs[0] != 4060004 {
+		t.Fatal("provider recovery original errors must remain strictly privacy-safe")
 	}
 }
