@@ -22,6 +22,7 @@ const nonce = () => randomBytes(24).toString('hex');
 const privateEmail = 'a3-live-' + nonce() + '@baobab.invalid';
 const privatePassword = 'Aa!9-' + nonce();
 let identityID, added=0, asserted=0;
+let qualificationPhase='INITIALIZING';
 
 const timeout = AbortSignal.timeout(12000);
 async function jsonRequest(url, method='GET', body) {
@@ -158,7 +159,9 @@ async function loginSecondFactor() {
 }
 async function run() {
  try {
+  qualificationPhase='KRATOS_NATIVE_IDENTITY';
   await kratosIdentity();
+  qualificationPhase='CHROMIUM_LAUNCH';
   session.browser=await chromium.launch({headless:true});
   session.context=await session.browser.newContext({acceptDownloads:false});
   session.page=await session.context.newPage();
@@ -166,6 +169,7 @@ async function run() {
   await session.page.route(UI+'/**', route=>route.fulfill({status:200,contentType:'text/html',
    body:'<!doctype html><html><meta charset="utf-8"><body>Disposable IAM WebAuthn browser</body></html>'}));
   session.page.on('dialog',dialog=>void dialog.dismiss().catch(()=>{}));
+  qualificationPhase='CHROMIUM_AUTHENTICATOR';
   session.cdp=await session.context.newCDPSession(session.page);
   await session.cdp.send('WebAuthn.enable');
   const response=await session.cdp.send('WebAuthn.addVirtualAuthenticator',
@@ -176,11 +180,15 @@ async function run() {
    if(credential?.rpId==='127.0.0.1') added++;
   });
   session.cdp.on('WebAuthn.credentialAsserted',()=>{asserted++});
+  qualificationPhase='KRATOS_BROWSER_LOGIN';
   await browserLoginPassword();
+  qualificationPhase='KRATOS_PASSKEY_REGISTRATION';
   await registerWebAuthn();
+  qualificationPhase='KRATOS_AAL2_ASSERTION';
   await loginSecondFactor();
   process.stdout.write('N06_KRATOS_CHROMIUM_CTAP2_A3_CEREMONY_AND_REPLAY_PASS_NOT_A4\n');
  } finally {
+  qualificationPhase='RESOURCE_TEARDOWN';
   if (session.cdp && session.id) {
    await session.cdp.send('WebAuthn.removeVirtualAuthenticator',{authenticatorId:session.id}).catch(()=>{});
   }
@@ -196,7 +204,7 @@ await run().catch(error => {
  // Do not print native flow bodies, credentials, tokens or exception stacks.
  const message = String(error?.message ?? '');
  const safe = /^N06_A3_HELD_[A-Z0-9_]{1,96}$/.test(message)
-  ? message : 'N06_A3_HELD_UNKNOWN_BROWSER_FAILURE';
- process.stderr.write(safe + '\\n');
+  ? message : 'N06_A3_HELD_' + qualificationPhase + '_UNCLASSIFIED';
+ process.stderr.write(safe + '\n');
  process.exitCode = 2;
 });

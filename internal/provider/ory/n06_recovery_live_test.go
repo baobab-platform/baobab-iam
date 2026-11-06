@@ -106,12 +106,6 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 		}
 		t.Fatalf("Kratos recovery code absent: smtp_delivered=%t expected_plaintext_marker=%t", seen, template)
 	}
-	wrong := submitN06Recovery(ctx, client, target,
-		map[string]any{"method": "code", "code": "00000000"})
-	if wrong.State == "passed_challenge" || wrong.HTTP == http.StatusSeeOther ||
-		(wrong.HTTP == http.StatusOK && wrong.State == "") {
-		t.Fatal("invalid recovery code yielded an ambiguous or successful provider flow")
-	}
 	correct := submitN06Recovery(ctx, client, target,
 		map[string]any{"method": "code", "code": code})
 	if correct.HTTP != http.StatusOK || correct.State != "passed_challenge" {
@@ -124,6 +118,29 @@ func TestLiveN06KratosRecoveryCourier(t *testing.T) {
 		map[string]any{"method": "code", "code": code})
 	if replay.HTTP == http.StatusOK && replay.State == "passed_challenge" {
 		t.Fatal("original recovery proof was replayed as another accepted challenge")
+	}
+	// An invalid attempt can permanently invalidate its own native flow.
+	// Use a FRESH provider flow for the invalid-code negative, rather than
+	// poisoning the correctly issued challenge before its positive readback.
+	var negativeFlow struct {
+		ID string `json:"id"`
+	}
+	foundationRequest(t, ctx, client, http.MethodGet,
+		public+"/self-service/recovery/api", nil, "", http.StatusOK, &negativeFlow)
+	if negativeFlow.ID == "" || negativeFlow.ID == start.ID {
+		t.Fatal("independent provider negative recovery flow missing")
+	}
+	negativeTarget := public + "/self-service/recovery?flow=" + url.QueryEscape(negativeFlow.ID)
+	negativeStarted := submitN06Recovery(ctx, client, negativeTarget,
+		map[string]any{"method": "code", "email": email})
+	if negativeStarted.HTTP != http.StatusOK || negativeStarted.State != "sent_email" {
+		t.Fatal("native independent invalid-code negative was not initiated")
+	}
+	wrong := submitN06Recovery(ctx, client, negativeTarget,
+		map[string]any{"method": "code", "code": "00000000"})
+	if wrong.State == "passed_challenge" || wrong.HTTP == http.StatusSeeOther ||
+		(wrong.HTTP == http.StatusOK && wrong.State == "") {
+		t.Fatal("invalid recovery code yielded an ambiguous or successful provider flow")
 	}
 	// A successful recovery must not leave an old session trusted. This is
 	// independently queried from the real running Kratos service.
@@ -244,7 +261,7 @@ func n06RecoveryMailMetadata(ctx context.Context, client *http.Client, email, ke
 	}
 	var value struct {
 		Delivered bool `json:"delivered"`
-		Marker bool `json:"template_marker_present"`
+		Marker    bool `json:"template_marker_present"`
 	}
 	if json.NewDecoder(io.LimitReader(res.Body, 1024)).Decode(&value) != nil {
 		return false, false, errors.New("sealed recovery status malformed")

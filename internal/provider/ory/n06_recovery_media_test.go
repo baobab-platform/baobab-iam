@@ -11,10 +11,10 @@ import (
 // recovery flow state. A non-JSON/ambiguous response still fails closed.
 func TestN06RecoveryOriginalProviderMediaAndState(t *testing.T) {
 	for _, tc := range []struct {
-		name string
+		name  string
 		media string
-		body string
-		want string
+		body  string
+		want  string
 	}{
 		{"kratos-json-charset", "application/json; charset=utf-8", `{"state":"sent_email"}`, "sent_email"},
 		{"kratos-plain-json", "application/json", `{"state":"passed_challenge"}`, "passed_challenge"},
