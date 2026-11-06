@@ -63,6 +63,17 @@ selfservice:
       enabled: true
     link:
       enabled: true
+    # Development-only RP. Real A3 requires a complete browser ceremony,
+    # Kratos provider credential readback and independent RP-bound witness.
+    # Never use this loopback RP ID/origin in protected environments.
+    webauthn:
+      enabled: true
+      config:
+        passwordless: false
+        rp:
+          display_name: Baobab IAM Disposable Development
+          id: 127.0.0.1
+          origin: http://127.0.0.1:4455
 
   flows:
     error:
