@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -147,5 +146,4 @@ func TestN06FederatedBrokerContainmentRejectsScopeAndOriginSubstitution(t *testi
 		Reviewer:n06FederationReview{approve:true},Now:time.Now,AllowTestLoopback:true,
 	}
 	if remote.RevokeBrokerSessions(context.Background(),base)==nil {t.Fatal("remote plain HTTP admin admitted")}
-	_ = strings.HasPrefix
 }
