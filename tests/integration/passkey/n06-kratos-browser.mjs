@@ -47,14 +47,25 @@ function statusExact(r,expected,stage) {
  return r.body;
 }
 async function onPage(method, url, body) {
- return await session.page.evaluate(async ({url,method,body})=>{
-  const r=await fetch(url,{method,credentials:'include',redirect:'manual',
-   headers:{Accept:'application/json', ...(body===undefined?{}:{'Content-Type':'application/json'})},
-   body:body===undefined?undefined:JSON.stringify(body)});
-  let data=null;
-  if (r.type!=='opaqueredirect') data=await r.json().catch(()=>null);
-  return {status:r.status,body:data,redirect:r.type==='opaqueredirect'};
- }, {url,method,body});
+ // These are Kratos *browser* flows. The API registration uses JSON, but
+ // browser login/settings require their CSRF-bound HTML form semantics.
+ // Encoding these mutations as JSON can fail or bypass browser validation.
+ try {
+  return await session.page.evaluate(async ({url,method,body})=>{
+   const form=body===undefined?undefined:new URLSearchParams(
+    Object.entries(body).map(([k,v])=>[k,String(v)]));
+   const r=await fetch(url,{method,credentials:'include',redirect:'manual',
+    headers:{Accept:'application/json', ...(form===undefined?{}:{
+     'Content-Type':'application/x-www-form-urlencoded'})},
+    body:form});
+   let data=null;
+   if (r.type!=='opaqueredirect') data=await r.json().catch(()=>null);
+   return {status:r.status,body:data,redirect:r.type==='opaqueredirect'};
+  }, {url,method,body});
+ } catch {
+  // Browser exception bodies and headers are not test artifacts.
+  throw Error('N06_A3_HELD_BROWSER_FORM_TRANSPORT');
+ }
 }
 async function browserFlow(kind,extra='') {
  await session.page.goto(API+'/self-service/'+kind+'/browser'+extra,{waitUntil:'domcontentloaded'});
