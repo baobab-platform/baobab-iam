@@ -67,4 +67,4 @@ offline-policy-regression:
         shell: bash
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/ba-sec-dep/bin/python" -B -m unittest tests.unit.test_dependency_maintenance -v
+          "$RUNNER_TEMP/ba-sec-dep/bin/python" -B -m unittest discover -s tests/unit -p 'test_dependency_maintenance.py' -v
