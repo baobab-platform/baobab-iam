@@ -1,7 +1,71 @@
+# BA-SEC-DEP-001 — Approved Dependency & Security Maintenance Policy v1.0.
+# Actions / Go / Docker / Compose manifests exist in this repository.
+# Weekly routine version PRs never substitute for event-driven security fixes.
+# Keep majors separate; major OIDC/JOSE, Keycloak, Hydra, Kratos, and
+# federation changes require native provider/issuer verification and negatives.
+# SHA-pinned Actions and Keycloak images require independent advisory/provenance
+# surveillance: Dependabot alone does not prove a SHA/digest is safe.
+# No target-branch (security updates target the default branch).
 version: 2
 updates:
-  - package-ecosystem: github-actions
-    directory: /
-    schedule: { interval: weekly }
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Africa/Johannesburg"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "ci"
+      include: "scope"
     groups:
-      actions: { patterns: ["*"] }
+      actions-routine:
+        applies-to: "version-updates"
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:15"
+      timezone: "Africa/Johannesburg"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    groups:
+      go-routine:
+        applies-to: "version-updates"
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+      timezone: "Africa/Johannesburg"
+    open-pull-requests-limit: 3
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "build"
+      include: "scope"
+
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:45"
+      timezone: "Africa/Johannesburg"
+    open-pull-requests-limit: 3
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "build"
+      include: "scope"
