@@ -57,6 +57,17 @@ git -C "$candidate_dir/source" apply --check "$jose_patch"
 git -C "$candidate_dir/source" apply "$jose_patch"
 (
   cd "$candidate_dir/source"
+  # security.patch originally pinned x/net v0.60.0; CVE-2026-78661 is
+  # fixed in v0.62.0. Upgrade the actual isolated Hydra binary graph, not
+  # just baobab-iam's own go.mod. Resolve required transitive Go modules
+  # and insist on the original pinned candidate's real build/tests.
+  go mod edit -require=golang.org/x/net@v0.62.0
+  go mod tidy
+  resolved_net=$(go list -m -f '{{.Version}}' golang.org/x/net)
+  if [ "$resolved_net" != "v0.62.0" ]; then
+    echo "Refuse Hydra candidate: x/net is $resolved_net, expected v0.62.0" >&2
+    exit 1
+  fi
   # The explicit test tag retains the original Docker helpers in upstream tests.
   go test -race ./fosite/token/jwt ./fosite/handler/rfc7523 ./driver/config ./internal/candidatesecurity
   go test -race github.com/go-jose/go-jose/v4 -run 'TestRsaKeyChecks|TestEmbeddedPrivateJWKRejected|TestPrivateEPKRejected' -count=1

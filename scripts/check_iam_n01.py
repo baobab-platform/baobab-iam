@@ -8,7 +8,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 RECORD_PATH = "docs/governance/iam-n01-convergence.json"
-PIN = "1517429bcae601a1b0288ca0279e524ce48a3d77"
+PIN = "7f547ccdd759208355ef9224d2177929f4bf224e"
 OWNERS = {
     "baobab-iam.kratos": ("kratos", "identity.authentication.perform"),
     "baobab-iam.hydra": ("hydra", "identity.workload-token.issue"),
@@ -160,8 +160,8 @@ def check(root=ROOT, record=None, lock=None, declaration=None):
     require(shared == {
         "repository": "baobab-platform/shared",
         "pin": PIN,
-        "reviewed_head": "c97387ed8e27eeffb0c0382e043db98cb450b900",
-        "decision": "HOLD_REPIN_PENDING_CONSUMER_QUALIFICATION",
+        "reviewed_head": "7f547ccdd759208355ef9224d2177929f4bf224e",
+        "decision": "DEVELOPMENT_SOURCE_REPIN_ONLY_RUNTIME_QUALIFICATION_HELD",
     }, "Shared re-pin was not independently reviewed")
     require(lock.get("source") == {"repository": "baobab-platform/shared", "commit": PIN},
             "Shared lock differs from reviewed pin")
