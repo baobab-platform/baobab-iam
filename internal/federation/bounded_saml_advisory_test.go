@@ -18,11 +18,11 @@ func TestBoundedSAMLXMLRejectsForeignIssuerAndSubjectSubstitution(t *testing.T) 
 		name string
 		body string
 	}{
-		{"no-issuer", `<saml:Assertion><saml:Subject><saml:NameID>subject</saml:NameID></saml:Subject><ds:Signature/></saml:Assertion>`,},
-		{"sibling-issuer", `<Other><saml:Issuer>unrelated</saml:Issuer></Other><saml:Assertion><saml:Subject><saml:NameID>subject</saml:NameID></saml:Subject><ds:Signature/></saml:Assertion>`,},
-		{"sibling-subject", `<Other><saml:Subject><saml:NameID>foreign</saml:NameID></saml:Subject></Other><saml:Assertion><saml:Issuer>trusted-idp</saml:Issuer><ds:Signature/></saml:Assertion>`,},
-		{"foreign-nameid", `<saml:Assertion><saml:Issuer>trusted-idp</saml:Issuer><saml:Subject><foreign:NameID>spoofed</foreign:NameID></saml:Subject><ds:Signature/></saml:Assertion>`,},
-		{"extra-nameid", `<saml:Assertion><saml:Issuer>trusted-idp</saml:Issuer><saml:Subject><saml:NameID>subject</saml:NameID><foreign:NameID>spoofed</foreign:NameID></saml:Subject><ds:Signature/></saml:Assertion>`,},
+		{"no-issuer", `<saml:Assertion><saml:Subject><saml:NameID>subject</saml:NameID></saml:Subject><ds:Signature/></saml:Assertion>`},
+		{"sibling-issuer", `<Other><saml:Issuer>unrelated</saml:Issuer></Other><saml:Assertion><saml:Subject><saml:NameID>subject</saml:NameID></saml:Subject><ds:Signature/></saml:Assertion>`},
+		{"sibling-subject", `<Other><saml:Subject><saml:NameID>foreign</saml:NameID></saml:Subject></Other><saml:Assertion><saml:Issuer>trusted-idp</saml:Issuer><ds:Signature/></saml:Assertion>`},
+		{"foreign-nameid", `<saml:Assertion><saml:Issuer>trusted-idp</saml:Issuer><saml:Subject><foreign:NameID>spoofed</foreign:NameID></saml:Subject><ds:Signature/></saml:Assertion>`},
+		{"extra-nameid", `<saml:Assertion><saml:Issuer>trusted-idp</saml:Issuer><saml:Subject><saml:NameID>subject</saml:NameID><foreign:NameID>spoofed</foreign:NameID></saml:Subject><ds:Signature/></saml:Assertion>`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
