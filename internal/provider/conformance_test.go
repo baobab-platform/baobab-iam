@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
@@ -74,17 +75,35 @@ func ProviderConformanceSuite(t *testing.T, adapter provider.IdentityProvider, i
 }
 
 func TestProviderConformanceSuite(t *testing.T) {
+	// Preserve actual lifecycle state in this controlled Kratos HTTP fixture.
+	// A GET that always reports ACTIVE makes a properly fail-closed adapter
+	// reject the test itself rather than demonstrating a successful disable.
+	var identityActive atomic.Bool
+	identityActive.Store(true)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/admin/identities/id" {
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"id": "id", "state": "active", "traits": map[string]any{"email": "source@example.com"}})
+			state := "inactive"
+			if identityActive.Load() {
+				state = "active"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "id", "state": state, "traits": map[string]any{"email": "source@example.com"}})
 			return
 		}
 		if r.Method == http.MethodPatch && r.URL.Path == "/admin/identities/id" {
 			var patch []map[string]any
-			if json.NewDecoder(r.Body).Decode(&patch) != nil || len(patch) != 1 || patch[0]["path"] != "/state" {
+			if json.NewDecoder(r.Body).Decode(&patch) != nil || len(patch) != 1 || patch[0]["path"] != "/state" || patch[0]["op"] != "replace" {
 				t.Error("invalid provider lifecycle patch")
+				http.Error(w, "invalid lifecycle patch", http.StatusBadRequest)
+				return
 			}
+			state, ok := patch[0]["value"].(string)
+			if !ok || (state != "active" && state != "inactive") {
+				t.Error("invalid provider lifecycle target state")
+				http.Error(w, "invalid target state", http.StatusBadRequest)
+				return
+			}
+			identityActive.Store(state == "active")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}

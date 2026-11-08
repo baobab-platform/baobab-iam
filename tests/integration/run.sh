@@ -414,6 +414,31 @@ else
       fail "INT-03C issuer proof identity pair differs from its approved fixture-only boundary"
     fi
   fi
+  # These exact Shared-registered development fixtures are created and
+  # destroyed by their own disposable run. They must NEVER be silently
+  # turned into permanent Keycloak bootstrap clients just to pass the
+  # ACTIVE-registry check. This exception proves ABSENCE, not issuance.
+  # Unknown IDs, protected environments and mismatched owner/scope/runtime
+  # remain denied. This is a closed source inventory, not a dev-* wildcard.
+  DEV_RUN_ONLY_IDS=$(cat <<'DEV_RUN_ONLY'
+baobab-dev-nabhold-estate
+baobab-dev-zuribeans-estate
+baobab-dev-thamani-estate
+baobab-dev-equator-estate-estate
+baobab-dev-external-api
+baobab-dev-pulse-validator
+baobab-dev-cp-subscriptions
+baobab-dev-subscriptions-assessor
+baobab-dev-pulse-onboarding
+baobab-dev-pulse-onboarding-neighbour
+baobab-dev-payments-onboarding
+baobab-dev-payments-onboarding-neighbour
+baobab-dev-payments-validator
+baobab-dev-trade-buyer-validator
+baobab-dev-zuribeans-bff
+DEV_RUN_ONLY
+)
+  ALL_DECLARED_IDS=$(for F in config/clients/*.json; do jq -r '.clientId // empty' "$F"; done)
   ACTIVE_WITHOUT_CLIENT=0
   for ID in $(echo "$REGISTRY_JSON" | jq -r '.workloads | to_entries[] | select(.value.status == "ACTIVE" and .value.credential_type == "client_credentials") | .key'); do
     if [ "$ID" = "baobab-int02-pulse-consumer" ] && [ "$INT02_FIXTURE_ONLY" = "true" ]; then
@@ -423,6 +448,25 @@ else
       continue
     fi
     if { [ "$ID" = "baobab-int03c-issuer-owner" ] || [ "$ID" = "baobab-int03c-issuer-verifier" ]; } && [ "$INT03C_FIXTURE_ONLY" = "true" ]; then
+      continue
+    fi
+    if printf '%s\n' "$DEV_RUN_ONLY_IDS" | grep -Fxq "$ID"; then
+      ROW_VALID=$(echo "$REGISTRY_JSON" | jq -r --arg id "$ID" '
+        .workloads[$id] as $r |
+        (($r.status == "ACTIVE") and ($r.environment == "development")
+        and ($r.credential_type == "client_credentials")
+        and ($r.repository == $r.owner) and ($r.rotation_owner == $r.owner)
+        and (($r.allowed_scopes | type) == "array") and (($r.allowed_scopes | length) > 0)
+        and (($r.allowed_audiences | type) == "array") and (($r.allowed_audiences | length) > 0)
+        and (($r.runtime | type) == "string")
+        and ($r.runtime | test("^(ADR-SHARED-043 disposable |DEV-06 |DEV-07 |DEV-14/15 )")))')
+      LIVE_COUNT=$(curl -sf --max-time 30 -H "Authorization: Bearer $ADMIN_TOKEN"         "$KC_URL/admin/realms/$REALM/clients?clientId=$ID" | jq 'length' || echo "unreadable")
+      if [ "$ROW_VALID" = "true" ] && ! printf '%s\n' "$ALL_DECLARED_IDS" | grep -Fxq "$ID" && [ "$LIVE_COUNT" = "0" ]; then
+        pass "exact Shared development workload '$ID' is disposable-only: no persistent bootstrap or live client"
+      else
+        fail "Shared development-only workload '$ID' has changed authority or an unexpected persistent/live client (registered=$ROW_VALID live=$LIVE_COUNT)"
+        ACTIVE_WITHOUT_CLIENT=1
+      fi
       continue
     fi
     if ! echo "$LOCAL_CLIENT_IDS" | grep -qx "$ID"; then
