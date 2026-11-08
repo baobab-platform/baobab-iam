@@ -147,7 +147,9 @@ def prepare(path: Path):
     password = "Aa!9-" + secrets.token_urlsafe(35)
     stage("ORIGINAL_USER_CREATE")
     required(request("POST", "/admin/realms/" + REALM + "/users",
-        {"username":username, "enabled":True, "emailVerified":True,
+        {"username":username, "enabled":True,
+         "email":username + "@baobab.invalid", "emailVerified":True,
+         "firstName":"N08", "lastName":"Disposable",
          "credentials":[{"type":"password","value":password,"temporary":False}]},
         bearer=token), 201)
     stage("ORIGINAL_USER_READBACK")
@@ -161,6 +163,17 @@ def prepare(path: Path):
                      + ident + "/reset-password",
         {"type":"password", "value":password, "temporary":False},
         bearer=token), 204)
+    stage("ORIGINAL_CLIENT_CONFIGURATION_READBACK")
+    clients = required(request("GET", "/admin/realms/" + REALM
+        + "/clients?clientId=" + quote(CLIENT), bearer=token), 200)
+    if not isinstance(clients, list) or len(clients) != 1:
+        raise Denied("native Keycloak direct-grant client not uniquely configured")
+    client = clients[0]
+    if not isinstance(client, dict) or client.get("clientId") != CLIENT \
+            or client.get("enabled") is not True \
+            or client.get("directAccessGrantsEnabled") is not True \
+            or client.get("publicClient") is not True:
+        raise Denied("native Keycloak direct-grant client configuration changed")
     stage("ORIGINAL_REQUIRED_ACTIONS_READBACK")
     current = required(request("GET", "/admin/realms/" + REALM
         + "/users/" + ident, bearer=token), 200)
