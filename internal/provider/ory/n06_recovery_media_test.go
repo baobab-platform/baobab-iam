@@ -65,7 +65,7 @@ func TestN06RecoveryBrowserSettingsHandoffIsExactOriginalProviderScope(t *testin
 		}
 	}
 	response := &http.Response{StatusCode: 422, Header: http.Header{},
-		Body: io.NopCloser(strings.NewReader(`{"error":{"id":"browser_location_change_required"},"redirect_browser_to":"`+good+`"}`))}
+		Body: io.NopCloser(strings.NewReader(`{"error":{"id":"browser_location_change_required"},"redirect_browser_to":"` + good + `"}`))}
 	response.Header.Set("Content-Type", "application/json; charset=utf-8")
 	result := n06ReadRecoveryDecision(response)
 	if result.ErrorID != "browser_location_change_required" || !result.RedirectSettings ||

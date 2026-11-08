@@ -208,7 +208,7 @@ func n06ReadRecoveryDecision(res *http.Response) n06RecoveryDecision {
 	var flow struct {
 		State             string `json:"state"`
 		RedirectBrowserTo string `json:"redirect_browser_to"`
-		Error struct {
+		Error             struct {
 			ID string `json:"id"`
 		} `json:"error"`
 		UI struct {
