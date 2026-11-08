@@ -43,6 +43,12 @@ jobs:
         run: go build ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
       - name: Test packages
         run: go test ./cmd/n04-development-read ./pkg/workloadresource/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
+      # Diagnostic only, never an alternative to a failing compile/test gate.
+      # Go 1.27 reports a stale transitive graph as "updates to go.mod needed";
+      # print the native tidy diff WITHOUT mutating source or weakening CI.
+      - name: Read exact Go module tidy diff on failure
+        if: failure()
+        run: go mod tidy -diff
       - name: Validate IAM-N04 original development gate and registered provider negatives
         run: |
           python3 -m py_compile scripts/n04_development_gate.py scripts/n04_github_archive_readback.py scripts/iam_native_development_readback.py
