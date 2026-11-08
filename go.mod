@@ -11,6 +11,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/crewjam/saml v0.5.2
 	github.com/go-jose/go-jose/v4 v4.1.6
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/russellhaering/goxmldsig v1.6.1
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/net v0.62.0
@@ -25,7 +26,7 @@ require (
 	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
