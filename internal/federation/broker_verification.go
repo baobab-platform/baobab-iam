@@ -100,7 +100,7 @@ func boundedSAMLXML(raw string) error {
 	// assertion omits its Issuer, and its NameID tag is namespace-blind.
 	// Reject structurally ambiguous XML *before* entering ParseXMLResponse.
 	// The library must still verify the signature after this denial-only gate.
-	issuerCount, subjectCount, nameIDCount, subjectDepth := 0, 0, 0, 0
+	issuerCount, subjectCount, nameIDCount, subjectDepth, assertionDepth := 0, 0, 0, 0, 0
 	const assertionNS = "urn:oasis:names:tc:SAML:2.0:assertion"
 	ids := map[string]bool{}
 	for {
@@ -138,14 +138,15 @@ func boundedSAMLXML(raw string) error {
 				if depth != 2 {
 					return ErrDenied
 				}
+				assertionDepth = depth
 			}
 			if t.Name.Local == "EncryptedAssertion" {
 				return ErrUnsupported
 			}
-			if depth == 3 && t.Name.Space == assertionNS && t.Name.Local == "Issuer" {
+			if depth == 3 && assertionDepth == 2 && t.Name.Space == assertionNS && t.Name.Local == "Issuer" {
 				issuerCount++
 			}
-			if depth == 3 && t.Name.Space == assertionNS && t.Name.Local == "Subject" {
+			if depth == 3 && assertionDepth == 2 && t.Name.Space == assertionNS && t.Name.Local == "Subject" {
 				subjectCount++
 				subjectDepth = depth
 			}
@@ -189,11 +190,14 @@ func boundedSAMLXML(raw string) error {
 			if depth == 3 && t.Name.Space == assertionNS && t.Name.Local == "Subject" {
 				subjectDepth = 0
 			}
+			if depth == 2 && t.Name.Space == assertionNS && t.Name.Local == "Assertion" {
+				assertionDepth = 0
+			}
 			depth--
 		}
 	}
 	if depth != 0 || roots != 1 || assertions != 1 || signatures < 1 || signatures > 2 ||
-		issuerCount != 1 || subjectCount != 1 || nameIDCount != 1 || subjectDepth != 0 {
+		issuerCount != 1 || subjectCount != 1 || nameIDCount != 1 || subjectDepth != 0 || assertionDepth != 0 {
 		return ErrDenied
 	}
 	return nil
@@ -209,7 +213,7 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 	var envelope struct {
 		Assertion *saml.Assertion `xml:"urn:oasis:names:tc:SAML:2.0:assertion Assertion"`
 	}
-	if xml.Unmarshal([]byte(raw), &envelope) != nil || envelope.Assertion == nil || !exact(envelope.Assertion.Issuer.Value) || envelope.Assertion.Subject == nil || envelope.Assertion.Conditions == nil || envelope.Assertion.Subject.NameID == nil || len(envelope.Assertion.Subject.SubjectConfirmations) != 1 || envelope.Assertion.Subject.SubjectConfirmations[0].SubjectConfirmationData == nil {
+	if xml.Unmarshal([]byte(raw), &envelope) != nil || envelope.Assertion == nil || envelope.Assertion.Issuer == nil || !exact(envelope.Assertion.Issuer.Value) || envelope.Assertion.Subject == nil || envelope.Assertion.Conditions == nil || envelope.Assertion.Subject.NameID == nil || len(envelope.Assertion.Subject.SubjectConfirmations) != 1 || envelope.Assertion.Subject.SubjectConfirmations[0].SubjectConfirmationData == nil {
 		return ExternalPrincipal{}, Assurance{}, "", ErrDenied
 	}
 	acs, err := brokerURL(c.SAML.ACSURL, false)
@@ -231,7 +235,7 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 		}
 	}
 	// Library errors contain original XML; never return/log them.
-	if assertion == nil || !exact(assertion.Issuer.Value) || assertion.Subject == nil || assertion.Subject.NameID == nil || assertion.Conditions == nil || assertion.Issuer.Value != s.Trust.UpstreamIssuer || len(assertion.AuthnStatements) != 1 || len(assertion.Subject.SubjectConfirmations) != 1 || len(assertion.Conditions.AudienceRestrictions) != 1 {
+	if assertion == nil || assertion.Issuer == nil || !exact(assertion.Issuer.Value) || assertion.Subject == nil || assertion.Subject.NameID == nil || assertion.Conditions == nil || assertion.Issuer.Value != s.Trust.UpstreamIssuer || len(assertion.AuthnStatements) != 1 || len(assertion.Subject.SubjectConfirmations) != 1 || len(assertion.Conditions.AudienceRestrictions) != 1 {
 		return ExternalPrincipal{}, Assurance{}, "", ErrDenied
 	}
 	name := assertion.Subject.NameID
