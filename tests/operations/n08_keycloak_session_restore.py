@@ -152,6 +152,21 @@ def prepare(path: Path):
         bearer=token), 201)
     stage("ORIGINAL_USER_READBACK")
     ident = user_record(token, username)
+    # A user-provisioning POST returning 201 does not attest that the native
+    # credential provider installed the password. Use Keycloak's native Admin
+    # reset-password operation, then read back required actions without
+    # disclosing any password or provider response in the evidence.
+    stage("ORIGINAL_NATIVE_PASSWORD_INSTALL")
+    required(request("PUT", "/admin/realms/" + REALM + "/users/"
+                     + ident + "/reset-password",
+        {"type":"password", "value":password, "temporary":False},
+        bearer=token), 204)
+    stage("ORIGINAL_REQUIRED_ACTIONS_READBACK")
+    current = required(request("GET", "/admin/realms/" + REALM
+        + "/users/" + ident, bearer=token), 200)
+    if not isinstance(current, dict) or current.get("enabled") is not True \
+            or current.get("requiredActions", []) != []:
+        raise Denied("disposable native user not ready for password grant")
     stage("ORIGINAL_USER_LOGIN")
     session_token = required(request("POST",
         "/realms/" + REALM + "/protocol/openid-connect/token",
