@@ -162,3 +162,9 @@ Required independent checks remain: original passkey loss/rebinding cooling/four
 ## Sequential audit coverage versus implementation completion
 
 All 34 ADR entries were reviewed in order and now carry their own source assessment and remaining integration/acceptance holds. **No entry may be marked fully IMPLEMENTED or ACCEPTED solely because its code-level safeguard landed.** The result is a source-audit/engineering remediation series, not closure of the full 34-ADR programme. Existing held N02/N03, DEV-14 native provider registration, ERP SSO source identity, real Medusa/CP/Trade buyer, distributed security-journal replay, SCIM/identity proofing, A3/A4 and protected staging/production remain unresolved and require cross-repo work and original execution.
+
+### Assurance correction after the complete source audit
+
+The first native AMR correction removed lookup-secret and generic-code to OTP/MFA promotion. Subsequent reviewed source shows a second unsupported inference: a Kratos method label of `webauthn` or `passkey` is **not** standalone proof of hardware-backed `hwk`, RP-bound user verification or certified A3/A4. The native method mapper now does not emit that assertion, the direct Hydra human hook refuses an unverified `hwk` label, and regression cases cover generic passkeys. This is intentionally conservative: meaningful passkey hardware assurance must come from separately validated authenticator evidence and risk/operation policy, not a string in a Kratos session method list.
+
+No two-factor/A3/A4 or independent protected credential assertion has been fabricated by the source tests. The full canonical `identity.authentication.assurance` v1 server-side evaluator, approved A3/A4 proof, Keycloak cross-federation assurance mapping and real estate browser qualification remain HELD.
