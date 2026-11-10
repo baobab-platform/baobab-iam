@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -40,7 +41,7 @@ func TestJWKSRetrievalUsesPinnedTLSRootsAndNeverFallbacks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var requests int
+	var requests atomic.Int32
 	jwks := map[string]any{
 		"keys": []any{map[string]any{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "pinned-local-key",
@@ -49,7 +50,7 @@ func TestJWKSRetrievalUsesPinnedTLSRootsAndNeverFallbacks(t *testing.T) {
 		}},
 	}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests++
+		requests.Add(1)
 		if r.URL.Path != "/.well-known/jwks.json" || r.Method != http.MethodGet {
 			http.Error(w, "invalid endpoint", http.StatusNotFound)
 			return
@@ -77,8 +78,8 @@ func TestJWKSRetrievalUsesPinnedTLSRootsAndNeverFallbacks(t *testing.T) {
 		!slices.Equal(got.Scopes, []string{"erp:read"}) {
 		t.Fatalf("private CA JWT verification failed: claim=%+v err=%v", got, err)
 	}
-	if requests != 1 {
-		t.Fatalf("expected one JWKS read using pinned roots, got %d", requests)
+	if requests.Load() != 1 {
+		t.Fatalf("expected one JWKS read using pinned roots, got %d", requests.Load())
 	}
 
 	untrusted, err := NewOIDCSignedVerifier(server.URL, "baobab-erp", x509.NewCertPool())
