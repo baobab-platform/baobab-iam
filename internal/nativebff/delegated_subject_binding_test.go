@@ -23,9 +23,9 @@ func TestDelegatedIssuerSubjectMustMatchBeforeCP(t *testing.T) {
 	defer srv.Close()
 
 	resolver, err := NewHTTPPrincipalResolver(PrincipalResolutionConfig{
-		CPOrigin: srv.URL,
-		Caller: fixedCallerToken(strings.Repeat("w", 40)),
-		Now: time.Now,
+		CPOrigin:          srv.URL,
+		Caller:            fixedCallerToken(strings.Repeat("w", 40)),
+		Now:               time.Now,
 		AllowTestLoopback: true,
 	})
 	if err != nil {
@@ -35,15 +35,15 @@ func TestDelegatedIssuerSubjectMustMatchBeforeCP(t *testing.T) {
 		return "e30." + base64.RawURLEncoding.EncodeToString([]byte(payload)) + ".signature"
 	}
 	invalid := map[string]string{
-		"wrong issuer": testDelegatedHumanToken("https://foreign.invalid", "alice"),
-		"wrong subject": testDelegatedHumanToken("https://issuer.invalid", "bob"),
-		"missing subject": encode(`{"iss":"https://issuer.invalid"}`),
-		"duplicate issuer": encode(`{"iss":"https://issuer.invalid","iss":"https://foreign.invalid","sub":"alice"}`),
-		"duplicate subject": encode(`{"iss":"https://issuer.invalid","sub":"alice","sub":"bob"}`),
+		"wrong issuer":       testDelegatedHumanToken("https://foreign.invalid", "alice"),
+		"wrong subject":      testDelegatedHumanToken("https://issuer.invalid", "bob"),
+		"missing subject":    encode(`{"iss":"https://issuer.invalid"}`),
+		"duplicate issuer":   encode(`{"iss":"https://issuer.invalid","iss":"https://foreign.invalid","sub":"alice"}`),
+		"duplicate subject":  encode(`{"iss":"https://issuer.invalid","sub":"alice","sub":"bob"}`),
 		"non-string subject": encode(`{"iss":"https://issuer.invalid","sub":123}`),
-		"trailing document": encode(`{"iss":"https://issuer.invalid","sub":"alice"} {}`),
-		"invalid base64": "e30.***.signature",
-		"opaque bearer": strings.Repeat("x", 40),
+		"trailing document":  encode(`{"iss":"https://issuer.invalid","sub":"alice"} {}`),
+		"invalid base64":     "e30.***.signature",
+		"opaque bearer":      strings.Repeat("x", 40),
 	}
 	for name, token := range invalid {
 		t.Run(name, func(t *testing.T) {
@@ -65,9 +65,9 @@ func TestDelegatedSubjectStillRequiresCPDecision(t *testing.T) {
 	}))
 	defer srv.Close()
 	resolver, err := NewHTTPPrincipalResolver(PrincipalResolutionConfig{
-		CPOrigin: srv.URL,
-		Caller: fixedCallerToken(strings.Repeat("w", 40)),
-		Now: time.Now,
+		CPOrigin:          srv.URL,
+		Caller:            fixedCallerToken(strings.Repeat("w", 40)),
+		Now:               time.Now,
 		AllowTestLoopback: true,
 	})
 	if err != nil {
