@@ -88,6 +88,8 @@ contracts:
   # 2026-11-06 Shared identity contract additions: assurance and enterprise federation.
   # This pin is contract vocabulary only, not a provider activation or runtime grant.
   - contracts/capability/v1/catalogue.yaml
+  - contracts/capability/v1/catalogue.schema.json
+  - contracts/capability/v1/provider-declaration.schema.json
   - contracts/identity/v1/assurance-evaluation.schema.json
   - contracts/identity/v1/enterprise-federation-start.schema.json
   - contracts/identity/v1/workload-token-request.schema.json
