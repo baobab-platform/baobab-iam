@@ -97,18 +97,27 @@ func TestA3RequiresSeparateAttestationAndA4RequiresHardwareAndWitness(t *testing
 		res:=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,HighValueApproval))
 		if res.Outcome!=StepUpRequired || res.Reason!=FreshStepUpRequired {t.Fatalf("unattested A3: %+v",res)}
 	}
-	s.PasskeyRPBound=true;s.PasskeyUserVerified=true;s.PasskeyAttested=true
+	s.PasskeyRPBound=true;s.PasskeyUserVerified=true;s.PasskeyAttested=true;s.PasskeyProofEventReference=OpaqueReference("event","foreign-login")
 	r:=&fakeReader{value:s}
+	res:=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,HighValueApproval))
+	if res.Outcome!=StepUpRequired {t.Fatalf("passkey proof from foreign authentication event: %+v",res)}
+	s.PasskeyProofEventReference=s.EventReference
+	r=&fakeReader{value:s}
 	res:=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,HighValueApproval))
 	if res.Outcome!=MetNotAuthorization || res.ObservedLevel!=A3 {t.Fatalf("A3: %+v",res)}
 	r=&fakeReader{value:s}
 	res=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,PrivilegedGrant))
 	if res.Outcome!=Denied || res.Reason!=PrivilegedWitnessMissing {t.Fatalf("no witness: %+v",res)}
-	s.PrivilegedWitnessVerified=true
+	s.PrivilegedWitnessVerified=true;s.PrivilegedWitnessEventReference=s.EventReference
 	r=&fakeReader{value:s}
 	res=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,PrivilegedGrant))
 	if res.Outcome!=StepUpRequired {t.Fatalf("no hardware: %+v",res)}
 	s.HardwareBound=true
+	s.PrivilegedWitnessEventReference=OpaqueReference("event","foreign-login")
+	r=&fakeReader{value:s}
+	res=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,PrivilegedGrant))
+	if res.Outcome!=Denied || res.Reason!=PrivilegedWitnessMissing {t.Fatalf("witness from foreign authentication event: %+v",res)}
+	s.PrivilegedWitnessEventReference=s.EventReference
 	r=&fakeReader{value:s}
 	res=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,PrivilegedGrant))
 	if res.Outcome!=MetNotAuthorization || res.ObservedLevel!=A4 {t.Fatalf("A4 with independently provided witness: %+v",res)}
