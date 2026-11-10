@@ -140,6 +140,8 @@ jobs:
           go test ./internal/migration -run '^TestN05' -count=1 -v
       - name: N05 concurrent durable database and revocation replay under race detector
         run: go test -race ./internal/migration -run '^TestN05' -count=1
+      - name: Privacy tombstone durable replay PostgreSQL 17 qualification
+        run: go test -race ./internal/privacy -run '^TestPostgres' -count=1 -v
 
   enterprise-federation-live:
     runs-on: ubuntu-latest
