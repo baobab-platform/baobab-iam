@@ -11,7 +11,7 @@
     "original_gates": 17
   },
   "target_document": "docs/adr/Consolidated-Technical-Specification-v2.0.md",
-  "status": "DRAFT_RECONCILIATION_NO_AUTHORITY_PROMOTION",
+  "status": "APPROVED_INTERPRETATION_NO_AUTHORITY_PROMOTION",
   "guardrails": {
     "provider_allocation": "Kratos:native_human;Hydra:OAuth_and_workloads;Keycloak:enterprise_federation",
     "native_commitment_adr_status": "PROPOSED",
