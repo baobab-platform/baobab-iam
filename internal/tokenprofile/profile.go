@@ -133,6 +133,13 @@ func (c Config) Claims(e Evidence) (map[string]any, error) {
 	if p.Environment == "" || p.Environment != c.Environment {
 		return nil, fmt.Errorf("workload issuance denied")
 	}
+	// Hydra token hooks may invoke Claims on a hand-built projection without
+	// a prior Config.Validate call. Repeat the governed server/BFF identity
+	// fence here: a grant cannot acquire native Trade commitment provenance by
+	// skipping construction validation (ADR-IAM-0034, Shared Decision 9).
+	if err := validateNativeCommitmentSubmitter(e.ClientID, p); err != nil {
+		return nil, fmt.Errorf("native commitment submitter denied: %w", err)
+	}
 	switch p.CredentialType {
 	case "client_credentials":
 		if e.Grant != "client_credentials" || e.Subject != e.ClientID {
