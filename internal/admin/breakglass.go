@@ -109,7 +109,7 @@ func (b *BreakGlass) validWitness(w Witness, now time.Time) bool {
 		!w.ApprovedAt.IsZero() && !w.ApprovedAt.After(now) &&
 		now.Sub(w.ApprovedAt) <= time.Minute &&
 		now.Before(w.ExpiresAt) &&
-		!w.ExpiresAt.After(now.Add(MaxEmergencyDuration))
+		!w.ExpiresAt.After(w.ApprovedAt.Add(MaxEmergencyDuration))
 }
 
 // Activate creates only a bounded, purpose-specific security ledger record;
