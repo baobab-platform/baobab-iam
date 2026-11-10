@@ -61,7 +61,12 @@ func (j PostgresJournal) Mark(ctx context.Context, id string, phase Phase) error
 	}
 	tag, err := j.Pool.Exec(ctx, `UPDATE iam_security.incident_containment
 SET phase=$2, updated_at=statement_timestamp()
-WHERE operation_id=$1 AND (phase <> 'VERIFIED' OR $2='UNKNOWN')`, id, string(phase))
+WHERE operation_id=$1 AND (
+  $2='UNKNOWN'
+  OR ($2='IDENTITY_DISABLED' AND phase IN ('FENCED','UNKNOWN','IDENTITY_DISABLED','SESSIONS_REVOKED'))
+  OR ($2='SESSIONS_REVOKED' AND phase IN ('IDENTITY_DISABLED','SESSIONS_REVOKED'))
+  OR ($2='VERIFIED' AND phase IN ('SESSIONS_REVOKED','VERIFIED'))
+)`, id, string(phase))
 	if err != nil || tag.RowsAffected() != 1 {
 		return errors.New("securityops: journal transition unconfirmed")
 	}
