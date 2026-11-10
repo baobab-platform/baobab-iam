@@ -49,11 +49,16 @@
 # Every scope this repository issues must exist in the scope registry at this
 # exact commit: scripts/check-issued-scopes.sh, run in CI and in
 # tests/integration/run.sh section 9b.
+# Capability registration reconciliation: update to accepted Shared 004937ff
+# (identity.authentication.assurance + identity.federation.enterprise). This
+# advances other Shared contract inputs as well; CI must prove consumer pin
+# compatibility before the PR can be merged. No registry identity or grant
+# is promoted by a pin change.
 schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: 1517429bcae601a1b0288ca0279e524ce48a3d77
+  commit: 004937ff2035fab4ac3b41e05c7887da7abe7014
 contracts:
   - contracts/capability/v1/resolution.schema.json
   - contracts/identity/v1/federation-authority-policy.yaml
@@ -80,6 +85,11 @@ contracts:
   - contracts/control-plane/v1/access-token-claims.schema.json
   - contracts/control-plane/v1/security-policy.yaml
   # Capabilities declared in .baobab/capability-provider.yaml.
+  # 2026-11-06 Shared identity contract additions: assurance and enterprise federation.
+  # This pin is contract vocabulary only, not a provider activation or runtime grant.
+  - contracts/capability/v1/catalogue.yaml
+  - contracts/identity/v1/assurance-evaluation.schema.json
+  - contracts/identity/v1/enterprise-federation-start.schema.json
   - contracts/identity/v1/workload-token-request.schema.json
   - contracts/identity/v1/workload-token-response.schema.json
   - contracts/identity/v1/human-authentication-request.schema.json
