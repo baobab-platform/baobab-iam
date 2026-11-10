@@ -121,12 +121,20 @@ func main() {
 			os.Exit(1)
 		}
 	case "disable":
+		if _, _, err := approvedClient(logicalID); err != nil {
+			fmt.Fprintf(os.Stderr, "provision-workload: disable denied: %v\n", err)
+			os.Exit(2)
+		}
 		if err := adapter.DisableWorkload(ctx, provider.ProviderWorkloadReference{LogicalClientID: logicalID}); err != nil {
 			fmt.Fprintf(os.Stderr, "provision-workload: disable: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("disabled logical_client_id=%s\n", logicalID)
 	case "rotate":
+		if _, _, err := approvedClient(logicalID); err != nil {
+			fmt.Fprintf(os.Stderr, "provision-workload: rotate denied: %v\n", err)
+			os.Exit(2)
+		}
 		w, err := adapter.RotateWorkloadCredentials(ctx, provider.ProviderWorkloadReference{LogicalClientID: logicalID})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "provision-workload: rotate: %v\n", err)
@@ -154,10 +162,15 @@ func provisionOne(ctx context.Context, adapter *ory.Adapter, logicalID string, s
 	if _, federated := federatedNoSecretWorkloads[logicalID]; federated {
 		return fmt.Errorf("%s is credential_type=federated_workload_token in Shared; client-secret provisioning is forbidden until the projected-token/RFC7523 path is live-proven", logicalID)
 	}
+	audiences, err := approvedProvision(logicalID, scopes)
+	if err != nil {
+		return err
+	}
 	spec := provider.WorkloadProvisioningSpec{
 		LogicalClientID: logicalID,
 		DisplayName:     displayNames[logicalID],
 		AllowedScopes:   scopes,
+		Audiences:      audiences,
 		AuthMethod:      provider.WorkloadAuthClientSecret,
 		Metadata: map[string]string{
 			"gate":        "IAM-M4",
