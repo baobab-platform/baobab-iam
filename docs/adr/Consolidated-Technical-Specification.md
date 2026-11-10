@@ -1,5 +1,25 @@
 # Baobab Identity and Access Management
 
+> **Normative precedence notice — 10 November 2026.** This 9 September
+> 2026 **v1.0 historical implementation baseline** was derived from the
+> Proposed ADR-0001–0018 sequence, with a single Keycloak native IdP and
+> Thamani B2C assumptions. It is **not the current authoritative native
+> runtime design**. Accepted ADR-IAM-0019–0033, particularly ADR-IAM-0033,
+> govern: Kratos native human credentials/sessions; Hydra OAuth/OIDC and
+> workload issuance; **permanently retained Keycloak only for bounded
+> enterprise federation**; CP canonical identity, contexts and capability
+> binding; Trade/ERP domain-native authorization; and the current Thamani
+> B2B logistics direction. The Proposed ADR-IAM-0034 does not activate any
+> native commitment workload scope. Where any text or Gate IAM-0–16 below
+> contradicts those accepted successors, the accepted successor governs.
+>
+> **Engineering closure:** See
+> [November 2026 gate crosswalk](../governance/iam-consolidated-gates-crosswalk-2026-11-10.md)
+> and [sequential ADR source-conformance ledger](../governance/iam-adr-sequential-conformance-ledger-2026-11-10.md).
+> These reviews and stacked PRs do **not** signify connected development
+> acceptance or staging/production sign-off. A source-only fix, passing
+> isolated test, provider health result, or unmerged PR is not Gate DONE.
+
 ## Consolidated Technical Specification
 
 **Document Type:** Technical Architecture and Implementation Specification
