@@ -22,10 +22,10 @@ type dispatchContext struct {
 func (c *dispatchContext) Context(context.Context) (ResolutionContext, error) { return c.value, c.err }
 
 type dispatchResolver struct {
-	f      *fakeAuthority
-	mutate func(*CapabilityResolution)
-	err    error
-	calls  int
+	f           *fakeAuthority
+	mutate      func(*CapabilityResolution)
+	err         error
+	calls       int
 	lastRequest CapabilityRequest
 }
 
@@ -103,7 +103,7 @@ func TestEnterpriseDispatchRejectsInvalidCPDecisionsWithoutCallingAdapter(t *tes
 		"incompatible":             func(r *CapabilityResolution) { r.Decision = "INCOMPATIBLE" },
 		"missing invocation":       func(r *CapabilityResolution) { r.Invocation = nil },
 		"wrong capability":         func(r *CapabilityResolution) { r.CapabilityKey = "identity.workload-token.issue" },
-		"legacy native human key": func(r *CapabilityResolution) { r.CapabilityKey = provider.CapabilityHumanAuthentication },
+		"legacy native human key":  func(r *CapabilityResolution) { r.CapabilityKey = provider.CapabilityHumanAuthentication },
 		"wrong context":            func(r *CapabilityResolution) { r.ContextID = "ctx_bffowned" },
 		"wrong correlation":        func(r *CapabilityResolution) { r.CorrelationID = "22222222-2222-4222-8222-222222222222" },
 		"invalid resolution":       func(r *CapabilityResolution) { r.ResolutionID = "secret callback material" },
