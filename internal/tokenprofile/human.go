@@ -34,7 +34,10 @@ var oidcScopes = []string{"openid", "profile", "email", "offline_access"}
 var issuedACR = []string{"aal1", "aal2"}
 
 // The only amr values IAM's native login emits (RFC 8176 names).
-var issuedAMR = []string{"pwd", "otp", "hwk", "mfa"}
+// Hardware-backed key claims require an attested, RP-bound authenticator
+// provenance that Kratos' bare "webauthn"/"passkey" method name cannot prove.
+// Do not admit a forged "hwk" at the direct Hydra token hook (ADR-IAM-0024).
+var issuedAMR = []string{"pwd", "otp", "mfa"}
 
 func (p HumanTokenProfile) validate(workload Workload) error {
 	if p.Purpose != estateBFFBuyerPurpose {
