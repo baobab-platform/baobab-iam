@@ -172,7 +172,7 @@ func provisionOne(ctx context.Context, adapter *ory.Adapter, logicalID string, s
 		LogicalClientID: logicalID,
 		DisplayName:     displayNames[logicalID],
 		AllowedScopes:   scopes,
-		Audiences:      audiences,
+		Audiences:       audiences,
 		AuthMethod:      provider.WorkloadAuthClientSecret,
 		Metadata: map[string]string{
 			"gate":        "IAM-M4",
