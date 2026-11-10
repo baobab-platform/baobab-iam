@@ -24,14 +24,15 @@ func TestNativeAMRFromVerifiedSessionMethods(t *testing.T) {
 	}{
 		"password":                  {methods: []string{"password"}, want: []string{"pwd"}},
 		"password then totp":        {methods: []string{"password", "totp"}, want: []string{"pwd", "otp", "mfa"}},
-		"passkey":                   {methods: []string{"passkey"}, want: []string{"hwk"}},
-		"password then webauthn":    {methods: []string{"password", "webauthn"}, want: []string{"pwd", "hwk", "mfa"}},
+		"passkey":                   {methods: []string{"passkey"}, want: nil},
+		"password then webauthn":    {methods: []string{"password", "webauthn"}, want: []string{"pwd"}},
 		"email code is not totp":    {methods: []string{"code"}, want: nil},
 		"recovery code no factor":   {methods: []string{"totp", "lookup_secret"}, want: []string{"otp"}},
 		"password and lookup code":  {methods: []string{"password", "lookup_secret"}, want: []string{"pwd"}},
 		"password and generic code": {methods: []string{"password", "code"}, want: []string{"pwd"}},
 		"unknown method omitted":    {methods: []string{"magic"}, want: nil},
 		"unknown never makes mfa":   {methods: []string{"password", "magic"}, want: []string{"pwd"}},
+		"synced passkey not hwk":     {methods: []string{"password", "passkey"}, want: []string{"pwd"}},
 		"none":                      {methods: nil, want: nil},
 	}
 	for name, tc := range cases {
