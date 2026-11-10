@@ -54,7 +54,7 @@ def validate(legacy: str, target: str, data: dict) -> None:
 
     require(data.get("schema") == "baobab.iam.cts-v2-reconciliation" and
             data.get("document_version") == "2.0" and
-            data.get("status") == "DRAFT_RECONCILIATION_NO_AUTHORITY_PROMOTION",
+            data.get("status") == "APPROVED_INTERPRETATION_NO_AUTHORITY_PROMOTION",
             "v2 crosswalk is not a standalone decision or accepted runtime result")
     require(data.get("source", {}).get("numbered_sections") == 227 and
             data.get("source", {}).get("original_gates") == 17,
