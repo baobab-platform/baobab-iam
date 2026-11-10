@@ -12,6 +12,8 @@ import (
 // nativeAssuranceReader is deliberately NOT an HTTP endpoint. Its credential
 // is supplied only by the trusted BFF; references from the canonical request
 // are checked against a freshly read Kratos session and current CP routing.
+// The exact assurance capability is required: human-login permission cannot
+// be reused as a separate high-risk authentication-assurance grant.
 // A session method label never creates trusted A3/A4 passkey/witness evidence.
 type nativeAssuranceReader struct {
 	h *GovernedNativeHumanHandoff
@@ -21,12 +23,12 @@ func (h *GovernedNativeHumanHandoff) currentAssuranceSession(ctx context.Context
 	if h==nil || h.mechanics==nil || h.authority==nil || ctx==nil || ctx.Err()!=nil {
 		return nativeSession{},fmt.Errorf("native assurance unavailable")
 	}
-	if h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication)!=nil {
+	if h.authority.CheckCapability(ctx, provider.CapabilityAuthenticationAssurance)!=nil {
 		return nativeSession{},fmt.Errorf("current CP native dispatch denied")
 	}
 	s,err:=h.mechanics.session(ctx,credential)
 	if err!=nil {return nativeSession{},fmt.Errorf("native assurance unavailable")}
-	if h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication)!=nil {
+	if h.authority.CheckCapability(ctx, provider.CapabilityAuthenticationAssurance)!=nil {
 		return nativeSession{},fmt.Errorf("current CP native dispatch denied")
 	}
 	return s,nil
