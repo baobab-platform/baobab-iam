@@ -26,10 +26,12 @@ type dispatchResolver struct {
 	mutate func(*CapabilityResolution)
 	err    error
 	calls  int
+	lastRequest CapabilityRequest
 }
 
 func (r *dispatchResolver) ResolveCapability(_ context.Context, request CapabilityRequest) (CapabilityResolution, error) {
 	r.calls++
+	r.lastRequest = request
 	expires := r.f.clock.Add(time.Minute)
 	b := r.f.snapshot.Trust.ProviderBinding
 	out := CapabilityResolution{ResolutionID: "res_citest", ContextID: request.ContextID, CapabilityKey: request.CapabilityKey,
@@ -83,6 +85,9 @@ func TestEnterpriseDispatchConsumesCPSelectionAndProtocolProjection(t *testing.T
 			if err != nil || complete.EventID != "approved-event" || a.completes != 1 || r.calls != 2 {
 				t.Fatal(complete, err)
 			}
+			if r.lastRequest.CapabilityKey != provider.CapabilityEnterpriseFederation || r.lastRequest.RequiredContractVersion != 1 {
+				t.Fatalf("federation dispatch resolved wrong capability: %+v", r.lastRequest)
+			}
 			if len(observations) != 2 || observations[0].Outcome != "SELECTED" || observations[0].CorrelationID == observations[1].CorrelationID {
 				t.Fatal("missing decision lineage or reused correlation")
 			}
@@ -98,7 +103,7 @@ func TestEnterpriseDispatchRejectsInvalidCPDecisionsWithoutCallingAdapter(t *tes
 		"incompatible":             func(r *CapabilityResolution) { r.Decision = "INCOMPATIBLE" },
 		"missing invocation":       func(r *CapabilityResolution) { r.Invocation = nil },
 		"wrong capability":         func(r *CapabilityResolution) { r.CapabilityKey = "identity.workload-token.issue" },
-		"candidate federation key": func(r *CapabilityResolution) { r.CapabilityKey = "identity.federation.enterprise" },
+		"legacy native human key": func(r *CapabilityResolution) { r.CapabilityKey = provider.CapabilityHumanAuthentication },
 		"wrong context":            func(r *CapabilityResolution) { r.ContextID = "ctx_bffowned" },
 		"wrong correlation":        func(r *CapabilityResolution) { r.CorrelationID = "22222222-2222-4222-8222-222222222222" },
 		"invalid resolution":       func(r *CapabilityResolution) { r.ResolutionID = "secret callback material" },
@@ -216,7 +221,7 @@ func TestEnterpriseDispatchComposesAuthenticatedCPWireAndLiveProjection(t *testi
 		switch r.URL.Path {
 		case "/v1/capabilities/resolve":
 			var req CapabilityRequest
-			if json.NewDecoder(r.Body).Decode(&req) != nil || req.CapabilityKey != "identity.authentication.perform" || req.ContextID != "ctx_iamowned" || req.RequiredContractVersion != 1 || !uuidPattern.MatchString(req.CorrelationID) {
+			if json.NewDecoder(r.Body).Decode(&req) != nil || req.CapabilityKey != provider.CapabilityEnterpriseFederation || req.ContextID != "ctx_iamowned" || req.RequiredContractVersion != 1 || !uuidPattern.MatchString(req.CorrelationID) {
 				t.Error("incorrect canonical request")
 			}
 			out, _ := resolver.ResolveCapability(r.Context(), req)
