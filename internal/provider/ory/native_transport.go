@@ -15,8 +15,8 @@ import (
 // trusted additional CA pool and other non-bypassing transport settings.
 func newNativeProviderHTTPClient(configured *http.Client) (*http.Client, error) {
 	base := &http.Transport{
-		Proxy: nil,
-		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+		Proxy:             nil,
+		TLSClientConfig:   &tls.Config{MinVersion: tls.VersionTLS12},
 		ForceAttemptHTTP2: true,
 	}
 	if configured != nil && configured.Transport != nil {
