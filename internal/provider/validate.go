@@ -165,6 +165,24 @@ func forbiddenIdentityTrait(value any, depth int) bool {
 				return true
 			}
 		}
+	case map[string]string:
+		for key, nested := range v {
+			if forbiddenIdentityTrait(map[string]any{key: nested}, depth+1) {
+				return true
+			}
+		}
+	case []map[string]any:
+		for _, nested := range v {
+			if forbiddenIdentityTrait(nested, depth+1) {
+				return true
+			}
+		}
+	case []map[string]string:
+		for _, nested := range v {
+			if forbiddenIdentityTrait(nested, depth+1) {
+				return true
+			}
+		}
 	case []any:
 		for _, nested := range v {
 			if forbiddenIdentityTrait(nested, depth+1) {
