@@ -1,6 +1,6 @@
 # Baobab IAM (`baobab-iam`)
 
-> **TECHNICAL SPECIFICATION RECONCILIATION:** The [v2.0 provider-neutral CTS candidate](docs/adr/Consolidated-Technical-Specification-v2.0.md) reconciles the [9 September Keycloak-centred CTS v1.0](docs/adr/Consolidated-Technical-Specification.md) with Accepted IAM ADR-0033, EA v2.3 and EA-DEV. Its [227-section / 17-gate crosswalk](docs/governance/iam-cts-v2-reconciliation.json) is checked in CI. **Draft documentation is not provider support, completed development evidence or protected release approval.** Current Shared EA-DEV and the IAM N01–N03 audit still own those claims.
+> **TECHNICAL SPECIFICATION RECONCILIATION:** The [v2.0 approved provider-neutral CTS](docs/adr/Consolidated-Technical-Specification-v2.0.md) reconciles the [9 September Keycloak-centred CTS v1.0](docs/adr/Consolidated-Technical-Specification.md) with Accepted IAM ADR-0033, EA v2.3 and EA-DEV. Its [227-section / 17-gate crosswalk](docs/governance/iam-cts-v2-reconciliation.json) is checked in CI. **An approved specification is not provider support, completed development evidence or protected release approval.** Current Shared EA-DEV and the IAM N01–N03 audit still own those claims.
 
 > **DEVELOPMENT COMPLETION HOLD — N01–N03 NOT CERTIFIED (audited 31 October 2026).**
 > **Do not report “development complete”, “only staging/production outstanding”, or “ready for protected handoff”.**
