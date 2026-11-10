@@ -128,6 +128,9 @@ func TestIdentityProvisioningRejectsSecretAndProofingMaterialInTraits(t *testing
 		{name: "deep token", traits: map[string]any{"identity": []any{map[string]any{"refreshToken": "do-not-copy"}}}},
 		{name: "proofing ID document", traits: map[string]any{"email": "person@example.test", "proof": map[string]any{"passport_number": "do-not-copy"}}},
 		{name: "secret metadata", traits: map[string]any{"email": "person@example.test"}, metadata: map[string]string{"client-secret": "do-not-copy"}},
+		{name: "typed nested map", traits: map[string]any{"email": "person@example.test", "profile": map[string]string{"private_key": "do-not-copy"}}},
+		{name: "typed nested array", traits: map[string]any{"email": "person@example.test", "accounts": []map[string]any{{"refreshToken": "do-not-copy"}}}},
+		{name: "typed nested string array", traits: map[string]any{"email": "person@example.test", "records": []map[string]string{{"recoveryCode": "do-not-copy"}}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
