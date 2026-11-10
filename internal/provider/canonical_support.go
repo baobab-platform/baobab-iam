@@ -5,6 +5,7 @@ package provider
 const (
 	CapabilityHumanAuthentication = "identity.authentication.perform"
 	CapabilityEnterpriseFederation = "identity.federation.enterprise"
+	CapabilityAuthenticationAssurance = "identity.authentication.assurance"
 	CapabilityWorkloadTokenIssue  = "identity.workload-token.issue"
 )
 
