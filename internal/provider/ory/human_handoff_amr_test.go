@@ -32,7 +32,7 @@ func TestNativeAMRFromVerifiedSessionMethods(t *testing.T) {
 		"password and generic code": {methods: []string{"password", "code"}, want: []string{"pwd"}},
 		"unknown method omitted":    {methods: []string{"magic"}, want: nil},
 		"unknown never makes mfa":   {methods: []string{"password", "magic"}, want: []string{"pwd"}},
-		"synced passkey not hwk":     {methods: []string{"password", "passkey"}, want: []string{"pwd"}},
+		"synced passkey not hwk":    {methods: []string{"password", "passkey"}, want: []string{"pwd"}},
 		"none":                      {methods: nil, want: nil},
 	}
 	for name, tc := range cases {
