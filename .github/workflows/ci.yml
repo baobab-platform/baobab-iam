@@ -40,7 +40,7 @@ jobs:
           gofmt -d cmd internal pkg
           test -z "$(gofmt -l cmd internal pkg)"
       - name: Build packages
-        run: go build ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
+        run: go build ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./internal/privacy/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
       - name: Test packages
         run: go test ./pkg/workloadresource/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
       - name: Validate IAM-N02 browser/evidence source and negative custody gates
