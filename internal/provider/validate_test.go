@@ -100,6 +100,9 @@ func TestIdentityProvisioningRejectsNestedAuthoritySmuggling(t *testing.T) {
 		{"nested market", map[string]any{"email": "a@b.c", "attributes": map[string]any{"market": "UG"}}, nil},
 		{"nested supplier approval", map[string]any{"email": "a@b.c", "roles": map[string]any{"supplier-approval": true}}, nil},
 		{"metadata capability", map[string]any{"email": "a@b.c"}, map[string]string{"capability.grant": "allow"}},
+		{"arbitrary role array", map[string]any{"email": "a@b.c", "roles": []any{"administrator"}}, nil},
+		{"arbitrary entitlement graph", map[string]any{"email": "a@b.c", "permissions": map[string]any{"admin": true}}, nil},
+		{"business group grant", map[string]any{"email": "a@b.c", "groups": []any{"approvers"}}, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := (provider.IdentityProvisioningSpec{Traits: tc.traits, Metadata: tc.metadata}).Validate(); !provider.IsInvalidArgument(err) {
