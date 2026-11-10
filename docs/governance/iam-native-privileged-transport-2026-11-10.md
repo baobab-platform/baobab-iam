@@ -6,6 +6,9 @@
 
 ## Implementation
 
+The policy now also governs the **Ory administrative adapter** used for Kratos identity provision/disable/revoke and Hydra workload provision/rotate/revoke. The earlier `NewAdapter` default inherited proxy environment variables, and its `HTTPClient` injection could bypass TLS or use a malicious RoundTripper. Both are now denied at construction. The adapter shares one verified cloned transport across Kratos and Hydra and bounds administrative request timeout to 0–60 seconds (0 defaults to 15 seconds). A real private-CA administrative identity readback and malicious-transport negatives cover the change.
+
+
 - The native client now uses an explicit no-proxy `http.Transport`, TLS minimum 1.2, fixed 10-second timeout and no redirect-following.
 - An optional caller-supplied `*http.Transport` is accepted only when it has no custom proxy, socket dialer, TLS dialer or protocol handler and has not disabled or overridden host certificate verification. Unsafe cryptographic knobs, TLS key logging, client certificates and weakened protocol profiles are rejected at construction.
 - The accepted transport and TLS configuration are cloned to prevent the caller changing the policy after construction, including its trust roots.
