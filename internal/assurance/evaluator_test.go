@@ -103,7 +103,7 @@ func TestA3RequiresSeparateAttestationAndA4RequiresHardwareAndWitness(t *testing
 	if res.Outcome!=StepUpRequired {t.Fatalf("passkey proof from foreign authentication event: %+v",res)}
 	s.PasskeyProofEventReference=s.EventReference
 	r=&fakeReader{value:s}
-	res:=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,HighValueApproval))
+	res=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,HighValueApproval))
 	if res.Outcome!=MetNotAuthorization || res.ObservedLevel!=A3 {t.Fatalf("A3: %+v",res)}
 	r=&fakeReader{value:s}
 	res=newTestEvaluator(t,r).Evaluate(context.Background(),request(s,PrivilegedGrant))
