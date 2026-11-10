@@ -122,6 +122,7 @@ func TestHumanClaimsRefuseEverythingOutsideTheProfile(t *testing.T) {
 		"duplicate amr":            func(e *HumanEvidence) { e.AMR = []string{"pwd", "pwd"} },
 		"mfa without two factors":  func(e *HumanEvidence) { e.AMR = []string{"pwd", "mfa"} },
 		"mfa from otp only":        func(e *HumanEvidence) { e.AMR = []string{"otp", "mfa"} },
+		"unverified hardware AMR": func(e *HumanEvidence) { e.AMR = []string{"hwk"} },
 		"mfa from hardware only":   func(e *HumanEvidence) { e.AMR = []string{"hwk", "mfa"} },
 		"mfa with weak AAL":        func(e *HumanEvidence) { e.ACR = "aal1" },
 	}
