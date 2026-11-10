@@ -89,6 +89,8 @@ jobs:
           gofmt -d internal/federation
           test -z "$(gofmt -l internal/federation)"
           python3 scripts/check-federation-contracts.py
+      - name: Verify Hydra client scopes and resource audiences against pinned Shared
+        run: python3 scripts/check_workload_provision_profiles.py --shared-checkout .shared-contracts
       - name: Validate provider declarations against approved Shared contracts
         run: python3 .shared-contracts/scripts/capability_catalogue.py validate-declaration .baobab/capability-provider.yaml --engine-id baobab-iam --repository-root .
       - name: Verify registration publication exclusions and drift detection
