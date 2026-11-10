@@ -269,6 +269,21 @@ func (c Config) HumanClaims(e HumanEvidence, sealKey []byte) (map[string]any, er
 		}
 		amrSeen[method] = true
 	}
+	// ADR-IAM-0024/0031: a human claim carrying "mfa" must derive from
+	// at least two distinct authentication factor types actually reported
+	// by Kratos. A password plus generic email/recovery code must not become
+	// proof of two independent factors; nativeAMR has already removed those
+	// codes. Do not trust an inconsistent direct Hydra hook invocation even
+	// when a previously sealed consent is supplied.
+	factors := 0
+	for _, method := range []string{"pwd", "otp", "hwk"} {
+		if amrSeen[method] {
+			factors++
+		}
+	}
+	if amrSeen["mfa"] && (factors < 2 || e.ACR != "aal2") {
+		return nil, fmt.Errorf("human MFA claim lacks current independent factor evidence")
+	}
 	claims := map[string]any{"actor_type": "human", "azp": e.ClientID, "acr": e.ACR, "auth_time": e.AuthTime}
 	if len(e.AMR) > 0 {
 		claims["amr"] = slices.Clone(e.AMR)
