@@ -1,8 +1,8 @@
 # IAM → Shared Canonical Capability Reconciliation — 10 November 2026
 
 **Authority:** Accepted ADR-SHARED-017, EA-02B, ADR-IAM-0033.  
-**Shared pin before this change:** `1517429bcae601a1b0288ca0279e524ce48a3d77` (2 IAM keys).  
-**Shared pin after this change:** `004937ff2035fab4ac3b41e05c7887da7abe7014` (4 IAM keys; 6 November native capability contracts).  
+**Runtime Shared pin (UNCHANGED):** `contracts.lock.yaml` → `1517429bcae601a1b0288ca0279e524ce48a3d77` (2 IAM keys).  
+**Read-only capability metadata pin (NEW):** `.baobab/capability-catalogue.lock.yaml` → `004937ff2035fab4ac3b41e05c7887da7abe7014` (4 IAM keys; 6 November native capability contracts).  
 **Evidence class:** repository source and tests, not independently qualified provider/CP support.  
 **State:** DEVELOPMENT PARTIAL; no capability activation, grants, tenant entitlement, binding or protected release.
 
@@ -27,13 +27,17 @@
 
 1. `internal/federation/enterprise_dispatch.go` presently resolves CP `identity.authentication.perform`, not the newly catalogued `identity.federation.enterprise` key. Its tests have historically treated that federation key as invalid for this route. The PARTIAL declaration **does not** claim a current routed CP federation binding or authorize silently switching a live scope. Reconcile CP/Shared grant/binding/consumer contracts with a separate scoped exact-head test before activation.
 2. Current BFF reads of Kratos AAL2 are **not** the full `identity.authentication.assurance` canonical evaluation for operation classes A1–A4. Distinguish protocol AAL from Baobab's canonical assurance result.
-3. The Shared pin advances over earlier commits that modify authorization/workload registries. Existing CI must verify the pinned consumers, not infer compatibility from YAML parsing.
+3. **The runtime Shared pin must not advance as part of this registration.** Comparing the two Shared revisions shows 17 additional `ACTIVE` workload profiles in the later registry (27 versus 10). The extra active profiles could affect issuance ceilings if the issuer's registry source were changed. This PR therefore retains `contracts.lock.yaml` and uses a separate, immutable *read-only* catalogue revision for provider declaration validation. Runtime registry adoption requires its own security/owner review and connected consumer qualification.
 
 ## Regression and exit conditions
 
 - Run the normal Go provider tests and `scripts/iam_capability_matrix.py`.
-- Validate the engine declaration against the pinned Shared `capability/v1/provider-declaration.schema.json`, its canonical catalogue and evidence paths.
+- Validate the engine declaration against the read-only pinned Shared `capability/v1/provider-declaration.schema.json`, its canonical catalogue and evidence paths; prove runtime `contracts.lock.yaml` is unchanged.
 - Verify direct canonical Go support metadata, matrix classification and provider declaration enumerate exactly the four catalogued keys with no unreviewed `IMPLEMENTED` promotion.
 - Qualify complete A3/A4 assurance, Keycloak enterprise federation canonical request/response and exact CP capability resolution, native issuer/CP resource consumers, revocation, negative cross-tenant cases, and security dependency findings before any production claim.
 
 **No new Shared catalogue keys are introduced:** all four contractually eligible IAM keys were already present in Shared main; the missing registration was in the IAM consumer pin, provider declaration and capability matrix.
+
+## Security pin separation
+
+`contracts.lock.yaml` remains the sole issuer/runtime Shared source. The new `.baobab/capability-catalogue.lock.yaml` is **contract vocabulary only** and is read by the capability-matrix validation script, never by the workload profile builder, Hydra hook or CP workload authority. This is an intentionally narrow metadata correction. Future convergence to a single newer Shared runtime pin is **held** until the added ACTIVE workloads, scope audience changes and all original consumer acceptance are separately reviewed. No runtime token issuance entitlement or approved CP grant is changed here.
