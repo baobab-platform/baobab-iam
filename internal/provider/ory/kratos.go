@@ -14,7 +14,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -333,7 +332,6 @@ func wrapErr(op string, err error) error {
 }
 
 func mapHTTPError(op string, resp *http.Response) error {
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	kind := provider.ErrUnavailable
 	switch {
 	case resp.StatusCode == http.StatusNotFound:
@@ -347,14 +345,8 @@ func mapHTTPError(op string, resp *http.Response) error {
 	}
 	return &provider.ProviderError{
 		Kind:     kind,
-		Message:  fmt.Sprintf("%s: HTTP %d: %s", op, resp.StatusCode, truncate(string(body), 256)),
+		Message:  fmt.Sprintf("%s: HTTP %d", op, resp.StatusCode),
 		Provider: "ory",
 	}
 }
 
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
-}
