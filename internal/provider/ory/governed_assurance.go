@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/assurance"
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
 // nativeAssuranceReader is deliberately NOT an HTTP endpoint. Its credential
@@ -20,12 +21,12 @@ func (h *GovernedNativeHumanHandoff) currentAssuranceSession(ctx context.Context
 	if h==nil || h.mechanics==nil || h.authority==nil || ctx==nil || ctx.Err()!=nil {
 		return nativeSession{},fmt.Errorf("native assurance unavailable")
 	}
-	if h.authority.CheckCapability(ctx, "identity.authentication.perform")!=nil {
+	if h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication)!=nil {
 		return nativeSession{},fmt.Errorf("current CP native dispatch denied")
 	}
 	s,err:=h.mechanics.session(ctx,credential)
 	if err!=nil {return nativeSession{},fmt.Errorf("native assurance unavailable")}
-	if h.authority.CheckCapability(ctx, "identity.authentication.perform")!=nil {
+	if h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication)!=nil {
 		return nativeSession{},fmt.Errorf("current CP native dispatch denied")
 	}
 	return s,nil
