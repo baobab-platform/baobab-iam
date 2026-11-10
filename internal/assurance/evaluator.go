@@ -77,11 +77,13 @@ type Evidence struct {
 	RiskChecked bool
 	RecoveryStateChecked bool
 	RecoveryHeld bool
+	PasskeyProofEventReference string
 	PasskeyRPBound bool
 	PasskeyUserVerified bool
 	PasskeyAttested bool
 	HardwareBound bool
 	PrivilegedWitnessVerified bool
+	PrivilegedWitnessEventReference string
 }
 type Reader interface {
 	// Read MUST fetch CURRENT session state, not reuse an unverified token or
@@ -168,13 +170,13 @@ func (e *Evaluator) Evaluate(ctx context.Context, req Request) Result {
 	// A3 requires separately verified RP-bound user verification AND passkey
 	// proof. A4 adds a separately authenticated hardware and privileged witness
 	// record. Neither follows from a Kratos method string or IdP ACR.
-	if observed==A2 && first.PasskeyRPBound && first.PasskeyUserVerified && first.PasskeyAttested {observed=A3}
-	if observed==A3 && first.HardwareBound && first.PrivilegedWitnessVerified {observed=A4}
+	if observed==A2 && first.PasskeyRPBound && first.PasskeyUserVerified && first.PasskeyAttested && first.PasskeyProofEventReference==first.EventReference {observed=A3}
+	if observed==A3 && first.HardwareBound && first.PrivilegedWitnessVerified && first.PrivilegedWitnessEventReference==first.EventReference {observed=A4}
 	result.ObservedLevel=observed
 	if p.RequireCurrentRisk && !first.RiskChecked {result.Reason=CurrentRiskUnknown;return result}
 	if p.RequireRecoveryState && !first.RecoveryStateChecked {result.Reason=CurrentRiskUnknown;return result}
 	if first.RecoveryHeld {result.Reason=RecoveryHold;return result}
-	if rank(p.Level)==4 && !first.PrivilegedWitnessVerified {result.Reason=PrivilegedWitnessMissing;return result}
+	if rank(p.Level)==4 && (!first.PrivilegedWitnessVerified || first.PrivilegedWitnessEventReference!=first.EventReference) {result.Reason=PrivilegedWitnessMissing;return result}
 	if first.AuthenticatedAt.IsZero() || first.AuthenticatedAt.After(now) || !first.ExpiresAt.After(now) {
 		result.Reason=FreshStepUpRequired;result.Outcome=StepUpRequired;return result
 	}
