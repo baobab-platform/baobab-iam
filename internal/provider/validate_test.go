@@ -89,6 +89,33 @@ func TestIdentityProvisioningSpecValidate(t *testing.T) {
 	}
 }
 
+func TestIdentityProvisioningRejectsNestedAuthoritySmuggling(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		traits map[string]any
+		metadata map[string]string
+	}{
+		{"nested ERP role", map[string]any{"profile": map[string]any{"AD_Role": "System Admin"}}, nil},
+		{"nested tenant", map[string]any{"identity": []any{map[string]any{"tenant_id": "other"}}}, nil},
+		{"nested market", map[string]any{"email": "a@b.c", "attributes": map[string]any{"market": "UG"}}, nil},
+		{"nested supplier approval", map[string]any{"email": "a@b.c", "roles": map[string]any{"supplier-approval": true}}, nil},
+		{"metadata capability", map[string]any{"email": "a@b.c"}, map[string]string{"capability.grant": "allow"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := (provider.IdentityProvisioningSpec{Traits: tc.traits, Metadata: tc.metadata}).Validate(); !provider.IsInvalidArgument(err) {
+				t.Fatalf("identity business authority accepted: %v", err)
+			}
+		})
+	}
+	good := provider.IdentityProvisioningSpec{
+		Traits: map[string]any{"email": "person@example.test", "name": map[string]any{"given": "Amina", "family": "Nab"}},
+		Metadata: map[string]string{"migration_id": "migration_01"},
+	}
+	if err := good.Validate(); err != nil {
+		t.Fatalf("ordinary identity attributes rejected: %v", err)
+	}
+}
+
 func TestWorkloadLifecycleStatusValidate(t *testing.T) {
 	for _, status := range []provider.WorkloadLifecycleStatus{
 		provider.WorkloadStatusProvisioned,
