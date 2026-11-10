@@ -145,6 +145,13 @@ func forbiddenIdentityTrait(value any, depth int) bool {
 				"buyerpurchaselimit", "erprole", "adrole", "adclient",
 				"adorg", "supplierapproval", "spendlimit",
 				"organisationmembership", "organizationmembership",
+				// Provider-managed human profiles never carry a parallel
+				// IAM/CP/Trade authority graph as arbitrary role/permission
+				// arrays. It must remain in CP and the domain engine.
+				"role", "roles", "permission", "permissions",
+				"grant", "grants", "entitlement", "entitlements",
+				"group", "groups", "organisationid", "organizationid",
+				"organizationrole", "organisationrole", "approvalauthority",
 				// ADR-IAM-0025/0028/0030: Kratos identity traits and
 				// migration metadata must not become a backup store for
 				// recovery evidence, cleartext secrets or private keys.
