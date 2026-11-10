@@ -180,3 +180,40 @@ runs to confirm the break-glass path was not used outside a declared incident wi
    from routine automation because they currently share the same credential; giving routine
    provisioning its own service account would remove that overlap entirely rather than relying on
    `resourceType` filtering and time-correlation to approximate it.
+
+
+## ADR-IAM-0031: native-era emergency lease evidence (development scope)
+
+The accepted provider allocation (Kratos native humans, Hydra OAuth/workloads,
+permanent Keycloak enterprise federation) means Keycloak master-realm bootstrap
+is **not** an all-provider emergency access architecture. The historical
+steps above can assist a scoped retained Keycloak incident, but they do not
+automatically enable administration of Kratos, Hydra, CP or infrastructure.
+
+A new `internal/admin.BreakGlass` evidence gate and independent PostgreSQL
+`iam_admin.breakglass_lease` ledger support *one explicit action against one
+exact scope*, for at most 15 minutes from approval: restore IAM admin plane,
+suspend one federation, suspend one issuer or revoke one OAuth client.
+Unknown actions, wildcard scopes, self-approval, missing independent
+authentication, changed current approval, failed high-severity alert,
+unconfirmed activation audit and expired leases fail closed. The record is
+purpose- and incident-bound; it contains no emergency credential, access
+token, business grant or customer profile. The ledger records request,
+individual actor, distinct checker, verification references and expiry.
+
+**Critical boundary:** This is a governed **evidence lease**, not the
+operational emergency executor. It cannot itself retrieve an emergency
+credential, change provider settings, revoke an issuer, operate KMS or issue
+a universal administrator token. A separate protected executor must check the
+current scope-specific lease before each original operation and independently
+audit the actual action. Secrets must remain in separately controlled recovery
+custody, with original Security/Operations alert delivery, credential rotation,
+termination and post-use review. CI source fakes are not proof that the
+independent authentication/recovery route works during an actual CP/IdP
+outage; a disconnected or unqualified verifier must always deny.
+
+Production and staging execution remain HELD pending an end-to-end drill,
+approved role assignment, actual KMS/IdP/CP adapters, external durable audit,
+independent network/trust boundaries, restoration of normal governance and
+reviewed no-self-approval receipts. Never infer production acceptance from
+a `PENDING` or `ACTIVE` ledger row.
