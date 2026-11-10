@@ -31,10 +31,10 @@ func TestNativeProviderTransportRejectsProxyTLSAndSocketOverride(t *testing.T) {
 		"custom socket": {Transport: &http.Transport{DialContext: func(context.Context, string, string) (net.Conn, error) {
 			return nil, errors.New("routing substituted")
 		}}},
-		"verify skipped": {Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+		"verify skipped":       {Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 		"hostname substituted": {Transport: &http.Transport{TLSClientConfig: &tls.Config{ServerName: "attacker.invalid"}}},
-		"unsupported tls": {Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS10}}},
-		"key log": {Transport: &http.Transport{TLSClientConfig: &tls.Config{KeyLogWriter: io.Discard}}},
+		"unsupported tls":      {Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS10}}},
+		"key log":              {Transport: &http.Transport{TLSClientConfig: &tls.Config{KeyLogWriter: io.Discard}}},
 		"callback override": {Transport: &http.Transport{TLSClientConfig: &tls.Config{
 			VerifyConnection: func(tls.ConnectionState) error { return nil },
 		}}},
@@ -45,15 +45,15 @@ func TestNativeProviderTransportRejectsProxyTLSAndSocketOverride(t *testing.T) {
 			"h2": func(string, *tls.Conn) http.RoundTripper { return nil },
 		}}},
 	} {
-		t.Run(name,func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			if _, err := newNativeProviderHTTPClient(c); err == nil {
 				t.Fatal("unsafe native provider request transport accepted")
 			}
 			if _, err := NewNativeHumanHandoff(NativeHumanConfig{
 				KratosPublicURL: "https://kratos.private.invalid",
-				HydraAdminURL: "https://hydra.private.invalid",
-				Issuer: "https://issuer.private.invalid",
-				Client: c, Now: time.Now, Fence: openNativeTestFence(t),
+				HydraAdminURL:   "https://hydra.private.invalid",
+				Issuer:          "https://issuer.private.invalid",
+				Client:          c, Now: time.Now, Fence: openNativeTestFence(t),
 			}); err == nil {
 				t.Fatal("unsafe native handoff transport reached constructor")
 			}
@@ -69,14 +69,14 @@ func TestNativeProviderTransportEnforcesTLSWithoutAmbientProxy(t *testing.T) {
 	transport, ok := client.Transport.(*http.Transport)
 	if !ok || transport.Proxy != nil || transport.TLSClientConfig == nil ||
 		transport.TLSClientConfig.MinVersion < tls.VersionTLS12 ||
-		client.Timeout != 10 * time.Second || client.CheckRedirect == nil {
+		client.Timeout != 10*time.Second || client.CheckRedirect == nil {
 		t.Fatal("default privileged transport did not enforce protected routing and TLS")
 	}
-	if err := client.CheckRedirect(&http.Request{},nil); !errors.Is(err,http.ErrUseLastResponse) {
+	if err := client.CheckRedirect(&http.Request{}, nil); !errors.Is(err, http.ErrUseLastResponse) {
 		t.Fatal("native provider redirected a privileged request")
 	}
-	srv:=httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_,_ = w.Write([]byte("ok"))
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
 	}))
 	defer srv.Close()
 	allowed := srv.Client()
