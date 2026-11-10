@@ -393,6 +393,11 @@ func (c *hydraClient) postClient(ctx context.Context, body hydraOAuth2Client) (*
 }
 
 func (c *hydraClient) putClient(ctx context.Context, clientID string, body hydraOAuth2Client) error {
+	// A privileged Hydra client path must never be constructed from an
+	// untrusted path/query component (ADR-0007 / ADR-IAM-0020).
+	if !validNativeIdentitySubject(clientID) {
+		return &provider.ProviderError{Kind: provider.ErrInvalidArgument, Provider: "ory", Message: "invalid native workload client identifier"}
+	}
 	body.ClientID = clientID
 	payload, err := json.Marshal(body)
 	if err != nil {
@@ -519,6 +524,9 @@ func isFederatedJWTBearerClient(client hydraOAuth2Client) bool {
 }
 
 func (c *hydraClient) getClient(ctx context.Context, clientID string) (*hydraOAuth2Client, error) {
+	if !validNativeIdentitySubject(clientID) {
+		return nil, &provider.ProviderError{Kind: provider.ErrInvalidArgument, Provider: "ory", Message: "invalid native workload client identifier"}
+	}
 	url := fmt.Sprintf("%s/admin/clients/%s", c.baseURL, clientID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -545,6 +553,11 @@ func (c *hydraClient) getClient(ctx context.Context, clientID string) (*hydraOAu
 	var client hydraOAuth2Client
 	if err := json.NewDecoder(resp.Body).Decode(&client); err != nil {
 		return nil, wrapErr("hydra decode client", err)
+	}
+	// A provider response containing another client identity must never
+	// acquire the requested client's authority or be used for mutations.
+	if client.ClientID != clientID {
+		return nil, &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "Hydra workload client readback subject mismatch"}
 	}
 	return &client, nil
 }
