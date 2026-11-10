@@ -19,8 +19,7 @@ import (
 // OIDC issuers may legitimately contain a path and must remain byte-exact
 // between provider tokens and ExternalIdentity mappings.
 func validateProviderEndpoint(raw string, admin bool) error {
-	if raw == "" || strings.TrimSpace(raw) != raw || strings.ContainsAny(raw, "\\
-	") {
+	if raw == "" || strings.TrimSpace(raw) != raw || strings.ContainsAny(raw, "\\\r\n\t") {
 		return errors.New("invalid provider endpoint")
 	}
 	u, err := url.Parse(raw)
