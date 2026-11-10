@@ -116,6 +116,42 @@ func TestIdentityProvisioningRejectsNestedAuthoritySmuggling(t *testing.T) {
 	}
 }
 
+func TestIdentityProvisioningRejectsSecretAndProofingMaterialInTraits(t *testing.T) {
+	cases := []struct {
+		name string
+		traits map[string]any
+		metadata map[string]string
+	}{
+		{name: "plaintext password", traits: map[string]any{"email": "person@example.test", "password": "not-for-traits"}},
+		{name: "nested recovery code", traits: map[string]any{"profile": map[string]any{"recovery_codes": []any{"do-not-copy"}}}},
+		{name: "private signing key", traits: map[string]any{"email": "person@example.test", "keys": map[string]any{"private_key": "do-not-copy"}}},
+		{name: "deep token", traits: map[string]any{"identity": []any{map[string]any{"refreshToken": "do-not-copy"}}}},
+		{name: "proofing ID document", traits: map[string]any{"email": "person@example.test", "proof": map[string]any{"passport_number": "do-not-copy"}}},
+		{name: "secret metadata", traits: map[string]any{"email": "person@example.test"}, metadata: map[string]string{"client-secret": "do-not-copy"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := provider.IdentityProvisioningSpec{Traits: tc.traits, Metadata: tc.metadata}
+			if err := spec.Validate(); !provider.IsInvalidArgument(err) {
+				t.Fatalf("secret material accepted in identity attributes: %v", err)
+			}
+		})
+	}
+	// Provider credential migration is a distinct trusted API field. Whether
+	// a specific hash/OTP/passkey can be imported is separately gated by the
+	// pinned provider capability; its presence does not legalise secret traits.
+	spec := provider.IdentityProvisioningSpec{
+		Traits: map[string]any{"email": "person@example.test", "name": map[string]any{"first": "Amina"}},
+		Metadata: map[string]string{"migration_id": "opaque-test-record"},
+		Credentials: &provider.ImportedCredentials{PasswordHash: &provider.PasswordHashImport{
+			Algorithm: "bcrypt", Hash: "fixture-only-not-an-actual-hash",
+		}},
+	}
+	if err := spec.Validate(); err != nil {
+		t.Fatalf("separate credential import field rejected by identity-trait policy: %v", err)
+	}
+}
+
 func TestWorkloadLifecycleStatusValidate(t *testing.T) {
 	for _, status := range []provider.WorkloadLifecycleStatus{
 		provider.WorkloadStatusProvisioned,
