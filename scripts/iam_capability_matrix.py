@@ -131,7 +131,26 @@ def main():
     parser.add_argument('--write', action='store_true')
     args = parser.parse_args()
     matrix = yaml.safe_load((ROOT / '.baobab/iam-capability-matrix.yaml').read_text())
-    lock = yaml.safe_load((ROOT / 'contracts.lock.yaml').read_text())
+    # Deliberately use a *read-only* capability-contract pin, not the
+    # issuer's runtime contracts.lock.yaml. Its later Shared revision
+    # catalogues two additional v1 capabilities but also introduces ACTIVE
+    # workload profiles. Pinning those into issuance would be a separate
+    # security decision, never an incidental metadata reconciliation.
+    lock = yaml.safe_load((ROOT / '.baobab/capability-catalogue.lock.yaml').read_text())
+    expected_contracts = {
+        'contracts/capability/v1/catalogue.yaml',
+        'contracts/capability/v1/catalogue.schema.json',
+        'contracts/capability/v1/provider-declaration.schema.json',
+        'contracts/identity/v1/capabilities.yaml',
+        'contracts/identity/v1/assurance-evaluation.schema.json',
+        'contracts/identity/v1/enterprise-federation-start.schema.json',
+    }
+    if lock.get('schema') != 'baobab-capability-catalogue-consumer-lock' or (
+        lock.get('purpose') != 'read-only-provider-declaration-contracts'
+        or set(lock.get('contracts', [])) != expected_contracts
+        or len(lock.get('contracts', [])) != len(expected_contracts)
+    ):
+        raise ValueError('read-only capability catalogue pin is invalid')
     validate(matrix, shared_file(lock, 'contracts/capability/v1/catalogue.yaml'),
              shared_file(lock, 'contracts/identity/v1/capabilities.yaml'))
     destination = ROOT / 'docs/governance/iam-capability-matrix.md'
