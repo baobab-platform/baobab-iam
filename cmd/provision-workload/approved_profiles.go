@@ -25,7 +25,7 @@ type approvedProfile struct {
 
 type approvedManifest struct {
 	SourceCommit   string                     `json:"source_commit"`
-	ScopeAudiences map[string][]string       `json:"scope_audiences"`
+	ScopeAudiences map[string][]string        `json:"scope_audiences"`
 	Workloads      map[string]approvedProfile `json:"workloads"`
 }
 
