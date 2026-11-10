@@ -111,11 +111,24 @@ type CPDenialWitness interface {
 	VerifyRestrictedPrincipal(context.Context, provider.ExternalSubject) (CPReadback, error)
 }
 
+// CheckpointVerifier is an independent privacy-custody witness. It must
+// attest that the list snapshot is complete, not merely that SQL succeeded.
+type CheckpointProof struct {
+	Revision    string
+	EvidenceRef string
+	ObservedAt  time.Time
+}
+
+type CheckpointVerifier interface {
+	VerifyComplete(context.Context) (CheckpointProof, error)
+}
+
 type RestoreReconciler struct {
-	Journal  Repository
-	Provider NativeRevocationProvider
-	CP       CPDenialWitness
-	Now      func() time.Time
+	Journal    Repository
+	Provider   NativeRevocationProvider
+	CP         CPDenialWitness
+	Checkpoint CheckpointVerifier
+	Now        func() time.Time
 }
 
 func (r *RestoreReconciler) ReassertRestriction(ctx context.Context, subject provider.ExternalSubject) error {
@@ -163,7 +176,12 @@ func (r *RestoreReconciler) ReassertRestriction(ctx context.Context, subject pro
 // checkpoint witness must establish that the journal is COMPLETE before a DR
 // promotion controller may consider this replay among its other gates.
 func (r *RestoreReconciler) ReassertAll(ctx context.Context) (int, error) {
-	if r == nil || r.Journal == nil || ctx == nil || ctx.Err() != nil {
+	if r == nil || r.Journal == nil || r.Checkpoint == nil || r.Now == nil ||
+		ctx == nil || ctx.Err() != nil {
+		return 0, ErrPrivacyHold
+	}
+	first, err := r.Checkpoint.VerifyComplete(ctx)
+	if err != nil || !r.validCheckpoint(first) {
 		return 0, ErrPrivacyHold
 	}
 	subjects, err := r.Journal.ListRestricted(ctx)
@@ -175,5 +193,16 @@ func (r *RestoreReconciler) ReassertAll(ctx context.Context) (int, error) {
 			return i, ErrPrivacyHold
 		}
 	}
+	last, err := r.Checkpoint.VerifyComplete(ctx)
+	if err != nil || !r.validCheckpoint(last) || first.Revision != last.Revision {
+		return len(subjects), ErrPrivacyHold
+	}
 	return len(subjects), nil
+}
+
+func (r *RestoreReconciler) validCheckpoint(proof CheckpointProof) bool {
+	now := r.Now().UTC()
+	return receiptIDPattern.MatchString(proof.Revision) &&
+		proof.EvidenceRef != "" && !proof.ObservedAt.IsZero() &&
+		!proof.ObservedAt.After(now) && now.Sub(proof.ObservedAt) <= time.Minute
 }
