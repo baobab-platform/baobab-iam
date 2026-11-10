@@ -16,17 +16,17 @@ import (
 var approvedProfileData []byte
 
 type approvedProfile struct {
-	Environment string `json:"environment"`
-	Status string `json:"status"`
-	CredentialType string `json:"credential_type"`
-	AllowedScopes []string `json:"allowed_scopes"`
+	Environment      string   `json:"environment"`
+	Status           string   `json:"status"`
+	CredentialType   string   `json:"credential_type"`
+	AllowedScopes    []string `json:"allowed_scopes"`
 	AllowedAudiences []string `json:"allowed_audiences"`
 }
 
 type approvedManifest struct {
-	SourceCommit string `json:"source_commit"`
-	ScopeAudiences map[string][]string `json:"scope_audiences"`
-	Workloads map[string]approvedProfile `json:"workloads"`
+	SourceCommit   string                     `json:"source_commit"`
+	ScopeAudiences map[string][]string       `json:"scope_audiences"`
+	Workloads      map[string]approvedProfile `json:"workloads"`
 }
 
 func approvedClient(id string) (approvedManifest, approvedProfile, error) {
