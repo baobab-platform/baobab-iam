@@ -684,6 +684,21 @@ func (h *Handler) authenticated(r *http.Request) (string, Session, error) {
 	if err != nil || s.Issuer != strings.TrimRight(h.c.Issuer, "/") || s.Subject == "" || s.PrincipalID == "" || !h.c.Now().Before(s.ExpiresAt) {
 		return "", Session{}, errors.New("session invalid")
 	}
+	// An AAL2-gated workforce session remains high assurance only while the
+	// current Kratos session belongs to this exact human and still has AAL2.
+	// A successful login/callback must never become a long-lived privilege
+	// assertion after step-up loss, logout or subject rebinding. This check
+	// precedes the CP lookup; it does not grant any CP or domain permission.
+	if h.c.RequireAAL2 {
+		credential, err := h.kratos(r)
+		if err != nil || h.c.Assurance == nil {
+			return "", Session{}, errors.New("current workforce assurance unavailable")
+		}
+		subject, aal, err := h.c.Assurance.AuthenticatorSubjectAAL(r.Context(), credential)
+		if err != nil || subject != s.Subject || aal != "aal2" {
+			return "", Session{}, errors.New("current workforce assurance denied")
+		}
+	}
 	// CP is the canonical authority on every read, never a cached browser grant.
 	p, err := h.c.CP.ResolveHuman(r.Context(), s.Issuer, s.Subject, s.Tokens.AccessToken)
 	if err != nil || p.ID == "" || p.ID != s.PrincipalID {
