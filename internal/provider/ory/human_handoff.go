@@ -410,7 +410,13 @@ func nativeAMR(s nativeSession) []string {
 			// (ADR-IAM-0024 assurance and ADR-IAM-0025 recovery).
 			continue
 		case "webauthn", "passkey":
-			add("hwk")
+			// A completed WebAuthn/passkey ceremony is not proof of
+			// hardware-key provenance: synced passkeys may be software
+			// backed, and provider method labels do not attest RP-bound
+			// user verification. Do not emit RFC 8176 "hwk" or fabricate
+			// a second factor. Qualified A3/A4 evidence needs a separate
+			// inspected authenticator assertion (ADR-IAM-0024).
+			continue
 		}
 	}
 	if len(out) >= 2 {
