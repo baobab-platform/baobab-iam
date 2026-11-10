@@ -9,7 +9,7 @@ go 1.27.3
 require (
 	github.com/beevik/etree v1.8.1
 	github.com/coreos/go-oidc/v3 v3.21.0
-	github.com/crewjam/saml v0.5.1
+	github.com/supatype/saml v0.7.0
 	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/russellhaering/goxmldsig v1.6.1
 	go.etcd.io/bbolt v1.4.3
