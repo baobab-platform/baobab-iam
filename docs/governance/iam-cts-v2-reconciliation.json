@@ -1,0 +1,1318 @@
+{
+  "schema": "baobab.iam.cts-v2-reconciliation",
+  "schema_version": "1.0",
+  "document_version": "2.0",
+  "observed_on": "2026-11-11",
+  "source": {
+    "document": "docs/adr/Consolidated-Technical-Specification.md",
+    "version": "1.0",
+    "date": "2026-09-09",
+    "numbered_sections": 227,
+    "original_gates": 17
+  },
+  "target_document": "docs/adr/Consolidated-Technical-Specification-v2.0.md",
+  "status": "DRAFT_RECONCILIATION_NO_AUTHORITY_PROMOTION",
+  "guardrails": {
+    "provider_allocation": "Kratos:native_human;Hydra:OAuth_and_workloads;Keycloak:enterprise_federation",
+    "native_commitment_adr_status": "PROPOSED",
+    "native_commitment_scope_allocation": "NONE",
+    "provider_support": "PARTIAL_NOT_PROMOTED",
+    "protected_release": "NOT_GRANTED",
+    "evidence_source": "Shared EA-DEV register and owner receipts, not this crosswalk"
+  },
+  "sections": [
+    {
+      "from": 1,
+      "to": 5,
+      "first_heading": "Purpose",
+      "last_heading": "Non-Negotiable Architectural Invariants",
+      "disposition": "PRESERVED",
+      "target": "S03",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "shared"
+      ],
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03"
+      ],
+      "authority": [
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "interpretation": "IAM proves actor, CP owns canonical context, domain owns business decision; invariants survive provider migration."
+    },
+    {
+      "from": 6,
+      "to": 8,
+      "first_heading": "System Context",
+      "last_heading": "Shared IAM Contracts",
+      "disposition": "AMENDED",
+      "target": "S04",
+      "owners": [
+        "baobab-iam",
+        "shared"
+      ],
+      "ea_dev": [
+        "DEV-00",
+        "DEV-10"
+      ],
+      "authority": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Keycloak-first system/repo and illustrative Shared layout replaced by multi-provider ports and current accepted contract paths."
+    },
+    {
+      "from": 9,
+      "to": 12,
+      "first_heading": "Core Identity Model",
+      "last_heading": "External Identity Resolution",
+      "disposition": "AMENDED",
+      "target": "S05",
+      "owners": [
+        "baobab-cp",
+        "shared",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03"
+      ],
+      "authority": [
+        "ADR-IAM-0004",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Use CP Principal UUIDv7, ExternalIdentity issuer+subject and reviewed current Shared identity schema, not illustrative cid identifiers."
+    },
+    {
+      "from": 13,
+      "to": 14,
+      "first_heading": "Realm Architecture",
+      "last_heading": "Realm ≠ Tenant",
+      "disposition": "SUPERSEDED",
+      "target": "S04",
+      "owners": [
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-10"
+      ],
+      "authority": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Universal baobab Keycloak realm as primary human/workload auth target replaced; Keycloak stays for reviewed enterprise federation."
+    },
+    {
+      "from": 15,
+      "to": 29,
+      "first_heading": "Tenant Architecture",
+      "last_heading": "Data Residency",
+      "disposition": "PRESERVED",
+      "target": "S06",
+      "owners": [
+        "baobab-cp",
+        "shared",
+        "infrastructure"
+      ],
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-12"
+      ],
+      "authority": [
+        "EA-v2.3",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Independent tenant/legal entity/estate/Market/region/context boundaries preserved with current CP contracts."
+    },
+    {
+      "from": 30,
+      "to": 31,
+      "first_heading": "Keycloak Organizations",
+      "last_heading": "Organization Relationship",
+      "disposition": "AMENDED",
+      "target": "S08",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-14"
+      ],
+      "authority": [
+        "ADR-IAM-0026",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Keycloak Organisations only enterprise-federation affiliation; never canonical Tenant/Buyer/Supplier identity authority."
+    },
+    {
+      "from": 32,
+      "to": 33,
+      "first_heading": "OIDC Clients",
+      "last_heading": "Client Isolation",
+      "disposition": "AMENDED",
+      "target": "S09",
+      "owners": [
+        "baobab-iam",
+        "shared",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-10"
+      ],
+      "authority": [
+        "ADR-IAM-0021",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Client inventory is illustrative; exact approved Hydra/Keycloak profiles, Shared scope ceilings and CP binding now govern."
+    },
+    {
+      "from": 34,
+      "to": 36,
+      "first_heading": "Browser Authentication",
+      "last_heading": "BFF Architecture",
+      "disposition": "AMENDED",
+      "target": "S07",
+      "owners": [
+        "baobab-iam",
+        "digital-estates"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04",
+        "DEV-05"
+      ],
+      "authority": [
+        "ADR-IAM-0023",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Retain OAuth Code/S256 and BFF protections but replace Keycloak-native browser path with Kratos/Hydra and CP checks."
+    },
+    {
+      "from": 37,
+      "to": 44,
+      "first_heading": "Human Access Token Profile",
+      "last_heading": "Deny Precedence",
+      "disposition": "ILLUSTRATIVE_ONLY",
+      "target": "S09",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "shared"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-11"
+      ],
+      "authority": [
+        "ADR-IAM-0021",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Historic claims, URI, token lifetime, scope and pipeline examples are not canonical wire contracts; current issuer and CP/Shared policies apply."
+    },
+    {
+      "from": 45,
+      "to": 50,
+      "first_heading": "Workload Identity",
+      "last_heading": "Runtime vs CI Identity",
+      "disposition": "AMENDED",
+      "target": "S09",
+      "owners": [
+        "baobab-iam",
+        "shared",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-14",
+        "DEV-15"
+      ],
+      "authority": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0033",
+        "ADR-SHARED-042"
+      ],
+      "interpretation": "Move workload issuance from Keycloak to Hydra; enforce exact independent profiles and locked Shared audience/scope."
+    },
+    {
+      "from": 51,
+      "to": 53,
+      "first_heading": "mTLS",
+      "last_heading": "Reserved Headers",
+      "disposition": "PRESERVED",
+      "target": "S03",
+      "owners": [
+        "infrastructure",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-10",
+        "DEV-11",
+        "DEV-13"
+      ],
+      "authority": [
+        "ADR-IAM-0021",
+        "ADR-IAM-0028"
+      ],
+      "interpretation": "mTLS, trusted gateway headers and non-user-controlled identity propagation continue across the new provider topology."
+    },
+    {
+      "from": 54,
+      "to": 57,
+      "first_heading": "Workforce SSO",
+      "last_heading": "Joiner / Mover / Leaver",
+      "disposition": "AMENDED",
+      "target": "S07",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "digital-estates"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-05"
+      ],
+      "authority": [
+        "ADR-IAM-0023",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Retain workforce privilege separation and JML; native Kratos/Hydra and enterprise federation are distinct login paths."
+    },
+    {
+      "from": 58,
+      "to": 64,
+      "first_heading": "Zuribeans B2B Identity",
+      "last_heading": "Multi-Buyer Membership",
+      "disposition": "PRESERVED",
+      "target": "S11",
+      "owners": [
+        "baobab-trade",
+        "zuribeans",
+        "baobab-cp",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-07"
+      ],
+      "authority": [
+        "ADR-IAM-0010",
+        "EA-v2.3"
+      ],
+      "interpretation": "ZuriBeans remains B2B, buyer company and purchase authority are not IAM claims; current Trade/CP native checks required."
+    },
+    {
+      "from": 65,
+      "to": 68,
+      "first_heading": "Thamani B2C Identity",
+      "last_heading": "Social Login",
+      "disposition": "SUPERSEDED",
+      "target": "S11",
+      "owners": [
+        "thamani",
+        "baobab-iam",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-08"
+      ],
+      "authority": [
+        "ADR-THA-0018",
+        "EA-DEV"
+      ],
+      "interpretation": "Thamani consumer retail/guest social-login journey not its current B2B logistics model; transferable security principles retained only where adopted."
+    },
+    {
+      "from": 69,
+      "to": 74,
+      "first_heading": "Supplier Identity",
+      "last_heading": "Local Supplier Preference",
+      "disposition": "AMENDED",
+      "target": "S11",
+      "owners": [
+        "baobab-trade",
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-07",
+        "DEV-08"
+      ],
+      "authority": [
+        "ADR-IAM-0012",
+        "EA-v2.3"
+      ],
+      "interpretation": "Supplier representatives authenticate with IAM; legal verification, eligibility and sourcing relationships remain domain-owned."
+    },
+    {
+      "from": 75,
+      "to": 79,
+      "first_heading": "Medusa Authentication Integration",
+      "last_heading": "No Email Auto-Linking",
+      "disposition": "AMENDED",
+      "target": "S11",
+      "owners": [
+        "baobab-trade",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-07"
+      ],
+      "authority": [
+        "ADR-IAM-0013",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Medusa OIDC resource integration remains, but provider IDs and native human flow must match Kratos/Hydra, not Keycloak assumptions."
+    },
+    {
+      "from": 80,
+      "to": 85,
+      "first_heading": "iDempiere SSO",
+      "last_heading": "ERP Machine Integration",
+      "disposition": "AMENDED",
+      "target": "S12",
+      "owners": [
+        "baobab-erp",
+        "baobab-cp",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-09"
+      ],
+      "authority": [
+        "ADR-IAM-0014",
+        "EA-v2.3"
+      ],
+      "interpretation": "Map CP Principal to iDempiere AD_User, company/org, legal actor and Market; native posting veto remains ERP-owned."
+    },
+    {
+      "from": 86,
+      "to": 96,
+      "first_heading": "Credential Architecture",
+      "last_heading": "Security Questions",
+      "disposition": "AMENDED",
+      "target": "S10",
+      "owners": [
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04",
+        "DEV-13"
+      ],
+      "authority": [
+        "ADR-IAM-0024",
+        "ADR-IAM-0025",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Retain MFA/passkey, step-up/recovery principles; Kratos mechanisms and provider-neutral current assurance replace Keycloak-centric examples."
+    },
+    {
+      "from": 97,
+      "to": 110,
+      "first_heading": "Identity Lifecycle",
+      "last_heading": "Transactional Outbox Example",
+      "disposition": "AMENDED",
+      "target": "S13",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "shared",
+        "infrastructure"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-11",
+        "DEV-12"
+      ],
+      "authority": [
+        "ADR-IAM-0016",
+        "ADR-IAM-0029",
+        "ADR-IAM-0030"
+      ],
+      "interpretation": "Identity/provider and CP/domain lifecycle independent; durable provenance, revocation, ordered outbox/inbox/reconciliation and replay controls."
+    },
+    {
+      "from": 111,
+      "to": 120,
+      "first_heading": "Audit Architecture",
+      "last_heading": "Cross-Tenant Security Monitoring",
+      "disposition": "AMENDED",
+      "target": "S14",
+      "owners": [
+        "baobab-iam",
+        "infrastructure",
+        "shared"
+      ],
+      "ea_dev": [
+        "DEV-11"
+      ],
+      "authority": [
+        "ADR-IAM-0017",
+        "EA-DEV"
+      ],
+      "interpretation": "Keep audit/correlation/redaction; require independently exported original connected trace/evidence rather than a single component log."
+    },
+    {
+      "from": 121,
+      "to": 125,
+      "first_heading": "IAM High Availability",
+      "last_heading": "Split-Brain Rule",
+      "disposition": "AMENDED",
+      "target": "S15",
+      "owners": [
+        "infrastructure",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-12",
+        "DEV-13"
+      ],
+      "authority": [
+        "ADR-IAM-0027",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Tier-0 multi-provider Kratos/Hydra/Keycloak federation and governance topology, not a Keycloak-only multi-AZ diagram."
+    },
+    {
+      "from": 126,
+      "to": 135,
+      "first_heading": "PostgreSQL HA",
+      "last_heading": "Backup Restore Invariant",
+      "disposition": "AMENDED",
+      "target": "S15",
+      "owners": [
+        "infrastructure",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-12",
+        "DEV-13"
+      ],
+      "authority": [
+        "ADR-IAM-0027",
+        "ADR-IAM-0028",
+        "ADR-IAM-0030"
+      ],
+      "interpretation": "HA/PITR, native restore, signing/security denial replay and no privilege resurrection across independently owned providers."
+    },
+    {
+      "from": 136,
+      "to": 141,
+      "first_heading": "Secrets",
+      "last_heading": "Go Token Validation Example",
+      "disposition": "AMENDED",
+      "target": "S15",
+      "owners": [
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "ea_dev": [
+        "DEV-10",
+        "DEV-12",
+        "DEV-13"
+      ],
+      "authority": [
+        "ADR-IAM-0028",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Secrets/signing/validation must cover Hydra issuer, Kratos session and Keycloak federation; illustrative Keycloak-only code historical."
+    },
+    {
+      "from": 142,
+      "to": 148,
+      "first_heading": "Context Authorization Example",
+      "last_heading": "Data Sovereignty Rule",
+      "disposition": "ILLUSTRATIVE_ONLY",
+      "target": "S05",
+      "owners": [
+        "baobab-cp",
+        "shared",
+        "baobab-erp"
+      ],
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-09"
+      ],
+      "authority": [
+        "ADR-IAM-0004",
+        "EA-v2.3"
+      ],
+      "interpretation": "Context JSON, SQL and regional routing examples must be replaced by current CP API, Shared schemas and native owner PEP."
+    },
+    {
+      "from": 149,
+      "to": 153,
+      "first_heading": "Digital Estate Login UX",
+      "last_heading": "Identity Linking Flow",
+      "disposition": "AMENDED",
+      "target": "S11",
+      "owners": [
+        "digital-estates",
+        "baobab-iam",
+        "baobab-trade",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-05",
+        "DEV-07",
+        "DEV-08"
+      ],
+      "authority": [
+        "ADR-IAM-0023",
+        "ADR-IAM-0025",
+        "ADR-THA-0018"
+      ],
+      "interpretation": "Retain secure original proof and bank-change separation; reorganise journeys for Kratos native login and B2B logistics."
+    },
+    {
+      "from": 154,
+      "to": 160,
+      "first_heading": "Session Strategy",
+      "last_heading": "Failure Matrix",
+      "disposition": "AMENDED",
+      "target": "S13",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "infrastructure"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-11",
+        "DEV-12"
+      ],
+      "authority": [
+        "ADR-IAM-0023",
+        "ADR-IAM-0029",
+        "EA-DEV"
+      ],
+      "interpretation": "Native/federated session kill, revocation and fail-closed outage apply across provider-neutral topology."
+    },
+    {
+      "from": 161,
+      "to": 169,
+      "first_heading": "Required Threat Model",
+      "last_heading": "IAM DR Test Matrix",
+      "disposition": "AMENDED",
+      "target": "S17",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "infrastructure",
+        "digital-estates"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04",
+        "DEV-07",
+        "DEV-11",
+        "DEV-12"
+      ],
+      "authority": [
+        "EA-v2.3",
+        "EA-DEV"
+      ],
+      "interpretation": "Negative test matrices remain safety obligations, but must use original EA-L4 IDs, running components, source pins and actual receipts."
+    },
+    {
+      "from": 170,
+      "to": 175,
+      "first_heading": "CI/CD Security Gates",
+      "last_heading": "Container Hardening",
+      "disposition": "AMENDED",
+      "target": "S18",
+      "owners": [
+        "baobab-iam",
+        "infrastructure",
+        "baobab-dev"
+      ],
+      "ea_dev": [
+        "DEV-10",
+        "DEV-13"
+      ],
+      "authority": [
+        "ADR-IAM-0032",
+        "EA-DEV"
+      ],
+      "interpretation": "Retain CI, hardened images and promotion controls; Keycloak-only examples no longer define universal IAM release."
+    },
+    {
+      "from": 176,
+      "to": 180,
+      "first_heading": "Example Kubernetes Deployment",
+      "last_heading": "Regional Engine Architecture",
+      "disposition": "ILLUSTRATIVE_ONLY",
+      "target": "S15",
+      "owners": [
+        "infrastructure",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-12",
+        "DEV-13"
+      ],
+      "authority": [
+        "ADR-IAM-0027",
+        "EA-v2.3"
+      ],
+      "interpretation": "Kubernetes/region examples are not approved protected topology or sovereignty rules; actual tested image and operations govern."
+    },
+    {
+      "from": 181,
+      "to": 185,
+      "first_heading": "CapabilityBinding",
+      "last_heading": "Reason Code Registry",
+      "disposition": "AMENDED",
+      "target": "S05",
+      "owners": [
+        "baobab-cp",
+        "shared",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-14"
+      ],
+      "authority": [
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "interpretation": "CapabilityBinding/context resolution and error/reason names must consume exact approved CP/Shared current contracts."
+    },
+    {
+      "from": 186,
+      "to": 201,
+      "first_heading": "Rate Limiting",
+      "last_heading": "No Email-Only Migration",
+      "disposition": "PRESERVED",
+      "target": "S13",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "shared",
+        "baobab-trade",
+        "baobab-erp"
+      ],
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-07",
+        "DEV-09",
+        "DEV-12"
+      ],
+      "authority": [
+        "ADR-IAM-0030",
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "interpretation": "Security, privacy, identity-to-business mapping, idempotency, concurrency and safe migration principles retained under current sources."
+    },
+    {
+      "from": 202,
+      "to": 204,
+      "first_heading": "Implementation Programme",
+      "last_heading": "Gate IAM-1 — Shared Contracts",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S16",
+      "owners": [
+        "shared",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-00",
+        "DEV-01",
+        "DEV-10"
+      ],
+      "authority": [
+        "EA-v2.3",
+        "EA-DEV"
+      ],
+      "interpretation": "Original gate programme and architecture/contracts foundation now governed by EA-DEV; historical completion remains dated."
+    },
+    {
+      "from": 205,
+      "to": 205,
+      "first_heading": "Gate IAM-2 — IAM Repository / Keycloak Foundation",
+      "last_heading": "Gate IAM-2 — IAM Repository / Keycloak Foundation",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S04",
+      "owners": [
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-10"
+      ],
+      "authority": [
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "interpretation": "Keycloak foundation gate no longer implements the current universal human/workload provider selection."
+    },
+    {
+      "from": 206,
+      "to": 207,
+      "first_heading": "Gate IAM-3 — Control Plane Identity Spine",
+      "last_heading": "Gate IAM-4 — Workload Identity",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S09",
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "shared"
+      ],
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-14"
+      ],
+      "authority": [
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "interpretation": "Canonical Principal/context and real Hydra workload issuer with Shared scope/CP grants; not Keycloak-only."
+    },
+    {
+      "from": 208,
+      "to": 208,
+      "first_heading": "Gate IAM-5 — Workforce SSO",
+      "last_heading": "Gate IAM-5 — Workforce SSO",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S07",
+      "owners": [
+        "baobab-iam",
+        "digital-estates",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-05"
+      ],
+      "authority": [
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "interpretation": "Workforce SSO native Kratos/Hydra plus separate enterprise Keycloak federation."
+    },
+    {
+      "from": 209,
+      "to": 209,
+      "first_heading": "Gate IAM-6 — Zuribeans B2B",
+      "last_heading": "Gate IAM-6 — Zuribeans B2B",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S11",
+      "owners": [
+        "zuribeans",
+        "baobab-trade",
+        "baobab-cp",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-07"
+      ],
+      "authority": [
+        "ADR-IAM-0010",
+        "EA-DEV"
+      ],
+      "interpretation": "ZuriBeans B2B issuer/CP/Trade joined buyer/supplier and transaction negative qualification."
+    },
+    {
+      "from": 210,
+      "to": 210,
+      "first_heading": "Gate IAM-7 — Thamani B2C",
+      "last_heading": "Gate IAM-7 — Thamani B2C",
+      "disposition": "SUPERSEDED",
+      "target": "S11",
+      "owners": [
+        "thamani",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-08"
+      ],
+      "authority": [
+        "ADR-THA-0018",
+        "EA-DEV"
+      ],
+      "interpretation": "Thamani retail customer gate retired as active objective; B2B logistics replaces it."
+    },
+    {
+      "from": 211,
+      "to": 212,
+      "first_heading": "Gate IAM-8 — Supplier Identity",
+      "last_heading": "Gate IAM-9 — Medusa Integration",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S11",
+      "owners": [
+        "baobab-trade",
+        "baobab-iam",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-07",
+        "DEV-08"
+      ],
+      "authority": [
+        "ADR-IAM-0012",
+        "ADR-IAM-0013",
+        "EA-DEV"
+      ],
+      "interpretation": "Supplier and Medusa OIDC integration qualified through current B2B/engine owners."
+    },
+    {
+      "from": 213,
+      "to": 213,
+      "first_heading": "Gate IAM-10 — ERP Integration",
+      "last_heading": "Gate IAM-10 — ERP Integration",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S12",
+      "owners": [
+        "baobab-erp",
+        "baobab-iam",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-09"
+      ],
+      "authority": [
+        "ADR-IAM-0014",
+        "EA-DEV"
+      ],
+      "interpretation": "ERP OIDC and AD_User/native company/market authority/posted effect."
+    },
+    {
+      "from": 214,
+      "to": 214,
+      "first_heading": "Gate IAM-11 — Credential Security",
+      "last_heading": "Gate IAM-11 — Credential Security",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S10",
+      "owners": [
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04"
+      ],
+      "authority": [
+        "ADR-IAM-0024",
+        "ADR-IAM-0025",
+        "EA-DEV"
+      ],
+      "interpretation": "Actual Kratos recovery/MFA assurance and higher-assurance independent tests."
+    },
+    {
+      "from": 215,
+      "to": 215,
+      "first_heading": "Gate IAM-12 — Lifecycle / Deprovisioning",
+      "last_heading": "Gate IAM-12 — Lifecycle / Deprovisioning",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S13",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "infrastructure"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-12"
+      ],
+      "authority": [
+        "ADR-IAM-0016",
+        "ADR-IAM-0030"
+      ],
+      "interpretation": "Native/session and CP/domain withdrawal with replay/restore veto."
+    },
+    {
+      "from": 216,
+      "to": 216,
+      "first_heading": "Gate IAM-13 — Audit / Observability",
+      "last_heading": "Gate IAM-13 — Audit / Observability",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S14",
+      "owners": [
+        "baobab-iam",
+        "infrastructure",
+        "shared"
+      ],
+      "ea_dev": [
+        "DEV-11"
+      ],
+      "authority": [
+        "ADR-IAM-0017",
+        "EA-DEV"
+      ],
+      "interpretation": "Original issuer and security audit lineage, privacy-safe exported distributed telemetry."
+    },
+    {
+      "from": 217,
+      "to": 219,
+      "first_heading": "Gate IAM-14 — HA / DR",
+      "last_heading": "Gate IAM-16 — Production Hardening",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S15",
+      "owners": [
+        "infrastructure",
+        "baobab-iam"
+      ],
+      "ea_dev": [
+        "DEV-10",
+        "DEV-12",
+        "DEV-13"
+      ],
+      "authority": [
+        "ADR-IAM-0027",
+        "ADR-IAM-0032",
+        "EA-DEV"
+      ],
+      "interpretation": "Multi-provider HA/DR, residency, image/source provenance and independent protected security operations."
+    },
+    {
+      "from": 220,
+      "to": 222,
+      "first_heading": "PR Strategy",
+      "last_heading": "Final Production Readiness Checklist",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S17",
+      "owners": [
+        "shared",
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03",
+        "DEV-13"
+      ],
+      "authority": [
+        "EA-v2.3",
+        "EA-DEV"
+      ],
+      "interpretation": "Old PR strategy/DoD/checklist becomes per-owner gate/receipt and canonical case obligations; preserve legacy gate identifiers."
+    },
+    {
+      "from": 223,
+      "to": 223,
+      "first_heading": "Final Target Architecture",
+      "last_heading": "Final Target Architecture",
+      "disposition": "SUPERSEDED",
+      "target": "S04",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-03"
+      ],
+      "authority": [
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Final Keycloak-universal architecture picture replaced by Kratos/Hydra and retained Keycloak federation."
+    },
+    {
+      "from": 224,
+      "to": 227,
+      "first_heading": "Final Authorization Hierarchy",
+      "last_heading": "Implementation Outcome",
+      "disposition": "PRESERVED",
+      "target": "S03",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "shared"
+      ],
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03",
+        "DEV-14"
+      ],
+      "authority": [
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "interpretation": "Who -> current canonical context -> native domain permission and responsibility hierarchy remain foundational."
+    }
+  ],
+  "gates": [
+    {
+      "gate": "IAM-0",
+      "legacy_section": 203,
+      "legacy_heading": "Gate IAM-0 — Architecture Foundation",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S16",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-10"
+      ],
+      "owners": [
+        "baobab-iam",
+        "shared"
+      ],
+      "acceptance": "Accepted architecture and owner contract precedence, not historical design status"
+    },
+    {
+      "gate": "IAM-1",
+      "legacy_section": 204,
+      "legacy_heading": "Gate IAM-1 — Shared Contracts",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S05",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-02",
+        "DEV-10"
+      ],
+      "owners": [
+        "shared",
+        "baobab-cp"
+      ],
+      "acceptance": "Exact accepted Shared contract and CP Principal consumer proof"
+    },
+    {
+      "gate": "IAM-2",
+      "legacy_section": 205,
+      "legacy_heading": "Gate IAM-2 — IAM Repository / Keycloak Foundation",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S04",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-10"
+      ],
+      "owners": [
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "acceptance": "Real Kratos/Hydra, retained Keycloak federation, image and support boundaries"
+    },
+    {
+      "gate": "IAM-3",
+      "legacy_section": 206,
+      "legacy_heading": "Gate IAM-3 — Control Plane Identity Spine",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S05",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam"
+      ],
+      "acceptance": "Live CP Principal, issuer/subject mapping and isolation negatives"
+    },
+    {
+      "gate": "IAM-4",
+      "legacy_section": 207,
+      "legacy_heading": "Gate IAM-4 — Workload Identity",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S09",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-14",
+        "DEV-15"
+      ],
+      "owners": [
+        "baobab-iam",
+        "baobab-cp"
+      ],
+      "acceptance": "Real signed Hydra workloads, exact Shared ceilings and native consumer negative tests"
+    },
+    {
+      "gate": "IAM-5",
+      "legacy_section": 208,
+      "legacy_heading": "Gate IAM-5 — Workforce SSO",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S07",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-05"
+      ],
+      "owners": [
+        "baobab-iam",
+        "digital-estates"
+      ],
+      "acceptance": "Original native and enterprise SSO plus CP-granted workforce session"
+    },
+    {
+      "gate": "IAM-6",
+      "legacy_section": 209,
+      "legacy_heading": "Gate IAM-6 — Zuribeans B2B",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S11",
+      "ea_dev": [
+        "DEV-07"
+      ],
+      "owners": [
+        "zuribeans",
+        "baobab-trade",
+        "baobab-cp"
+      ],
+      "acceptance": "Genuine buyer/representative and company current authority and guarded trade consequence"
+    },
+    {
+      "gate": "IAM-7",
+      "legacy_section": 210,
+      "legacy_heading": "Gate IAM-7 — Thamani B2C",
+      "disposition": "SUPERSEDED",
+      "target": "S11",
+      "ea_dev": [
+        "DEV-08"
+      ],
+      "owners": [
+        "thamani",
+        "baobab-iam"
+      ],
+      "acceptance": "SUPERSEDED Thamani B2C target; current B2B logistics organisation access"
+    },
+    {
+      "gate": "IAM-8",
+      "legacy_section": 211,
+      "legacy_heading": "Gate IAM-8 — Supplier Identity",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S11",
+      "ea_dev": [
+        "DEV-07",
+        "DEV-08"
+      ],
+      "owners": [
+        "baobab-trade",
+        "baobab-cp"
+      ],
+      "acceptance": "Supplier representative authentication and separately owned vetting/membership"
+    },
+    {
+      "gate": "IAM-9",
+      "legacy_section": 212,
+      "legacy_heading": "Gate IAM-9 — Medusa Integration",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S11",
+      "ea_dev": [
+        "DEV-07"
+      ],
+      "owners": [
+        "baobab-trade",
+        "baobab-iam"
+      ],
+      "acceptance": "Current Medusa/OIDC subject, buyer/administrator isolation and replay"
+    },
+    {
+      "gate": "IAM-10",
+      "legacy_section": 213,
+      "legacy_heading": "Gate IAM-10 — ERP Integration",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S12",
+      "ea_dev": [
+        "DEV-09"
+      ],
+      "owners": [
+        "baobab-erp",
+        "baobab-cp"
+      ],
+      "acceptance": "Actual native iDempiere context/veto and PostgreSQL/JVM consequence"
+    },
+    {
+      "gate": "IAM-11",
+      "legacy_section": 214,
+      "legacy_heading": "Gate IAM-11 — Credential Security",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S10",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04"
+      ],
+      "owners": [
+        "baobab-iam"
+      ],
+      "acceptance": "Real Kratos MFA/recovery and current assurance/step-up/privilege negatives"
+    },
+    {
+      "gate": "IAM-12",
+      "legacy_section": 215,
+      "legacy_heading": "Gate IAM-12 — Lifecycle / Deprovisioning",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S13",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-12"
+      ],
+      "owners": [
+        "baobab-iam",
+        "baobab-cp"
+      ],
+      "acceptance": "Issuer/session/current Principal disable and no resumed/replayed privileges"
+    },
+    {
+      "gate": "IAM-13",
+      "legacy_section": 216,
+      "legacy_heading": "Gate IAM-13 — Audit / Observability",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S14",
+      "ea_dev": [
+        "DEV-11"
+      ],
+      "owners": [
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "acceptance": "Original redacted audit and exported end-to-end correlation"
+    },
+    {
+      "gate": "IAM-14",
+      "legacy_section": 217,
+      "legacy_heading": "Gate IAM-14 — HA / DR",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S15",
+      "ea_dev": [
+        "DEV-12",
+        "DEV-13"
+      ],
+      "owners": [
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "acceptance": "Multi-provider DR, security replay and measured restore/rollback"
+    },
+    {
+      "gate": "IAM-15",
+      "legacy_section": 218,
+      "legacy_heading": "Gate IAM-15 — Multi-Region Readiness",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S15",
+      "ea_dev": [
+        "DEV-12",
+        "DEV-13"
+      ],
+      "owners": [
+        "infrastructure",
+        "baobab-cp"
+      ],
+      "acceptance": "Current residency/region routing and independent approved failover"
+    },
+    {
+      "gate": "IAM-16",
+      "legacy_section": 219,
+      "legacy_heading": "Gate IAM-16 — Production Hardening",
+      "disposition": "REPLACED_SEQUENCE",
+      "target": "S17",
+      "ea_dev": [
+        "DEV-10",
+        "DEV-11",
+        "DEV-13"
+      ],
+      "owners": [
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "acceptance": "Penetration/security hardening plus independent real-component and protected acceptance"
+    }
+  ]
+}
