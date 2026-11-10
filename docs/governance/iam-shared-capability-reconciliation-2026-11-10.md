@@ -2,7 +2,7 @@
 
 **Authority:** Accepted ADR-SHARED-017, EA-02B, ADR-IAM-0033.  
 **Shared pin before this change:** `1517429bcae601a1b0288ca0279e524ce48a3d77` (2 IAM keys).  
-**Shared pin after this change:** `004937ff2035fab4ac3b41e05c7887da7abe7014` (4 IAM keys; Shared #? 6 Nov native capability contracts).  
+**Shared pin after this change:** `004937ff2035fab4ac3b41e05c7887da7abe7014` (4 IAM keys; 6 November native capability contracts).  
 **Evidence class:** repository source and tests, not independently qualified provider/CP support.  
 **State:** DEVELOPMENT PARTIAL; no capability activation, grants, tenant entitlement, binding or protected release.
 
