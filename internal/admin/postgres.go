@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,8 +53,8 @@ FROM iam_admin.breakglass_lease WHERE lease_id=$1 FOR UPDATE`,
 		observed.Witness.ApproverID != lease.Witness.ApproverID ||
 		observed.Witness.IndependentAuthRef != lease.Witness.IndependentAuthRef ||
 		observed.Witness.IndependentReviewRef != lease.Witness.IndependentReviewRef ||
-		!observed.Witness.ApprovedAt.Equal(lease.Witness.ApprovedAt) ||
-		!observed.Witness.ExpiresAt.Equal(lease.Witness.ExpiresAt) {
+		!observed.Witness.ApprovedAt.Equal(lease.Witness.ApprovedAt.Truncate(time.Microsecond)) ||
+		!observed.Witness.ExpiresAt.Equal(lease.Witness.ExpiresAt.Truncate(time.Microsecond)) {
 		return ErrBreakGlassDenied
 	}
 	if tx.Commit(ctx) != nil {
