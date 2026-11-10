@@ -2,7 +2,7 @@
 
 ## Consolidated Technical Specification
 
-> **HISTORICAL BASELINE — version 1.0, 9 September 2026.** The provider and delivery assumptions below predate Accepted ADR-IAM-0019/0033, EA v2.3 and EA-DEV. The original 227 sections and IAM-0–16 gates are retained for traceability, **not current standalone implementation authority**. Read the [v2.0 reconciliation candidate](./Consolidated-Technical-Specification-v2.0.md) and its [complete section/gate crosswalk](../governance/iam-cts-v2-reconciliation.json) together with current Accepted Shared/owner ADRs. ADR-IAM-0034 remains Proposed; no native commitment workload scope is allocated. This notice neither changes the original historical requirement text nor certifies runtime evidence.
+> **HISTORICAL BASELINE — version 1.0, 9 September 2026.** The provider and delivery assumptions below predate Accepted ADR-IAM-0019/0033, EA v2.3 and EA-DEV. The original 227 sections and IAM-0–16 gates are retained for traceability, **not current standalone implementation authority**. Read the [approved v2.0 reconciliation](./Consolidated-Technical-Specification-v2.0.md) and its [complete section/gate crosswalk](../governance/iam-cts-v2-reconciliation.json) together with current Accepted Shared/owner ADRs. ADR-IAM-0034 remains Proposed; no native commitment workload scope is allocated. This notice neither changes the original historical requirement text nor certifies runtime evidence.
 
 **Document Type:** Technical Architecture and Implementation Specification
 **System:** Baobab Platform IAM
