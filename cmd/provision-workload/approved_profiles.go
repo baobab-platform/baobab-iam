@@ -12,6 +12,7 @@ import (
 // second workload registry. CI compares each value against the exact commit in
 // contracts.lock.yaml. Changes must originate in Shared and be reviewed here.
 // Provisioning remains non-production provider mechanics, never activation.
+//
 //go:embed approved_profiles.json
 var approvedProfileData []byte
 
