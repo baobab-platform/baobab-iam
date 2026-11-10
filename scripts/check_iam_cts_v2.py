@@ -122,9 +122,12 @@ def validate(legacy: str, target: str, data: dict) -> None:
                 f"IAM-{i} lacks owner")
         require(isinstance(gate.get("acceptance"), str) and len(gate["acceptance"]) >= 30,
                 f"IAM-{i} lacks qualification obligation")
+    thamani_spans = [span for span in spans if span["from"] <= 65 <= span["to"]]
     require(gates[7]["disposition"] == "SUPERSEDED" and
-            spans[13]["from"] == 65 and spans[13]["to"] == 68 and
-            spans[13]["disposition"] == "SUPERSEDED",
+            len(thamani_spans) == 1 and
+            thamani_spans[0]["from"] == 65 and
+            thamani_spans[0]["to"] == 68 and
+            thamani_spans[0]["disposition"] == "SUPERSEDED",
             "legacy Thamani B2C gate and sections must remain superseded")
 
 
