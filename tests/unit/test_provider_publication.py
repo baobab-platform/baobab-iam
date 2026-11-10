@@ -33,7 +33,7 @@ class PublicationTests(unittest.TestCase):
     def test_partial_and_planned_never_generate_support(self):
         _, registrations, excluded = publication.prepare(self.module, self.checkout, self.declaration)
         self.assertEqual(registrations, [])
-        self.assertEqual(len(excluded), 3)
+        self.assertEqual(len(excluded), 5)
         self.assertTrue(all(s['implementation_status'] == 'PARTIAL' for s in excluded))
 
     def test_nested_shared_candidate_layout_diagnosed_before_contract_loading(self):
@@ -47,7 +47,7 @@ class PublicationTests(unittest.TestCase):
     def test_canonical_generation_draft_only(self):
         _, registrations, excluded = self.generated_fixture()
         self.assertEqual(len(registrations), 1)
-        self.assertEqual(len(excluded), 2)
+        self.assertEqual(len(excluded), 4)
         self.assertEqual(registrations[0]['provider']['lifecycle'], 'DRAFT')
         self.assertEqual(registrations[0]['support'], [{
             'capability_key': 'identity.authentication.perform', 'contract_versions': [1]}])
@@ -194,9 +194,9 @@ class PublicationTests(unittest.TestCase):
     def test_wrong_pin_denied_before_loading_shared_code(self):
         with tempfile.TemporaryDirectory() as directory:
             repository = Path(directory)
-            (repository / 'contracts.lock.yaml').write_text(yaml.safe_dump({
+            (repository / '.baobab').mkdir()\n            (repository / '.baobab/capability-catalogue.lock.yaml').write_text(yaml.safe_dump({
                 'source': {'repository': 'baobab-platform/shared', 'commit': '0' * 40}}))
-            with self.assertRaisesRegex(ValueError, 'immutable IAM pin'):
+            with self.assertRaisesRegex(ValueError, 'immutable capability catalogue pin'):
                 publication.load_shared(self.checkout, repository)
 
 
