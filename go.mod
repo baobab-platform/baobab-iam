@@ -13,7 +13,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/russellhaering/goxmldsig v1.6.1
 	go.etcd.io/bbolt v1.4.3
-	golang.org/x/net v0.60.0
+	golang.org/x/net v0.62.0
 )
 
 require (
