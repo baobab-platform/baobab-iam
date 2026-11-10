@@ -3,6 +3,7 @@ package nativebff
 import (
 	"context"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,13 @@ import (
 
 	"github.com/baobab-platform/baobab-iam/internal/humanauth"
 )
+
+// This is a deliberately UNSIGNED token for boundary-only tests: the stubbed
+// CP endpoint does not prove JWT signature verification or original CP authority.
+func testDelegatedHumanToken(issuer, subject string) string {
+	payload, _ := json.Marshal(map[string]string{"iss": issuer, "sub": subject})
+	return "e30." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
+}
 
 type fixedCallerToken string
 
@@ -31,7 +39,7 @@ func TestDelegatedCPResolutionUsesIndependentCallerAndHumanEvidence(t *testing.T
 		}
 		var body map[string]string
 		if json.NewDecoder(r.Body).Decode(&body) != nil ||
-			body["subject_token"] != strings.Repeat("h", 25)+"."+strings.Repeat("i", 25)+"."+strings.Repeat("j", 25) ||
+			body["subject_token"] != testDelegatedHumanToken("https://issuer.invalid", "synthetic-subject") ||
 			body["subject_token_type"] != "urn:ietf:params:oauth:token-type:access_token" ||
 			body["correlation_id"] != r.Header.Get("X-Correlation-ID") {
 			t.Error("CP did not receive separate signed subject evidence")
@@ -54,13 +62,13 @@ func TestDelegatedCPResolutionUsesIndependentCallerAndHumanEvidence(t *testing.T
 		t.Fatal(err)
 	}
 	p, err := r.ResolveHuman(context.Background(), "https://issuer.invalid", "synthetic-subject",
-		strings.Repeat("h", 25)+"."+strings.Repeat("i", 25)+"."+strings.Repeat("j", 25))
+		testDelegatedHumanToken("https://issuer.invalid", "synthetic-subject"))
 	if err != nil || p.ID != "11111111-1111-4111-8111-111111111111" || seen != 1 {
 		t.Fatalf("CP resolution: %v", err)
 	}
 	valid = false
 	if _, err = r.ResolveHuman(context.Background(), "https://issuer.invalid", "synthetic-subject",
-		strings.Repeat("h", 25)+"."+strings.Repeat("i", 25)+"."+strings.Repeat("j", 25)); err == nil {
+		testDelegatedHumanToken("https://issuer.invalid", "synthetic-subject")); err == nil {
 		t.Fatal("CP outage still resolved Principal")
 	}
 }
@@ -97,7 +105,7 @@ func TestCPPrincipalResolutionRequiresExplicitTLSRoots(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, err := resolver.ResolveHuman(context.Background(), "https://issuer.invalid",
-		"synthetic-subject", strings.Repeat("h", 25)+"."+strings.Repeat("i", 25)+"."+strings.Repeat("j", 25))
+		"synthetic-subject", testDelegatedHumanToken("https://issuer.invalid", "synthetic-subject"))
 	if err != nil || p.ID != "11111111-1111-4111-8111-111111111111" {
 		t.Fatal("explicit CP trust certificate refused", err)
 	}
