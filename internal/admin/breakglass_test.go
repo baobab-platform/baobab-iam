@@ -47,9 +47,9 @@ func (j *testJournal) Terminate(_ context.Context, id string) error {
 }
 
 type testVerifier struct {
-	proof      Witness
-	calls      int
-	change     bool
+	proof        Witness
+	calls        int
+	change       bool
 	unauthorized bool
 }
 
