@@ -139,3 +139,23 @@ receipt and C4-04's CP-governed support/activation and consumption acceptance
 must be demonstrable at the intended integration/staging boundary. Green Go
 tests are source evidence only, not proof of registered runtime or staging.
 The CRITICAL AdministrativeGrant prohibition remains unchanged.
+
+
+## ADR-IAM-0032: immutable source runtime image inventory
+
+The local Keycloak/Ory and PostgreSQL 17 Compose images are bound to reviewed
+repository lock declarations. The native Ory components match
+`provider.lock.yaml`; Keycloak multi-stage base images match
+`upstream.lock.yaml`; and all three local PostgreSQL services now reference
+the same **digest-pinned PostgreSQL 17 artifact already exercised by the
+disposable N05 CI service**, not the previous floating `postgres:17-alpine`
+tag. This also avoids an unreviewed binary change between local development
+and disposable database-test evidence.
+
+`python3 scripts/check_runtime_image_pins.py` fails on any mismatch and is a
+mandatory owner CI source gate. It does **not** resolve registry provenance,
+approve new provider releases, verify the signature/SBOM of a registry index,
+prove architecture-specific manifest compatibility or certify protected
+PostgreSQL upgrade/recovery. The Keycloak build's external build/tool stages
+and protected infrastructure manifests remain separately governed; a green
+source pin gate alone never activates production.
