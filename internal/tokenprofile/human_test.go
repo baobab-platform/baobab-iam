@@ -120,6 +120,10 @@ func TestHumanClaimsRefuseEverythingOutsideTheProfile(t *testing.T) {
 		"no auth time":             func(e *HumanEvidence) { e.AuthTime = 0 },
 		"amr IAM never emits":      func(e *HumanEvidence) { e.AMR = []string{"pwd", "face"} },
 		"duplicate amr":            func(e *HumanEvidence) { e.AMR = []string{"pwd", "pwd"} },
+		"mfa without two factors": func(e *HumanEvidence) { e.AMR = []string{"pwd", "mfa"} },
+		"mfa from otp only": func(e *HumanEvidence) { e.AMR = []string{"otp", "mfa"} },
+		"mfa from hardware only": func(e *HumanEvidence) { e.AMR = []string{"hwk", "mfa"} },
+		"mfa with weak AAL": func(e *HumanEvidence) { e.ACR = "aal1" },
 	}
 	for name, change := range cases {
 		t.Run(name, func(t *testing.T) {
