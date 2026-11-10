@@ -2,6 +2,7 @@ package ory_test
 
 import (
 	"context"
+	"errors"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -68,7 +69,7 @@ func TestHydraMismatchedClientReadbackMustNotPermitDisable(t *testing.T) {
 	err = a.DisableWorkload(context.Background(), provider.ProviderWorkloadReference{
 		ProviderClientID: "expected-client",
 	})
-	if !provider.IsConflict(err) || reads != 1 || puts != 0 {
+	if !errors.Is(err, &provider.ProviderError{Kind: provider.ErrConflict}) || reads != 1 || puts != 0 {
 		t.Fatalf("foreign client response was allowed to trigger disable; err=%v reads=%d puts=%d",err,reads,puts)
 	}
 }
