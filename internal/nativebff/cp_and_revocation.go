@@ -70,7 +70,7 @@ func correlationID() (string, error) {
 
 func (c *HTTPPrincipalResolver) ResolveHuman(ctx context.Context, issuer, subject, subjectToken string) (Principal, error) {
 	if c == nil || ctx == nil || ctx.Err() != nil || issuer == "" || subject == "" || len(subjectToken) < 16 ||
-		len(subjectToken) > 8192 || strings.Count(subjectToken, ".") != 2 || strings.ContainsAny(subjectToken, " \r\n") {
+		len(subjectToken) > 8192 || strings.Count(subjectToken, ".") != 2 || strings.ContainsAny(subjectToken, " \r\n") ||\n\t\t!matchesDelegatedSubject(subjectToken, issuer, subject) {
 		return Principal{}, errors.New("invalid delegated human evidence")
 	}
 	caller, err := c.caller.Token(ctx)
