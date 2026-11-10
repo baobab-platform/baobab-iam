@@ -17,7 +17,7 @@ func TestNewAdapterRejectsAmbiguousProviderEndpoints(t *testing.T) {
 	}
 	tests := []struct {
 		name, endpoint string
-		set           func(*ory.Config, string)
+		set            func(*ory.Config, string)
 	}{
 		{"kratos-userinfo", "http://user:password@kratos-admin:4434", func(c *ory.Config, s string) { c.KratosAdminURL = s }},
 		{"kratos-extra-path", "https://kratos-admin:4434/admin/identities", func(c *ory.Config, s string) { c.KratosAdminURL = s }},
