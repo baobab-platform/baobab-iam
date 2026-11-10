@@ -145,6 +145,17 @@ func forbiddenIdentityTrait(value any, depth int) bool {
 				"buyerpurchaselimit", "erprole", "adrole", "adclient",
 				"adorg", "supplierapproval", "spendlimit",
 				"organisationmembership", "organizationmembership",
+				// ADR-IAM-0025/0028/0030: Kratos identity traits and
+				// migration metadata must not become a backup store for
+				// recovery evidence, cleartext secrets or private keys.
+				// Credential imports use the dedicated Credentials field.
+				"password", "passwordhash", "passwordhint",
+				"totp", "totpsecret", "otpsecret", "lookupsecret",
+				"recoverycode", "recoverycodes", "recoverytoken",
+				"credential", "credentials", "clientsecret", "secret",
+				"privatekey", "passkeyprivatekey", "webauthnprivatekey",
+				"accesstoken", "refreshtoken", "idtoken", "bearertoken",
+				"identitydocument", "passportnumber", "nationalidnumber",
 			} {
 				if normalized == forbidden {
 					return true
@@ -164,18 +175,19 @@ func forbiddenIdentityTrait(value any, depth int) bool {
 	return false
 }
 
-// Validate refuses identity provisioning that attempts to smuggle CP,
-// Trade or ERP authority into Ory Kratos traits or provider metadata.
+// Validate refuses identity provisioning that attempts to smuggle CP/domain
+// authority or plaintext credentials, private keys, recovery evidence and
+// sensitive proofing documents into Ory Kratos traits or provider metadata.
 func (s IdentityProvisioningSpec) Validate() error {
 	if len(s.Traits) == 0 {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "Traits are required"}
 	}
 	if forbiddenIdentityTrait(s.Traits, 0) {
-		return &ProviderError{Kind: ErrInvalidArgument, Message: "Identity traits cannot carry platform or domain authority"}
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "Identity traits cannot carry platform/domain authority or credential/proofing secrets"}
 	}
 	for key := range s.Metadata {
 		if forbiddenIdentityTrait(map[string]any{key: true}, 0) {
-			return &ProviderError{Kind: ErrInvalidArgument, Message: "Identity metadata cannot carry platform or domain authority"}
+			return &ProviderError{Kind: ErrInvalidArgument, Message: "Identity metadata cannot carry platform/domain authority or credential/proofing secrets"}
 		}
 	}
 	return nil
