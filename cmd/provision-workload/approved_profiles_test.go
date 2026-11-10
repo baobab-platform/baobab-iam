@@ -7,10 +7,10 @@ import (
 )
 
 func TestApprovedProvisionUsesPinnedSharedResourceAudiences(t *testing.T) {
-	cases := []struct{
+	cases := []struct {
 		client string
 		scopes []string
-		want []string
+		want   []string
 	}{
 		{"baobab-trade-workload", []string{"erp:read"}, []string{"baobab-erp"}},
 		{"baobab-trade-workload", []string{"context:resolve", "erp:read"}, []string{"baobab-control-plane", "baobab-erp"}},
@@ -28,7 +28,7 @@ func TestApprovedProvisionUsesPinnedSharedResourceAudiences(t *testing.T) {
 }
 
 func TestApprovedProvisionRejectsUnallocatedAndCrossEngineGrants(t *testing.T) {
-	for _, tc := range []struct{
+	for _, tc := range []struct {
 		client string
 		scopes []string
 	}{
