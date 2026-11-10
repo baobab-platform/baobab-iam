@@ -87,7 +87,9 @@ func main() {
 	// Shared's workload registry is authoritative for authorization scopes.
 	// The operator must extract the selected workload's allowed_scopes and pass
 	// them explicitly; this CLI intentionally has no Keycloak-derived default.
-	scopes := provider.NormalizeAllowedScopes(splitCSV(os.Getenv("ORY_ALLOWED_SCOPES")))
+	// Do not silently normalize migration aliases or remove duplicate grants at
+	// the operator boundary: only exact reviewed Shared scope strings are valid.
+	scopes := splitCSV(os.Getenv("ORY_ALLOWED_SCOPES"))
 
 	adapter, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: kratosAdmin,
