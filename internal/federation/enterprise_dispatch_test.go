@@ -44,14 +44,23 @@ func (r *dispatchResolver) ResolveCapability(_ context.Context, request Capabili
 	return out, r.err
 }
 
-type dispatchAdapter struct{ begins, completes int }
+type dispatchAdapter struct {
+	begins, completes int
+	onBegin, onComplete func()
+}
 
 func (a *dispatchAdapter) BeginFederation(context.Context, provider.EnterpriseLogin) (provider.EnterpriseChallenge, error) {
 	a.begins++
+	if a.onBegin != nil {
+		a.onBegin()
+	}
 	return provider.EnterpriseChallenge{EventID: "approved-event"}, nil
 }
 func (a *dispatchAdapter) CompleteFederation(context.Context, provider.EnterpriseCallback) (provider.EnterpriseEvent, error) {
 	a.completes++
+	if a.onComplete != nil {
+		a.onComplete()
+	}
 	return provider.EnterpriseEvent{EventID: "approved-event"}, nil
 }
 
@@ -82,13 +91,13 @@ func TestEnterpriseDispatchConsumesCPSelectionAndProtocolProjection(t *testing.T
 				t.Fatal(begin, err)
 			}
 			complete, err := d.CompleteFederation(context.Background(), provider.EnterpriseCallback{TrustID: f.snapshot.Trust.ID})
-			if err != nil || complete.EventID != "approved-event" || a.completes != 1 || r.calls != 2 {
+			if err != nil || complete.EventID != "approved-event" || a.completes != 1 || r.calls != 4 {
 				t.Fatal(complete, err)
 			}
 			if r.lastRequest.CapabilityKey != provider.CapabilityEnterpriseFederation || r.lastRequest.RequiredContractVersion != 1 {
 				t.Fatalf("federation dispatch resolved wrong capability: %+v", r.lastRequest)
 			}
-			if len(observations) != 2 || observations[0].Outcome != "SELECTED" || observations[0].CorrelationID == observations[1].CorrelationID {
+			if len(observations) != 4 || observations[0].Outcome != "SELECTED" || observations[1].Outcome != "SELECTED" || observations[2].Outcome != "SELECTED" || observations[3].Outcome != "SELECTED" || observations[0].CorrelationID == observations[1].CorrelationID {
 				t.Fatal("missing decision lineage or reused correlation")
 			}
 		})
@@ -238,7 +247,7 @@ func TestEnterpriseDispatchComposesAuthenticatedCPWireAndLiveProjection(t *testi
 		}
 	})
 	d.config.Resolver, d.config.Platform = authority, authority
-	if _, err := d.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: f.snapshot.Trust.ID}); err != nil || a.begins != 1 || len(paths) != 2 {
+	if _, err := d.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: f.snapshot.Trust.ID}); err != nil || a.begins != 1 || len(paths) != 4 {
 		t.Fatal("composed CP dispatch failed", err, paths)
 	}
 }
@@ -308,5 +317,42 @@ func TestEnterpriseDispatchRejectsClockRollback(t *testing.T) {
 	}
 	if _, err := d.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: f.snapshot.Trust.ID}); err == nil || a.begins != 0 {
 		t.Fatal(err, a.begins)
+	}
+}
+
+func TestEnterpriseDispatchRejectsTrustRevokedDuringProviderBegin(t *testing.T) {
+	d, f, _, _, adapter := dispatchSetup(t, "oidc")
+	adapter.onBegin = func() {
+		f.snapshot.Trust.Status = "REVOKED"
+	}
+	challenge, err := d.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: f.snapshot.Trust.ID})
+	if err == nil || challenge.EventID != "" || adapter.begins != 1 {
+		t.Fatalf("stale post-broker trust returned challenge=%+v err=%v", challenge, err)
+	}
+}
+
+func TestEnterpriseDispatchRejectsGrantRevokedDuringProviderCallback(t *testing.T) {
+	d, f, resolver, _, adapter := dispatchSetup(t, "saml2")
+	adapter.onComplete = func() {
+		resolver.mutate = func(result *CapabilityResolution) {
+			result.Decision = "DENIED"
+			result.ReasonCode = "WITHDRAWN"
+		}
+	}
+	event, err := d.CompleteFederation(context.Background(), provider.EnterpriseCallback{TrustID: f.snapshot.Trust.ID})
+	if err == nil || event.EventID != "" || adapter.completes != 1 {
+		t.Fatalf("stale post-broker grant returned event=%+v err=%v", event, err)
+	}
+}
+
+func TestEnterpriseDispatchRejectsChangedAdapterAfterNativeBegin(t *testing.T) {
+	d, f, _, _, adapter := dispatchSetup(t, "oidc")
+	alternate := &dispatchAdapter{}
+	adapter.onBegin = func() {
+		d.config.Adapters[0].Adapter = alternate
+	}
+	challenge, err := d.BeginFederation(context.Background(), provider.EnterpriseLogin{TrustID: f.snapshot.Trust.ID})
+	if !errors.Is(err, ErrDenied) || challenge.EventID != "" || alternate.begins != 0 {
+		t.Fatalf("changed executable adapter bypassed postcheck challenge=%+v err=%v", challenge, err)
 	}
 }
