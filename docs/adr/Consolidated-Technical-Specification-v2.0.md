@@ -1,7 +1,7 @@
 # Baobab Identity and Access Management — Consolidated Technical Specification v2.0
 
 **Document ID:** IAM-CTS-002  
-**Status:** DRAFT FOR RECONCILIATION REVIEW — candidate implementation interpretation; **not an Accepted ADR, capability grant, evidence receipt, or protected release**  
+**Status:** **APPROVED — Governing consolidated implementation interpretation**, by explicit Platform Owner direction on 11 November 2026; effective on reviewed CI-green merge to IAM `main`. **Not an independent ADR, canonical contract amendment, capability grant, runtime evidence receipt, or protected release.**  
 **Date:** 11 November 2026 (Africa/Johannesburg)  
 **Owner:** Baobab IAM architecture, with Shared/CP/Infrastructure/engine-owner review for their respective boundaries  
 **Reconciles:** [Consolidated Technical Specification v1.0 (9 September 2026)](./Consolidated-Technical-Specification.md), sections 1–227 and IAM Gates 0–16  
@@ -299,4 +299,4 @@ A range classification is a **dominant interpretation**, not a repeal of every s
 - Cross-repository delivery: [EA v2.3](https://github.com/baobab-platform/shared/blob/main/docs/architecture/EA-implementation-plan-v2.3-2026-10-20.md), [EA-DEV](https://github.com/baobab-platform/shared/blob/main/docs/architecture/ea-v2.3-development-enablement-implementation-plan-2026-10-23.md), [EA-DEV register](https://github.com/baobab-platform/shared/blob/main/docs/architecture/ea-dev-implementation-register.md), accepted owner-domain ADRs and unchanged [v2.2 L4 scenario registry](https://github.com/baobab-platform/shared/blob/main/docs/architecture/ea-v2.2-integration-acceptance-matrix.md).
 - Source audit: [IAM N01–N03 closure audit](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md); actual **main** and open PRs require re-observation at each acceptance event.
 
-**End condition:** this v2.0 specification is technically reconciled as **documentation candidate only**. Its review/merge makes the document discoverable and the crosswalk checkable. It neither completes the listed runtime work nor changes current contract/admission/protected release authority.
+**End condition:** v2.0 is **APPROVED by the Platform Owner as the consolidated IAM implementation interpretation**, effective on its reviewed, CI-green merge to `main`. Its acceptance does not complete the listed runtime work, approve ADR-IAM-0034, allocate scopes, change canonical authority or authorise protected release.
