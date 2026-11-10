@@ -19,8 +19,8 @@ For **each** ADR in ascending order: (1) read original normative language and an
 | 0005 | **PARTIAL — reviewed** | ADR distinguishes Realm, IAM Organisation, canonical legal entity, Tenant, Market and Digital Estate. CP retains canonical authority and native adapter has no business-organisation fields. Older Keycloak Organization semantics remain historical/federation-specific. | No business mapping introduced in IAM; original CP+Kratos multi-context and revocation tests remain NOT_RUN for this ADR |
 | 0006 | **PARTIAL — reviewed** | BFF OAuth Code/S256 uses state, nonce, server-side session vault, signed token verification, bounded lifetime and CP Principal readback; Shared token-profile hook handles actor/scope. | Current native issuer/browser/CP profile and JWT audience/issuer/step-up negative receipts remain NOT_RUN; do not treat protocol fixtures as connected acceptance |
 | 0007 | **PARTIAL — reviewed** | Hydra workload issuance paths use distinct clients and inherited Shared profile; native get/put Admin client URL uses raw client IDs, and client readback previously allowed a mismatched ID. | Add explicit resource-id fencing and exact client-id readback before mutation, with HTTP negative tests. Source-only; real issuer/CP/consumer authorisation remains HELD |
-| 0008 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
-| 0009 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
+| 0008 | **PARTIAL — reviewed** | ADR separates IAM invocation, CP context/entitlement and native domain authorization. Current native BFF CP Principal resolution and Ory governed readiness are independently checked but do not constitute original domain commitment/SoD proof. | No IAM-owned business permission added; current CP+buyer native order and denial, revocation, cross-tenant/market negative receipts still HELD |
+| 0009 | **PARTIAL — reviewed** | Workforce SSO and privileged access must be named-identity/MFA/SoD, not group-based omnipotence. Native BFF supports current Kratos AAL checks; Keycloak remains enterprise federation only by ADR-IAM-0033. | No automatic executive/admin grant in IAM; real higher assurance A3/A4, CP AdministrativeGrant and workforce joiner/mover/leaver connected tests remain HELD |
 | 0010 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
 | 0011 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
 | 0012 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
@@ -58,6 +58,34 @@ ADR-0005 is a structural invariant: native Kratos and Hydra must not become a Te
 ADR-0006 has implemented protocol fences in the browser BFF and token-profile hook, but source-level OIDC tests are not original running issuer/CP/estate receipts. Current advanced assurance and brokered logout remain **HELD**.
 
 ADR-0007 exposed a concrete boundary drift: native Hydra client GET and PUT paths interpolated raw IDs, and GET did not verify the returned client identity. The new fix refuses unsafe ID text, and mismatched readback before constructing updates. This does not prove credential rotation, CP registered workload activation, or real owner-service resource enforcement.
+
+### ADR-0008 / ADR-0009 authority and workforce review
+
+The runtime surface does not confer platform or domain roles through token contents: `nativebff.PrincipalResolver` requires an independent CP read, while `NativeWorkloadReadiness` rechecks provider/CP capability before concluding readiness. Neither check substitutes for domain-native business permission; approval, organisation and market authority must remain in CP and owning engines (ADR-0008). Privileged workforce authentication must be distinct from privilege grants and accompanied by current higher-assurance provider proof (ADR-0009); Keycloak enterprise federation does not create a platform-admin role.
+
+### Consolidated historical IAM gates — inventory, **not** implementation acceptance
+
+The source specification (§§203–219) enumerates 17 gates, labelled IAM-0 through IAM-16. It predates Accepted ADR-IAM-0019 through ADR-IAM-0033. **Every gate remains NOT_ASSESSED in this ledger until all 34 ADRs have been audited and its current specification is reconciled.** In particular do not reuse the retired Keycloak-only native issuer or historical Thamani B2C criteria as current positive proof.
+
+- Gate IAM-0 — Architecture Foundation — **NOT_ASSESSED**
+- Gate IAM-1 — Shared Contracts — **NOT_ASSESSED**
+- Gate IAM-2 — IAM Repository / Keycloak Foundation — **NOT_ASSESSED**
+- Gate IAM-3 — Control Plane Identity Spine — **NOT_ASSESSED**
+- Gate IAM-4 — Workload Identity — **NOT_ASSESSED**
+- Gate IAM-5 — Workforce SSO — **NOT_ASSESSED**
+- Gate IAM-6 — Zuribeans B2B — **NOT_ASSESSED**
+- Gate IAM-7 — Thamani B2C (historical; now B2B logistics scope) — **NOT_ASSESSED**
+- Gate IAM-8 — Supplier Identity — **NOT_ASSESSED**
+- Gate IAM-9 — Medusa Integration — **NOT_ASSESSED**
+- Gate IAM-10 — ERP Integration — **NOT_ASSESSED**
+- Gate IAM-11 — Credential Security — **NOT_ASSESSED**
+- Gate IAM-12 — Lifecycle / Deprovisioning — **NOT_ASSESSED**
+- Gate IAM-13 — Audit / Observability — **NOT_ASSESSED**
+- Gate IAM-14 — HA / DR — **NOT_ASSESSED**
+- Gate IAM-15 — Multi-Region Readiness — **NOT_ASSESSED**
+- Gate IAM-16 — Production Hardening — **NOT_ASSESSED**
+
+Owner-qualified evidence must include genuine Kratos/Hydra/Keycloak/CP and engine native execution, current source SHA, independent trace, denial/replay, restore and teardown, rather than syntax checks and mock protocol fixtures.
 
 ## Gated follow-through after the ADR sequence
 
