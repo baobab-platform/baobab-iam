@@ -102,10 +102,10 @@ type NativeRevocationProvider interface {
 // CPReadback must be an original, current denial by a CP/resource authority,
 // not a provider response or an unverified bearer-token payload.
 type CPReadback struct {
-	Subject         provider.ExternalSubject
-	CurrentDenied   bool
-	ObservedAt      time.Time
-	EvidenceRef     string
+	Subject       provider.ExternalSubject
+	CurrentDenied bool
+	ObservedAt    time.Time
+	EvidenceRef   string
 }
 type CPDenialWitness interface {
 	VerifyRestrictedPrincipal(context.Context, provider.ExternalSubject) (CPReadback, error)
