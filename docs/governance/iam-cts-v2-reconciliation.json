@@ -196,9 +196,9 @@
     },
     {
       "from": 37,
-      "to": 44,
+      "to": 38,
       "first_heading": "Human Access Token Profile",
-      "last_heading": "Deny Precedence",
+      "last_heading": "Token Lifetime",
       "disposition": "ILLUSTRATIVE_ONLY",
       "target": "S09",
       "owners": [
@@ -214,7 +214,29 @@
         "ADR-IAM-0021",
         "ADR-IAM-0033"
       ],
-      "interpretation": "Historic claims, URI, token lifetime, scope and pipeline examples are not canonical wire contracts; current issuer and CP/Shared policies apply."
+      "interpretation": "Token claim and lifetime examples are historical. Use actual Hydra or approved Keycloak issuer, current Shared schema and reviewed resource policy."
+    },
+    {
+      "from": 39,
+      "to": 44,
+      "first_heading": "Token Validation",
+      "last_heading": "Deny Precedence",
+      "disposition": "PRESERVED",
+      "target": "S09",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "shared"
+      ],
+      "ea_dev": [
+        "DEV-03",
+        "DEV-11"
+      ],
+      "authority": [
+        "ADR-IAM-0021",
+        "ADR-IAM-0033"
+      ],
+      "interpretation": "Signature, issuer, audience, expiry/nbf, algorithm, clock bounds, scoped token and deny precedence remain mandatory; consume actual accepted OAuth/Shared profiles."
     },
     {
       "from": 45,
@@ -526,9 +548,9 @@
     },
     {
       "from": 142,
-      "to": 148,
+      "to": 143,
       "first_heading": "Context Authorization Example",
-      "last_heading": "Data Sovereignty Rule",
+      "last_heading": "Domain Enforcement Example",
       "disposition": "ILLUSTRATIVE_ONLY",
       "target": "S05",
       "owners": [
@@ -545,7 +567,30 @@
         "ADR-IAM-0004",
         "EA-v2.3"
       ],
-      "interpretation": "Context JSON, SQL and regional routing examples must be replaced by current CP API, Shared schemas and native owner PEP."
+      "interpretation": "Illustrative Go CP resolution and domain enforcement code cannot replace current CP OpenAPI nor owner-native PEP implementations."
+    },
+    {
+      "from": 144,
+      "to": 148,
+      "first_heading": "Tenant Isolation Query Rule",
+      "last_heading": "Data Sovereignty Rule",
+      "disposition": "PRESERVED",
+      "target": "S06",
+      "owners": [
+        "baobab-cp",
+        "shared",
+        "baobab-erp"
+      ],
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-09"
+      ],
+      "authority": [
+        "ADR-IAM-0004",
+        "EA-v2.3"
+      ],
+      "interpretation": "Tenant isolation, B2B context switching, regional context and data sovereignty remain mandatory under current CP/Infrastructure authority."
     },
     {
       "from": 149,
@@ -646,9 +691,9 @@
     },
     {
       "from": 176,
-      "to": 180,
+      "to": 178,
       "first_heading": "Example Kubernetes Deployment",
-      "last_heading": "Regional Engine Architecture",
+      "last_heading": "Multi-Region Infrastructure Example",
       "disposition": "ILLUSTRATIVE_ONLY",
       "target": "S15",
       "owners": [
@@ -663,7 +708,28 @@
         "ADR-IAM-0027",
         "EA-v2.3"
       ],
-      "interpretation": "Kubernetes/region examples are not approved protected topology or sovereignty rules; actual tested image and operations govern."
+      "interpretation": "Historic Kubernetes and multi-region infrastructure examples are not tested current provider/topology or protected release."
+    },
+    {
+      "from": 179,
+      "to": 180,
+      "first_heading": "Availability Rule",
+      "last_heading": "Regional Engine Architecture",
+      "disposition": "AMENDED",
+      "target": "S15",
+      "owners": [
+        "infrastructure",
+        "baobab-cp"
+      ],
+      "ea_dev": [
+        "DEV-12",
+        "DEV-13"
+      ],
+      "authority": [
+        "ADR-IAM-0027",
+        "EA-v2.3"
+      ],
+      "interpretation": "Availability and regional engine placement remain obligations, but current multi-provider DR and CP/Infrastructure owner models supersede legacy Keycloak-only assumptions."
     },
     {
       "from": 181,
@@ -690,9 +756,9 @@
     },
     {
       "from": 186,
-      "to": 201,
+      "to": 197,
       "first_heading": "Rate Limiting",
-      "last_heading": "No Email-Only Migration",
+      "last_heading": "Concurrency Safety",
       "disposition": "PRESERVED",
       "target": "S13",
       "owners": [
@@ -714,7 +780,35 @@
         "ADR-IAM-0033",
         "EA-v2.3"
       ],
-      "interpretation": "Security, privacy, identity-to-business mapping, idempotency, concurrency and safe migration principles retained under current sources."
+      "interpretation": "Rate-limit, enumeration resistance, notifications, privacy, profile ownership, cross-DB boundaries, mappings, identity/business separation and idempotency/concurrency remain safety invariants."
+    },
+    {
+      "from": 198,
+      "to": 201,
+      "first_heading": "Migration Strategy",
+      "last_heading": "No Email-Only Migration",
+      "disposition": "AMENDED",
+      "target": "S18",
+      "owners": [
+        "baobab-iam",
+        "baobab-cp",
+        "shared",
+        "baobab-trade",
+        "baobab-erp"
+      ],
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-07",
+        "DEV-09",
+        "DEV-12"
+      ],
+      "authority": [
+        "ADR-IAM-0030",
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "interpretation": "Medusa/ERP identity and credential migration must be versioned and owner-governed for Kratos/Hydra and retained Keycloak federation; historical provider-specific migration steps cannot execute literally."
     },
     {
       "from": 202,
