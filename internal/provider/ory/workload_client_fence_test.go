@@ -2,8 +2,8 @@ package ory_test
 
 import (
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,7 +26,9 @@ func TestHydraClientIdentityCannotSelectForeignAdminResource(t *testing.T) {
 		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL,
 		PublicIssuer: "https://identity.example", HTTPClient: srv.Client(),
 	})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, id := range []string{"..", "../operator", "unsafe/client", "unsafe?role=admin", "unsafe#fragment", "%2F", "foo\\bar", " spaced", "foo\nbar"} {
 		t.Run(id, func(t *testing.T) {
 			ref := provider.ProviderWorkloadReference{ProviderClientID: id}
@@ -57,19 +59,23 @@ func TestHydraMismatchedClientReadbackMustNotPermitDisable(t *testing.T) {
 			})
 			return
 		}
-		if r.Method == http.MethodPut { puts++ }
-		http.Error(w,"unexpected access",http.StatusForbidden)
+		if r.Method == http.MethodPut {
+			puts++
+		}
+		http.Error(w, "unexpected access", http.StatusForbidden)
 	}))
 	defer srv.Close()
 	a, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL,
 		PublicIssuer: "https://identity.example", HTTPClient: srv.Client(),
 	})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = a.DisableWorkload(context.Background(), provider.ProviderWorkloadReference{
 		ProviderClientID: "expected-client",
 	})
 	if !errors.Is(err, &provider.ProviderError{Kind: provider.ErrConflict}) || reads != 1 || puts != 0 {
-		t.Fatalf("foreign client response was allowed to trigger disable; err=%v reads=%d puts=%d",err,reads,puts)
+		t.Fatalf("foreign client response was allowed to trigger disable; err=%v reads=%d puts=%d", err, reads, puts)
 	}
 }
