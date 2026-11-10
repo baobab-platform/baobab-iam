@@ -1,5 +1,7 @@
 # Baobab IAM (`baobab-iam`)
 
+> **TECHNICAL SPECIFICATION RECONCILIATION:** The [v2.0 provider-neutral CTS candidate](docs/adr/Consolidated-Technical-Specification-v2.0.md) reconciles the [9 September Keycloak-centred CTS v1.0](docs/adr/Consolidated-Technical-Specification.md) with Accepted IAM ADR-0033, EA v2.3 and EA-DEV. Its [227-section / 17-gate crosswalk](docs/governance/iam-cts-v2-reconciliation.json) is checked in CI. **Draft documentation is not provider support, completed development evidence or protected release approval.** Current Shared EA-DEV and the IAM N01–N03 audit still own those claims.
+
 > **DEVELOPMENT COMPLETION HOLD — N01–N03 NOT CERTIFIED (audited 31 October 2026).**
 > **Do not report “development complete”, “only staging/production outstanding”, or “ready for protected handoff”.**
 > Open **development** gates are: (N01) newer Shared workload/scope pin and real consumer qualification; (N02) connected estate/browser–Kratos–Hydra–CP tests, original DEV-04 seven-case same-run evidence, recovery/logout and teardown; (N03) final-head CI, genuine issuer/CP HTTP-resource results and actual owner-engine DEV-14/15 consumer acceptance, including mandatory negatives.
