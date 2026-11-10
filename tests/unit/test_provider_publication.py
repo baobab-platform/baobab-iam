@@ -195,6 +195,8 @@ class PublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             repository = Path(directory)
             (repository / '.baobab').mkdir()\n            (repository / '.baobab/capability-catalogue.lock.yaml').write_text(yaml.safe_dump({
+                'schema': 'baobab-capability-catalogue-consumer-lock',
+                'purpose': 'read-only-provider-declaration-contracts',
                 'source': {'repository': 'baobab-platform/shared', 'commit': '0' * 40}}))
             with self.assertRaisesRegex(ValueError, 'immutable capability catalogue pin'):
                 publication.load_shared(self.checkout, repository)
