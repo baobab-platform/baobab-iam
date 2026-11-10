@@ -3,10 +3,10 @@ package provider
 // Canonical Shared capability keys consumed by governed runtime operation gates.
 // They name pinned Shared vocabulary; they are not CP grants or runtime authority.
 const (
-	CapabilityHumanAuthentication = "identity.authentication.perform"
+	CapabilityHumanAuthentication     = "identity.authentication.perform"
 	CapabilityAuthenticationAssurance = "identity.authentication.assurance"
-	CapabilityEnterpriseFederation = "identity.federation.enterprise"
-	CapabilityWorkloadTokenIssue  = "identity.workload-token.issue"
+	CapabilityEnterpriseFederation    = "identity.federation.enterprise"
+	CapabilityWorkloadTokenIssue      = "identity.workload-token.issue"
 )
 
 // CanonicalSupport describes construction conformance to a pinned Shared
