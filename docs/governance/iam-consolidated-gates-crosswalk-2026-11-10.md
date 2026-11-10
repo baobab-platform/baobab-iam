@@ -17,7 +17,7 @@
 | IAM-8 Supplier | Source actor isolation, IAM subject and supplier domain separation | Actual representative membership/vetting, bank-change denial, cross-market tests |
 | IAM-9 Medusa | Auth Module actor-bound providers; Trade draft #231 production credential and callback hardening | Real Medusa AuthIdentity issuer+subject, local-account migration, buyer/administrator original login |
 | IAM-10 ERP | CP mapping, iDempiere 13 native posting and AD_Client/AD_Org/AD_Role | **HELD**: stock OIDC AD_User email/username lookup must be replaced with immutable CP issuer+subject and real JVM evidence |
-| IAM-11 Credentials | Kratos AAL2, native AMR evidence, IAM #171/#173 safeguards | Original UV passkeys, RP-bound A3 and privileged A4, recovery/cooling/four-eyes/risk proof |
+| IAM-11 Credentials | Kratos AAL2, conservative native AMR evidence (no generic passkey hardware claim), IAM #171/#173 safeguards | Original UV passkeys, RP-bound A3 and privileged A4, recovery/cooling/four-eyes/risk proof |
 | IAM-12 Lifecycle | Kratos disable/session revoke, Hydra client lifecycle, IAM #170 verified double readback | CP/domain revocation saga, outbox/journal, crash/replay, no resurrected authority |
 | IAM-13 Audit | Federation approval ledger and source redaction | Original exported OpenTelemetry lineage, IAM security event bus, privacy-safe custody and loss/replay |
 | IAM-14 HA/DR | Version pins, durable federation state, recovery runbooks | PostgreSQL 17 separate provider backups/PITR, revocation journal, measured RPO/RTO and failover drill |
@@ -42,3 +42,5 @@ The following are **development** blockers, not protected staging approvals that
 4. Security: Verified A3/A4, reviewed Keycloak federation, optional SCIM lifecycle, IAM security journal, data-subject erasure/restriction and PG17 restore non-resurrection, crypto rotation, incident containment.
 
 The historical gate specification's **Definition of Done** requires code, tests, documentation, security, migration, review, merged PR and post-merge verification. Therefore none of this stacked source-audit series by itself closes all gates or IAM-MP20. Do not promote provider support, CP bindings, protected staging/production deployment or release without separately reviewed original evidence.
+
+**Passkey evidence policy (additional regression):** Native Kratos method names for generic WebAuthn/passkeys are not proof of a hardware-backed key, independent user verification or RP-bound A3/A4. Source translation and direct Hydra claim allowlists no longer admit unverified hardware `hwk` solely from such labels. A future A3/A4 implementation must add the missing authenticator attestation and reviewed per-operation policy rather than restoring the unsafe inference.
