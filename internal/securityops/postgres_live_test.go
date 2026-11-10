@@ -25,7 +25,7 @@ func TestPostgresIncidentJournalReal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	migration, err := os.ReadFile("migrations/001_incident_containment.sql")
 	if err != nil {
 		t.Fatal(err)
