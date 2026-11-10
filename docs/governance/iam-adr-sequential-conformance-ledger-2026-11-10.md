@@ -16,9 +16,9 @@ For **each** ADR in ascending order: (1) read original normative language and an
 | 0002 | **SUPERSEDED PROVIDER CHOICE — reviewed** | Proposed Keycloak-only IdP choice conflicts with accepted ADR-IAM-0033; Keycloak remains enterprise federation. | Do not delete Keycloak or count legacy native Keycloak operation as current acceptance |
 | 0003 | **PARTIAL — reviewed** | Native BFF validates signed tokens, uses CP readback and strict origins; Ory base adapter previously accepted malformed userinfo/query/fragment admin URLs. | Constructor validation and negative tests in this PR; still needs deployment/admin-network and connected issuer checks |
 | 0004 | **PARTIAL — reviewed** | Provider subject is not a CP CanonicalIdentity. Existing Kratos readback lacked exact requested-subject consistency; raw subject could choose a different admin URL path. | Reject path/query/fragment injection before all native identity operations; refuse inconsistent provider readback/reconciliation and test negative cases. CP dual-issuer real runtime remains HELD |
-| 0005 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
-| 0006 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
-| 0007 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
+| 0005 | **PARTIAL — reviewed** | ADR distinguishes Realm, IAM Organisation, canonical legal entity, Tenant, Market and Digital Estate. CP retains canonical authority and native adapter has no business-organisation fields. Older Keycloak Organization semantics remain historical/federation-specific. | No business mapping introduced in IAM; original CP+Kratos multi-context and revocation tests remain NOT_RUN for this ADR |
+| 0006 | **PARTIAL — reviewed** | BFF OAuth Code/S256 uses state, nonce, server-side session vault, signed token verification, bounded lifetime and CP Principal readback; Shared token-profile hook handles actor/scope. | Current native issuer/browser/CP profile and JWT audience/issuer/step-up negative receipts remain NOT_RUN; do not treat protocol fixtures as connected acceptance |
+| 0007 | **PARTIAL — reviewed** | Hydra workload issuance paths use distinct clients and inherited Shared profile; native get/put Admin client URL uses raw client IDs, and client readback previously allowed a mismatched ID. | Add explicit resource-id fencing and exact client-id readback before mutation, with HTTP negative tests. Source-only; real issuer/CP/consumer authorisation remains HELD |
 | 0008 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
 | 0009 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
 | 0010 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
@@ -50,6 +50,14 @@ For **each** ADR in ascending order: (1) read original normative language and an
 ### ADR-0004 implementation increment
 
 Kratos admin client receives only validated native subjects for identity reads, lifecycle operations and reconciliation. Any response whose provider subject differs from the issuer+subject key is refused rather than mapped. Tests use an actual in-process HTTP server, not a real Kratos or CP runtime. This does **not** claim end-to-end canonical identity migration or a verified dual-issuer cutover.
+
+### ADR-0005 through ADR-0007 implementation increment
+
+ADR-0005 is a structural invariant: native Kratos and Hydra must not become a Tenant, LegalEntity or Market authority. Reviewed existing provider declarations and native BFF CP lookup; corresponding connected multi-context CP acceptance is **NOT_RUN**.
+
+ADR-0006 has implemented protocol fences in the browser BFF and token-profile hook, but source-level OIDC tests are not original running issuer/CP/estate receipts. Current advanced assurance and brokered logout remain **HELD**.
+
+ADR-0007 exposed a concrete boundary drift: native Hydra client GET and PUT paths interpolated raw IDs, and GET did not verify the returned client identity. The new fix refuses unsafe ID text, and mismatched readback before constructing updates. This does not prove credential rotation, CP registered workload activation, or real owner-service resource enforcement.
 
 ## Gated follow-through after the ADR sequence
 
