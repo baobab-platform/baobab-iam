@@ -23,14 +23,20 @@ func TestNewAdapterRejectsAmbiguousProviderEndpoints(t *testing.T) {
 		{"kratos-extra-path", "https://kratos-admin:4434/admin/identities", func(c *ory.Config, s string) { c.KratosAdminURL = s }},
 		{"kratos-encoded-path", "https://kratos-admin:4434/%2F", func(c *ory.Config, s string) { c.KratosAdminURL = s }},
 		{"kratos-query", "http://kratos-admin:4434?api_key=secret", func(c *ory.Config, s string) { c.KratosAdminURL = s }},
+		{"kratos-empty-fragment", "https://kratos-admin:4434#", func(c *ory.Config, s string) { c.KratosAdminURL = s }},
+		{"kratos-empty-port", "https://kratos-admin:", func(c *ory.Config, s string) { c.KratosAdminURL = s }},
 		{"hydra-file", "file:///etc/passwd", func(c *ory.Config, s string) { c.HydraAdminURL = s }},
 		{"hydra-fragment", "https://hydra-admin:4445/#token", func(c *ory.Config, s string) { c.HydraAdminURL = s }},
+		{"hydra-empty-fragment", "https://hydra-admin:4445#", func(c *ory.Config, s string) { c.HydraAdminURL = s }},
+		{"hydra-empty-ipv6-port", "http://[::1]:", func(c *ory.Config, s string) { c.HydraAdminURL = s }},
 		{"hydra-userinfo", "https://user@hydra-admin:4445", func(c *ory.Config, s string) { c.HydraAdminURL = s }},
 		{"issuer-relative", "/identity", func(c *ory.Config, s string) { c.PublicIssuer = s }},
 		{"issuer-userinfo", "https://attacker@identity.example", func(c *ory.Config, s string) { c.PublicIssuer = s }},
 		{"issuer-javascript", "javascript:alert(1)", func(c *ory.Config, s string) { c.PublicIssuer = s }},
 		{"issuer-query", "https://identity.example?token=secret", func(c *ory.Config, s string) { c.PublicIssuer = s }},
 		{"issuer-fragment", "https://identity.example/#section", func(c *ory.Config, s string) { c.PublicIssuer = s }},
+		{"issuer-empty-fragment", "https://identity.example/issuer#", func(c *ory.Config, s string) { c.PublicIssuer = s }},
+		{"issuer-empty-port", "https://identity.example:", func(c *ory.Config, s string) { c.PublicIssuer = s }},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

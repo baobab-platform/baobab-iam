@@ -33,6 +33,9 @@ func TestKratosOpaqueSubjectCannotSelectAdminRoute(t *testing.T) {
 			if _, err := adapter.GetIdentity(context.Background(), ref); !provider.IsInvalidArgument(err) {
 				t.Fatalf("malformed subject passed GetIdentity: %v", err)
 			}
+			if err := adapter.EnableIdentity(context.Background(), ref); !provider.IsInvalidArgument(err) {
+				t.Fatalf("malformed subject passed EnableIdentity: %v", err)
+			}
 			if err := adapter.DisableIdentity(context.Background(), ref); !provider.IsInvalidArgument(err) {
 				t.Fatalf("malformed subject passed DisableIdentity: %v", err)
 			}
@@ -79,5 +82,49 @@ func TestKratosReadbackMustMatchExactIssuerSubject(t *testing.T) {
 	}
 	if v, err := adapter.ReconcileIdentity(context.Background(), ref); err == nil || v != nil {
 		t.Fatalf("mismatched provider identity must not be reconciled: value=%v err=%v", v, err)
+	}
+}
+
+// ADR-0004: valid native identity readback still succeeds without inventing
+// canonical CP authority, or accepting a response for a different subject.
+func TestKratosReadbackAcceptsExactIssuerSubject(t *testing.T) {
+	const issuer = "https://identity.example"
+	const id = "id-1"
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	requests := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if r.Method != http.MethodGet || r.URL.Path != "/admin/identities/"+id {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": id, "schema_id": "default", "state": "active",
+			"traits":          map[string]any{"email": "fixture@example.invalid"},
+			"metadata_public": map[string]any{},
+			"created_at":      now, "updated_at": now,
+		})
+	}))
+	defer srv.Close()
+	adapter, err := ory.NewAdapter(ory.Config{
+		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL,
+		PublicIssuer: issuer, HTTPClient: srv.Client(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := provider.ExternalSubject{Issuer: issuer, Subject: id}
+	got, err := adapter.GetIdentity(context.Background(), ref)
+	if err != nil || got == nil || got.Issuer != issuer || got.Subject != id {
+		t.Fatalf("exact issuer+subject readback rejected: value=%v err=%v", got, err)
+	}
+	rec, err := adapter.ReconcileIdentity(context.Background(), ref)
+	if err != nil || rec == nil || rec.ProviderIdentity == nil ||
+		rec.ProviderIdentity.Issuer != issuer || rec.ProviderIdentity.Subject != id {
+		t.Fatalf("exact reconciliation rejected: value=%v err=%v", rec, err)
+	}
+	if requests != 2 {
+		t.Fatalf("expected only two exact-identity readbacks, got %d", requests)
 	}
 }
