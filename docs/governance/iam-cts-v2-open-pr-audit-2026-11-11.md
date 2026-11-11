@@ -127,3 +127,28 @@ Live companion readback confirmed that CP #465/#468, Trade #231, Pulse #63,
 Thamani #44 and TMS #28 were still open. Shared #420/#422 remained closed
 without merge. Preserve the owning original evidence requirements before
 closing the corresponding workstreams.
+
+## Continuation checkpoint — 12 November 2026, 01:41 SAST
+
+This addendum is a **new observation**, not a replacement of the historical 11 November inventory. GitHub currently reports **14 open IAM pull requests, all DRAFT**: #149, #151, #152, #153, #174, #175, #176, #177, #180, #181, #182, #183, #185 and this audit #189. Source-only green workflows do not qualify protected identities, ACTIVE provider support, CP grants, or business commitments.
+
+| Candidate | Source/qualification at this checkpoint | Disposition |
+| --- | --- | --- |
+| #149 N04 | Source and scoped INT-02 workflows green; no complete original registered-provider/CP/native consumer, Pulse+Payments and teardown receipts | DRAFT/HELD; prerequisite for N06 |
+| #151 N06 | N04-stacked; current-head Ory and CI failed; no qualified WebAuthn A3/A4/recovery/issuer/native-operation integration | DRAFT/HELD |
+| #152 N07 | N06-stacked; CI, Ory and connected candidate failed; no genuine Thamani/TMS/current CP/legal mandate and multi-estate owner originals | DRAFT/HELD |
+| #153 N08 | N07-stacked; CI and Ory failed; native PG17 and operation jobs alone do not prove DR and identity replay across providers | DRAFT/HELD |
+| #174 assurance | Head `acf79bf3c7f2da1eb67c9f53f491c84c3d8f4354` has six successful component workflows, but high-risk operation proof remains absent | DRAFT/HELD |
+| #175 federation | Head `decbc0819d1f03fcfe48eeb28e612eac417d9ab0` has six successful component workflows; real CP federation grant/Keycloak originals and SAML threat review remain held | DRAFT/HELD |
+| #176 Ory transport | Head `09216f79adba895549419dc0c04620437b086df4` has six successful workflows and current private-CA TLS fixture; distinct live privileged routing and owner approval not inferred | DRAFT/HELD; parent of #177 |
+| #177 assurance CP grant | **Reconciled** latest #176 and its accepted CTS/native TLS fixtures in merge head `ee138f56df3b84a732dd86cd9042cbd515d0d599`. Test fake now demonstrably grants human login while denying `identity.authentication.assurance`. Earlier Go-format and CMS-fixture failures resulted from superseded #176. Fresh exact-head CI initiated. | DRAFT/HELD pending current-head workflows, separate CP assurance binding and native originals |
+| #180 SAML parser | **Reconciled** current #177 in head `d4fe537c483c050d983fe330fb73482b4fae8088`, preserving supatype/saml 0.7.0 (never revert to Crewjam), namespace/Subject/NameID guards and panic-to-deny semantics. Earlier upstream native fixture failures were stale-base, not a valid reason to relax provider trust. Fresh exact-head CI initiated. | DRAFT/HELD pending SAML/Keycloak original and final security result |
+| #181 incident | New `3040cf601d648446757800c201236d3aa1fef38d`: repeats independent Security/CP authority **immediately before** durable VERIFIED commit, including a replay of a historically verified operation. Added revocation-after-resource-readback negatives; failed final authority persists UNKNOWN. Fresh CI initiated. | DRAFT/HELD pending real CP/resource/original containment receipts |
+| #182 privacy | New `e0422ca6506eeda8a28cdc0a9e3b7a36baf6ce33`: journal checkpoint now requires both stable revision and stable independently issued evidence reference. Added same-revision/evidence-substitution negative. Fresh PostgreSQL17/CI initiated. | DRAFT/HELD pending real issuer/CP/privacy independent custody and DR |
+| #183 emergency | Head `019ade1510e492bc29f55d5da5346747b3ed8755` has seven green source/runtime workflows, but emergency lease is evidence, not an executed privileged-provider operation; independent approver/executor and audit remains unqualified | DRAFT/HELD |
+| #185 workload | Head `3ba29350b7aa4124b2361ceede8a9fc864950f46` has seven green workflows. The previous arbitrary Hydra provisioning path is replaced by plan-only, reviewed manifest and strict scope/audience ceilings. No ACTIVE grant, arbitrary live mutation, or actual token/caller proof follows. | DRAFT/HELD |
+| #189 audit record | Documentation-only register and this dated reconciliation; no provider/credential/consumer activation | Reviewable separately once updated-head checks pass |
+
+**Dependency and evidence reconciliation:** Shared #422 (proposed N07 TMS issuer/validator) was CLOSED WITHOUT MERGE; CP #455 adopted only inert Shared #430 source declarations; no ACTIVE subject, CP legal mandate or native TMS booking is implied. Thamani #44 and TMS #28 remain held. Infrastructure #69/#72 are connected qualification harness companions but their source/CI alone is not complete N07/N08 original browser/booking qualification. CP #468 merged, while ADR-IAM-0034's native commitment scope remains unallocated. The supported release distinctions remain ENGINEERING-COMPLETE, STAGING-READY packet and independently approved PRODUCTION-READY; no promotion is granted in this register.
+
+**Merge rule:** for implementation PRs, do not substitute draft source acceptance for original native-authority evidence. Recheck actual immutable source HEAD, required CI and review comments, stack/companion ancestry, independent negative receipts and teardown before marking ready or merging. No CI exception, skip, privileged credential injection or protected-stage action was introduced here.
