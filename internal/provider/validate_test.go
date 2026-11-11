@@ -1,6 +1,7 @@
 package provider_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -106,6 +107,24 @@ func TestIdentityProvisioningRejectsNestedAuthoritySmuggling(t *testing.T) {
 				t.Fatalf("identity business authority accepted: %v", err)
 			}
 		})
+	}
+	// The exact wire JSON, not the Go dynamic type, controls whether
+	// nested identity attributes launder CP/ERP/supplier authority.
+	for label, traits := range map[string]map[string]any{
+		"typed nested map": {"profile": map[string]string{"AD_Client": "System"}},
+		"typed map in slice": {"profile": []map[string]string{{"supplier-approval": "yes"}}},
+		"raw JSON traits": {"profile": json.RawMessage(`{"market_id":"UG"}`)},
+	} {
+		t.Run(label, func(t *testing.T) {
+			if err := (provider.IdentityProvisioningSpec{Traits: traits}).Validate(); !provider.IsInvalidArgument(err) {
+				t.Fatalf("serialized business authority accepted: %v", err)
+			}
+		})
+	}
+	cyclic := map[string]any{}
+	cyclic["self"] = cyclic
+	if err := (provider.IdentityProvisioningSpec{Traits: cyclic}).Validate(); !provider.IsInvalidArgument(err) {
+		t.Fatalf("non-serializable cyclic identity claims accepted: %v", err)
 	}
 	good := provider.IdentityProvisioningSpec{
 		Traits:   map[string]any{"email": "person@example.test", "name": map[string]any{"given": "Amina", "family": "Nab"}},
