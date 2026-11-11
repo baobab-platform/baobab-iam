@@ -5,7 +5,7 @@ from scripts.operations.check_jwks_rotation import verify
 
 def fixture():
     old = {"kty": "RSA", "kid": "old", "alg": "RS256", "n": "abc", "e": "AQAB"}
-    new = {"kty": "RSA", "kid": "new", "alg": "RS256", "n": "xyz", "e": "AQAB"}
+    new = {"kty": "RSA", "kid": "new", "alg": "RS256", "n": "eHl6", "e": "AQAB"}
     plan = {"mode": "routine", "old_kid": "old", "new_kid": "new",
             "verification_distributed": True, "max_token_lifetime_seconds": 600,
             "jwks_cache_seconds": 60, "clock_skew_seconds": 30,
@@ -50,6 +50,19 @@ class JWKSRotationTests(unittest.TestCase):
         a, b, p = fixture()
         b["keys"][1]["alg"] = "HS256"
         with self.assertRaises(ValueError):
+            verify(a, b, p)
+
+    def test_replacement_must_use_distinct_public_material(self):
+        a, b, p = fixture()
+        b["keys"][1]["n"] = a["keys"][0]["n"]
+        with self.assertRaisesRegex(ValueError, "reuses"):
+            verify(a, b, p)
+
+    def test_compromise_rejects_old_key_under_an_alias(self):
+        a, b, p = fixture()
+        p.update(mode="compromise", incident_approved=True)
+        b["keys"][0] = {**b["keys"][0], "kid": "renamed-old"}
+        with self.assertRaisesRegex(ValueError, "remains trusted"):
             verify(a, b, p)
 
     def test_compromise_requires_incident_and_removal(self):
