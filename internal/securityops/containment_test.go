@@ -140,7 +140,7 @@ func TestIncidentContainmentRequiresCurrentNativeAndCPReadback(t *testing.T) {
 	if err := containment.Execute(context.Background(), intent); err != nil {
 		t.Fatal(err)
 	}
-	if journal.reserves != 1 || authority.calls != 3 || resource.calls != 1 || !native.disabled {
+	if journal.reserves != 1 || authority.calls != 4 || resource.calls != 1 || !native.disabled {
 		t.Fatal("missing original containment witnesses")
 	}
 	expected := []Phase{PhaseDisabled, PhaseRevoked, PhaseVerified}
@@ -192,6 +192,36 @@ func TestWithdrawalAfterDisableStopsSessionRevocation(t *testing.T) {
 	}
 	if len(journal.events) != 2 || journal.events[0] != PhaseDisabled || journal.events[1] != PhaseUnknown {
 		t.Fatalf("partial effect was not journaled: %v", journal.events)
+	}
+}
+
+func TestAuthorityWithdrawnDuringFinalResourceReadbackDeniesVerifiedCommit(t *testing.T) {
+	for _, previouslyVerified := range []bool{false, true} {
+		t.Run(map[bool]string{false: "first-attempt", true: "verified-replay"}[previouslyVerified], func(t *testing.T) {
+			containment, journal, native, _, authority, intent := setup(time.Now().UTC())
+			// The fourth call follows the current resource/CP denial readback.
+			// A seemingly successful external observation is not a license to
+			// seal VERIFIED if the Security/CP incident authority was revoked.
+			authority.denyOnCall = 4
+			if previouslyVerified {
+				journal.phase = PhaseVerified
+				native.disabled = true
+				// Verified replay does not reissue native side effects, so its
+				// final authority check is the second authorizer invocation.
+				authority.denyOnCall = 2
+			}
+			if err := containment.Execute(context.Background(), intent); err == nil {
+				t.Fatal("revoked current incident authority promoted VERIFIED")
+			}
+			if len(journal.events) == 0 || journal.events[len(journal.events)-1] != PhaseUnknown {
+				t.Fatalf("failed final authority fence must persist UNKNOWN: %v", journal.events)
+			}
+			for _, phase := range journal.events {
+				if phase == PhaseVerified {
+					t.Fatal("stale resource denial readback marked verified")
+				}
+			}
+		})
 	}
 }
 
