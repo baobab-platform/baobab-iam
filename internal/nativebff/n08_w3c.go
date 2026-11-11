@@ -95,7 +95,13 @@ func (t N08TraceTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 			// The span is exported only around this real transport RoundTrip;
 			// a generated header without an HTTP attempt is never evidence.
 			started := time.Now()
-			defer n08ExportSpan(child, started, "baobab.iam.issuer.client")
+			res, err := base.RoundTrip(clone)
+			status := 0
+			if err == nil && res != nil {
+				status = res.StatusCode
+			}
+			n08ExportSpan(child, started, "baobab.iam.issuer.client", status)
+			return res, err
 		}
 	}
 	return base.RoundTrip(clone)

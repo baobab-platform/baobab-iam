@@ -6,13 +6,13 @@ package nativebff
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -26,28 +26,32 @@ func n08Collector() string {
 		return ""
 	}
 	env := os.Getenv("BAOBAB_ENVIRONMENT")
-	if env == "" {
-		env = "development"
-	}
-	// Do not synchronously export on protected traffic; this is disposable L4 only.
+	// Export is available only in an explicitly selected disposable environment.
 	if env != "development" && env != "test" && env != "integration" {
 		return ""
 	}
-	if u.Scheme != "https" && !(u.Scheme == "http" && (env == "development" || env == "test" || env == "integration")) {
+	if u.Scheme != "https" && u.Scheme != "http" {
 		return ""
 	}
 	return u.String()
 }
-func n08OtlpId(raw string) string {
+func n08ValidOtlpID(raw string, size int) bool {
 	data, err := hex.DecodeString(raw)
-	if err != nil {
-		return ""
-	}
-	return base64.StdEncoding.EncodeToString(data)
+	return err == nil && len(data) == size && hex.EncodeToString(data) == raw && strings.Trim(raw, "0") != ""
 }
-func n08ExportSpan(trace N08Trace, begin time.Time, kind string) {
+
+var n08PendingExports = make(chan struct{}, 32)
+var n08OTLPClient = &http.Client{
+	Timeout:       time.Second,
+	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+}
+
+func n08ExportSpan(trace N08Trace, begin time.Time, kind string, httpStatus int) {
 	endpoint := n08Collector()
-	if endpoint == "" || trace.TraceID == "" || trace.SpanID == "" || trace.Flags != "01" {
+	flags, err := strconv.ParseUint(trace.Flags, 16, 8)
+	if endpoint == "" || err != nil || flags&1 == 0 ||
+		!n08ValidOtlpID(trace.TraceID, 16) || !n08ValidOtlpID(trace.SpanID, 8) ||
+		(trace.ParentSpanID != "" && !n08ValidOtlpID(trace.ParentSpanID, 8)) {
 		return
 	}
 	if kind != "baobab.iam.http" && kind != "baobab.iam.issuer.client" {
@@ -57,6 +61,14 @@ func n08ExportSpan(trace N08Trace, begin time.Time, kind string) {
 	if kind == "baobab.iam.issuer.client" {
 		spanKind = 3
 	}
+	statusClass := "OTHER"
+	if httpStatus >= 100 && httpStatus < 600 {
+		statusClass = strconv.Itoa(httpStatus/100) + "xx"
+	}
+	statusCode := 0
+	if httpStatus == 0 || httpStatus >= 500 || (spanKind == 3 && httpStatus >= 400) {
+		statusCode = 2
+	}
 	message := map[string]any{"resourceSpans": []any{map[string]any{
 		"resource": map[string]any{"attributes": []any{
 			map[string]any{"key": "service.name", "value": map[string]any{"stringValue": "baobab-iam"}},
@@ -65,13 +77,16 @@ func n08ExportSpan(trace N08Trace, begin time.Time, kind string) {
 		"scopeSpans": []any{map[string]any{
 			"scope": map[string]any{"name": "baobab.iam.native", "version": "dev11"},
 			"spans": []any{map[string]any{
-				"traceId": n08OtlpId(trace.TraceID), "spanId": n08OtlpId(trace.SpanID),
-				"parentSpanId": n08OtlpId(trace.ParentSpanID),
+				"traceId": trace.TraceID, "spanId": trace.SpanID,
+				"parentSpanId": trace.ParentSpanID,
 				"name":         kind, "kind": spanKind,
 				"startTimeUnixNano": strconv.FormatInt(begin.UnixNano(), 10),
 				"endTimeUnixNano":   strconv.FormatInt(time.Now().UnixNano(), 10),
-				"attributes": []any{map[string]any{"key": "baobab.operation",
-					"value": map[string]any{"stringValue": kind}}},
+				"attributes": []any{
+					map[string]any{"key": "baobab.operation", "value": map[string]any{"stringValue": kind}},
+					map[string]any{"key": "http.response.status_class", "value": map[string]any{"stringValue": statusClass}},
+				},
+				"status": map[string]any{"code": statusCode},
 			}},
 		}},
 	}}}
@@ -79,6 +94,18 @@ func n08ExportSpan(trace N08Trace, begin time.Time, kind string) {
 	if err != nil {
 		return
 	}
+	select {
+	case n08PendingExports <- struct{}{}:
+		go func() {
+			defer func() { <-n08PendingExports }()
+			n08SendSpan(endpoint, body)
+		}()
+	default:
+		// Telemetry overload leaves IAM handling and authority unchanged.
+	}
+}
+
+func n08SendSpan(endpoint string, body []byte) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
@@ -86,9 +113,7 @@ func n08ExportSpan(trace N08Trace, begin time.Time, kind string) {
 		return
 	}
 	request.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: time.Second,
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	response, err := client.Do(request)
+	response, err := n08OTLPClient.Do(request)
 	if err == nil {
 		_ = response.Body.Close()
 	}
