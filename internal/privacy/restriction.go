@@ -176,7 +176,8 @@ func (r *RestoreReconciler) ReassertRestriction(ctx context.Context, subject pro
 // checkpoint witness must establish that the journal is COMPLETE before a DR
 // promotion controller may consider this replay among its other gates.
 func (r *RestoreReconciler) ReassertAll(ctx context.Context) (int, error) {
-	if r == nil || r.Journal == nil || r.Checkpoint == nil || r.Now == nil ||
+	if r == nil || r.Journal == nil || r.Checkpoint == nil || r.Provider == nil ||
+		r.CP == nil || r.Now == nil ||
 		ctx == nil || ctx.Err() != nil {
 		return 0, ErrPrivacyHold
 	}

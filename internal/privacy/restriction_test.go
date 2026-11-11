@@ -204,6 +204,14 @@ func TestRestoreReappliesOnlyRestrictiveAuthority(t *testing.T) {
 	}
 }
 
+func TestEmptyRestoreStillRequiresNativeAndCanonicalWitnesses(t *testing.T) {
+	_, reconciler, _, _, _, _, _ := setup(time.Now().UTC())
+	reconciler.CP = nil
+	if _, err := reconciler.ReassertAll(context.Background()); !errors.Is(err, ErrPrivacyHold) {
+		t.Fatal("empty journal qualified without a configured CP witness")
+	}
+}
+
 func TestRestoreRejectsCurrentDriftAndIncompleteCheckpoint(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
