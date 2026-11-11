@@ -22,9 +22,9 @@ func nativeCommitmentConfig(change func(*Workload)) Config {
 func TestNativeCommitmentDirectClaimsCannotSkipWorkloadIdentityFence(t *testing.T) {
 	evidence := Evidence{
 		ClientID: "synthetic-server-checkout", Subject: "synthetic-server-checkout",
-		Grant: "client_credentials",
-		RequestedScopes: []string{nativeCommitmentSubmitScope},
-		GrantedScopes: []string{nativeCommitmentSubmitScope},
+		Grant:            "client_credentials",
+		RequestedScopes:  []string{nativeCommitmentSubmitScope},
+		GrantedScopes:    []string{nativeCommitmentSubmitScope},
 		GrantedAudiences: []string{nativeCommitmentAudience},
 	}
 	for name, change := range map[string]func(*Workload){
