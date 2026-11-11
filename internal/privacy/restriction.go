@@ -196,7 +196,8 @@ func (r *RestoreReconciler) ReassertAll(ctx context.Context) (int, error) {
 		}
 	}
 	last, err := r.Checkpoint.VerifyComplete(ctx)
-	if err != nil || !r.validCheckpoint(last) || first.Revision != last.Revision {
+	if err != nil || !r.validCheckpoint(last) ||
+		first.Revision != last.Revision || first.EvidenceRef != last.EvidenceRef {
 		return len(subjects), ErrPrivacyHold
 	}
 	return len(subjects), nil
