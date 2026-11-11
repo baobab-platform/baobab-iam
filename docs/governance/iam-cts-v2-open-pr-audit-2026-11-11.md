@@ -71,3 +71,29 @@ Land independently qualified adapter and preflight work separately. Reconcile th
 | #186 | `569916e6a297101dfa67effe203647e9aad4a0b8` |
 | #169 | `bfb9168d833408c43ab330746231f4cbf891c4df` |
 | #164 | `fc8f96a2868f36d9e827e21c14598c758dcc9286` |
+
+## Continuation review
+
+At the refreshed inventory there were 22 implementation candidates and this audit PR. Since the original snapshot, #156, #161, #164, #165, #166, #167, #168 and #184 landed on main. Four additional exact-head, green candidates were accepted for their documented source scope.
+
+| PR | Merge commit | CTS disposition |
+| --- | --- | --- |
+| #157 | `555330b8a44e4f7e88591257fe7876dcd58a9930` | Development People issuer ceiling, paired scopes and exact CP audience. Shared #436 defines the scope. Registration, CP read authority and protected issuance have separate gates. |
+| #178 | `89db5908747167502884501b552f9bbb6553cc32` | S15 offline regional recovery preflight. Independent restored-denial readback and regional promotion remain held. |
+| #179 | `26ac632c1d8013ae2c93a7fc9b422054207b4727` | S14 offline JWKS rotation preflight. Real Hydra and resource rollover acceptance remains held. |
+| #186 | `0a1c3df4b4809a56241965b8929534308771c20b` | S09/S14 pinned TLS transport reaches both signed-token verification and remote key lookup. CP registration and authority remain separate. |
+
+| Candidate | Current disposition |
+| --- | --- |
+| #149 | Exact-head scoped INT-02 passes. N04 still requires current CP support and binding, original Pulse and Payments source evidence and independent teardown. |
+| #151–#153 | N06–N08 require current CTS and maintained SAML convergence. #151 and #174 have overlapping assurance models. Original Thamani and TMS receipts and restored-security negatives remain required. |
+| #169 | `e41df312d8392d9bb9ac5477205b7a4f8a5e0558` separates the read-only capability catalogue checkout from the runtime/CMS registry checkout. Both pinned Shared revisions, publication and fixture checks passed locally. Exact-head PR CI is required. Provider promotion remains held under CTS2-005. |
+| #170–#173 | Exact candidate CI was green at the reviewed heads. #170 documents the ERP issuer/subject mapping deviation and the provider-only nature of revocation. #171 requires connected identity and assurance evidence, with #172 and #173 stacked behind it. Decision 9 remains unallocated. |
+| #174, #177 | Converge on one assurance policy, including current Kratos evidence and assurance-specific CP resolution. #177 has a merge conflict and lacks exact-head PR CI. |
+| #175 | `1ae894532d1dd37733c8ea687a4a6243c6d3cfb7` permits the federation capability in the authenticated CP wire client and aligns the live Keycloak fixture. Federation and Keycloak race suites passed locally. CTS2-019 still requires connected current CP and original estate evidence. |
+| #176, #180 | Reconcile the transport and SAML patches onto the corrected federation and maintained SAML lineage. #180 has no exact-head PR CI. |
+| #181, #182 | Candidate PostgreSQL 17 suites are green. Current CP/Security and resource-side incident denial, all reactivation paths and independently witnessed restore evidence remain held. |
+| #183 | `019ade1510e492bc29f55d5da5346747b3ed8755` rechecks the original approval after alerting and audit, and at each use within the unexpired lease. The administrative race suite passed locally. An independently authenticated live verifier and privileged executor still require acceptance. |
+| #185 | The non-production command admits production registry IDs on configurable Hydra origins. CTS2-021 requires a reviewed environment-bound provisioning route, as well as the separate issuance and resource fences. |
+
+For a subsequent acceptance decision, record the reviewed source SHA, required check URLs and any original evidence that the owning CTS workstream requires. Documentation records evidence without allocating scope, granting access or changing protected environments.
