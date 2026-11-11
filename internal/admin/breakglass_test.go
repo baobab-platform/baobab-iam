@@ -52,10 +52,15 @@ type testVerifier struct {
 	change       bool
 	unauthorized bool
 	withdrawOn   int
+	cancelOn     int
+	cancel       context.CancelFunc
 }
 
 func (v *testVerifier) VerifyEmergency(_ context.Context, _ Request) (Witness, error) {
 	v.calls++
+	if v.cancel != nil && v.calls == v.cancelOn {
+		v.cancel()
+	}
 	if v.unauthorized || v.calls == v.withdrawOn {
 		return Witness{}, errors.New("authority absent")
 	}
@@ -196,6 +201,26 @@ func TestNoActivationOnApprovalOrAuditFailure(t *testing.T) {
 				t.Fatal("activated without all witnesses")
 			}
 		})
+	}
+}
+
+func TestCancelledFinalIndependentCheckCannotActivateEmergencyLease(t *testing.T) {
+	service, journal, verifier, alerts, audit, request := setup(time.Now().UTC())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// The verifier is the final independent witness; it returns its approved
+	// proof but cancels the operation before activation. The fixture journal
+	// intentionally ignores ctx to prove the coordinator owns this fence.
+	verifier.cancelOn = 3
+	verifier.cancel = cancel
+	if !errors.Is(service.Activate(ctx, request), ErrBreakGlassDenied) {
+		t.Fatal("cancelled final current-authority check activated lease")
+	}
+	if journal.reserved != 1 || journal.activate != 0 || journal.lease.Status != StatePending {
+		t.Fatalf("cancelled operation escaped pending state: %+v", journal)
+	}
+	if alerts.calls != 1 || audit.calls != 1 {
+		t.Fatal("fixture did not reach post-alert and post-audit final authority")
 	}
 }
 
