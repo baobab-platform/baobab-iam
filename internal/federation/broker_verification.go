@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/crewjam/saml"
 	jose "github.com/go-jose/go-jose/v4"
+	"github.com/supatype/saml"
 )
 
 type brokerIDToken struct {

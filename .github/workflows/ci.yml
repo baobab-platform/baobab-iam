@@ -76,6 +76,10 @@ jobs:
         run: |
           python3 -m unittest discover -s tests/unit -p 'test_int03_cms_fixture.py'
           bash -n tests/integration/run.sh
+      - name: Reconcile all historical IAM CTS sections and gates without promoting authority
+        run: |
+          python3 scripts/check_iam_cts_v2.py
+          python3 -B -m unittest discover -s tests/unit -p 'test_iam_cts_v2.py' -v
       - name: Validate capability matrix and generated documentation against pinned Shared
         env:
           GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
@@ -187,6 +191,7 @@ jobs:
         run: |
           test -z "$(gofmt -l internal/assurance internal/securityops internal/nativebff/n06_*.go)"
           go test ./internal/assurance ./internal/securityops ./internal/nativebff -run 'TestN06' -count=1 -v
+          go test ./internal/provider/ory -run '^TestN06RebindLedger' -count=1 -v
       - name: Race-check real security ledger and credential-change negatives
         run: go test -race ./internal/securityops ./internal/assurance -run 'TestN06' -count=1
 
