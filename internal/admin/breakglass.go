@@ -155,8 +155,14 @@ func (b *BreakGlass) Activate(ctx context.Context, request Request) error {
 	}
 	current, err := b.Verifier.VerifyEmergency(ctx, request)
 	at = b.Now().UTC()
-	if err != nil || !validApproval(current, at) || !sameApproval(current, w) || at.Sub(w.ApprovedAt) > time.Minute ||
+	if err != nil || ctx.Err() != nil || !validApproval(current, at) || !sameApproval(current, w) || at.Sub(w.ApprovedAt) > time.Minute ||
 		!validReceipt(alert, request.LeaseID, at) || !validReceipt(audit, request.LeaseID, at) {
+		return ErrBreakGlassDenied
+	}
+	// A final independent verifier may have cancelled the original operation
+	// after returning valid-looking evidence. Never activate a PENDING lease
+	// on a cancelled request, even if a journal implementation ignores ctx.
+	if ctx.Err() != nil {
 		return ErrBreakGlassDenied
 	}
 	if err := b.Journal.Activate(ctx, request.LeaseID); err != nil {
