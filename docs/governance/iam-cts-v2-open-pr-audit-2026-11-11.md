@@ -97,3 +97,18 @@ At the refreshed inventory there were 22 implementation candidates and this audi
 | #185 | The non-production command admits production registry IDs on configurable Hydra origins. CTS2-021 requires a reviewed environment-bound provisioning route, as well as the separate issuance and resource fences. |
 
 For a subsequent acceptance decision, record the reviewed source SHA, required check URLs and any original evidence that the owning CTS workstream requires. Documentation records evidence without allocating scope, granting access or changing protected environments.
+
+### Further continuation changes
+
+| PR | Exact reviewed revision | Verification and remaining evidence |
+| --- | --- | --- |
+| #170 | Merge `6b0f8048af024c5b61831b58fce20126c2f30210` | Exact-head CI passed. Verified native provider disable and readback, recursive trait validation and redaction merged under S05/S12/S13. ERP's issuer/subject mapping deviation and original CP and engine revocation readbacks remain open. |
+| #151 | `1909f7600105633bfa02251b53ad3b8545c554c6` | Integrated the reviewed N04 base and the CTS dependency baseline. CTS crosswalk and targeted assurance, federation, Ory, BFF and security operations race tests passed locally. |
+| #152 | `e971d57c914b52fc50b2bf81fcc838afbe897509` | Integrated the revised N06 base and its maintained SAML dependency. CTS, 30 N07 unit tests and targeted race suites passed locally. Original Thamani and TMS receipts are still required. |
+| #153 | `a05a3e262b6f7a4eddf5afe42559f8bd4a4be3b0` | Integrated the revised N07 base and its dependency pins while preserving N08 restore and delivery checks. CTS, eight N08 unit tests and targeted race suites passed locally. The new head requires CI and restored non-resurrection evidence. |
+| #176 | `480daefa6ba9861cc7300f7c2fe5e8ef19bab9a8` | The privileged transport owns routing and accepts explicit trusted CA roots and stricter TLS settings. The workload tests use TLS HTTP. Six targeted race suites passed locally. |
+| #180 | `2a57835decfb4c2aaed31899354a3a670aedd0c5` | Moved the parser guards to the maintained verifier pinned by CTS #187. Federation and Keycloak race suites passed locally. Final connected SAML and CP evidence is outstanding. |
+| #177 | Base conflict reproduced | The local guard uses the canonical assurance key. The reviewed CP and IAM runtime composition still needs a distinct, current assurance grant and binding readback. Preserve native-login grant separation. |
+
+The workflow states above describe the evidence available at review. Pending CI
+or original qualification keeps the corresponding candidate open.
