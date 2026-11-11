@@ -45,7 +45,7 @@ func (r *dispatchResolver) ResolveCapability(_ context.Context, request Capabili
 }
 
 type dispatchAdapter struct {
-	begins, completes int
+	begins, completes   int
 	onBegin, onComplete func()
 }
 
