@@ -88,7 +88,7 @@ python3 -B scripts/n04_github_archive_readback.py \
   --original-archive "$PRIVATE_RUN/original-actions-artifact.zip"
 ```
 
-A GitHub artifact hash independently anchors the archive and its claimed *CI job*, **not** the authenticity of a particular extracted runtime observation, current CP permission, accepted engine outcome or self-asserted receipt booleans. The N04 original-receipt check, producer-specific semantics, actual CP/engine execution and independent reviewer/teardown evidence remain additional compulsory gates. In particular, existing Infrastructure DEV-15 connected CI may correctly exit successfully while Payments cases remain **BLOCKED**; a successful job alone must never change those case results to PASS. The N04 source-negative tests are in `tests/unit/test_n04_github_archive_readback.py`. 
+A GitHub artifact hash independently anchors the archive and its claimed *CI job*, **not** the authenticity of a particular extracted runtime observation, current CP permission, accepted engine outcome or self-asserted receipt booleans. The N04 original-receipt check, producer-specific semantics, actual CP/engine execution and independent reviewer/teardown evidence remain additional compulsory gates. In particular, existing Infrastructure DEV-15 connected CI may correctly exit successfully while Payments cases remain **BLOCKED**; a successful job alone must never change those case results to PASS. The N04 source-negative tests are in `tests/unit/test_n04_github_archive_readback.py`.
 
 ## Evidence audit: earlier real DEV-15 connected run (29 October 2026) — source-stale, not an N04 qualification
 
