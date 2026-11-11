@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // validateProviderEndpoint rejects ambiguous endpoint configuration before an
@@ -36,4 +38,23 @@ func validateProviderEndpoint(raw string, admin bool) error {
 		return errors.New("admin endpoint must be a bare origin")
 	}
 	return nil
+}
+
+// validNativeIdentitySubject prevents an opaque external subject from being
+// interpreted as a different Kratos Admin resource path. Kratos normally
+// returns UUID subjects; do not require UUID here solely because migration
+// fixtures and other compatible implementations use non-UUID opaque IDs.
+// This is a routing boundary, not canonical-identity resolution.
+func validNativeIdentitySubject(subject string) bool {
+	if subject == "" || len(subject) > 255 || subject == "." || subject == ".." ||
+		strings.TrimSpace(subject) != subject || !utf8.ValidString(subject) ||
+		strings.ContainsAny(subject, "/\\?#%") {
+		return false
+	}
+	for _, r := range subject {
+		if unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
 }

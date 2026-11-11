@@ -124,6 +124,15 @@ func (a *Adapter) GetIdentity(ctx context.Context, subject provider.ExternalSubj
 	if err != nil {
 		return nil, err
 	}
+	// Kratos is an identity data source, not the canonical identity mapper.
+	// A stale proxy/cache or unexpected provider response must not substitute
+	// another subject under the requested issuer+subject key (ADR-0004).
+	if identity == nil || identity.Subject != subject.Subject {
+		return nil, &provider.ProviderError{
+			Kind: provider.ErrConflict, Provider: "ory",
+			Message: "Kratos identity readback subject mismatch",
+		}
+	}
 	identity.Issuer = a.cfg.PublicIssuer
 	return identity, nil
 }
@@ -256,6 +265,12 @@ func (a *Adapter) ReconcileIdentity(ctx context.Context, subject provider.Extern
 		}
 		return nil, err
 	}
+	if id == nil || id.Subject != subject.Subject {
+		return nil, &provider.ProviderError{
+			Kind: provider.ErrConflict, Provider: "ory",
+			Message: "Kratos reconciliation subject mismatch",
+		}
+	}
 	id.Issuer = a.cfg.PublicIssuer
 
 	return &provider.ReconciliationResult{
@@ -280,6 +295,14 @@ func (a *Adapter) requireIssuer(subject provider.ExternalSubject) error {
 		return &provider.ProviderError{
 			Kind:     provider.ErrInvalidArgument,
 			Message:  "issuer and subject are required",
+			Provider: "ory",
+		}
+	}
+	// A native Kratos subject is a single opaque resource identifier, never
+	// a URL path, query, fragment or provider-selection instruction.
+	if !validNativeIdentitySubject(subject.Subject) {
+		return &provider.ProviderError{
+			Kind: provider.ErrInvalidArgument, Message: "unsafe native identity subject",
 			Provider: "ory",
 		}
 	}

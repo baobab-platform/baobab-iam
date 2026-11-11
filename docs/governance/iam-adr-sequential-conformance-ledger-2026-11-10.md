@@ -15,7 +15,7 @@ For **each** ADR in ascending order: (1) read original normative language and an
 | 0001 | **PARTIAL — reviewed** | Authentication / CP context / domain authorization separation; negative checks and governed handoff exist. No same-run native runtime acceptance yet. | Provider endpoint constructor hardening + negative tests in this PR; N02/N04 connected authority remains HELD |
 | 0002 | **SUPERSEDED PROVIDER CHOICE — reviewed** | Proposed Keycloak-only IdP choice conflicts with accepted ADR-IAM-0033; Keycloak remains enterprise federation. | Do not delete Keycloak or count legacy native Keycloak operation as current acceptance |
 | 0003 | **PARTIAL — reviewed** | Native BFF validates signed tokens, uses CP readback and strict origins; Ory base adapter previously accepted malformed userinfo/query/fragment admin URLs. | Constructor validation and negative tests in this PR; still needs deployment/admin-network and connected issuer checks |
-| 0004 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
+| 0004 | **PARTIAL — reviewed** | Provider subject is not a CP CanonicalIdentity. Existing Kratos readback lacked exact requested-subject consistency; raw subject could choose a different admin URL path. | Reject path/query/fragment injection before all native identity operations; refuse inconsistent provider readback/reconciliation and test negative cases. CP dual-issuer real runtime remains HELD |
 | 0005 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
 | 0006 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
 | 0007 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
@@ -46,6 +46,10 @@ For **each** ADR in ascending order: (1) read original normative language and an
 | 0032 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
 | 0033 | **PRECEDENCE VERIFIED, implementation not audited in sequence** | Accepted multi-provider allocation Kratos/Hydra/Keycloak governs conflicting historical ADRs. | Return to full source audit at ADR-0033 in numeric sequence |
 | 0034 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
+
+### ADR-0004 implementation increment
+
+Kratos admin client receives only validated native subjects for identity reads, lifecycle operations and reconciliation. Any response whose provider subject differs from the issuer+subject key is refused rather than mapped. Tests use an actual in-process HTTP server, not a real Kratos or CP runtime. This does **not** claim end-to-end canonical identity migration or a verified dual-issuer cutover.
 
 ## Gated follow-through after the ADR sequence
 
