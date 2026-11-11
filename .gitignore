@@ -17,3 +17,7 @@ tests/enterprise/tls/
 # Python bootstrap/test bytecode is generated locally.
 __pycache__/
 tests/integration/.runtime/
+
+# Read-only exact-commit Shared checkouts used by CI contract preflight.
+.shared-contracts/
+.capability-contracts/

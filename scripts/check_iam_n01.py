@@ -14,6 +14,23 @@ OWNERS = {
     "baobab-iam.hydra": ("hydra", "identity.workload-token.issue"),
     "baobab-iam.keycloak": ("keycloak", "identity.authentication.perform"),
 }
+# Later canonical Shared capability contracts are a read-only construction
+# inventory. Original N01 support at the 2026-10-23 issuer pin is immutable;
+# these exact additional PARTIAL supports confer no CP or provider activation.
+ADDITIONAL_SUPPORT = {
+    "baobab-iam.kratos": ("identity.authentication.assurance",),
+    "baobab-iam.hydra": (),
+    "baobab-iam.keycloak": ("identity.federation.enterprise",),
+}
+CAPABILITY_CATALOGUE_PIN = "004937ff2035fab4ac3b41e05c7887da7abe7014"
+CAPABILITY_CONTRACTS = {
+    "contracts/capability/v1/catalogue.yaml",
+    "contracts/capability/v1/catalogue.schema.json",
+    "contracts/capability/v1/provider-declaration.schema.json",
+    "contracts/identity/v1/capabilities.yaml",
+    "contracts/identity/v1/assurance-evaluation.schema.json",
+    "contracts/identity/v1/enterprise-federation-start.schema.json",
+}
 DEVELOPMENT = {
     "environment": "development",
     "allowed_execution": ["local-development", "disposable-ci", "isolated-shared-development"],
@@ -86,7 +103,7 @@ def actual_shared_commit(content):
     return found[0]
 
 
-def evidence_paths_valid(root, items):
+def evidence_paths_valid(root, items, prefixes=("internal/provider/",)):
     if not isinstance(items, list) or not items:
         return False
     seen = set()
@@ -97,7 +114,7 @@ def evidence_paths_valid(root, items):
         kind, path = item["type"], item["path"]
         if kind not in ("source", "integration-test") or not isinstance(path, str):
             return False
-        if (path in seen or not path.startswith("internal/provider/")
+        if (path in seen or not path.startswith(prefixes)
                 or not path.endswith(".go") or "." in Path(path).parts
                 or ".." in Path(path).parts):
             return False
@@ -120,13 +137,15 @@ def adr(root, number, prefix):
     return matches[0].read_text()
 
 
-def check(root=ROOT, record=None, lock=None, declaration=None):
+def check(root=ROOT, record=None, lock=None, declaration=None, catalogue_lock=None):
     if record is None:
         record = load_unique_json((root / RECORD_PATH).read_text())
     if lock is None:
         lock = load_unique_yaml((root / "contracts.lock.yaml").read_text())
     if declaration is None:
         declaration = load_unique_yaml((root / ".baobab/capability-provider.yaml").read_text())
+    if catalogue_lock is None:
+        catalogue_lock = load_unique_yaml((root / ".baobab/capability-catalogue.lock.yaml").read_text())
 
     require(all(isinstance(item, dict) for item in (record, lock, declaration)),
             "invalid governance document structure")
@@ -176,6 +195,20 @@ def check(root=ROOT, record=None, lock=None, declaration=None):
             "Go Shared pin changed")
     require(PIN in proposed, "proposed native commitment Shared reference changed")
 
+    # A separate exact Shared metadata revision authorises the *vocabulary*
+    # of added partial supports. It does not replace the runtime Shared pin.
+    require(isinstance(catalogue_lock, dict)
+            and set(catalogue_lock) == {"schema", "version", "purpose", "source", "contracts"}
+            and catalogue_lock.get("schema") == "baobab-capability-catalogue-consumer-lock"
+            and catalogue_lock.get("version") == "1.0"
+            and catalogue_lock.get("purpose") == "read-only-provider-declaration-contracts"
+            and catalogue_lock.get("source") ==
+            {"repository": "baobab-platform/shared", "commit": CAPABILITY_CATALOGUE_PIN}
+            and isinstance(catalogue_lock.get("contracts"), list)
+            and len(catalogue_lock["contracts"]) == len(CAPABILITY_CONTRACTS)
+            and set(catalogue_lock["contracts"]) == CAPABILITY_CONTRACTS,
+            "unreviewed read-only capability catalogue pin")
+
     expected = record.get("providers", {})
     require(isinstance(expected, dict) and set(expected) == set(OWNERS),
             "unreviewed provider identity")
@@ -198,7 +231,11 @@ def check(root=ROOT, record=None, lock=None, declaration=None):
                               "decision": "ADR-IAM-0033"},
                 "provider provenance drift")
         supports = row.get("support", [])
-        require(isinstance(supports, list) and len(supports) == 1, "provider support census drift")
+        additional = ADDITIONAL_SUPPORT[key]
+        require(isinstance(supports, list) and len(supports) == 1 + len(additional),
+                "provider support census drift")
+        # Preserve original N01 provider support in its original position with
+        # its original path allowlist and immutable source governance record.
         support = supports[0]
         require(support.get("capability_key") == capability and support.get("contract_versions") == [1],
                 "canonical capability/major mismatch")
@@ -208,6 +245,17 @@ def check(root=ROOT, record=None, lock=None, declaration=None):
                 "provider support evidence is missing or invalid")
         require(expected[key] == {"key": impl, "capability": capability, "status": "PARTIAL"},
                 "manifest support drift")
+        for new_support, new_capability in zip(supports[1:], additional):
+            require(isinstance(new_support, dict)
+                    and new_support.get("capability_key") == new_capability
+                    and new_support.get("contract_versions") == [1],
+                    "additional canonical capability/major mismatch")
+            require(new_support.get("implementation_status") == "PARTIAL",
+                    "N01 cannot promote additional support without complete canonical qualification")
+            require(evidence_paths_valid(
+                root, new_support.get("implementation_evidence"),
+                prefixes=("internal/provider/", "internal/nativebff/", "internal/federation/")),
+                "additional provider support evidence is missing or invalid")
     planned = declaration.get("planned_capabilities", [])
     require(isinstance(planned, list), "planned capability census invalid")
     planned_keys = set()

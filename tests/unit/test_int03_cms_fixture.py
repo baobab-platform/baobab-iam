@@ -192,12 +192,12 @@ class FixtureTests(unittest.TestCase):
             git('commit', '-qm', 'Committed authority')
             source['source']['commit'] = 'proposed'
             lock.write_text(yaml.safe_dump(source))
-            with patch('provider_publication.load_shared') as verify:
+            with patch('provider_publication.load_runtime_shared') as verify:
                 with self.assertRaisesRegex(ValueError, 'committed authority'):
                     m.load_registry(repo, repository=repo)
                 verify.assert_not_called()
             git('checkout', '--', 'contracts.lock.yaml')
-            with patch('provider_publication.load_shared', return_value=(None, 'proposed')):
+            with patch('provider_publication.load_runtime_shared', return_value=(None, 'proposed')):
                 with self.assertRaisesRegex(ValueError, 'committed IAM lock'):
                     m.load_registry(repo, repository=repo)
 

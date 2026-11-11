@@ -29,3 +29,17 @@ go test ./internal/assurance ./internal/provider/ory
 ```
 
 **Dependency:** This PR is stacked on IAM #173, following the earlier sequential ADR source audit; separate capability declaration IAM #169 must be reconciled without changing the runtime workload scope pin.
+
+## CTS v2 follow-up, 12 November 2026
+
+The evaluator now preserves the first observation's method slice before the
+second provider read. A reused mutable reader buffer cannot conceal changed
+methods or be sorted in place by the evaluator. A favorable result also requires
+an uncancelled context and evidence still fresh at completion, with a backward
+clock movement refused. Regression tests cover expiry during readback, cancelled
+requests, clock rollback and a reused mutable method buffer.
+
+These are source assurance checks. The overlapping N06 policy in #151 and the
+assurance-specific CP dispatch in #177 still need convergence before connected
+acceptance. Original risk, attestation and privileged approval sources remain
+required, and no business grant or protected acceptance is produced here.
