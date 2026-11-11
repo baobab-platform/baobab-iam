@@ -52,9 +52,9 @@ func TestHydraAdminErrorRedactsProviderBody(t *testing.T) {
 	defer server.Close()
 	adapter, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: server.URL,
-		HydraAdminURL: server.URL,
-		PublicIssuer: "https://identity.example",
-		HTTPClient: server.Client(),
+		HydraAdminURL:  server.URL,
+		PublicIssuer:   "https://identity.example",
+		HTTPClient:     server.Client(),
 	})
 	if err != nil {
 		t.Fatal(err)
