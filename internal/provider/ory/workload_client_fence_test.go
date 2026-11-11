@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -77,5 +78,39 @@ func TestHydraMismatchedClientReadbackMustNotPermitDisable(t *testing.T) {
 	})
 	if !errors.Is(err, &provider.ProviderError{Kind: provider.ErrConflict}) || reads != 1 || puts != 0 {
 		t.Fatalf("foreign client response was allowed to trigger disable; err=%v reads=%d puts=%d", err, reads, puts)
+	}
+}
+
+func TestHydraProvisioningRequiresOriginalCreateIdentity(t *testing.T) {
+	for name, response := range map[string]string{
+		"missing identity":   `{}`,
+		"foreign identity":   `{"client_id":"foreign-client"}`,
+		"malformed response": `{"client_id":`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost && r.URL.Path == "/admin/clients" {
+					w.WriteHeader(http.StatusCreated)
+					_, _ = io.WriteString(w, response)
+					return
+				}
+				http.NotFound(w, r)
+			}))
+			defer server.Close()
+			adapter, err := ory.NewAdapter(ory.Config{
+				KratosAdminURL: server.URL, HydraAdminURL: server.URL,
+				PublicIssuer: "https://identity.example", HTTPClient: server.Client(),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := adapter.ProvisionWorkload(context.Background(), provider.WorkloadProvisioningSpec{
+				LogicalClientID: "baobab-trade-workload", DisplayName: "Trade Workload",
+				AllowedScopes: []string{"context:resolve"}, AuthMethod: provider.WorkloadAuthClientSecret,
+			})
+			if result != nil || !errors.Is(err, &provider.ProviderError{Kind: provider.ErrConflict}) {
+				t.Fatalf("unverified provider response did not fail closed: %v", err)
+			}
+		})
 	}
 }
