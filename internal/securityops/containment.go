@@ -157,6 +157,13 @@ func (c *Containment) Execute(ctx context.Context, intent Intent) (err error) {
 		at.Sub(denial.ObservedAt) > time.Minute || denial.EvidenceReference == "" {
 		return errors.New("securityops: current resource/CP denial unproven")
 	}
+	// Independent resource readback may block while CP or Security withdraws
+	// the actor's incident authorization. Re-evaluate immediately before the
+	// irreversible VERIFIED journal transition, including already-VERIFIED
+	// replay paths; a withdrawal leaves UNKNOWN and never releases the fence.
+	if ctx.Err() != nil || !currentAuthorization() {
+		return errors.New("securityops: containment authority withdrawn before verified commit")
+	}
 	if e = c.Journal.Mark(ctx, intent.OperationID, PhaseVerified); e != nil {
 		return errors.New("securityops: verification receipt not durable")
 	}
