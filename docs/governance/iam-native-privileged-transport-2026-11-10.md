@@ -28,3 +28,14 @@ readback, rotation and disable. The authenticated CP federation resolver also
 accepts the federation-specific capability, distinct from native login.
 Connected federation and independently witnessed authority are tracked in the
 owning CTS workstreams.
+
+## CTS v2 continuation review, 12 November 2026
+
+Foundation exposed two disposable provisioning fixtures that supplied the HTTP
+server's inherited default dialer to the privileged adapter. The adapter correctly
+refused that routing override. Both fixtures now use an actual TLS test server
+and its explicit CA trust, exercising create, independent readback, foreign-run
+refusal and owned crash recovery through the guarded transport. The production
+transport fence remains intact. These fixtures establish source/component behavior,
+not real Hydra/CP registration or operational acceptance. The federation import
+blocks are also normalized for the mandatory Go formatting gate.

@@ -16,9 +16,6 @@ func nativeCommitmentConfig(change func(*Workload)) Config {
 		Workloads: map[string]Workload{"synthetic-server-checkout": w}}
 }
 
-// Token profile callbacks are publicly reachable through the provider
-// integration. Their claim evaluator must repeat this check even when the
-// caller constructed an invalid Config without calling Validate first.
 func TestNativeCommitmentDirectClaimsCannotSkipWorkloadIdentityFence(t *testing.T) {
 	evidence := Evidence{
 		ClientID: "synthetic-server-checkout", Subject: "synthetic-server-checkout",
