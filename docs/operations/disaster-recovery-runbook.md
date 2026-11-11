@@ -117,3 +117,38 @@ Operations + Security's responsibility per §215). When one is run, ADR-0018 §1
 real backup/restore cycle around it — a real exercise should wrap that same
 assertion around an actual Infrastructure-driven backup and restore, once that
 tooling exists to test against.
+
+
+## ADR-IAM-0027 offline promotion preflight (development safeguard)
+
+Before **any** candidate-region writer is enabled, collect an externally witnessed
+JSON record and run:
+
+```bash
+python3 scripts/operations/check_dr_promotion.py /path/to/dr-evidence.json
+python3 -m unittest discover -s tests/unit -p test_dr_promotion.py
+```
+
+The record identifies the identity security domain, stable HTTPS issuer, old and
+candidate regions, backup/recovery checkpoints, explicit old-writer unreachable
+and candidate read-only states, zero unresolved revocations and a reconciled
+replication gap. It contains exact named attestations for incident declaration,
+old-writer fencing, lease invalidation, replication position, security-journal
+replay, provider/CP revocation reconciliation, issuer/JWKS verification and
+negative security smoke. Every attestation requires a named role, independent
+witness and evidence reference; the incident declarer and journal witness must
+be distinct from the fencing witness.
+
+**Security boundary:** This script only checks the *shape and internal
+consistency of supplied assertions*. It cannot independently verify fencing,
+WAL positions, witness identity, cryptographic receipts, CP decisions or journal
+completeness. A JSON `verified: true` is not proof. Infrastructure and Security
+must validate the original evidence against the real systems and authorize
+promotion through protected controls. The tool neither promotes a database nor
+changes routing or issues credentials. **No promotion may occur when the
+security recovery journal is missing or unqualified.** A green preflight is
+not an ADR-0027 acceptance receipt, production approval or measured RPO/RTO.
+The ADR-IAM-0027 preflight rejects ambiguous issuer identifiers, duplicate
+JSON members, non-integer revocation counts and padded witness identifiers.
+It checks the submitted evidence structure. Infrastructure, Security and CP
+verify the underlying receipts and remain responsible for promotion decisions.
