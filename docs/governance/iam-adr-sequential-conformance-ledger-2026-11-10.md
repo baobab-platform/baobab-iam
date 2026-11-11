@@ -16,11 +16,11 @@ For **each** ADR in ascending order: (1) read original normative language and an
 | 0002 | **SUPERSEDED PROVIDER CHOICE — reviewed** | Proposed Keycloak-only IdP choice conflicts with accepted ADR-IAM-0033; Keycloak remains enterprise federation. | Do not delete Keycloak or count legacy native Keycloak operation as current acceptance |
 | 0003 | **PARTIAL — reviewed** | Native BFF validates signed tokens, uses CP readback and strict origins; Ory base adapter previously accepted malformed userinfo/query/fragment admin URLs. | Constructor validation and negative tests in this PR; still needs deployment/admin-network and connected issuer checks |
 | 0004 | **PARTIAL — reviewed** | Provider subject is not a CP CanonicalIdentity. Existing Kratos readback lacked exact requested-subject consistency; raw subject could choose a different admin URL path. | Reject path/query/fragment injection before all native identity operations; refuse inconsistent provider readback/reconciliation and test negative cases. CP dual-issuer real runtime remains HELD |
-| 0005 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
-| 0006 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
-| 0007 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
-| 0008 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
-| 0009 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
+| 0005 | **PARTIAL — reviewed** | ADR distinguishes Realm, IAM Organisation, canonical legal entity, Tenant, Market and Digital Estate. CP retains canonical authority and native adapter has no business-organisation fields. Older Keycloak Organization semantics remain historical/federation-specific. | No business mapping introduced in IAM; original CP+Kratos multi-context and revocation tests remain NOT_RUN for this ADR |
+| 0006 | **PARTIAL — reviewed** | BFF OAuth Code/S256 uses state, nonce, server-side session vault, signed token verification, bounded lifetime and CP Principal readback; Shared token-profile hook handles actor/scope. | Current native issuer/browser/CP profile and JWT audience/issuer/step-up negative receipts remain NOT_RUN; do not treat protocol fixtures as connected acceptance |
+| 0007 | **PARTIAL — reviewed** | Hydra workload issuance paths use distinct clients and inherited Shared profile; native get/put Admin client URL uses raw client IDs, and client readback previously allowed a mismatched ID. | Add explicit resource-id fencing and exact client-id readback before mutation, with HTTP negative tests. Source-only; real issuer/CP/consumer authorisation remains HELD |
+| 0008 | **PARTIAL — reviewed; source boundary corrected** | CP owns context/entitlements; IAM cannot grant tenant/domain roles. The native HTTP CP Principal resolver previously accepted issuer and subject arguments without comparing them to the delegated JWT claims, so a bearer for a different subject could be forwarded under a false requested identity. | Require duplicate-safe exact issuer+subject claim consistency before CP request; reject substitutions and retain CP denial. Claims remain unverified locally and confer no authority; CP independently verifies the bearer, active Principal mapping and current context. Connected Trade/CP/domain denial, revocation and cross-tenant/market receipts remain NOT_RUN |
+| 0009 | **PARTIAL — reviewed; current assurance corrected** | Workforce SSO authentication does not convey CP AdministrativeGrant or domain admin. The AAL2-configured native BFF checked Kratos assurance at login/consent/callback but not every protected session read; an earlier high-assurance login could outlive current Kratos AAL2 or identity evidence until bearer expiration. | Recheck current Kratos subject+AAL2 on every AAL2-required BFF session read before CP Principal resolution; deny downgrade, substitution, missing native cookie and provider outage. High-risk client configuration, independently witnessed real CP grants, workforce JML, live federation and domain-admin negatives remain HELD |
 | 0010 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
 | 0011 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
 | 0012 | **NOT YET AUDITED** | No implementation conformance asserted. | Inspect accepted/amended requirements, runtime/fixtures, negative tests and original connected receipts in sequence |
@@ -51,6 +51,46 @@ For **each** ADR in ascending order: (1) read original normative language and an
 
 Kratos admin client receives only validated native subjects for identity reads, lifecycle operations and reconciliation. Any response whose provider subject differs from the issuer+subject key is refused rather than mapped. Tests use an actual in-process HTTP server, not a real Kratos or CP runtime. This does **not** claim end-to-end canonical identity migration or a verified dual-issuer cutover.
 
+### ADR-0005 through ADR-0007 implementation increment
+
+ADR-0005 is a structural invariant: native Kratos and Hydra must not become a Tenant, LegalEntity or Market authority. Reviewed existing provider declarations and native BFF CP lookup; corresponding connected multi-context CP acceptance is **NOT_RUN**.
+
+ADR-0006 has implemented protocol fences in the browser BFF and token-profile hook, but source-level OIDC tests are not original running issuer/CP/estate receipts. Current advanced assurance and brokered logout remain **HELD**.
+
+ADR-0007 exposed a concrete boundary drift: native Hydra client GET and PUT paths interpolated raw IDs, and GET did not verify the returned client identity. The new fix refuses unsafe ID text, and mismatched readback before constructing updates. This does not prove credential rotation, CP registered workload activation, or real owner-service resource enforcement.
+
+The Hydra create path also requires the provider to return the exact requested client ID. Empty, malformed and foreign replies result in a conflict with no returned credential. If the outcome is uncertain, reconcile the registered client by exact ID and current configuration before retrying.
+
+CTS2-011, CTS2-021 and CTS2-022 govern these boundaries. This increment retains the merged ADR-0004 Kratos identity checks and the security baseline adopted with CTS v2.0.
+
+### ADR-0008 / ADR-0009 authority and workforce review
+
+The runtime surface does not confer platform or domain roles through token contents: `nativebff.PrincipalResolver` requires an independent CP read, while `NativeWorkloadReadiness` rechecks provider/CP capability before concluding readiness. Neither check substitutes for domain-native business permission; approval, organisation and market authority must remain in CP and owning engines (ADR-0008). Privileged workforce authentication must be distinct from privilege grants and accompanied by current higher-assurance provider proof (ADR-0009); Keycloak enterprise federation does not create a platform-admin role.
+
+### Consolidated historical IAM gates — inventory, **not** implementation acceptance
+
+The source specification (§§203–219) enumerates 17 gates, labelled IAM-0 through IAM-16. It predates Accepted ADR-IAM-0019 through ADR-IAM-0033. **Every gate remains NOT_ASSESSED in this ledger until all 34 ADRs have been audited and its current specification is reconciled.** In particular do not reuse the retired Keycloak-only native issuer or historical Thamani B2C criteria as current positive proof.
+
+- Gate IAM-0 — Architecture Foundation — **NOT_ASSESSED**
+- Gate IAM-1 — Shared Contracts — **NOT_ASSESSED**
+- Gate IAM-2 — IAM Repository / Keycloak Foundation — **NOT_ASSESSED**
+- Gate IAM-3 — Control Plane Identity Spine — **NOT_ASSESSED**
+- Gate IAM-4 — Workload Identity — **NOT_ASSESSED**
+- Gate IAM-5 — Workforce SSO — **NOT_ASSESSED**
+- Gate IAM-6 — Zuribeans B2B — **NOT_ASSESSED**
+- Gate IAM-7 — Thamani B2C (historical; now B2B logistics scope) — **NOT_ASSESSED**
+- Gate IAM-8 — Supplier Identity — **NOT_ASSESSED**
+- Gate IAM-9 — Medusa Integration — **NOT_ASSESSED**
+- Gate IAM-10 — ERP Integration — **NOT_ASSESSED**
+- Gate IAM-11 — Credential Security — **NOT_ASSESSED**
+- Gate IAM-12 — Lifecycle / Deprovisioning — **NOT_ASSESSED**
+- Gate IAM-13 — Audit / Observability — **NOT_ASSESSED**
+- Gate IAM-14 — HA / DR — **NOT_ASSESSED**
+- Gate IAM-15 — Multi-Region Readiness — **NOT_ASSESSED**
+- Gate IAM-16 — Production Hardening — **NOT_ASSESSED**
+
+Owner-qualified evidence must include genuine Kratos/Hydra/Keycloak/CP and engine native execution, current source SHA, independent trace, denial/replay, restore and teardown, rather than syntax checks and mock protocol fixtures.
+
 ## Gated follow-through after the ADR sequence
 
 The [Consolidated Technical Specification](../adr/Consolidated-Technical-Specification.md) is dated 9 September 2026, derived from ADR-0001–0018 and names Keycloak as the identity provider. Its historical Gate IAM-0–IAM-16 criteria cannot supersede later accepted provider allocation or Thamani B2B logistics direction. Cross-check existing `docs/governance/gate-iam-*-scope.md` evidence; preserve the native IAM-N01→N08 development holds and distinguish source tests from original, connected, independently witnessed receipts.
@@ -64,3 +104,11 @@ Required runtime exits are not waived by this source PR: current CP registration
 - **ADR-0003:** Correct a real native adapter gap: raw malformed origins and credential-bearing endpoint URL strings were not refused in `ory.NewAdapter`. Enforce parser rejection before constructing privileged admin clients. This is **not** proof of private network placement, TLS/mTLS, rotated credentials, or execution-time CP authorization.
 
 **Merge hold:** Review source + negative test results on exact PR head; do not merge/mark ADR-0001 or 0003 complete without original connected runtime evidence.
+
+### ADR-0008 delegated bearer boundary — source increment (2026-11-11)
+
+The native confidential BFF refuses to call CP when the delegated access token's JSON payload does not lexically agree with the issuer and subject asserted by the authenticated BFF session. A bounded parser rejects missing, repeated or invalid `iss`/`sub` properties, malformed compact-token syntax and trailing JSON documents. **Claims are not verified by this parsing step and cannot grant access:** the independently authenticated CP endpoint must cryptographically validate the original access token, resolve the active ExternalIdentity/Principal and enforce current context before any engine-native consequential decision. The in-process unsigned fixtures prove only the caller-side refusal, with current TLS trust and CP-denial tests retained. Original end-to-end issuer/CP/Trade or ERP readback, revocation and protected-environment evidence remain **NOT_RUN/HELD** under IAM #188.
+
+### ADR-0009 source assurance increment (2026-11-11)
+
+When a confidential native BFF is explicitly classified `RequireAAL2`, a successful earlier callback does not establish continuing high assurance. Every protected authenticated session read requires the *current* Kratos native cookie to resolve to the same human subject at exact `aal2`, **before** an independently authenticated CP Principal resolution. Downgrade, missing cookie, cross-subject Kratos response and unavailable native assurance fail closed without CP read; a restored current assurance still requires a fresh CP result. This is scoped source-security correction with in-process fixtures; it does not classify every privileged client or activate CP AdministrativeGrants, Kratos/Keycloak provider support, engine domain roles, protected staging or production. Original issuer→CP→domain and JML/SoD/revocation evidence remains HELD in IAM #188.
