@@ -1,9 +1,9 @@
 # IAM → Shared Canonical Capability Reconciliation — 10 November 2026
 
-**Authority:** Accepted ADR-SHARED-017, EA-02B, ADR-IAM-0033.  
-**Runtime Shared pin (UNCHANGED):** `contracts.lock.yaml` → `1517429bcae601a1b0288ca0279e524ce48a3d77` (2 IAM keys).  
-**Read-only capability metadata pin (NEW):** `.baobab/capability-catalogue.lock.yaml` → `004937ff2035fab4ac3b41e05c7887da7abe7014` (4 IAM keys; 6 November native capability contracts).  
-**Evidence class:** repository source and tests, not independently qualified provider/CP support.  
+**Authority:** Accepted ADR-SHARED-017, EA-02B, ADR-IAM-0033.
+**Runtime Shared pin (UNCHANGED):** `contracts.lock.yaml` → `1517429bcae601a1b0288ca0279e524ce48a3d77` (2 IAM keys).
+**Read-only capability metadata pin (NEW):** `.baobab/capability-catalogue.lock.yaml` → `004937ff2035fab4ac3b41e05c7887da7abe7014` (4 IAM keys; 6 November native capability contracts).
+**Evidence class:** repository source and tests, not independently qualified provider/CP support.
 **State:** DEVELOPMENT PARTIAL; no capability activation, grants, tenant entitlement, binding or protected release.
 
 ## Catalogue versus IAM scaffold

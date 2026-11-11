@@ -194,7 +194,8 @@ class PublicationTests(unittest.TestCase):
     def test_wrong_pin_denied_before_loading_shared_code(self):
         with tempfile.TemporaryDirectory() as directory:
             repository = Path(directory)
-            (repository / '.baobab').mkdir()\n            (repository / '.baobab/capability-catalogue.lock.yaml').write_text(yaml.safe_dump({
+            (repository / '.baobab').mkdir()
+            (repository / '.baobab/capability-catalogue.lock.yaml').write_text(yaml.safe_dump({
                 'schema': 'baobab-capability-catalogue-consumer-lock',
                 'purpose': 'read-only-provider-declaration-contracts',
                 'source': {'repository': 'baobab-platform/shared', 'commit': '0' * 40}}))
