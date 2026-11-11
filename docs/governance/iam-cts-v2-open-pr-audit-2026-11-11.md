@@ -112,3 +112,18 @@ For a subsequent acceptance decision, record the reviewed source SHA, required c
 
 The workflow states above describe the evidence available at review. Pending CI
 or original qualification keeps the corresponding candidate open.
+
+### Final branch reconciliation for this pass
+
+| PR | Exact candidate | Review disposition |
+| --- | --- | --- |
+| #158 | `a089d4c91135d044280582a14418c6b7b8ec6ba1` | Reconciled the Dependabot staging workflow pin with CTS main. The Shared workflow delta changes only the pinned `setup-go` action. The IAM staging-tag trigger and permissions were reviewed against main. No protected run or tag was created. |
+| #176 | `12bada6859bd6a76e913f26a4dd3eb8110cd5ff9` | Integrated the corrected #175 base while retaining the privileged client fixtures. Federation, Keycloak and Ory targeted race tests passed. |
+| #177 | `3ad14d5c3a05624541fb950a36d5b9bbef05956e` | Resolved the stacked merge conflicts and retained the assurance-specific CP guard. Four targeted race suites passed. Current CP assurance projection and policy convergence with #151 remain required. |
+| #180 | `b765f854eaf63464c327a51c6a7e662b53342902` | Integrated the corrected assurance and transport base. Federation, Keycloak and Ory race tests passed. |
+| #185 | `1553f2c6bf826c12ddbd91ed28599d20fffcd6f0` | The local command now validates offline plans against the exact Shared registry. The production IDs in its profile inventory cannot reach Hydra through this command. Updated the M4 inventory, live evidence checklist and runbook. Go race tests, the documented CLI invocation and the exact Shared snapshot check passed. Live mutation requires an environment-bound lifecycle. |
+
+Live companion readback confirmed that CP #465/#468, Trade #231, Pulse #63,
+Thamani #44 and TMS #28 were still open. Shared #420/#422 remained closed
+without merge. Preserve the owning original evidence requirements before
+closing the corresponding workstreams.
