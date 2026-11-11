@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/crewjam/saml"
 	jose "github.com/go-jose/go-jose/v4"
+	"github.com/supatype/saml"
 )
 
 type brokerIDToken struct {
@@ -130,26 +130,34 @@ func boundedSAMLXML(raw string) error {
 			if depth == 1 && (t.Name.Space != "urn:oasis:names:tc:SAML:2.0:protocol" || t.Name.Local != "Response") {
 				return ErrDenied
 			}
-			// crewjam/saml v0.5.1 still has GO-2026-6909 (no published
-			// fix). A namespace-blind NameID can substitute an
-			// attacker-controlled identity even with a valid signed wrapper.
-			// Before calling the library, require the exact SAML2 assertion
-			// namespace and a single direct Subject/NameID. This is a local
-			// structural mitigation, NOT upstream security clearance.
+			// Check the supported assertion shape before invoking the signed
+			// protocol verifier. Identity elements must have the expected namespace.
 			const assertionNamespace = "urn:oasis:names:tc:SAML:2.0:assertion"
 			switch t.Name.Local {
 			case "Assertion":
-				if t.Name.Space != assertionNamespace {return ErrDenied}
+				if t.Name.Space != assertionNamespace {
+					return ErrDenied
+				}
 			case "Subject":
-				if t.Name.Space != assertionNamespace || depth != 3 || elementStack[depth-2].Space != assertionNamespace || elementStack[depth-2].Local != "Assertion" {return ErrDenied}
+				if t.Name.Space != assertionNamespace || depth != 3 || elementStack[depth-2].Space != assertionNamespace || elementStack[depth-2].Local != "Assertion" {
+					return ErrDenied
+				}
 				subjects++
-				if subjects != 1 {return ErrDenied}
+				if subjects != 1 {
+					return ErrDenied
+				}
 			case "NameID":
-				if t.Name.Space != assertionNamespace || depth != 4 || elementStack[depth-2].Space != assertionNamespace || elementStack[depth-2].Local != "Subject" {return ErrDenied}
+				if t.Name.Space != assertionNamespace || depth != 4 || elementStack[depth-2].Space != assertionNamespace || elementStack[depth-2].Local != "Subject" {
+					return ErrDenied
+				}
 				nameIDs++
-				if nameIDs != 1 {return ErrDenied}
+				if nameIDs != 1 {
+					return ErrDenied
+				}
 			case "Issuer", "Conditions", "SubjectConfirmation", "SubjectConfirmationData", "AudienceRestriction", "Audience", "AuthnStatement", "AuthnContext", "AuthnContextClassRef":
-				if t.Name.Space != assertionNamespace {return ErrDenied}
+				if t.Name.Space != assertionNamespace {
+					return ErrDenied
+				}
 			}
 			if t.Name.Space == assertionNamespace && t.Name.Local == "Assertion" {
 				assertions++
@@ -188,7 +196,9 @@ func boundedSAMLXML(raw string) error {
 				}
 			}
 		case xml.EndElement:
-			if depth == 0 || len(elementStack) != depth || elementStack[depth-1] != t.Name {return ErrInvalid}
+			if depth == 0 || len(elementStack) != depth || elementStack[depth-1] != t.Name {
+				return ErrInvalid
+			}
 			elementStack = elementStack[:depth-1]
 			depth--
 		}
@@ -260,7 +270,9 @@ func parseBrokerSAMLWithPanicFence(parse func() (*saml.Assertion, error)) (asser
 			err = ErrDenied
 		}
 	}()
-	if parse == nil {return nil, ErrInvalid}
+	if parse == nil {
+		return nil, ErrInvalid
+	}
 	return parse()
 }
 
