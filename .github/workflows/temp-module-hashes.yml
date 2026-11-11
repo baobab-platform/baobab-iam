@@ -18,5 +18,15 @@ jobs:
           go mod download -json github.com/supatype/saml@v0.7.0
           go mod download -json golang.org/x/net@v0.62.0
           go mod download all
-          echo "--- VERIFIED CHANGE TO go.sum ---"
+          echo "--- VERIFIED CHANGE FROM EXPLICIT MODULE DOWNLOAD ---"
           git diff -- go.sum go.mod
+          # This repository contains a non-module local CP source fixture
+          # under tests/consumer/current whose private CP internals cannot
+          # be resolved via the public Go proxy. Exclude only that directory
+          # from the diagnostic module-graph tidy and restore it immediately.
+          temp_dir=$(mktemp -d)
+          mv tests/consumer/current "$temp_dir/current"
+          trap 'mv "$temp_dir/current" tests/consumer/current; rmdir "$temp_dir"' EXIT
+          go mod tidy
+          echo "--- VERIFIED FINAL GO MODULE GRAPH DIFF ---"
+          git diff -- go.mod go.sum
