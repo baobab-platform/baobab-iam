@@ -1,7 +1,7 @@
 # docker-compose.yml – local development stack
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     container_name: baobab-iam-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-baobab_iam}

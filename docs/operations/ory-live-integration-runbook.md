@@ -205,3 +205,12 @@ or validator audiences. Production databases, deployments and real registered
 consumer acceptance remain unproven; EA-04 remains ADVANCED. The M4-F RFC 7523
 resource-audience blocker, PROVISIONED workloads, dual-issuer rollout, cutover
 and retirement gates are unchanged.
+## Signing key rollover preflight
+
+Run `python3 scripts/operations/check_jwks_rotation.py before.json after.json plan.json`
+against captured public key sets and the reviewed rotation plan. The check
+compares public key material independently of `kid`, including when a
+compromised key is published under a different identifier. Routine overlap
+still requires current verification distribution and the complete token,
+cache and clock-skew window. Verify actual issuer rotation and consumer
+refresh separately under CTS2-043.
