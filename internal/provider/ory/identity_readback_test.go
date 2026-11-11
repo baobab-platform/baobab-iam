@@ -22,7 +22,7 @@ func TestKratosOpaqueSubjectCannotSelectAdminRoute(t *testing.T) {
 	adapter, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL,
 		PublicIssuer: "https://identity.example",
-		HTTPClient:   srv.Client(),
+		HTTPClient:   ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestKratosReadbackMustMatchExactIssuerSubject(t *testing.T) {
 	defer srv.Close()
 	adapter, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL,
-		PublicIssuer: "https://identity.example", HTTPClient: srv.Client(),
+		PublicIssuer: "https://identity.example", HTTPClient: ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatal(err)

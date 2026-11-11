@@ -11,8 +11,8 @@ import (
 // No ambient HTTP(S)_PROXY, custom socket dialer, arbitrary RoundTripper,
 // TLS verification bypass or application-supplied redirect policy may
 // intercept a native session credential or an admin OAuth request.
-// A caller-supplied *http.Transport is allowed only for an explicitly
-// trusted additional CA pool and other non-bypassing transport settings.
+// A caller-supplied *http.Transport can supply a trust pool and stricter
+// TLS versions. The native client owns routing and HTTP behavior.
 func newNativeProviderHTTPClient(configured *http.Client) (*http.Client, error) {
 	base := &http.Transport{
 		Proxy:             nil,
@@ -27,12 +27,7 @@ func newNativeProviderHTTPClient(configured *http.Client) (*http.Client, error) 
 			len(source.TLSNextProto) != 0 {
 			return nil, fmt.Errorf("native provider transport cannot override trusted routing")
 		}
-		base = source.Clone()
-		base.Proxy = nil
-		if base.TLSClientConfig == nil {
-			base.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12}
-		} else {
-			config := base.TLSClientConfig.Clone()
+		if config := source.TLSClientConfig; config != nil {
 			if config.InsecureSkipVerify || config.ServerName != "" ||
 				config.VerifyPeerCertificate != nil || config.VerifyConnection != nil ||
 				config.GetClientCertificate != nil || config.GetConfigForClient != nil ||
@@ -43,11 +38,11 @@ func newNativeProviderHTTPClient(configured *http.Client) (*http.Client, error) 
 				len(config.CipherSuites) != 0 {
 				return nil, fmt.Errorf("native provider transport TLS trust policy denied")
 			}
-			config.MinVersion = tls.VersionTLS12
+			base.TLSClientConfig.MinVersion = max(config.MinVersion, tls.VersionTLS12)
+			base.TLSClientConfig.MaxVersion = config.MaxVersion
 			if config.RootCAs != nil {
-				config.RootCAs = config.RootCAs.Clone()
+				base.TLSClientConfig.RootCAs = config.RootCAs.Clone()
 			}
-			base.TLSClientConfig = config
 		}
 	}
 	return &http.Client{

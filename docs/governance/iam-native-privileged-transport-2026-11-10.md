@@ -20,3 +20,11 @@ The policy now also governs the **Ory administrative adapter** used for Kratos i
 This corrects a source-level trust-boundary defect, not runtime proof of private-network placement, mTLS, credential rotation, actual key custody or protected deployment topology. Strict transport configuration should be run against all private-CA and containerized Kratos/Hydra integration fixtures, followed by exact-head `gofmt`, Go tests and CI. Source tests do not activate a provider capability or CP authority.
 
 **PR stack:** #173 → #174 → #175 → this increment. All open as drafts and unmerged; complete trusted routing and independent connected CP/issuer qualification before a release decision.
+
+The privileged client constructs its own HTTP transport. A supplied transport
+can contribute a cloned CA pool and stricter TLS versions. Local tests supply
+explicit fixture CA roots and use real TLS HTTP requests for workload creation,
+readback, rotation and disable. The authenticated CP federation resolver also
+accepts the federation-specific capability, distinct from native login.
+Connected federation and independently witnessed authority are tracked in the
+owning CTS workstreams.
