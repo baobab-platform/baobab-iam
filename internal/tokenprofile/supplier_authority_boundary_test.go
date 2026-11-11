@@ -15,8 +15,8 @@ func TestBuyerTokenCannotGrantSupplierRepresentation(t *testing.T) {
 	// A buyer BFF may not request supplier administration or sourcing scopes
 	// that were never registered in its exact Shared human token profile.
 	for name, scope := range map[string]string{
-		"supplier admin": "supplier:admin",
-		"supplier approval": "supplier:approve",
+		"supplier admin":       "supplier:admin",
+		"supplier approval":    "supplier:approve",
 		"procurement approval": "procurement:approve",
 		"supplier bank update": "supplier:bank-update",
 	} {
