@@ -16,14 +16,14 @@ import (
 // network placement, TLS termination, trust roots or runtime authorization;
 // those remain separate deployment and CP evidence gates.
 //
-// OIDC issuers may legitimately contain a path and must remain byte-exact
+// An empty fragment delimiter (#) and trailing empty port (:) are ambiguous\n// yet accepted by net/url.Parse. Reject them before constructing HTTP paths.\n//\n// OIDC issuers may legitimately contain a path and must remain byte-exact
 // between provider tokens and ExternalIdentity mappings.
 func validateProviderEndpoint(raw string, admin bool) error {
-	if raw == "" || strings.TrimSpace(raw) != raw || strings.ContainsAny(raw, "\\\r\n\t") {
+	if raw == "" || strings.TrimSpace(raw) != raw || strings.ContainsAny(raw, "\\\r\n\t") || strings.Contains(raw, "#") {
 		return errors.New("invalid provider endpoint")
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u == nil || !u.IsAbs() || u.Hostname() == "" ||
+	if err != nil || u == nil || !u.IsAbs() || u.Hostname() == "" || strings.HasSuffix(u.Host, ":") ||
 		(u.Scheme != "http" && u.Scheme != "https") ||
 		u.User != nil || u.Opaque != "" || u.RawQuery != "" || u.ForceQuery ||
 		u.Fragment != "" || u.RawFragment != "" {
