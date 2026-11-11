@@ -1,5 +1,6 @@
 # Baobab IAM (`baobab-iam`)
 
+> **TECHNICAL SPECIFICATION RECONCILIATION:** The [v2.0 approved provider-neutral CTS](docs/adr/Consolidated-Technical-Specification-v2.0.md) reconciles the [9 September Keycloak-centred CTS v1.0](docs/adr/Consolidated-Technical-Specification.md) with Accepted IAM ADR-0033, EA v2.3 and EA-DEV. Its [227-section / 17-gate crosswalk](docs/governance/iam-cts-v2-reconciliation.json) is checked in CI. **An approved specification is not provider support, completed development evidence or protected release approval.** Current Shared EA-DEV and the IAM N01–N03 audit still own those claims.
 **N04 actual resource admission path (development source):** `pkg/workloadresource.NewCPRegisteredBinding` reads CP-owned current provider/instance/scope/facet/artifact state over independently authenticated HTTPS; `NewRegisteredGate` rechecks that binding both before and after the N03 issuer→CP→domain PEP request, and `NewMiddleware` supports the composite gate. Tests cover revoked bindings, stale profiles, mixed organisation/estate, signed resource/CP and artifact drift. See [N04 development owner runbook](docs/operations/n04-provider-support-development-qualification.md). **These tests exercise a local TLS CP fixture, not an accepted external CP engine; real D-N04 qualification is still HELD.**
 
 
