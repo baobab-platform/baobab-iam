@@ -247,3 +247,34 @@ func TestRestoreRejectsCurrentDriftAndIncompleteCheckpoint(t *testing.T) {
 		})
 	}
 }
+
+type delayedAuthority struct {
+	decision Decision
+	finish   func()
+}
+
+func (a delayedAuthority) AuthorizeRestriction(context.Context, Restriction) (Decision, error) {
+	a.finish()
+	return a.decision, nil
+}
+func TestAuthorityDelayCannotWriteExpiredOrCancelledRestriction(t *testing.T) {
+	for _, cancelRequest := range []bool{false, true} {
+		now := time.Now().UTC()
+		service, _, journal, _, _, _, record := setup(now)
+		decision := service.Authority.(*authorityStub).decision
+		ctx, cancel := context.WithCancel(context.Background())
+		service.Now = func() time.Time { return now }
+		service.Authority = delayedAuthority{decision: decision, finish: func() {
+			if cancelRequest {
+				cancel()
+			} else {
+				now = now.Add(2 * time.Minute)
+			}
+		}}
+		err := service.RecordRestriction(ctx, record)
+		cancel()
+		if !errors.Is(err, ErrPrivacyHold) || journal.puts != 0 {
+			t.Fatalf("expired/cancelled decision reached journal: %v, puts=%d", err, journal.puts)
+		}
+	}
+}

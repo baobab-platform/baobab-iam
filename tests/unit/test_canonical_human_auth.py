@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import unittest
 
-from test_canonical_workload_request import load_shared
+from test_canonical_workload_request import load_runtime_shared
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class HumanAuthenticationContractTests(unittest.TestCase):
     def test_pinned_shared_human_authentication_corpus(self):
         checkout = Path(os.environ['SHARED_REPO_DIR']).resolve()
-        module, _ = load_shared(checkout)
+        module, _ = load_runtime_shared(checkout)
         contracts = module.Contracts(checkout / 'contracts')
         cases = json.loads((ROOT / 'tests/fixtures/canonical-human-authentication.json').read_text())
         for index, case in enumerate(cases):

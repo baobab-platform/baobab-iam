@@ -56,9 +56,10 @@ func (s *Service) RecordRestriction(ctx context.Context, record Restriction) err
 		record.Subject.Validate() != nil || !receiptIDPattern.MatchString(record.DecisionID) {
 		return ErrPrivacyHold
 	}
-	current := s.Now().UTC()
 	auth, err := s.Authority.AuthorizeRestriction(ctx, record)
-	if err != nil || auth.Subject != record.Subject ||
+	// Authority calls may block. Validate at the journal-write boundary.
+	current := s.Now().UTC()
+	if err != nil || ctx.Err() != nil || auth.Subject != record.Subject ||
 		auth.DecisionID != record.DecisionID ||
 		!receiptIDPattern.MatchString(auth.ActorID) ||
 		auth.VerifiedAt.IsZero() || auth.VerifiedAt.After(current) ||

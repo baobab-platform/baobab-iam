@@ -101,6 +101,9 @@ func (c Config) Validate() error {
 		} else if p.HumanScopeAudiences != nil {
 			return fmt.Errorf("workload %q has human scope audiences but no human token profile", id)
 		}
+		if err := validatePeopleProviderReaderProfile(id, p); err != nil {
+			return err
+		}
 		if err := validateNativeCommitmentSubmitter(id, p); err != nil {
 			return err
 		}
@@ -133,6 +136,13 @@ func (c Config) Claims(e Evidence) (map[string]any, error) {
 	if p.Environment == "" || p.Environment != c.Environment {
 		return nil, fmt.Errorf("workload issuance denied")
 	}
+	// Hydra token hooks may invoke Claims on a hand-built projection without
+	// a prior Config.Validate call. Repeat the governed server/BFF identity
+	// fence here: a grant cannot acquire native Trade commitment provenance by
+	// skipping construction validation (ADR-IAM-0034, Shared Decision 9).
+	if err := validateNativeCommitmentSubmitter(e.ClientID, p); err != nil {
+		return nil, fmt.Errorf("native commitment submitter denied: %w", err)
+	}
 	switch p.CredentialType {
 	case "client_credentials":
 		if e.Grant != "client_credentials" || e.Subject != e.ClientID {
@@ -151,6 +161,9 @@ func (c Config) Claims(e Evidence) (map[string]any, error) {
 	}
 	if len(e.GrantedAudiences) == 0 || !subset(e.GrantedAudiences, p.Audiences) {
 		return nil, fmt.Errorf("workload audience mismatch")
+	}
+	if err := validatePeopleProviderReaderToken(p, e); err != nil {
+		return nil, err
 	}
 	if !nativeCommitmentTokenScoped(e) {
 		return nil, fmt.Errorf("a native commitment token is issued for Trade alone")
