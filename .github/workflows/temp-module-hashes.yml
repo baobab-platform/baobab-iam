@@ -1,0 +1,22 @@
+name: Temporary audited Go module checksum readback
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verified-module-hashes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Record checksum-verified security module entries
+        run: |
+          set -euo pipefail
+          go mod download -json github.com/supatype/saml@v0.7.0
+          go mod download -json golang.org/x/net@v0.62.0
+          go mod download all
+          echo "--- VERIFIED CHANGE TO go.sum ---"
+          git diff -- go.sum go.mod
