@@ -46,7 +46,7 @@ func TestProvisionWorkload_CreateAndNormalizeScopes(t *testing.T) {
 		KratosAdminURL: "http://kratos-admin.example", // unused for workload
 		HydraAdminURL:  srv.URL,
 		PublicIssuer:   "http://127.0.0.1:4444",
-		HTTPClient:     srv.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(srv),
 		RequestTimeout: 5 * time.Second,
 	})
 	if err != nil {
@@ -133,7 +133,7 @@ func TestDisableWorkload_ClearsGrantTypes(t *testing.T) {
 		KratosAdminURL: "http://kratos-admin.example",
 		HydraAdminURL:  srv.URL,
 		PublicIssuer:   "http://127.0.0.1:4444",
-		HTTPClient:     srv.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatalf("NewAdapter: %v", err)

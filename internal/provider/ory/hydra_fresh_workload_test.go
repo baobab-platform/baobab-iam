@@ -3,9 +3,9 @@ package ory_test
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
-	"strings"
+	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
@@ -40,7 +40,11 @@ func TestFreshWorkloadIndependentSecurityReadback(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			exists, reads, writes := tc.existing, 0, 0
 			var stored map[string]any
-			transport := workloadTTLTransport(func(r *http.Request) (*http.Response, error) {
+			var state sync.Mutex
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				state.Lock()
+				defer state.Unlock()
+				w.Header().Set("Content-Type", "application/json")
 				status := http.StatusOK
 				value := map[string]any{}
 				switch r.Method {
@@ -61,25 +65,32 @@ func TestFreshWorkloadIndependentSecurityReadback(t *testing.T) {
 				case http.MethodPost:
 					writes++
 					if err := json.NewDecoder(r.Body).Decode(&value); err != nil {
-						t.Fatal("invalid request")
+						t.Error("invalid request")
+						http.Error(w, "invalid request", http.StatusBadRequest)
+						return
 					}
 					stored = value
 					exists = true
 					status = http.StatusCreated
 				default:
-					t.Fatal("fresh workload attempted replacement")
+					t.Error("fresh workload attempted replacement")
+					http.Error(w, "invalid request", http.StatusBadRequest)
+					return
 				}
-				raw, err := json.Marshal(value)
-				if err != nil {
-					t.Fatal(err)
+				w.WriteHeader(status)
+				if err := json.NewEncoder(w).Encode(value); err != nil {
+					t.Error("encode provider response:", err)
 				}
-				return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(string(raw)))}, nil
-			})
-			a, err := ory.NewAdapter(ory.Config{KratosAdminURL: "https://kratos.example.test", HydraAdminURL: "https://hydra.example.test", PublicIssuer: "https://issuer.example.test", HTTPClient: &http.Client{Transport: transport}})
+			}))
+			defer server.Close()
+			a, err := ory.NewAdapter(ory.Config{KratosAdminURL: server.URL, HydraAdminURL: server.URL,
+				PublicIssuer: "https://issuer.example.test", HTTPClient: ory.ProviderFixtureClient(server)})
 			if err != nil {
 				t.Fatal(err)
 			}
 			w, err := a.ProvisionWorkload(context.Background(), provider.WorkloadProvisioningSpec{LogicalClientID: "unit-fresh", AllowedScopes: []string{"context:validate"}, Audiences: []string{"baobab-control-plane"}, AuthMethod: provider.WorkloadAuthClientSecret, RequireNew: true, AccessTokenTTLSeconds: 60, Metadata: map[string]string{"owner": "unit-owner"}})
+			state.Lock()
+			defer state.Unlock()
 			if tc.existing {
 				if err == nil || w != nil || writes != 0 || reads != 1 {
 					t.Fatal("existing client not refused before mutation")

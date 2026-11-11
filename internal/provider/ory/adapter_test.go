@@ -79,7 +79,7 @@ func TestGetIdentityPopulatesConfiguredIssuer(t *testing.T) {
 		KratosAdminURL: srv.URL,
 		HydraAdminURL:  "http://hydra-admin:4445",
 		PublicIssuer:   "https://identity.example",
-		HTTPClient:     srv.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatal(err)

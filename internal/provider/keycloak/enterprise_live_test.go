@@ -44,7 +44,7 @@ func (f *liveEnterprise) ResolveCapability(_ context.Context, request federation
 	f.mu.Lock()
 	f.resolutions++
 	f.mu.Unlock()
-	if request.CapabilityKey != "identity.authentication.perform" || request.ContextID != "ctx_cisynthetic" || request.RequiredContractVersion != 1 {
+	if request.CapabilityKey != provider.CapabilityEnterpriseFederation || request.ContextID != "ctx_cisynthetic" || request.RequiredContractVersion != 1 {
 		return federation.CapabilityResolution{}, federation.ErrDenied
 	}
 	b := f.s.Trust.ProviderBinding
