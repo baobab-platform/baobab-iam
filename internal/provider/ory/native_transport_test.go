@@ -2,8 +2,8 @@ package ory
 
 import (
 	"context"
-	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"io"
 	"net"
@@ -12,7 +12,19 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
+
+// ProviderFixtureClient supplies only the explicit trust root of a test server.
+func ProviderFixtureClient(server *httptest.Server) *http.Client {
+	if server.Certificate() == nil {
+		return &http.Client{}
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(server.Certificate())
+	return &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots}}}
+}
 
 type nativeUnsafeRoundTripper func(*http.Request) (*http.Response, error)
 
@@ -80,7 +92,7 @@ func TestNativeProviderTransportEnforcesTLSWithoutAmbientProxy(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 	defer srv.Close()
-	allowed := srv.Client()
+	allowed := ProviderFixtureClient(srv)
 	oldTransport := allowed.Transport.(*http.Transport)
 	newClient, err := newNativeProviderHTTPClient(allowed)
 	if err != nil {
@@ -109,48 +121,55 @@ func TestNativeProviderTransportEnforcesTLSWithoutAmbientProxy(t *testing.T) {
 func TestOryAdminAdapterAppliesNativeTransportGuardToProvisioningAndRevocation(t *testing.T) {
 	base := Config{
 		KratosAdminURL: "https://kratos.internal.invalid",
-		HydraAdminURL: "https://hydra.internal.invalid",
-		PublicIssuer: "https://identity.example",
+		HydraAdminURL:  "https://hydra.internal.invalid",
+		PublicIssuer:   "https://identity.example",
 	}
 	for name, client := range map[string]*http.Client{
 		"untrusted RoundTripper": {Transport: nativeUnsafeRoundTripper(func(*http.Request) (*http.Response, error) {
 			return nil, errors.New("injected fake provider")
 		})},
 		"ambient proxy": {Transport: &http.Transport{Proxy: http.ProxyFromEnvironment}},
-		"TLS bypass": {Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+		"TLS bypass":    {Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 	} {
-		t.Run(name,func(t *testing.T){
-			bad:=base
-			bad.HTTPClient=client
+		t.Run(name, func(t *testing.T) {
+			bad := base
+			bad.HTTPClient = client
 			if _, err := NewAdapter(bad); err == nil {
 				t.Fatal("private Kratos/Hydra administrative client allowed unreviewed transport")
 			}
 		})
 	}
-	for _, seconds:=range []time.Duration{-time.Second,61*time.Second} {
-		invalid:=base
-		invalid.RequestTimeout=seconds
-		if _,err:=NewAdapter(invalid);err==nil {t.Fatal("unbounded or negative private admin timeout",seconds)}
+	for _, seconds := range []time.Duration{-time.Second, 61 * time.Second} {
+		invalid := base
+		invalid.RequestTimeout = seconds
+		if _, err := NewAdapter(invalid); err == nil {
+			t.Fatal("unbounded or negative private admin timeout", seconds)
+		}
 	}
-	srv:=httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
-		if r.URL.Path!="/admin/identities/id-1" {w.WriteHeader(http.StatusNotFound);return}
-		w.Header().Set("Content-Type","application/json")
-		_,_=w.Write([]byte(`{"id":"id-1","schema_id":"default","state":"active","traits":{"email":"test@example.invalid"},"created_at":"2026-11-10T00:00:00Z","updated_at":"2026-11-10T00:00:00Z"}`))
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/admin/identities/id-1" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"id-1","schema_id":"default","state":"active","traits":{"email":"test@example.invalid"},"created_at":"2026-11-10T00:00:00Z","updated_at":"2026-11-10T00:00:00Z"}`))
 	}))
 	defer srv.Close()
-	valid:=Config{
-		KratosAdminURL:srv.URL,HydraAdminURL:srv.URL,PublicIssuer:"https://identity.example",
-		HTTPClient:srv.Client(),RequestTimeout:12*time.Second,
+	valid := Config{
+		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL, PublicIssuer: "https://identity.example",
+		HTTPClient: ProviderFixtureClient(srv), RequestTimeout: 12 * time.Second,
 	}
-	a,err:=NewAdapter(valid)
-	if err!=nil {t.Fatal(err)}
-	transport,ok:=a.http.Transport.(*http.Transport)
-	if !ok || transport.Proxy!=nil || transport.TLSClientConfig.InsecureSkipVerify ||
-		a.http.Timeout!=12*time.Second || a.kratos.http!=a.http || a.hydra.http!=a.http {
+	a, err := NewAdapter(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport, ok := a.http.Transport.(*http.Transport)
+	if !ok || transport.Proxy != nil || transport.TLSClientConfig.InsecureSkipVerify ||
+		a.http.Timeout != 12*time.Second || a.kratos.http != a.http || a.hydra.http != a.http {
 		t.Fatal("private administrative adapters did not share safe cloned transport")
 	}
-	got,err:=a.GetIdentity(context.Background(),provider.ExternalSubject{Issuer:valid.PublicIssuer,Subject:"id-1"})
-	if err!=nil || got.Subject!="id-1" || got.Issuer!=valid.PublicIssuer {
-		t.Fatalf("private CA TLS administrative readback failed: %+v %v",got,err)
+	got, err := a.GetIdentity(context.Background(), provider.ExternalSubject{Issuer: valid.PublicIssuer, Subject: "id-1"})
+	if err != nil || got.Subject != "id-1" || got.Issuer != valid.PublicIssuer {
+		t.Fatalf("private CA TLS administrative readback failed: %+v %v", got, err)
 	}
 }

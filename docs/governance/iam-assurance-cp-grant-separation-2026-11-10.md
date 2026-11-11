@@ -13,3 +13,8 @@ This **does not** publish production support or activate a CP grant. The separat
 **Important integration effect:** Until CP assigns and verifies a separate assurance provider/engine-instance capability support and grant, live assurance calls fail closed. Preserve existing browser native LOGIN mechanics, which independently depend on `identity.authentication.perform`; do not move human authentication to the assurance key.
 
 **Remaining:** accepted operation-specific server policy, original risk/recovery hold source, independent RP-bound UV passkey attestation, privileged witness and hardware proof, CP and consumer originally sourced grant+binding tests, exact-head Go formatting/CI, and protected release approvals.
+
+The stack now preserves the dedicated assurance guard and the TLS-backed Ory
+fixtures together. Runtime dispatch still needs a reviewed CP assurance
+projection and operation-specific composition. The test verifier exercises
+current allow and denial behavior without granting production capability.
