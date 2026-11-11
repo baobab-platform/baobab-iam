@@ -7,8 +7,8 @@ Infrastructure and Security must independently verify every attestation.
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 REQUIRED = (
     "incident_declared",
@@ -31,17 +31,36 @@ ROLES = {"incident_declared": "security", "old_writer_fenced": "infrastructure",
          "security_smoke_denials_verified": "security"}
 
 
+def exact_text(value):
+    return isinstance(value, str) and bool(value) and value.strip() == value and value.isprintable()
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate evidence member")
+        result[key] = value
+    return result
+
+
 def verify(record):
     if not isinstance(record, dict):
         raise ValueError("record must be an object")
     for name in ("domain_id", "old_region", "candidate_region", "issuer",
                  "backup_checkpoint", "recovery_checkpoint"):
-        if not isinstance(record.get(name), str) or not record[name].strip():
+        if not exact_text(record.get(name)):
             raise ValueError(f"missing {name}")
     if record["old_region"] == record["candidate_region"]:
         raise ValueError("candidate must be a different region")
-    if not record["issuer"].startswith("https://"):
-        raise ValueError("issuer must use https")
+    raw_issuer = record["issuer"]
+    issuer = urlsplit(raw_issuer)
+    if (issuer.scheme != "https" or not issuer.hostname or issuer.username is not None
+            or issuer.password is not None or issuer.netloc.endswith(":")
+            or any(c in raw_issuer for c in "?#\\")
+            or any(c.isspace() for c in raw_issuer)):
+        raise ValueError("issuer must be an exact HTTPS issuer identifier")
+    _ = issuer.port  # Invalid or out-of-range ports raise ValueError.
     if record["backup_checkpoint"] == record["recovery_checkpoint"]:
         raise ValueError("recovery checkpoint must differ from backup checkpoint")
     if record.get("old_writer_reachable") is not False:
@@ -60,16 +79,16 @@ def verify(record):
             raise ValueError(f"{name} has wrong witness role")
         actor = att.get("actor")
         receipt = att.get("evidence_ref")
-        if not isinstance(actor, str) or not actor.strip():
+        if not exact_text(actor):
             raise ValueError(f"{name} missing witness")
-        if not isinstance(receipt, str) or not receipt.strip():
+        if not exact_text(receipt):
             raise ValueError(f"{name} missing independent evidence reference")
         actors[name] = actor
     if actors["old_writer_fenced"] == actors["security_journal_replayed"]:
         raise ValueError("fencing and journal replay require independent witnesses")
     if actors["old_writer_fenced"] == actors["incident_declared"]:
         raise ValueError("fencing and incident declaration require independent witnesses")
-    if record.get("unresolved_revocations") != 0:
+    if type(record.get("unresolved_revocations")) is not int or record["unresolved_revocations"] != 0:
         raise ValueError("unresolved revocations: deny promotion")
     if record.get("unresolved_replication_gap") is not False:
         raise ValueError("replication gap not reconciled")
@@ -81,7 +100,7 @@ def main():
     parser.add_argument("record", type=Path)
     args = parser.parse_args()
     try:
-        verify(json.loads(args.record.read_text(encoding="utf-8")))
+        verify(json.loads(args.record.read_text(encoding="utf-8"), object_pairs_hook=unique_object))
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"DR PREFLIGHT HELD: {exc}", file=sys.stderr)
         return 1

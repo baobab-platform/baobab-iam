@@ -148,3 +148,7 @@ promotion through protected controls. The tool neither promotes a database nor
 changes routing or issues credentials. **No promotion may occur when the
 security recovery journal is missing or unqualified.** A green preflight is
 not an ADR-0027 acceptance receipt, production approval or measured RPO/RTO.
+The ADR-IAM-0027 preflight rejects ambiguous issuer identifiers, duplicate
+JSON members, non-integer revocation counts and padded witness identifiers.
+It checks the submitted evidence structure. Infrastructure, Security and CP
+verify the underlying receipts and remain responsible for promotion decisions.

@@ -45,8 +45,13 @@ class DRPromotionPreflightTests(unittest.TestCase):
             ("old_writer_reachable", True),
             ("candidate_writer_enabled", True),
             ("unresolved_revocations", 1),
+            ("unresolved_revocations", False),
+            ("unresolved_revocations", 0.0),
             ("unresolved_replication_gap", True),
             ("issuer", "http://iam.example.test"),
+            ("issuer", "https://"),
+            ("issuer", "https://iam.example.test#"),
+            ("issuer", "https://iam.example.test:65536"),
             ("candidate_region", "region-a"),
         ):
             with self.subTest(key=key):
@@ -58,6 +63,9 @@ class DRPromotionPreflightTests(unittest.TestCase):
     def test_no_self_attested_fencing_and_replay(self):
         record = valid_record()
         record["attestations"]["security_journal_replayed"]["actor"] = "operator"
+        with self.assertRaises(ValueError):
+            verify(record)
+        record["attestations"]["security_journal_replayed"]["actor"] = "operator "
         with self.assertRaises(ValueError):
             verify(record)
 
