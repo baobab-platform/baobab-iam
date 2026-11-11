@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/beevik/etree"
-	"github.com/crewjam/saml"
+	"github.com/supatype/saml"
 	jose "github.com/go-jose/go-jose/v4"
 	dsig "github.com/russellhaering/goxmldsig"
 )
