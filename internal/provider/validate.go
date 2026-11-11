@@ -146,6 +146,22 @@ func forbiddenIdentityTrait(value any, depth int) bool {
 				"buyerpurchaselimit", "erprole", "adrole", "adclient",
 				"adorg", "supplierapproval", "spendlimit",
 				"organisationmembership", "organizationmembership",
+				// Provider identity attributes must not reproduce the
+				// business-authority graph owned by CP and native engines.
+				"role", "roles", "permission", "permissions",
+				"grant", "grants", "entitlement", "entitlements",
+				"group", "groups", "organisationid", "organizationid",
+				"organizationrole", "organisationrole", "approvalauthority",
+				// Sensitive authenticator, recovery and proofing material
+				// belongs in governed credential/evidence stores, never
+				// identity traits or imported migration metadata.
+				"password", "passwordhash", "passwordhint",
+				"totp", "totpsecret", "otpsecret", "lookupsecret",
+				"recoverycode", "recoverycodes", "recoverytoken",
+				"credential", "credentials", "clientsecret", "secret",
+				"privatekey", "passkeyprivatekey", "webauthnprivatekey",
+				"accesstoken", "refreshtoken", "idtoken", "bearertoken",
+				"identitydocument", "passportnumber", "nationalidnumber",
 			} {
 				if normalized == forbidden {
 					return true

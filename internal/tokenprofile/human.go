@@ -34,7 +34,10 @@ var oidcScopes = []string{"openid", "profile", "email", "offline_access"}
 var issuedACR = []string{"aal1", "aal2"}
 
 // The only amr values IAM's native login emits (RFC 8176 names).
-var issuedAMR = []string{"pwd", "otp", "hwk", "mfa"}
+// Hardware-backed key claims require an attested, RP-bound authenticator
+// provenance that Kratos' bare "webauthn"/"passkey" method name cannot prove.
+// Do not admit a forged "hwk" at the direct Hydra token hook (ADR-IAM-0024).
+var issuedAMR = []string{"pwd", "otp", "mfa"}
 
 func (p HumanTokenProfile) validate(workload Workload) error {
 	if p.Purpose != estateBFFBuyerPurpose {
@@ -268,6 +271,12 @@ func (c Config) HumanClaims(e HumanEvidence, sealKey []byte) (map[string]any, er
 			return nil, fmt.Errorf("human assurance evidence malformed")
 		}
 		amrSeen[method] = true
+	}
+	// Distinct verified factors are required for an MFA claim; a generic
+	// recovery/email code or unverified hardware-key method is not proof.
+	// Only pwd and real TOTP otp may be emitted by nativeAMR today.
+	if amrSeen["mfa"] && (e.ACR != "aal2" || !amrSeen["pwd"] || !amrSeen["otp"]) {
+		return nil, fmt.Errorf("human MFA claim lacks current independent factor evidence")
 	}
 	claims := map[string]any{"actor_type": "human", "azp": e.ClientID, "acr": e.ACR, "auth_time": e.AuthTime}
 	if len(e.AMR) > 0 {
