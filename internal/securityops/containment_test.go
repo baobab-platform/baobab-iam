@@ -36,11 +36,12 @@ type authorityStub struct {
 	approval      Authorization
 	calls         int
 	recheckDenied bool
+	denyOnCall    int
 }
 
 func (a *authorityStub) AuthorizeContainment(_ context.Context, _ Intent) (Authorization, error) {
 	a.calls++
-	if a.recheckDenied && a.calls > 1 {
+	if (a.recheckDenied && a.calls > 1) || a.calls == a.denyOnCall {
 		return Authorization{}, errors.New("revoked")
 	}
 	return a.approval, nil
@@ -139,7 +140,7 @@ func TestIncidentContainmentRequiresCurrentNativeAndCPReadback(t *testing.T) {
 	if err := containment.Execute(context.Background(), intent); err != nil {
 		t.Fatal(err)
 	}
-	if journal.reserves != 1 || authority.calls != 2 || resource.calls != 1 || !native.disabled {
+	if journal.reserves != 1 || authority.calls != 3 || resource.calls != 1 || !native.disabled {
 		t.Fatal("missing original containment witnesses")
 	}
 	expected := []Phase{PhaseDisabled, PhaseRevoked, PhaseVerified}
@@ -175,6 +176,22 @@ func TestFailClosedBeforeNativeMutation(t *testing.T) {
 	authority.approval.ValidUntil = now
 	if containment.Execute(context.Background(), intent) == nil || journal.reserves != 0 || len(native.calls) != 0 {
 		t.Fatal("expired authorization must not reserve or mutate")
+	}
+}
+
+func TestWithdrawalAfterDisableStopsSessionRevocation(t *testing.T) {
+	containment, journal, native, _, authority, intent := setup(time.Now().UTC())
+	authority.denyOnCall = 3
+	if containment.Execute(context.Background(), intent) == nil || !native.disabled {
+		t.Fatal("partial containment was not reported as held")
+	}
+	for _, call := range native.calls {
+		if call == "revoke" {
+			t.Fatal("session revocation ran after authority was withdrawn")
+		}
+	}
+	if len(journal.events) != 2 || journal.events[0] != PhaseDisabled || journal.events[1] != PhaseUnknown {
+		t.Fatalf("partial effect was not journaled: %v", journal.events)
 	}
 }
 

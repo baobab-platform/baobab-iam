@@ -113,29 +113,33 @@ func (c *Containment) Execute(ctx context.Context, intent Intent) (err error) {
 			_ = c.Journal.Mark(recovery, intent.OperationID, PhaseUnknown)
 		}
 	}()
-	if phase != PhaseVerified {
-		// Re-authorize immediately before the first side effect. CP/Security may
-		// have withdrawn authority between reservation and provider access.
+	currentAuthorization := func() bool {
 		fresh, e := c.Authority.AuthorizeContainment(ctx, intent)
 		at := c.Now().UTC()
-		if e != nil || fresh.ActorID != auth.ActorID || fresh.DecisionID != auth.DecisionID ||
-			fresh.VerifiedAt.IsZero() || fresh.VerifiedAt.After(at) ||
-			at.Sub(fresh.VerifiedAt) > time.Minute || !at.Before(fresh.ValidUntil) {
+		return e == nil && fresh.ActorID == auth.ActorID && fresh.DecisionID == auth.DecisionID &&
+			!fresh.VerifiedAt.IsZero() && !fresh.VerifiedAt.After(at) &&
+			at.Sub(fresh.VerifiedAt) <= time.Minute && at.Before(fresh.ValidUntil)
+	}
+	if phase != PhaseVerified {
+		if !currentAuthorization() {
 			return errors.New("securityops: containment authorization changed before mutation")
 		}
-		if e = c.Provider.DisableIdentity(ctx, intent.Subject); e != nil {
+		if e := c.Provider.DisableIdentity(ctx, intent.Subject); e != nil {
 			return errors.New("securityops: native identity disablement unconfirmed")
 		}
-		if e = c.confirmIdentity(ctx, intent.Subject); e != nil {
+		if e := c.confirmIdentity(ctx, intent.Subject); e != nil {
 			return e
 		}
-		if e = c.Journal.Mark(ctx, intent.OperationID, PhaseDisabled); e != nil {
+		if e := c.Journal.Mark(ctx, intent.OperationID, PhaseDisabled); e != nil {
 			return errors.New("securityops: disable receipt not durable")
 		}
-		if e = c.Provider.RevokeSessions(ctx, intent.Subject); e != nil {
+		if !currentAuthorization() {
+			return errors.New("securityops: containment authorization changed before session revocation")
+		}
+		if e := c.Provider.RevokeSessions(ctx, intent.Subject); e != nil {
 			return errors.New("securityops: native session revocation unconfirmed")
 		}
-		if e = c.Journal.Mark(ctx, intent.OperationID, PhaseRevoked); e != nil {
+		if e := c.Journal.Mark(ctx, intent.OperationID, PhaseRevoked); e != nil {
 			return errors.New("securityops: revocation receipt not durable")
 		}
 	}
