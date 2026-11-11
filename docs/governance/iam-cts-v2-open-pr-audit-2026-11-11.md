@@ -87,10 +87,10 @@ At the refreshed inventory there were 22 implementation candidates and this audi
 | --- | --- |
 | #149 | Exact-head scoped INT-02 passes. N04 still requires current CP support and binding, original Pulse and Payments source evidence and independent teardown. |
 | #151–#153 | N06–N08 require current CTS and maintained SAML convergence. #151 and #174 have overlapping assurance models. Original Thamani and TMS receipts and restored-security negatives remain required. |
-| #169 | `e41df312d8392d9bb9ac5477205b7a4f8a5e0558` separates the read-only capability catalogue checkout from the runtime/CMS registry checkout. Both pinned Shared revisions, publication and fixture checks passed locally. Exact-head PR CI is required. Provider promotion remains held under CTS2-005. |
+| #169 | `a6f9461a00a306e4a62d2e3dd5ba95bf4b02f861` separates the read-only capability catalogue checkout from the runtime/CMS registry checkout. Both pinned Shared revisions, the executable provider census, publication, canonical workload and human contract corpora, and CMS fixture checks passed locally. Exact-head PR CI is required. Provider promotion remains held under CTS2-005. |
 | #170–#173 | Exact candidate CI was green at the reviewed heads. #170 documents the ERP issuer/subject mapping deviation and the provider-only nature of revocation. #171 requires connected identity and assurance evidence, with #172 and #173 stacked behind it. Decision 9 remains unallocated. |
 | #174, #177 | Converge on one assurance policy, including current Kratos evidence and assurance-specific CP resolution. #177 has a merge conflict and lacks exact-head PR CI. |
-| #175 | `1ae894532d1dd37733c8ea687a4a6243c6d3cfb7` permits the federation capability in the authenticated CP wire client and aligns the live Keycloak fixture. Federation and Keycloak race suites passed locally. CTS2-019 still requires connected current CP and original estate evidence. |
+| #175 | `b8e7be0033cbecc9851219a654f19ff563fe937f` permits the federation capability in the authenticated CP wire client and aligns the live Keycloak fixture. It also carries the CTS-approved SAML and separately built Hydra dependency pins after the image scan flagged the inherited pin. Federation and Keycloak race suites passed locally. CTS2-019 still requires connected current CP and original estate evidence. |
 | #176, #180 | Reconcile the transport and SAML patches onto the corrected federation and maintained SAML lineage. #180 has no exact-head PR CI. |
 | #181, #182 | Candidate PostgreSQL 17 suites are green. Current CP/Security and resource-side incident denial, all reactivation paths and independently witnessed restore evidence remain held. |
 | #183 | `019ade1510e492bc29f55d5da5346747b3ed8755` rechecks the original approval after alerting and audit, and at each use within the unexpired lease. The administrative race suite passed locally. An independently authenticated live verifier and privileged executor still require acceptance. |
@@ -118,9 +118,9 @@ or original qualification keeps the corresponding candidate open.
 | PR | Exact candidate | Review disposition |
 | --- | --- | --- |
 | #158 | `a089d4c91135d044280582a14418c6b7b8ec6ba1` | Reconciled the Dependabot staging workflow pin with CTS main. The Shared workflow delta changes only the pinned `setup-go` action. The IAM staging-tag trigger and permissions were reviewed against main. No protected run or tag was created. |
-| #176 | `12bada6859bd6a76e913f26a4dd3eb8110cd5ff9` | Integrated the corrected #175 base while retaining the privileged client fixtures. Federation, Keycloak and Ory targeted race tests passed. |
-| #177 | `3ad14d5c3a05624541fb950a36d5b9bbef05956e` | Resolved the stacked merge conflicts and retained the assurance-specific CP guard. Four targeted race suites passed. Current CP assurance projection and policy convergence with #151 remain required. |
-| #180 | `b765f854eaf63464c327a51c6a7e662b53342902` | Integrated the corrected assurance and transport base. Federation, Keycloak and Ory race tests passed. |
+| #176 | `ff33011223294d2d14e5ba5be446e1d7872a910f` | Integrated the corrected #175 base while retaining the privileged client fixtures. Federation, Keycloak and Ory targeted race tests passed. |
+| #177 | `459d6167c355ad992eb64623ac4a805b77291b28` | Resolved the stacked merge conflicts and retained the assurance-specific CP guard. Four targeted race suites passed. Current CP assurance projection and policy convergence with #151 remain required. |
+| #180 | `465356e5d438aac30cc14bea7e1ff35de36c6925` | Integrated the corrected assurance and transport base. Federation, Keycloak and Ory race tests passed. |
 | #185 | `1553f2c6bf826c12ddbd91ed28599d20fffcd6f0` | The local command now validates offline plans against the exact Shared registry. The production IDs in its profile inventory cannot reach Hydra through this command. Updated the M4 inventory, live evidence checklist and runbook. Go race tests, the documented CLI invocation and the exact Shared snapshot check passed. Live mutation requires an environment-bound lifecycle. |
 
 Live companion readback confirmed that CP #465/#468, Trade #231, Pulse #63,
