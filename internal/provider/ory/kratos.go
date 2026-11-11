@@ -349,4 +349,3 @@ func mapHTTPError(op string, resp *http.Response) error {
 		Provider: "ory",
 	}
 }
-
