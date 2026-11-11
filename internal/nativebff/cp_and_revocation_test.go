@@ -42,7 +42,7 @@ func TestDelegatedCPResolutionUsesIndependentCallerAndHumanEvidence(t *testing.T
 			body["subject_token"] != testDelegatedHumanToken("https://issuer.invalid", "synthetic-subject") ||
 			body["subject_token_type"] != "urn:ietf:params:oauth:token-type:access_token" ||
 			body["correlation_id"] != r.Header.Get("X-Correlation-ID") {
-			t.Error("CP did not receive separate signed subject evidence")
+			t.Error("CP did not receive distinct delegated subject evidence")
 			w.WriteHeader(400)
 			return
 		}
