@@ -1,5 +1,16 @@
 # Gate IAM-7 — Thamani B2C
 
+> **HISTORICAL, NON-BLOCKING FOR CURRENT B2B LOGISTICS (2026-11-06).**
+> The original retail/guest-commerce workstream is no longer a native IAM
+> provider acceptance target. Accepted EA v2.3 and ADR-THA-0018 govern the
+> Thamani B2B logistics business profile. Current delivery belongs to
+> IAM-N07's first-party confidential BFF, Kratos/Hydra, CP-authorised
+> business principal and TMS-owned native shipping/booking authority.
+> Retain historical isolation evidence below; it is not a live B2B receipt.
+> An independently accepted new B2C product decision would be needed before
+> reviving the historical customer/guest scope.
+
+
 **Status:** The full customer-identity gate remains scoped, not implemented — the two genuine architectural decisions in §3 still block it. However, `baobab-platform/zuribeans`'s **"ZuriBeans Go-Live Implementation Plan"** (its master cross-repo implementation plan) names a narrower, unblocked deliverable that touches this gate: Gate ZB-03 ("IAM and Isolation") lists **"Thamani ≠ ZuriBeans"** as a mandatory isolation test, provable today without resolving §3.1/§3.2. That structural isolation proof is now done — see §6.
 **Date:** 2026-09-12
 **Governing ADR:** `ADR-0011 — Thamani B2C Customer Identity`
