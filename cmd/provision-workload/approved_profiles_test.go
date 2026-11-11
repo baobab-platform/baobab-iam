@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"reflect"
 	"testing"
 )
@@ -21,8 +20,8 @@ func TestApprovedProvisionUsesPinnedSharedResourceAudiences(t *testing.T) {
 	}
 	for _, tc := range cases {
 		got, err := approvedProvision(tc.client, tc.scopes)
-		if err != nil || !reflect.DeepEqual(got, tc.want) {
-			t.Fatalf("%s %v: audiences=%v, error=%v; want=%v", tc.client, tc.scopes, got, err, tc.want)
+		if err != nil || !reflect.DeepEqual(got.Audiences, tc.want) {
+			t.Fatalf("%s %v: audiences=%v, error=%v; want=%v", tc.client, tc.scopes, got.Audiences, err, tc.want)
 		}
 	}
 }
@@ -46,22 +45,19 @@ func TestApprovedProvisionRejectsUnallocatedAndCrossEngineGrants(t *testing.T) {
 		if _, err := approvedProvision(tc.client, tc.scopes); err == nil {
 			t.Fatalf("%s %v admitted outside pinned Shared ceilings", tc.client, tc.scopes)
 		}
-		// Prove denial precedes all provider operations (nil adapter panics if called).
-		if err := provisionOne(context.Background(), nil, tc.client, tc.scopes, ""); err == nil {
-			t.Fatalf("%s %v reached provider provisioning", tc.client, tc.scopes)
-		}
+
 	}
 }
 
-func TestApprovedLifecyclePreventsArbitraryClientMutation(t *testing.T) {
+func TestApprovedPlanRejectsUnregisteredClients(t *testing.T) {
 	for _, id := range []string{"pk_forged", "unknown-operator", "baobab-cp-provisioning-workload", "synthetic-server-checkout"} {
 		if _, _, err := approvedClient(id); err == nil {
-			t.Fatalf("%s admitted to lifecycle control", id)
+			t.Fatalf("%s admitted to planning", id)
 		}
 	}
 	for _, id := range m4ClientCredentials {
 		if _, _, err := approvedClient(id); err != nil {
-			t.Fatalf("%s lost approved client-credentials lifecycle: %v", id, err)
+			t.Fatalf("%s lost approved client-credentials profile: %v", id, err)
 		}
 	}
 }

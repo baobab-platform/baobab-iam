@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail CI when the executable Hydra client ceiling drifts from approved Shared.
+"""Fail CI when the offline Hydra planning ceiling drifts from approved Shared.
 
 The Go binary embeds a deliberately small, reviewable snapshot instead of
 trusting operator-provided scope/audience strings. This check ties that snapshot
@@ -39,7 +39,7 @@ def check(shared_checkout: pathlib.Path) -> None:
     )["scopes"]
     audience_by_scope = {s["name"]: s.get("audience", []) for s in scopes}
     if not data["workloads"]:
-        raise ValueError("no provisionable workloads in snapshot")
+        raise ValueError("no reviewed workloads in planning snapshot")
     referenced_scopes = set()
     for client_id, pinned_profile in data["workloads"].items():
         current = registry.get(client_id)
@@ -59,7 +59,7 @@ def check(shared_checkout: pathlib.Path) -> None:
         if audience != audience_by_scope.get(scope) or len(audience) != 1:
             raise ValueError(f"scope audience mapping drift or ambiguous scope: {scope}")
     if "trade:native-commitment:submit" in referenced_scopes:
-        raise ValueError("ADR-IAM-0034 unallocated commitment scope must not be provisionable")
+        raise ValueError("ADR-IAM-0034 unallocated commitment scope must not appear in a plan")
 
 
 def main() -> int:
@@ -71,7 +71,7 @@ def main() -> int:
     except (ValueError, KeyError, OSError, subprocess.CalledProcessError, yaml.YAMLError) as err:
         print(f"workload provisioning ceiling refused: {err}", file=sys.stderr)
         return 1
-    print("Hydra provision ceiling exactly matches locked Shared workload and scope registries")
+    print("Hydra planning ceiling exactly matches locked Shared workload and scope registries")
     return 0
 
 

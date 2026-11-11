@@ -11,7 +11,7 @@ import (
 // This deliberately closed, generated-from-reviewed-Shared snapshot is NOT a
 // second workload registry. CI compares each value against the exact commit in
 // contracts.lock.yaml. Changes must originate in Shared and be reviewed here.
-// Provisioning remains non-production provider mechanics, never activation.
+// This snapshot is for offline planning.
 //
 //go:embed approved_profiles.json
 var approvedProfileData []byte
@@ -45,38 +45,42 @@ func approvedClient(id string) (approvedManifest, approvedProfile, error) {
 }
 
 // approvedProvision enforces the workload-specific Shared scopes and derives
-// the *exact* Hydra client audience ceiling from the selected scope owners.
-// Previously provisionOne accepted arbitrary operator scopes and registered no
-// audience at all, allowing drift before the token-profile hook could help.
+// the exact Hydra client audience ceiling from the selected scope owners.
 // No identity with the unallocated native commitment scope can pass this gate.
-func approvedProvision(id string, scopes []string) ([]string, error) {
+func approvedProvision(id string, scopes []string) (workloadPlan, error) {
 	manifest, p, err := approvedClient(id)
 	if err != nil {
-		return nil, err
+		return workloadPlan{}, err
 	}
 	if len(scopes) == 0 {
-		return nil, fmt.Errorf("at least one explicitly selected Shared scope is required")
+		return workloadPlan{}, fmt.Errorf("at least one explicitly selected Shared scope is required")
 	}
 	audiences := map[string]bool{}
 	seen := map[string]bool{}
 	for _, scope := range scopes {
 		if scope == "" || seen[scope] || !slices.Contains(p.AllowedScopes, scope) {
-			return nil, fmt.Errorf("scope not allocated to selected Shared workload")
+			return workloadPlan{}, fmt.Errorf("scope not allocated to selected Shared workload")
 		}
 		seen[scope] = true
 		owners := manifest.ScopeAudiences[scope]
 		if len(owners) != 1 || !slices.Contains(p.AllowedAudiences, owners[0]) {
-			return nil, fmt.Errorf("scope has no single approved resource audience")
+			return workloadPlan{}, fmt.Errorf("scope has no single approved resource audience")
 		}
 		audiences[owners[0]] = true
 	}
 	if len(audiences) == 0 {
-		return nil, fmt.Errorf("no verified audience for selected scopes")
+		return workloadPlan{}, fmt.Errorf("no verified audience for selected scopes")
 	}
 	out := make([]string, 0, len(audiences))
 	for audience := range audiences {
 		out = append(out, audience)
 	}
 	sort.Strings(out)
-	return out, nil
+	return workloadPlan{
+		LogicalClientID: id,
+		Environment:     p.Environment,
+		RegistryCommit:  manifest.SourceCommit,
+		Scopes:          scopes,
+		Audiences:       out,
+	}, nil
 }
