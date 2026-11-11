@@ -123,9 +123,6 @@ func (c *hydraClient) provisionClient(
 		if err := c.verifyWorkloadConfiguration(ctx, spec); err != nil {
 			return nil, err
 		}
-		if created.ClientID == "" {
-			created.ClientID = clientID
-		}
 		// Secret is only returned on create; prefer our generated value.
 		if secret == "" && created.ClientSecret != "" {
 			secret = created.ClientSecret
@@ -360,6 +357,9 @@ func (c *hydraClient) listTrustedJWTIssuers(ctx context.Context, issuer string) 
 }
 
 func (c *hydraClient) postClient(ctx context.Context, body hydraOAuth2Client) (*hydraOAuth2Client, error) {
+	if !validNativeIdentitySubject(body.ClientID) {
+		return nil, &provider.ProviderError{Kind: provider.ErrInvalidArgument, Provider: "ory", Message: "invalid native workload client identifier"}
+	}
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return nil, wrapErr("hydra marshal client", err)
@@ -387,7 +387,10 @@ func (c *hydraClient) postClient(ctx context.Context, body hydraOAuth2Client) (*
 	}
 	var created hydraOAuth2Client
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
-		created = body
+		return nil, &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "Hydra workload creation response did not verify the client identifier"}
+	}
+	if created.ClientID != body.ClientID {
+		return nil, &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "Hydra workload creation subject mismatch"}
 	}
 	return &created, nil
 }

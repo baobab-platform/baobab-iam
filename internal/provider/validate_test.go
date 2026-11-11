@@ -91,8 +91,8 @@ func TestIdentityProvisioningSpecValidate(t *testing.T) {
 
 func TestIdentityProvisioningRejectsNestedAuthoritySmuggling(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		traits map[string]any
+		name     string
+		traits   map[string]any
 		metadata map[string]string
 	}{
 		{"nested ERP role", map[string]any{"profile": map[string]any{"AD_Role": "System Admin"}}, nil},
@@ -108,7 +108,7 @@ func TestIdentityProvisioningRejectsNestedAuthoritySmuggling(t *testing.T) {
 		})
 	}
 	good := provider.IdentityProvisioningSpec{
-		Traits: map[string]any{"email": "person@example.test", "name": map[string]any{"given": "Amina", "family": "Nab"}},
+		Traits:   map[string]any{"email": "person@example.test", "name": map[string]any{"given": "Amina", "family": "Nab"}},
 		Metadata: map[string]string{"migration_id": "migration_01"},
 	}
 	if err := good.Validate(); err != nil {
