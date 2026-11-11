@@ -11,6 +11,23 @@ PRIVATE = {"d", "p", "q", "dp", "dq", "qi", "oth", "k"}
 ASYMMETRIC = {"RSA": {"RS256", "PS256"}, "EC": {"ES256", "ES384", "ES512"},
               "OKP": {"EdDSA"}}
 MATERIAL = {"RSA": ("n", "e"), "EC": ("crv", "x", "y"), "OKP": ("crv", "x")}
+EC_ALGORITHM_CURVE = {"ES256": ("P-256", 32), "ES384": ("P-384", 48), "ES512": ("P-521", 66)}
+OKP_CURVE_BYTES = {"Ed25519": 32, "Ed448": 57}
+
+
+def decode_component(value):
+    if not valid_component(value):
+        raise ValueError("invalid JWK public material encoding")
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+def unique_object(pairs):
+    obj = {}
+    for key, value in pairs:
+        if key in obj:
+            raise ValueError("duplicate JWK or plan property")
+        obj[key] = value
+    return obj
 
 
 def material(key):
@@ -53,8 +70,23 @@ def public_keys(document):
             raise ValueError("incomplete OKP public key")
         if not all(valid_component(key[name]) for name in MATERIAL[kty] if name != "crv"):
             raise ValueError("invalid JWK public material encoding")
-        if kty == "RSA" and any(base64.urlsafe_b64decode(key[name] + "=" * (-len(key[name]) % 4))[0] == 0 for name in MATERIAL[kty]):
-            raise ValueError("non-canonical RSA public integer")
+        if kty == "RSA":
+            modulus, exponent = (decode_component(key[name]) for name in ("n", "e"))
+            if modulus[0] == 0 or exponent[0] == 0:
+                raise ValueError("non-canonical RSA public integer")
+            if int.from_bytes(modulus, "big").bit_length() < 2048:
+                raise ValueError("RSA public modulus shorter than 2048 bits")
+            exp = int.from_bytes(exponent, "big")
+            if exp < 65537 or exp % 2 == 0:
+                raise ValueError("unsupported RSA public exponent")
+        elif kty == "EC":
+            expected_curve, byte_count = EC_ALGORITHM_CURVE[alg]
+            if key.get("crv") != expected_curve or len(decode_component(key["x"])) != byte_count or len(decode_component(key["y"])) != byte_count:
+                raise ValueError("EC curve, algorithm or coordinate size mismatch")
+        elif kty == "OKP":
+            byte_count = OKP_CURVE_BYTES.get(key.get("crv"))
+            if byte_count is None or len(decode_component(key["x"])) != byte_count:
+                raise ValueError("unsupported OKP curve or public key length")
         found[kid] = key
     return found
 
@@ -102,11 +134,11 @@ def main():
     args = parser.parse_args()
     try:
         with open(args.before, encoding="utf-8") as f:
-            before = json.load(f)
+            before = json.load(f, object_pairs_hook=unique_object)
         with open(args.after, encoding="utf-8") as f:
-            after = json.load(f)
+            after = json.load(f, object_pairs_hook=unique_object)
         with open(args.plan, encoding="utf-8") as f:
-            plan = json.load(f)
+            plan = json.load(f, object_pairs_hook=unique_object)
         verify(before, after, plan)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"JWKS ROTATION HELD: {exc}", file=sys.stderr)
