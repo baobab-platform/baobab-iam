@@ -53,6 +53,10 @@ jobs:
         run: go test -race ./pkg/workloadresource/... ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
         run: python3 -m pip install PyYAML==6.0.3
+      - name: Enforce immutable native, federation and PostgreSQL image pins
+        run: |
+          python3 scripts/check_runtime_image_pins.py
+          python3 -B -m unittest discover -s tests/unit -p 'test_runtime_image_pins.py'
       - name: Verify IAM-N01 ADR precedence, immutable Shared pin and development boundary
         run: |
           python3 scripts/check_iam_n01.py
