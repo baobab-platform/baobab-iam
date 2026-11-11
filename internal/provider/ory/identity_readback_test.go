@@ -109,7 +109,7 @@ func TestKratosReadbackAcceptsExactIssuerSubject(t *testing.T) {
 	defer srv.Close()
 	adapter, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL,
-		PublicIssuer: issuer, HTTPClient: srv.Client(),
+		PublicIssuer: issuer, HTTPClient: ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatal(err)
