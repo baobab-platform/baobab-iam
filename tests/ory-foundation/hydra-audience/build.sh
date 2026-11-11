@@ -55,19 +55,26 @@ git -C "$candidate_dir/source" apply "$test_patch"
 jose_patch="$root/tests/ory-foundation/hydra-audience/jose-v4.patch"
 git -C "$candidate_dir/source" apply --check "$jose_patch"
 git -C "$candidate_dir/source" apply "$jose_patch"
+# The frozen upstream Hydra source still carries x/net v0.60.0 in the
+# isolated audience-backport candidate. CVE-2026-78661 is fixed in v0.62.0.
+# Upgrade the *candidate's own* Go graph before testing/building its OCI
+# image; updating IAM go.mod alone cannot fix a separately compiled binary.
+# Go verifies go.sum through the normal public checksum database. The exact
+# resolved go.mod and go.sum digests are included in the candidate receipt,
+# so this non-production-only upgrade cannot be mistaken for the released
+# Hydra provider.lock.yaml artifact.
 (
   cd "$candidate_dir/source"
-  # security.patch originally pinned x/net v0.60.0; CVE-2026-78661 is
-  # fixed in v0.62.0. Upgrade the actual isolated Hydra binary graph, not
-  # just baobab-iam's own go.mod. Resolve required transitive Go modules
-  # and insist on the original pinned candidate's real build/tests.
-  go mod edit -require=golang.org/x/net@v0.62.0
+  go get golang.org/x/net@v0.62.0
   go mod tidy
-  resolved_net=$(go list -m -f '{{.Version}}' golang.org/x/net)
-  if [ "$resolved_net" != "v0.62.0" ]; then
-    echo "Refuse Hydra candidate: x/net is $resolved_net, expected v0.62.0" >&2
+  selected=$(go list -m -f '{{.Version}}' golang.org/x/net)
+  if [[ "$selected" != v0.62.0 ]]; then
+    echo "Unexpected Hydra candidate x/net version: $selected" >&2
     exit 1
   fi
+)
+(
+  cd "$candidate_dir/source"
   # The explicit test tag retains the original Docker helpers in upstream tests.
   go test -race ./fosite/token/jwt ./fosite/handler/rfc7523 ./driver/config ./internal/candidatesecurity
   go test -race github.com/go-jose/go-jose/v4 -run 'TestRsaKeyChecks|TestEmbeddedPrivateJWKRejected|TestPrivateEPKRejected' -count=1

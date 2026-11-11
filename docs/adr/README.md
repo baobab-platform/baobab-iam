@@ -2,6 +2,13 @@
 
 This directory contains the ADRs for Baobab IAM.
 
+## Consolidated IAM technical specifications
+
+- [Consolidated Technical Specification v2.0 — APPROVED reconciliation](./Consolidated-Technical-Specification-v2.0.md) — approved **governing interpretation** of provider-neutral ADR-0033, accepted EA v2.3 and EA-DEV, with 44 traceable requirements; **not** independent ADR acceptance or development/protected approval.
+- [v1.0 historical baseline (9 September 2026)](./Consolidated-Technical-Specification.md) — retains all 227 numbered sections and IAM Gates 0–16; Keycloak-primary and Thamani B2C implementation targets are superseded by later accepted owner decisions.
+- [Machine-readable old-to-new section/gate crosswalk](../governance/iam-cts-v2-reconciliation.json) — independently validated by **python3 scripts/check_iam_cts_v2.py**; ownership/precedence, **not** a duplicate runtime status register.
+- **Implementation evidence:** [IAM N01–N03 dated development hold](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md) and Shared's authoritative EA-DEV register. Scope allocations, capability support, legal mandates and protected release remain separately governed.
+
 ## Programme ADRs (0001–0018)
 
 - [ADR-0001: Baobab Identity and Access Management Architecture](./ADR-0001%20—%20Baobab%20Identity%20and%20Access%20Management%20Architecture.md)
