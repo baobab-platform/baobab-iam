@@ -59,14 +59,17 @@ type Adapter struct {
 // It does not perform network I/O; call ProviderInfo or a readiness probe
 // to verify connectivity.
 func NewAdapter(cfg Config) (*Adapter, error) {
-	if cfg.KratosAdminURL == "" {
-		return nil, fmt.Errorf("ory: KratosAdminURL is required")
+	// Reject malformed or userinfo-bearing endpoints before constructing the
+	// privileged Kratos/Hydra admin clients. This validates origin shape, not
+	// network placement: production still requires private admin-plane routing.
+	if err := validateProviderEndpoint(cfg.KratosAdminURL, true); err != nil {
+		return nil, fmt.Errorf("ory: KratosAdminURL: %w", err)
 	}
-	if cfg.HydraAdminURL == "" {
-		return nil, fmt.Errorf("ory: HydraAdminURL is required")
+	if err := validateProviderEndpoint(cfg.HydraAdminURL, true); err != nil {
+		return nil, fmt.Errorf("ory: HydraAdminURL: %w", err)
 	}
-	if cfg.PublicIssuer == "" {
-		return nil, fmt.Errorf("ory: PublicIssuer is required")
+	if err := validateProviderEndpoint(cfg.PublicIssuer, false); err != nil {
+		return nil, fmt.Errorf("ory: PublicIssuer: %w", err)
 	}
 
 	timeout := cfg.RequestTimeout
