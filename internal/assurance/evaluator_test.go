@@ -252,3 +252,50 @@ func TestRequestAndPolicyAreNotUserChosen(t *testing.T) {
 		t.Fatal("caller mutated reviewed policy after construction")
 	}
 }
+
+// A provider recheck must not turn an expired or cancelled evaluation into success.
+type advancingReader struct {
+	value     Evidence
+	afterRead func(int)
+	reads     int
+}
+
+func (r *advancingReader) Read(context.Context, string, string) (Evidence, error) {
+	r.reads++
+	r.afterRead(r.reads)
+	return r.value, nil
+}
+func TestRecheckCannotOutliveFreshnessOrCancellation(t *testing.T) {
+	for _, mode := range []string{"expiry", "cancel", "clock rollback", "mutated buffer"} {
+		t.Run(mode, func(t *testing.T) {
+			now := fixedNow
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s := sample()
+			r := &advancingReader{value: s}
+			r.afterRead = func(read int) {
+				if read != 2 {
+					return
+				}
+				switch mode {
+				case "expiry":
+					now = fixedNow.Add(time.Hour)
+				case "cancel":
+					cancel()
+				case "clock rollback":
+					now = fixedNow.Add(-time.Second)
+				case "mutated buffer":
+					r.value.Methods[0] = "unknown"
+				}
+			}
+			e, err := New(r, func() time.Time { return now }, ConservativePolicies())
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := e.Evaluate(ctx, request(s, Login))
+			if got.Outcome == MetNotAuthorization || got.EvidenceReference != "" {
+				t.Fatalf("late or mutated evidence accepted: %+v", got)
+			}
+		})
+	}
+}

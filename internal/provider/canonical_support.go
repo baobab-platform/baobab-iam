@@ -4,8 +4,8 @@ package provider
 // They name pinned Shared vocabulary; they are not CP grants or runtime authority.
 const (
 	CapabilityHumanAuthentication     = "identity.authentication.perform"
-	CapabilityEnterpriseFederation    = "identity.federation.enterprise"
 	CapabilityAuthenticationAssurance = "identity.authentication.assurance"
+	CapabilityEnterpriseFederation    = "identity.federation.enterprise"
 	CapabilityWorkloadTokenIssue      = "identity.workload-token.issue"
 )
 

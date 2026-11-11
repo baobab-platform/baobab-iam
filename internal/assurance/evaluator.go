@@ -208,6 +208,8 @@ func (e *Evaluator) Evaluate(ctx context.Context, req Request) Result {
 	if err != nil {
 		return result
 	}
+	// Preserve the first observation even when the reader reuses its buffer.
+	first.Methods = slices.Clone(first.Methods)
 	if first.SessionReference != req.SessionReference || first.EventReference != req.AuthenticationEventReference || !referenceRE.MatchString(first.EvidenceReference) ||
 		!first.Active || !first.IdentityActive {
 		result.Reason = CurrentSessionMissing
@@ -273,6 +275,14 @@ func (e *Evaluator) Evaluate(ctx context.Context, req Request) Result {
 		result.Reason = CurrentSessionMissing
 		return result
 	}
+	// Provider reads can block across expiry or cancellation. Freshness must
+	// still hold when the favorable result is emitted, not only at entry.
+	completedAt := e.now().UTC()
+	if ctx.Err() != nil || completedAt.Before(now) || !until.After(completedAt) {
+		result.Reason = FreshStepUpRequired
+		return result
+	}
+	result.EvaluatedAt = completedAt
 	if len(first.Methods) > 12 {
 		return result
 	}
