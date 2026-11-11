@@ -1,6 +1,11 @@
 # Baobab IAM (`baobab-iam`)
 
 > **TECHNICAL SPECIFICATION RECONCILIATION:** The [v2.0 approved provider-neutral CTS](docs/adr/Consolidated-Technical-Specification-v2.0.md) reconciles the [9 September Keycloak-centred CTS v1.0](docs/adr/Consolidated-Technical-Specification.md) with Accepted IAM ADR-0033, EA v2.3 and EA-DEV. Its [227-section / 17-gate crosswalk](docs/governance/iam-cts-v2-reconciliation.json) is checked in CI. **An approved specification is not provider support, completed development evidence or protected release approval.** Current Shared EA-DEV and the IAM N01–N03 audit still own those claims.
+**N04 actual resource admission path (development source):** `pkg/workloadresource.NewCPRegisteredBinding` reads CP-owned current provider/instance/scope/facet/artifact state over independently authenticated HTTPS; `NewRegisteredGate` rechecks that binding both before and after the N03 issuer→CP→domain PEP request, and `NewMiddleware` supports the composite gate. Tests cover revoked bindings, stale profiles, mixed organisation/estate, signed resource/CP and artifact drift. See [N04 development owner runbook](docs/operations/n04-provider-support-development-qualification.md). **These tests exercise a local TLS CP fixture, not an accepted external CP engine; real D-N04 qualification is still HELD.**
+
+
+**IAM-N04 — registered support/consumer development qualification (stacked draft):** [N04 owner runbook and source-bound evidence verifier](docs/operations/n04-provider-support-development-qualification.md) adds fail-closed readback of original N02/DEV-04, C4-03B–E, Pulse/Payments ENG-ONB development receipts and immutably reviewed IAM/Shared/CP pins; negative fixture tests run in CI. **It never registers CP providers, activates a binding, verifies a runtime producer independently or certifies development completion.** Actual owner CP support readback, genuine registered C4-04B/C consumption and N01–N03 outstanding development qualification remain mandatory; Kratos/Hydra/Keycloak support remains PARTIAL. N04 is a draft implementation increment, not staging/production acceptance.
+
 
 > **DEVELOPMENT COMPLETION HOLD — N01–N03 NOT CERTIFIED (audited 31 October 2026).**
 > **Do not report “development complete”, “only staging/production outstanding”, or “ready for protected handoff”.**

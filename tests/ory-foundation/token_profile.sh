@@ -241,6 +241,25 @@ for name in (parent,) + tuple(parent + '/' + suffix for suffix in subcases):
         raise SystemExit('N03 genuine issuer/CP route consumer case missing PASS')
     if any(e.get('Test') == name and e.get('Action') == 'skip' for e in events):
         raise SystemExit('N03 genuine issuer/CP route case skipped')
+# N04 fixture executes REAL Hydra access-token issuance/JWKS/introspection and
+# the unchanged CP current-router fixture. Private CP registration itself is
+# a TLS test server, NOT a real CP owner/AdministrativeGrant/PG17 admission.
+n04_fixture_cases = (
+    'N04-real-Hydra-and-CP-source-fixture-accepted',
+    'N04-real-Hydra-CP-binding-withdraw-first-denied',
+    'N04-real-Hydra-CP-binding-withdraw-second-denied',
+    'N04-real-Hydra-CP-binding-wrong-tenant-denied',
+    'N04-real-Hydra-CP-binding-stale-source-denied',
+    'N04-real-Hydra-CP-binding-changed-artifact-denied',
+    'N04-real-Hydra-CP-binding-unverified-denied',
+)
+for case in n04_fixture_cases:
+    name = parent + '/' + case
+    if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit('N04 real-Hydra/local-CP-TLS-source fixture case missing PASS')
+    if any(e.get('Test') == name and e.get('Action') == 'skip' for e in events):
+        raise SystemExit('N04 real-Hydra/local-CP-TLS-source fixture case SKIPPED')
+print('N04 provider component fixture PASSED; NOT CP registration or native acceptance')
 proof = json.loads((root / 'n03-resource-acceptance.json').read_text())
 if (proof.get('classification') != 'REAL_COMPONENT_SYNTHETIC_DATA' or
         proof.get('fixture_only') is not True or

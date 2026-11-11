@@ -103,6 +103,68 @@ func TestProvisionWorkload_CreateAndNormalizeScopes(t *testing.T) {
 	}
 }
 
+// TestHydraWorkloadDisableRefusesUnverifiedProviderReadback proves that a
+// 200 admin PUT alone cannot certify token-issuer grant withdrawal.
+func TestHydraWorkloadDisableRefusesUnverifiedProviderReadback(t *testing.T) {
+	for _, behaviour := range []string{"ignores-write", "readback-error", "different-client", "verified"} {
+		t.Run(behaviour, func(t *testing.T) {
+			reads := 0
+			puts := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/admin/clients/baobab-trade-workload" {
+					http.NotFound(w, r)
+					return
+				}
+				switch r.Method {
+				case http.MethodGet:
+					reads++
+					if reads == 2 && behaviour == "readback-error" {
+						w.WriteHeader(http.StatusServiceUnavailable)
+						return
+					}
+					clientID := "baobab-trade-workload"
+					grants := []string{"client_credentials"}
+					if reads == 2 {
+						if behaviour == "verified" || behaviour == "different-client" {
+							grants = []string{}
+						}
+						if behaviour == "different-client" {
+							clientID = "baobab-other-workload"
+						}
+					}
+					w.Header().Set("Content-Type", "application/json")
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"client_id": clientID, "grant_types": grants,
+						"scope": "actor-type-workload context:resolve",
+					})
+				case http.MethodPut:
+					puts++
+					w.WriteHeader(http.StatusOK)
+				default:
+					w.WriteHeader(http.StatusMethodNotAllowed)
+				}
+			}))
+			defer server.Close()
+			a, err := ory.NewAdapter(ory.Config{
+				KratosAdminURL: server.URL, HydraAdminURL: server.URL,
+				PublicIssuer: "https://issuer.example.test", HTTPClient: server.Client(),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = a.DisableWorkload(context.Background(), provider.ProviderWorkloadReference{
+				LogicalClientID: "baobab-trade-workload",
+			})
+			if (err == nil) != (behaviour == "verified") {
+				t.Fatalf("client grant withdrawal was misclassified: %v", err)
+			}
+			if reads != 2 || puts != 1 {
+				t.Fatalf("issuer readback absent: reads=%d puts=%d", reads, puts)
+			}
+		})
+	}
+}
+
 // TestDisableWorkload_ClearsGrantTypes ensures soft-disable (M4 rollback path)
 // clears grant_types without requiring DELETE (Keycloak client remains until dual-run ends).
 func TestDisableWorkload_ClearsGrantTypes(t *testing.T) {
@@ -112,6 +174,10 @@ func TestDisableWorkload_ClearsGrantTypes(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/admin/clients/baobab-trade-workload":
 			w.Header().Set("Content-Type", "application/json")
+			if putBody != nil {
+				_ = json.NewEncoder(w).Encode(putBody)
+				return
+			}
 			_, _ = w.Write([]byte(`{
 				"client_id":"baobab-trade-workload",
 				"client_name":"Baobab Trade Workload",

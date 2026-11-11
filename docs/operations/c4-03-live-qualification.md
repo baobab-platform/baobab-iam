@@ -1,5 +1,8 @@
 # C4-03 — live Kratos/Hydra–CP qualification programme
 
+**IAM-N04 cross-receipt dependency (31 October 2026):** [N04 development source/receipt gate](n04-provider-support-development-qualification.md) requires **the original full C4-03B–E registered-live result** (all fourteen existing case keys, current CP withdrawal, genuine issuer/provider contact) and denies a C4-03A read-only substitute, missing checksum or source mismatch. N04's offline integrity verification is neither an independent producer attestation nor a claim that C4-03B–E have actually run on the latest IAM/CP source. Those genuine development tests remain BLOCKED until executed. Staging/production evidence is separate.
+
+
 > **DEVELOPMENT FIRST — N01–N03 NOT CERTIFIED (31 October 2026).** Before any protected C4-03B–E execution, actual **development** browser–Kratos–Hydra–CP/estate and issuer→CP→resource cases must be executed with original, matching source/run pins, unchanged negative cases, revocation while unexpired, and teardown. These connected runs are **not yet evidenced** by the stacked N01–N03 PRs; they must not be described as protected-only blockers. A source-ready runner or isolated provider test is not acceptance. [Development closure audit](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md). Protected approval/custody/operations remain separately gated.
 
 
