@@ -51,11 +51,12 @@ type testVerifier struct {
 	calls        int
 	change       bool
 	unauthorized bool
+	withdrawOn   int
 }
 
 func (v *testVerifier) VerifyEmergency(_ context.Context, _ Request) (Witness, error) {
 	v.calls++
-	if v.unauthorized {
+	if v.unauthorized || v.calls == v.withdrawOn {
 		return Witness{}, errors.New("authority absent")
 	}
 	proof := v.proof
@@ -123,7 +124,7 @@ func TestScopedBreakGlassActivationAndTermination(t *testing.T) {
 		t.Fatal(err)
 	}
 	if journal.reserved != 1 || journal.activate != 1 || alerts.calls != 1 ||
-		audit.calls != 1 || verifier.calls != 2 || journal.lease.Status != StateActive {
+		audit.calls != 1 || verifier.calls != 3 || journal.lease.Status != StateActive {
 		t.Fatal("unwitnessed emergency activation")
 	}
 	if err := service.Check(context.Background(), request); err != nil {
@@ -168,6 +169,9 @@ func TestNoActivationOnApprovalOrAuditFailure(t *testing.T) {
 		{"unavailable-verifier", func(verifier *testVerifier, _ *testNotice, _ *testNotice) {
 			verifier.unauthorized = true
 		}},
+		{"withdrawn-after-alert-and-audit", func(verifier *testVerifier, _ *testNotice, _ *testNotice) {
+			verifier.withdrawOn = 3
+		}},
 		{"critical-alert-failed", func(_ *testVerifier, alerts *testNotice, _ *testNotice) {
 			alerts.fail = true
 		}},
@@ -203,5 +207,28 @@ func TestLeaseCannotBeReusedForDifferentTarget(t *testing.T) {
 	request.ScopeID = "f8ee65b7-0b2f-4f1e-86f7-14346cf70910"
 	if !errors.Is(service.Check(context.Background(), request), ErrBreakGlassDenied) {
 		t.Fatal("scope-changing emergency use allowed")
+	}
+}
+
+func TestActiveLeaseRequiresSameCurrentApprovalUntilExpiry(t *testing.T) {
+	now := time.Now().UTC()
+	service, _, verifier, _, _, request := setup(now)
+	service.Now = func() time.Time { return now }
+	ctx := context.Background()
+	if err := service.Activate(ctx, request); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(2 * time.Minute)
+	if err := service.Check(ctx, request); err != nil {
+		t.Fatalf("current approval inside its lease was refused: %v", err)
+	}
+	verifier.proof.IndependentAuthRef = "different-authentication"
+	if !errors.Is(service.Check(ctx, request), ErrBreakGlassDenied) {
+		t.Fatal("changed authentication witness accepted")
+	}
+	verifier.proof.IndependentAuthRef = "hardware-auth-security-witness"
+	now = verifier.proof.ExpiresAt
+	if !errors.Is(service.Check(ctx, request), ErrBreakGlassDenied) {
+		t.Fatal("expired lease accepted")
 	}
 }

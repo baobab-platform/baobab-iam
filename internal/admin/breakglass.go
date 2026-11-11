@@ -55,8 +55,9 @@ type Witness struct {
 	IndependentReviewRef string
 }
 
-// IndependentVerifier must derive actor, checker and emergency authentication
-// from controls not solely dependent upon the unavailable native IAM plane.
+// IndependentVerifier must read current actor, checker and emergency authority
+// on each call, using controls independent of the unavailable native IAM plane.
+// The returned witness identifies the original approval for this exact request.
 type IndependentVerifier interface {
 	VerifyEmergency(context.Context, Request) (Witness, error)
 }
@@ -103,14 +104,21 @@ type BreakGlass struct {
 	Now      func() time.Time
 }
 
-func (b *BreakGlass) validWitness(w Witness, now time.Time) bool {
+func validApproval(w Witness, now time.Time) bool {
 	return uuid.MatchString(w.ActorID) && uuid.MatchString(w.ApproverID) &&
 		w.ActorID != w.ApproverID &&
 		w.IndependentAuthRef != "" && w.IndependentReviewRef != "" &&
 		!w.ApprovedAt.IsZero() && !w.ApprovedAt.After(now) &&
-		now.Sub(w.ApprovedAt) <= time.Minute &&
 		now.Before(w.ExpiresAt) &&
 		!w.ExpiresAt.After(w.ApprovedAt.Add(MaxEmergencyDuration))
+}
+
+func sameApproval(a, b Witness) bool {
+	// Match the timestamps at the PostgreSQL journal's precision.
+	return a.ActorID == b.ActorID && a.ApproverID == b.ApproverID &&
+		a.IndependentAuthRef == b.IndependentAuthRef && a.IndependentReviewRef == b.IndependentReviewRef &&
+		a.ApprovedAt.Truncate(time.Microsecond).Equal(b.ApprovedAt.Truncate(time.Microsecond)) &&
+		a.ExpiresAt.Truncate(time.Microsecond).Equal(b.ExpiresAt.Truncate(time.Microsecond))
 }
 
 // Activate creates only a bounded, purpose-specific security ledger record;
@@ -121,9 +129,9 @@ func (b *BreakGlass) Activate(ctx context.Context, request Request) error {
 		b.Journal == nil || b.Now == nil || !request.Valid() {
 		return ErrBreakGlassDenied
 	}
-	now := b.Now().UTC()
 	w, err := b.Verifier.VerifyEmergency(ctx, request)
-	if err != nil || !b.validWitness(w, now) {
+	now := b.Now().UTC()
+	if err != nil || !validApproval(w, now) || now.Sub(w.ApprovedAt) > time.Minute {
 		return ErrBreakGlassDenied
 	}
 	lease := Lease{Request: request, Witness: w, Status: StatePending}
@@ -134,9 +142,7 @@ func (b *BreakGlass) Activate(ctx context.Context, request Request) error {
 	// reserving. Any failure leaves PENDING, never a usable lease.
 	fresh, err := b.Verifier.VerifyEmergency(ctx, request)
 	at := b.Now().UTC()
-	if err != nil || !b.validWitness(fresh, at) ||
-		fresh.ActorID != w.ActorID || fresh.ApproverID != w.ApproverID ||
-		fresh.IndependentReviewRef != w.IndependentReviewRef {
+	if err != nil || !validApproval(fresh, at) || !sameApproval(fresh, w) || at.Sub(w.ApprovedAt) > time.Minute {
 		return ErrBreakGlassDenied
 	}
 	alert, err := b.Alerts.RaiseCritical(ctx, request, w)
@@ -145,6 +151,12 @@ func (b *BreakGlass) Activate(ctx context.Context, request Request) error {
 	}
 	audit, err := b.Audit.RecordActivation(ctx, request, w)
 	if err != nil || !validReceipt(audit, request.LeaseID, b.Now().UTC()) {
+		return ErrBreakGlassDenied
+	}
+	current, err := b.Verifier.VerifyEmergency(ctx, request)
+	at = b.Now().UTC()
+	if err != nil || !validApproval(current, at) || !sameApproval(current, w) || at.Sub(w.ApprovedAt) > time.Minute ||
+		!validReceipt(alert, request.LeaseID, at) || !validReceipt(audit, request.LeaseID, at) {
 		return ErrBreakGlassDenied
 	}
 	if err := b.Journal.Activate(ctx, request.LeaseID); err != nil {
@@ -170,14 +182,12 @@ func (b *BreakGlass) Check(ctx context.Context, request Request) error {
 	lease, err := b.Journal.Read(ctx, request.LeaseID)
 	now := b.Now().UTC()
 	if err != nil || lease.Request != request || lease.Status != StateActive ||
-		!b.validWitness(lease.Witness, now) {
+		!validApproval(lease.Witness, now) {
 		return ErrBreakGlassDenied
 	}
 	current, err := b.Verifier.VerifyEmergency(ctx, request)
-	if err != nil || !b.validWitness(current, now) ||
-		current.ActorID != lease.Witness.ActorID ||
-		current.ApproverID != lease.Witness.ApproverID ||
-		current.IndependentReviewRef != lease.Witness.IndependentReviewRef {
+	now = b.Now().UTC()
+	if err != nil || !validApproval(lease.Witness, now) || !validApproval(current, now) || !sameApproval(current, lease.Witness) {
 		return ErrBreakGlassDenied
 	}
 	return nil
