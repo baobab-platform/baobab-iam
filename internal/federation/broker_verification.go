@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/crewjam/saml"
+	"github.com/supatype/saml"
 	jose "github.com/go-jose/go-jose/v4"
 )
 
