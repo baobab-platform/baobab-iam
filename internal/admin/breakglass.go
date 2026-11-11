@@ -33,8 +33,9 @@ type Request struct {
 }
 
 func (r Request) Valid() bool {
+	scopeType, known := allowed[r.Action]
 	if !uuid.MatchString(r.LeaseID) || !uuid.MatchString(r.IncidentID) ||
-		!uuid.MatchString(r.ScopeID) || allowed[r.Action] != r.ScopeType {
+		!uuid.MatchString(r.ScopeID) || !known || scopeType != r.ScopeType {
 		return false
 	}
 	switch r.Reason {

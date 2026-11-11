@@ -143,6 +143,10 @@ func TestUnknownScopeCannotActivate(t *testing.T) {
 	if !errors.Is(service.Activate(context.Background(), request), ErrBreakGlassDenied) {
 		t.Fatal("business-authority escalation accepted")
 	}
+	request.ScopeType = ""
+	if !errors.Is(service.Activate(context.Background(), request), ErrBreakGlassDenied) {
+		t.Fatal("unregistered action with an empty scope was accepted")
+	}
 	request.Action = "SUSPEND_FEDERATION"
 	request.ScopeType = "ISSUER"
 	if !errors.Is(service.Activate(context.Background(), request), ErrBreakGlassDenied) {
