@@ -112,6 +112,12 @@ func (c Config) HumanConsent(clientID string, requestedScopes []string) ([]strin
 	if !ok || p.Status != "ACTIVE" || p.HumanTokenProfile == nil || p.Environment == "" || p.Environment != c.Environment {
 		return nil, fmt.Errorf("buyer consent denied")
 	}
+	// Do not rely on a separate caller having validated the Shared projection.
+	// Direct consent requests must refuse malformed or widened BFF profiles
+	// before deriving any resource audience.
+	if err := p.HumanTokenProfile.validate(p); err != nil {
+		return nil, fmt.Errorf("buyer consent profile denied: %w", err)
+	}
 	if !slices.Contains(requestedScopes, "openid") {
 		return nil, fmt.Errorf("buyer consent requires openid")
 	}
@@ -204,6 +210,12 @@ func (c Config) HumanClaims(e HumanEvidence, sealKey []byte) (map[string]any, er
 	}
 	if !ok || p.Status != "ACTIVE" || p.HumanTokenProfile == nil || p.Environment == "" || p.Environment != c.Environment {
 		return nil, fmt.Errorf("human issuance denied")
+	}
+	// Direct hook invocation must enforce the exact same pinned Shared
+	// confidential BFF profile as governed consent. A malformed projection
+	// cannot become a human authorization grant simply because a seal exists.
+	if err := p.HumanTokenProfile.validate(p); err != nil {
+		return nil, fmt.Errorf("human issuance profile denied: %w", err)
 	}
 	if e.Grant != "authorization_code" && e.Grant != "refresh_token" {
 		return nil, fmt.Errorf("human grant profile mismatch")
