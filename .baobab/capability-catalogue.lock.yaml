@@ -1,0 +1,20 @@
+# Read-only contract metadata pin for the IAM provider capability declaration.
+# ADR-SHARED-017: WHAT is catalogued by Shared; WHO is declared by IAM.
+# This file is NOT an issuer/workload input and MUST NOT replace the runtime
+# contracts.lock.yaml pin consumed by workload scopes, audiences and lifecycle.
+# In particular, Shared 004937ff contains 17 more ACTIVE workload profiles
+# than the runtime pin 1517429; importing those profiles is a separate
+# reviewed security/issuer qualification, not capability registration.
+schema: baobab-capability-catalogue-consumer-lock
+version: "1.0"
+purpose: read-only-provider-declaration-contracts
+source:
+  repository: baobab-platform/shared
+  commit: 004937ff2035fab4ac3b41e05c7887da7abe7014
+contracts:
+  - contracts/capability/v1/catalogue.yaml
+  - contracts/capability/v1/catalogue.schema.json
+  - contracts/capability/v1/provider-declaration.schema.json
+  - contracts/identity/v1/capabilities.yaml
+  - contracts/identity/v1/assurance-evaluation.schema.json
+  - contracts/identity/v1/enterprise-federation-start.schema.json

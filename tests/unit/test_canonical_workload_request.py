@@ -7,13 +7,13 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from provider_publication import load_shared
+from provider_publication import load_runtime_shared
 
 
 class WorkloadRequestContractTests(unittest.TestCase):
     def test_pinned_shared_corpus(self):
         checkout = Path(os.environ['SHARED_REPO_DIR']).resolve()
-        module, _ = load_shared(checkout)
+        module, _ = load_runtime_shared(checkout)
         contracts = module.Contracts(checkout / 'contracts')
         cases = json.loads((ROOT / 'tests/fixtures/canonical-workload-request.json').read_text())
         self.assertTrue(cases)
@@ -24,7 +24,7 @@ class WorkloadRequestContractTests(unittest.TestCase):
 
     def test_pinned_shared_response_corpus(self):
         checkout = Path(os.environ['SHARED_REPO_DIR']).resolve()
-        module, _ = load_shared(checkout)
+        module, _ = load_runtime_shared(checkout)
         contracts = module.Contracts(checkout / 'contracts')
         cases = json.loads((ROOT / 'tests/fixtures/canonical-workload-response.json').read_text())
         for index, case in enumerate(cases):
