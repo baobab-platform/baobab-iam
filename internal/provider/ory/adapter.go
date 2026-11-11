@@ -59,14 +59,17 @@ type Adapter struct {
 // It does not perform network I/O; call ProviderInfo or a readiness probe
 // to verify connectivity.
 func NewAdapter(cfg Config) (*Adapter, error) {
-	if cfg.KratosAdminURL == "" {
-		return nil, fmt.Errorf("ory: KratosAdminURL is required")
+	// Reject malformed or userinfo-bearing endpoints before constructing the
+	// privileged Kratos/Hydra admin clients. This validates origin shape, not
+	// network placement: production still requires private admin-plane routing.
+	if err := validateProviderEndpoint(cfg.KratosAdminURL, true); err != nil {
+		return nil, fmt.Errorf("ory: KratosAdminURL: %w", err)
 	}
-	if cfg.HydraAdminURL == "" {
-		return nil, fmt.Errorf("ory: HydraAdminURL is required")
+	if err := validateProviderEndpoint(cfg.HydraAdminURL, true); err != nil {
+		return nil, fmt.Errorf("ory: HydraAdminURL: %w", err)
 	}
-	if cfg.PublicIssuer == "" {
-		return nil, fmt.Errorf("ory: PublicIssuer is required")
+	if err := validateProviderEndpoint(cfg.PublicIssuer, false); err != nil {
+		return nil, fmt.Errorf("ory: PublicIssuer: %w", err)
 	}
 
 	timeout := cfg.RequestTimeout
@@ -120,6 +123,15 @@ func (a *Adapter) GetIdentity(ctx context.Context, subject provider.ExternalSubj
 	identity, err := a.kratos.getIdentity(ctx, subject.Subject)
 	if err != nil {
 		return nil, err
+	}
+	// Kratos is an identity data source, not the canonical identity mapper.
+	// A stale proxy/cache or unexpected provider response must not substitute
+	// another subject under the requested issuer+subject key (ADR-0004).
+	if identity == nil || identity.Subject != subject.Subject {
+		return nil, &provider.ProviderError{
+			Kind: provider.ErrConflict, Provider: "ory",
+			Message: "Kratos identity readback subject mismatch",
+		}
 	}
 	identity.Issuer = a.cfg.PublicIssuer
 	return identity, nil
@@ -253,6 +265,12 @@ func (a *Adapter) ReconcileIdentity(ctx context.Context, subject provider.Extern
 		}
 		return nil, err
 	}
+	if id == nil || id.Subject != subject.Subject {
+		return nil, &provider.ProviderError{
+			Kind: provider.ErrConflict, Provider: "ory",
+			Message: "Kratos reconciliation subject mismatch",
+		}
+	}
 	id.Issuer = a.cfg.PublicIssuer
 
 	return &provider.ReconciliationResult{
@@ -277,6 +295,14 @@ func (a *Adapter) requireIssuer(subject provider.ExternalSubject) error {
 		return &provider.ProviderError{
 			Kind:     provider.ErrInvalidArgument,
 			Message:  "issuer and subject are required",
+			Provider: "ory",
+		}
+	}
+	// A native Kratos subject is a single opaque resource identifier, never
+	// a URL path, query, fragment or provider-selection instruction.
+	if !validNativeIdentitySubject(subject.Subject) {
+		return &provider.ProviderError{
+			Kind: provider.ErrInvalidArgument, Message: "unsafe native identity subject",
 			Provider: "ory",
 		}
 	}
