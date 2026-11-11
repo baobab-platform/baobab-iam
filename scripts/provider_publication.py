@@ -75,13 +75,23 @@ def load_shared(checkout, repository=ROOT):
     lock = yaml.safe_load((repository / '.baobab/capability-catalogue.lock.yaml').read_text())
     if lock.get('schema') != 'baobab-capability-catalogue-consumer-lock' or lock.get('purpose') != 'read-only-provider-declaration-contracts':
         raise ValueError('read-only capability catalogue pin required')
-    source = lock['source']
+    return _load_shared(checkout, lock['source'], 'capability catalogue')
+
+
+def load_runtime_shared(checkout, repository=ROOT):
+    lock = yaml.safe_load((repository / 'contracts.lock.yaml').read_text())
+    if lock.get('schema') != 'baobab-contract-consumer-lock':
+        raise ValueError('runtime Shared consumer pin required')
+    return _load_shared(checkout, lock['source'], 'runtime contract')
+
+
+def _load_shared(checkout, source, purpose):
     if source['repository'] != 'baobab-platform/shared':
         raise ValueError('unapproved contract authority')
     commit = subprocess.check_output(
         ['git', '-C', str(checkout), 'rev-parse', 'HEAD'], text=True).strip()
     if commit != source['commit']:
-        raise ValueError('Shared checkout does not match the immutable capability catalogue pin')
+        raise ValueError(f'Shared checkout does not match the immutable {purpose} pin')
     if subprocess.check_output(
             ['git', '-C', str(checkout), 'status', '--porcelain', '--untracked-files=all'], text=True).strip():
         raise ValueError('Shared checkout must be clean, including untracked files')

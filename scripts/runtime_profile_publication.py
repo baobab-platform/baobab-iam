@@ -18,7 +18,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from provider_publication import load_shared
+from provider_publication import load_runtime_shared as load_shared
 
 MAX_BODY = 65536
 ENDPOINT = '/internal/identity-runtime/v1/profiles'
