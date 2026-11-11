@@ -272,6 +272,12 @@ func (c Config) HumanClaims(e HumanEvidence, sealKey []byte) (map[string]any, er
 		}
 		amrSeen[method] = true
 	}
+	// Distinct verified factors are required for an MFA claim; a generic
+	// recovery/email code or unverified hardware-key method is not proof.
+	// Only pwd and real TOTP otp may be emitted by nativeAMR today.
+	if amrSeen["mfa"] && (e.ACR != "aal2" || !amrSeen["pwd"] || !amrSeen["otp"]) {
+		return nil, fmt.Errorf("human MFA claim lacks current independent factor evidence")
+	}
 	claims := map[string]any{"actor_type": "human", "azp": e.ClientID, "acr": e.ACR, "auth_time": e.AuthTime}
 	if len(e.AMR) > 0 {
 		claims["amr"] = slices.Clone(e.AMR)
