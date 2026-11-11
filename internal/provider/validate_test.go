@@ -1,6 +1,7 @@
 package provider_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -86,6 +87,51 @@ func TestIdentityProvisioningSpecValidate(t *testing.T) {
 		Traits: map[string]any{"email": "a@b.c"},
 	}).Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestIdentityProvisioningRejectsNestedAuthoritySmuggling(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		traits   map[string]any
+		metadata map[string]string
+	}{
+		{"nested ERP role", map[string]any{"profile": map[string]any{"AD_Role": "System Admin"}}, nil},
+		{"nested tenant", map[string]any{"identity": []any{map[string]any{"tenant_id": "other"}}}, nil},
+		{"nested market", map[string]any{"email": "a@b.c", "attributes": map[string]any{"market": "UG"}}, nil},
+		{"nested supplier approval", map[string]any{"email": "a@b.c", "roles": map[string]any{"supplier-approval": true}}, nil},
+		{"metadata capability", map[string]any{"email": "a@b.c"}, map[string]string{"capability.grant": "allow"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := (provider.IdentityProvisioningSpec{Traits: tc.traits, Metadata: tc.metadata}).Validate(); !provider.IsInvalidArgument(err) {
+				t.Fatalf("identity business authority accepted: %v", err)
+			}
+		})
+	}
+	// The exact wire JSON, not the Go dynamic type, controls whether
+	// nested identity attributes launder CP/ERP/supplier authority.
+	for label, traits := range map[string]map[string]any{
+		"typed nested map":   {"profile": map[string]string{"AD_Client": "System"}},
+		"typed map in slice": {"profile": []map[string]string{{"supplier-approval": "yes"}}},
+		"raw JSON traits":    {"profile": json.RawMessage(`{"market_id":"UG"}`)},
+	} {
+		t.Run(label, func(t *testing.T) {
+			if err := (provider.IdentityProvisioningSpec{Traits: traits}).Validate(); !provider.IsInvalidArgument(err) {
+				t.Fatalf("serialized business authority accepted: %v", err)
+			}
+		})
+	}
+	cyclic := map[string]any{}
+	cyclic["self"] = cyclic
+	if err := (provider.IdentityProvisioningSpec{Traits: cyclic}).Validate(); !provider.IsInvalidArgument(err) {
+		t.Fatalf("non-serializable cyclic identity claims accepted: %v", err)
+	}
+	good := provider.IdentityProvisioningSpec{
+		Traits:   map[string]any{"email": "person@example.test", "name": map[string]any{"given": "Amina", "family": "Nab"}},
+		Metadata: map[string]string{"migration_id": "migration_01"},
+	}
+	if err := good.Validate(); err != nil {
+		t.Fatalf("ordinary identity attributes rejected: %v", err)
 	}
 }
 
