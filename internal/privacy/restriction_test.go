@@ -98,9 +98,10 @@ func (c *cpStub) VerifyRestrictedPrincipal(_ context.Context, _ provider.Externa
 }
 
 type checkpointStub struct {
-	proof CheckpointProof
-	calls int
-	drift bool
+	proof         CheckpointProof
+	calls         int
+	drift         bool
+	evidenceDrift bool
 }
 
 func (c *checkpointStub) VerifyComplete(_ context.Context) (CheckpointProof, error) {
@@ -108,6 +109,11 @@ func (c *checkpointStub) VerifyComplete(_ context.Context) (CheckpointProof, err
 	p := c.proof
 	if c.drift && c.calls > 1 {
 		p.Revision = "different-revision-00001"
+	}
+	if c.evidenceDrift && c.calls > 1 {
+		// A stable revision string with a different original custody receipt
+		// cannot certify that the restored restriction list is unchanged.
+		p.EvidenceRef = "different-independent-custody-receipt"
 	}
 	return p, nil
 }
@@ -231,6 +237,9 @@ func TestRestoreRejectsCurrentDriftAndIncompleteCheckpoint(t *testing.T) {
 		}},
 		{"checkpoint-drift", func(_ *RestoreReconciler, _ *journalStub, _ *nativeStub, _ *cpStub, checkpoint *checkpointStub) {
 			checkpoint.drift = true
+		}},
+		{"same-revision-changed-evidence", func(_ *RestoreReconciler, _ *journalStub, _ *nativeStub, _ *cpStub, checkpoint *checkpointStub) {
+			checkpoint.evidenceDrift = true
 		}},
 		{"checkpoint-absent", func(reconciler *RestoreReconciler, _ *journalStub, _ *nativeStub, _ *cpStub, _ *checkpointStub) {
 			reconciler.Checkpoint = nil
