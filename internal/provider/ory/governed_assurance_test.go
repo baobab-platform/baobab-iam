@@ -25,8 +25,17 @@ type assuranceCurrentDispatch struct {
 
 func (a *assuranceCurrentDispatch) CheckCapability(_ context.Context, capability string) error {
 	a.checks.Add(1)
-	if a.deny.Load() || a.onlyHumanLogin.Load() && capability != provider.CapabilityHumanAuthentication ||
-		capability != provider.CapabilityAuthenticationAssurance {
+	if a.deny.Load() {
+		return errors.New("CP assurance support not currently granted")
+	}
+	if a.onlyHumanLogin.Load() {
+		// Model a CP that really grants interactive login, but never assurance.
+		if capability == provider.CapabilityHumanAuthentication {
+			return nil
+		}
+		return errors.New("CP assurance support not currently granted")
+	}
+	if capability != provider.CapabilityAuthenticationAssurance {
 		return errors.New("CP assurance support not currently granted")
 	}
 	return nil
@@ -103,6 +112,9 @@ func TestGovernedNativeAssuranceUsesRealCurrentProviderAndCPChecks(t *testing.T)
 	}
 	cp.deny.Store(false)
 	cp.onlyHumanLogin.Store(true)
+	if err := cp.CheckCapability(ctx, provider.CapabilityHumanAuthentication); err != nil {
+		t.Fatalf("test setup must retain a genuine human-login CP permission: %v", err)
+	}
 	before := reads.Load()
 	res, err = h.EvaluateAssurance(ctx, credential, req)
 	if err != nil || res.Outcome != assurance.Denied || reads.Load() != before {
