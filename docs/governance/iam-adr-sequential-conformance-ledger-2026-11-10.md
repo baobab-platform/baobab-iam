@@ -59,6 +59,10 @@ ADR-0006 has implemented protocol fences in the browser BFF and token-profile ho
 
 ADR-0007 exposed a concrete boundary drift: native Hydra client GET and PUT paths interpolated raw IDs, and GET did not verify the returned client identity. The new fix refuses unsafe ID text, and mismatched readback before constructing updates. This does not prove credential rotation, CP registered workload activation, or real owner-service resource enforcement.
 
+The Hydra create path also requires the provider to return the exact requested client ID. Empty, malformed and foreign replies result in a conflict with no returned credential. If the outcome is uncertain, reconcile the registered client by exact ID and current configuration before retrying.
+
+CTS2-011, CTS2-021 and CTS2-022 govern these boundaries. This increment retains the merged ADR-0004 Kratos identity checks and the security baseline adopted with CTS v2.0.
+
 ### ADR-0008 / ADR-0009 authority and workforce review
 
 The runtime surface does not confer platform or domain roles through token contents: `nativebff.PrincipalResolver` requires an independent CP read, while `NativeWorkloadReadiness` rechecks provider/CP capability before concluding readiness. Neither check substitutes for domain-native business permission; approval, organisation and market authority must remain in CP and owning engines (ADR-0008). Privileged workforce authentication must be distinct from privilege grants and accompanied by current higher-assurance provider proof (ADR-0009); Keycloak enterprise federation does not create a platform-admin role.
