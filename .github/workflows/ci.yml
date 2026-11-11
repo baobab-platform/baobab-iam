@@ -39,10 +39,14 @@ jobs:
         run: |
           gofmt -d cmd internal pkg
           test -z "$(gofmt -l cmd internal pkg)"
-      - name: TEMP inspect Go dependency closure for SAML security remediation
+      - name: TEMP inspect pinned Go module sums without cross-module tidy
         run: |
-          go mod tidy
+          set -euo pipefail
+          go mod download -json github.com/supatype/saml@v0.7.0
+          go mod download -json golang.org/x/net@v0.62.0
+          go mod download all
           git diff -- go.mod go.sum
+          go list -m all
       - name: Build packages
         run: go build ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
       - name: Test packages
