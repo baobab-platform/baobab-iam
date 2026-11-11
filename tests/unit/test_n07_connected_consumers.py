@@ -88,6 +88,25 @@ class N07SourceTests(unittest.TestCase):
         with self.assertRaises(n07.Blocked):
             n07.validate_profile(p)
 
+    def test_closed_profile_rejects_authentication_and_authority_smuggling(self):
+        for extra, value in (("production_authorized", True),
+                             ("browser_session", "secret"),
+                             ("support_status", "IMPLEMENTED")):
+            p = example()
+            p[extra] = value
+            with self.assertRaises(n07.Blocked):
+                n07.validate_profile(p)
+        for key in ("cookie_file", "password_file", "client_secret", "cp_admin_token"):
+            p = example()
+            p["consumers"][0][key] = "/run/private/secret"
+            with self.assertRaises(n07.Blocked):
+                n07.validate_profile(p)
+        for key in ("resource_body", "grant_approved", "callback_url"):
+            p = example()
+            p["consumers"][-1][key] = "inert"
+            with self.assertRaises(n07.Blocked):
+                n07.validate_profile(p)
+
     def test_no_browser_cookie_or_bearer_custody_in_profile(self):
         for key in ("session_token_file", "browser_token_file"):
             p = example()
@@ -109,6 +128,44 @@ class N07SourceTests(unittest.TestCase):
                     "/new\r\nAuthorization:bearer secret"):
             with self.subTest(bad=bad), self.assertRaises(n07.Blocked):
                 n07.resource_path(bad)
+
+    def test_malformed_identity_and_control_characters_fail_closed(self):
+        for invalid in (None, 15, [], {}):
+            candidate = example()
+            candidate["run_id"] = invalid
+            with self.assertRaises(n07.Blocked):
+                n07.validate_profile(candidate)
+            candidate = example()
+            candidate["consumers"][0]["name"] = invalid
+            with self.assertRaises(n07.Blocked):
+                n07.validate_profile(candidate)
+        for bad in ("/v1/hello world", "/v1/read\\tAuthorization:x", "/v1/é"):
+            with self.assertRaises(n07.Blocked):
+                n07.resource_path(bad)
+
+    def test_only_json_no_store_200_is_native_readback_candidate(self):
+        class Response:
+            def __init__(self, content_type, cache_control):
+                self.status = 200
+                self.headers = {"Content-Type": content_type, "Cache-Control": cache_control}
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+        class Opener:
+            def __init__(self, reply):
+                self.reply = reply
+            def open(self, *args, **kwargs):
+                return self.reply
+        for mime, cache, expected in (
+            ("text/html", "no-store", False),
+            ("application/json", "public", False),
+            ("application/json; charset=utf-8", "private, no-store", True),
+        ):
+            with patch.object(n07, "build_opener", return_value=Opener(Response(mime, cache))):
+                status, protected_json = n07.http_probe("https://internal.example.test", "/v1/owner/read", None)
+                self.assertEqual(status, 200)
+                self.assertEqual(protected_json, expected)
 
     def test_private_file_rejects_world_readable_and_symlink(self):
         with tempfile.TemporaryDirectory() as d:

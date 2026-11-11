@@ -161,6 +161,41 @@ func TestN06UnreviewedOrUnavailableProofFailsClosed(t *testing.T) {
 		t.Fatalf("session substitution allowed: %+v", d)
 	}
 }
+func TestN06ConsequentialPolicyFloorsCannotBeDowngraded(t *testing.T) {
+	for _, tc := range []struct {
+		op  Operation
+		req Requirement
+	}{
+		{CommitBuyer, Requirement{Min: A1, MaxAge: time.Hour, RequireCurrentRisk: true}},
+		{CommitBuyer, Requirement{Min: A2, MaxAge: time.Hour}},
+		{HighValueApproval, Requirement{Min: A2, MaxAge: time.Minute, RequireCurrentRisk: true, RecoveryHold: time.Hour}},
+		{HighValueApproval, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour}},
+		{HighValueApproval, Requirement{Min: A3, MaxAge: time.Minute, RequireCurrentRisk: true}},
+		{ChangeCredential, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour}},
+		{ChangeCredential, Requirement{Min: A3, MaxAge: time.Minute, RequireCurrentRisk: true}},
+		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour}},
+		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Minute, RequireCurrentRisk: true}},
+		{CommitBuyer, Requirement{Min: A2, MaxAge: time.Hour, RequireCurrentRisk: true}},
+		{HighValueApproval, Requirement{Min: A3, MaxAge: time.Hour, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true}},
+		{HighValueApproval, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true}},
+		{ChangeRecovery, Requirement{Min: A3, MaxAge: time.Hour, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true}},
+		{ChangeCredential, Requirement{Min: A3, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true}},
+		{GrantPrivileged, Requirement{Min: A4, MaxAge: time.Hour, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true, RequirePrivilegedWitness: true}},
+		{BreakGlass, Requirement{Min: A4, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true, RequirePrivilegedWitness: true}},
+	} {
+		policy := DefaultDevelopmentPolicy()
+		policy[tc.op] = tc.req
+		if err := policy.Validate(); err == nil {
+			t.Fatalf("operation %s accepted a weakened reviewed floor: %+v", tc.op, tc.req)
+		}
+	}
+	policy := DefaultDevelopmentPolicy()
+	policy[CommitBuyer] = Requirement{Min: A3, MaxAge: 5 * time.Minute, RequireCurrentRisk: true}
+	if err := policy.Validate(); err != nil {
+		t.Fatalf("stronger risk-bound buyer commitment must remain valid: %v", err)
+	}
+}
+
 func TestN06PolicyNeverWeakenedByUnreviewedAdmin(t *testing.T) {
 	p := DefaultDevelopmentPolicy()
 	if err := p.Validate(); err != nil {

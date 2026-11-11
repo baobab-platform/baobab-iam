@@ -3,7 +3,7 @@
 **Status:** Proposed. This is IAM's implementation record for ADR-SHARED-042 §14 Decision 9, covering the server workload identity.
 **Date:** 2026-10-23
 **Governing decision:** Shared ADR-SHARED-042 §14 Decision 9, the Platform Owner ruling of 23 October 2026. Where this record and ADR-SHARED-042 differ, ADR-SHARED-042 governs.
-**Canonical contracts:** `baobab-platform/shared` at `1517429bcae601a1b0288ca0279e524ce48a3d77`:
+**Canonical contracts:** `baobab-platform/shared` at `7f547ccdd759208355ef9224d2177929f4bf224e`:
 - `authorization/v1/scope-registry.yaml` `trade:native-commitment:submit` (audience `baobab-trade`, workload actors only, `grants_authority: false`, allocated to no workload);
 - `control-plane/v1/estate-resource-assignment.schema.json` (`workloadClientId`).
 
@@ -44,3 +44,7 @@ IAM grants no authority with this scope. Estate, Tenant, Market and operation co
 - refusal of a submitter without the Trade audience, of one that is an estate BFF, of a human token profile issuing the scope, and of non-canonical client ids (including `pk_…`);
 - refusal of a token for a second audience or another resource;
 - the workload's other scopes continuing to work.
+
+## 8 November 2026 — development source-pin reconciliation
+
+The originally reviewed Shared `1517429bcae601a1b0288ca0279e524ce48a3d77` authority vocabulary is retained in revision history. Shared `7f547ccdd759208355ef9224d2177929f4bf224e` includes accepted #430 development workload registry corrections, without allocating native commitment authority or changing the proposed status of ADR-IAM-0034. IAM-N01 now constrains this exact pinned development source; this is **not** runtime provider qualification, protected staging, production bootstrap or a basis for credential issuance. The CI-qualified INT-02 source candidate and consumer/Keycloak negative rules remain mandatory. Later Shared main heads are not implicitly accepted.

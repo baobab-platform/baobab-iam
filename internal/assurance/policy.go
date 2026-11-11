@@ -62,12 +62,28 @@ func (p Policy) Validate() error {
 			return errors.New("assurance: invalid reviewed requirement")
 		}
 		if (operation == GrantPrivileged || operation == BreakGlass) &&
-			(req.Min != A4 || !req.RequirePrivilegedWitness || !req.RequireCurrentRisk) {
+			(req.Min != A4 || !req.RequirePrivilegedWitness || !req.RequireCurrentRisk ||
+				req.MaxAge > 5*time.Minute || req.RecoveryHold < 24*time.Hour) {
 			return errors.New("assurance: privileged operation requires A4 and independent risk/context")
 		}
-		if (operation == ChangeCredential || operation == ChangeRecovery) &&
-			req.Min < A3 {
-			return errors.New("assurance: credential/rebinding operation requires phishing-resistant step-up")
+		// A reviewed deployment policy may tighten the defaults, but cannot
+		// silently demote a consequential operation to weaker assurance or
+		// remove its live risk witness. These are immutable ADR-IAM-0024 floors.
+		switch operation {
+		case CommitBuyer:
+			if req.Min < A2 || !req.RequireCurrentRisk || req.MaxAge > 30*time.Minute {
+				return errors.New("assurance: buyer commitment requires A2 and current risk")
+			}
+		case HighValueApproval:
+			if req.Min < A3 || !req.RequireCurrentRisk ||
+				req.MaxAge > 5*time.Minute || req.RecoveryHold < 24*time.Hour {
+				return errors.New("assurance: high-value approval requires A3, current risk and recovery hold")
+			}
+		case ChangeCredential, ChangeRecovery:
+			if req.Min < A3 || !req.RequireCurrentRisk ||
+				req.MaxAge > 5*time.Minute || req.RecoveryHold < 24*time.Hour {
+				return errors.New("assurance: credential/rebinding operation requires A3, current risk and recovery hold")
+			}
 		}
 	}
 	return nil
