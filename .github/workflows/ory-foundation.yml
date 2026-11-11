@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   ory-foundation-live:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -68,7 +68,7 @@ jobs:
         if: success() || failure()
         run: |
           npm ci --prefix tests/integration/passkey --ignore-scripts
-          tests/integration/passkey/node_modules/.bin/playwright install --with-deps chromium
+          tests/integration/passkey/node_modules/.bin/playwright install chromium
       - name: Require real pinned Kratos + Chromium CTAP2 WebAuthn ceremony
         if: success() || failure()
         env:

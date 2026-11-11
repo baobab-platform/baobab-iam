@@ -31,7 +31,11 @@ func newSignedVerifier(issuer, audience string, client *http.Client, fixture boo
 	}
 	return &OIDCSignedVerifier{
 		issuer: issuer, audience: audience, client: client,
-		keys: oidc.NewRemoteKeySet(context.Background(), strings.TrimRight(issuer, "/")+"/.well-known/jwks.json"),
+		// go-oidc v3 retains the HTTP client from the *key set construction*
+		// context for asynchronous JWKS refresh, not the context supplied to
+		// VerifySignature. A bare Background() silently bypassed the pinned
+		// root CAs, disabled proxy and redirect policy used for token checks.
+		keys: oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), strings.TrimRight(issuer, "/")+"/.well-known/jwks.json"),
 	}, nil
 }
 

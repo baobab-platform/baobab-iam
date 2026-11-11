@@ -21,14 +21,14 @@ VALIDATOR = 'baobab-int03-cms-validator'
 EXPECTED = {
     CALLER: {
         'repository': 'baobab-platform/infrastructure', 'owner': 'baobab-platform/infrastructure',
-        'runtime': 'ADR-SHARED-043 disposable development baobab-int03-cms-consumer',
+        'runtime': 'INT-03 disposable real-component CMS qualification consumer',
         'environment': 'development', 'allowed_audiences': ['baobab-control-plane', 'baobab-cms'],
         'allowed_scopes': ['context:resolve', 'content:entry:resolve'], 'credential_type': 'client_credentials',
         'rotation_owner': 'baobab-platform/infrastructure', 'status': 'ACTIVE',
     },
     VALIDATOR: {
         'repository': 'baobab-platform/baobab-cms', 'owner': 'baobab-platform/baobab-cms',
-        'runtime': 'ADR-SHARED-043 disposable development baobab-int03-cms-validator',
+        'runtime': 'INT-03 disposable real-component CMS context validator',
         'environment': 'development', 'allowed_audiences': ['baobab-control-plane'],
         'allowed_scopes': ['context:validate'], 'validates_audiences': ['baobab-cms'],
         'credential_type': 'client_credentials', 'rotation_owner': 'baobab-platform/baobab-cms', 'status': 'ACTIVE',
@@ -217,7 +217,7 @@ def verify_runtime_readback(expected, client_uuid, read):
 
 def load_registry(checkout, repository=None, *, with_commit=False):
     """Require the committed IAM lock and immutable Shared registry blob."""
-    from provider_publication import load_shared
+    from provider_publication import load_runtime_shared
     import yaml
     repository = repository or Path(__file__).resolve().parents[1]
     iam_head = subprocess.check_output(['git', '-C', str(repository), 'rev-parse', 'HEAD'], text=True).strip()
@@ -227,7 +227,7 @@ def load_registry(checkout, repository=None, *, with_commit=False):
     source = yaml.safe_load(committed_lock)['source']
     if source['repository'] != 'baobab-platform/shared':
         raise ValueError('unapproved Shared authority')
-    _, shared_head = load_shared(checkout, repository=repository)
+    _, shared_head = load_runtime_shared(checkout, repository=repository)
     if shared_head != source['commit']:
         raise ValueError('Shared verification differs from committed IAM lock')
     blob = subprocess.check_output(['git', '-C', str(checkout), 'show', shared_head + ':contracts/identity/v1/workload-registry.yaml'])

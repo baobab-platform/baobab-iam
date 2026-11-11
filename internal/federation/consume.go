@@ -14,7 +14,7 @@ import (
 // semantics are unchanged by the workload request scope grammar correction. Every
 // federation consumer must use contracts.lock's same immutable Shared pin;
 // publishing a non-default scope never admits a workload or grants access.
-const SharedCommit = "7f547ccdd759208355ef9224d2177929f4bf224e"
+const SharedCommit = "1517429bcae601a1b0288ca0279e524ce48a3d77"
 
 type Policy struct {
 	Scope                Scope
