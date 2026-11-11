@@ -101,9 +101,9 @@ func TestKratosReadbackAcceptsExactIssuerSubject(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id": id, "schema_id": "default", "state": "active",
-			"traits": map[string]any{"email": "fixture@example.invalid"},
+			"traits":          map[string]any{"email": "fixture@example.invalid"},
 			"metadata_public": map[string]any{},
-			"created_at": now, "updated_at": now,
+			"created_at":      now, "updated_at": now,
 		})
 	}))
 	defer srv.Close()
