@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -170,7 +171,15 @@ func (s IdentityProvisioningSpec) Validate() error {
 	if len(s.Traits) == 0 {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "Traits are required"}
 	}
-	if forbiddenIdentityTrait(s.Traits, 0) {
+	// Inspect the exact JSON representation that Kratos will receive.
+	// Nested typed Go maps/slices and json.RawMessage otherwise evade a
+	// type-switch that only examines map[string]any and []any.
+	encoded, err := json.Marshal(s.Traits)
+	if err != nil {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "Identity traits must be valid JSON"}
+	}
+	var traits map[string]any
+	if err := json.Unmarshal(encoded, &traits); err != nil || forbiddenIdentityTrait(traits, 0) {
 		return &ProviderError{Kind: ErrInvalidArgument, Message: "Identity traits cannot carry platform or domain authority"}
 	}
 	for key := range s.Metadata {

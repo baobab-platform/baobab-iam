@@ -24,12 +24,30 @@ func TestBuyerTokenCannotGrantSupplierRepresentation(t *testing.T) {
 			if audiences, err := config.HumanConsent("estate-bff", []string{"openid", "trade:buy", scope}); err == nil || len(audiences) != 0 {
 				t.Fatalf("buyer BFF consented to unrelated supplier authority: %v", audiences)
 			}
-			evidence := humanEvidence(func(e *HumanEvidence) {
-				e.GrantedScopes = []string{"openid", "trade:buy", scope}
-			})
-			if claims, err := config.HumanClaims(evidence, testSealKey); err == nil || len(claims) != 0 {
-				t.Fatalf("buyer token hook issued supplier/approval scope: %v", claims)
+			// Hydra's token hook sees the actual granted scopes on refresh
+			// and sometimes only requested scopes before consent grant copying
+			// on an authorization-code exchange. Both must fail closed.
+			for _, grant := range []string{"authorization_code", "refresh_token"} {
+				t.Run(grant+" granted", func(t *testing.T) {
+					evidence := humanEvidence(func(e *HumanEvidence) {
+						e.Grant = grant
+						e.GrantedScopes = []string{"openid", "trade:buy", scope}
+					})
+					if claims, err := config.HumanClaims(evidence, testSealKey); err == nil || len(claims) != 0 {
+						t.Fatalf("buyer %s token hook issued supplier/approval scope: %v", grant, claims)
+					}
+				})
 			}
+			t.Run("authorization_code requested before grant copy", func(t *testing.T) {
+				evidence := humanEvidence(func(e *HumanEvidence) {
+					e.Grant = "authorization_code"
+					e.RequestedScopes = []string{"openid", "trade:buy", scope}
+					e.GrantedScopes, e.GrantedAudiences = nil, nil
+				})
+				if claims, err := config.HumanClaims(evidence, testSealKey); err == nil || len(claims) != 0 {
+					t.Fatalf("pre-grant buyer token hook issued supplier/approval scope: %v", claims)
+				}
+			})
 		})
 	}
 	claims, err := config.HumanClaims(humanEvidence(nil), testSealKey)
@@ -45,6 +63,17 @@ func TestBuyerTokenCannotGrantSupplierRepresentation(t *testing.T) {
 		if _, ok := claims[forbidden]; ok {
 			t.Fatalf("human token became authoritative for domain data %q", forbidden)
 		}
+	}
+	// Explicit allowlist proves that human identity/assurance claims never
+	// silently become business, company, bank-change or market privileges.
+	allowed := map[string]bool{"actor_type": true, "azp": true, "acr": true, "auth_time": true, "amr": true}
+	for name := range claims {
+		if !allowed[name] {
+			t.Fatalf("unreviewed authority or domain claim emitted: %q", name)
+		}
+	}
+	if len(claims) != len(allowed) {
+		t.Fatalf("missing approved identity/assurance claims: %#v", claims)
 	}
 	if slices.Contains(config.Workloads["estate-bff"].HumanTokenProfile.Scopes, "supplier:approve") {
 		t.Fatal("fixture unintentionally grants supplier approval")
