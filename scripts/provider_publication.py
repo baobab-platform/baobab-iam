@@ -71,7 +71,7 @@ def write_bundle_candidate(output, path, index, registration, receipt):
         (root / 'receipt.json').rename(output / 'receipt.json')
 
 
-def load_shared(checkout, repository=ROOT):
+def load_capability_catalogue(checkout, repository=ROOT):
     lock = yaml.safe_load((repository / '.baobab/capability-catalogue.lock.yaml').read_text())
     if lock.get('schema') != 'baobab-capability-catalogue-consumer-lock' or lock.get('purpose') != 'read-only-provider-declaration-contracts':
         raise ValueError('read-only capability catalogue pin required')
@@ -239,7 +239,7 @@ def main(argv=None):
         if any((args.bundle_provider, args.bundle_path, args.bundle_output,
                 args.expected_source_revision, args.expected_index_sha256)) and args.shared_checkout.resolve().is_relative_to(ROOT):
             raise ValueError('candidate preparation requires a Shared checkout outside the IAM worktree; nested checkouts are read-only preflight inputs')
-        module, commit = load_shared(args.shared_checkout.resolve())
+        module, commit = load_capability_catalogue(args.shared_checkout.resolve())
         path = ROOT / '.baobab/capability-provider.yaml'
         raw = path.read_bytes()
         declaration = yaml.safe_load(raw)
@@ -303,7 +303,7 @@ def main(argv=None):
                 raise ValueError('bundle source changed during preparation')
             if subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip() != args.expected_source_revision:
                 raise ValueError('bundle source revision changed during preparation')
-            load_shared(args.shared_checkout.resolve())
+            load_capability_catalogue(args.shared_checkout.resolve())
             write_bundle_candidate(output, args.bundle_path, proposed, registration, receipt)
             report['bundle_candidate'] = receipt
         print(json.dumps(report, indent=2, sort_keys=True))

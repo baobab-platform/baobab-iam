@@ -18,7 +18,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from provider_publication import load_runtime_shared as load_shared
+from provider_publication import load_runtime_shared
 
 MAX_BODY = 65536
 ENDPOINT = '/internal/identity-runtime/v1/profiles'
@@ -115,7 +115,7 @@ def main(argv=None):
     parser.add_argument('--timeout', type=float, default=10)
     args = parser.parse_args(argv)
     try:
-        module, commit = load_shared(args.shared_checkout.resolve())
+        module, commit = load_runtime_shared(args.shared_checkout.resolve())
         profile = decode(args.profile.read_bytes())
         target = {key: getattr(args, key) for key in ('provider_id', 'engine_instance_id',
                   'artifact_digest', 'configuration_reference', 'security_domain_reference')}

@@ -22,7 +22,7 @@ class PublicationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.checkout = Path(os.environ['SHARED_REPO_DIR']).resolve()
-        cls.module, cls.commit = publication.load_shared(cls.checkout)
+        cls.module, cls.commit = publication.load_capability_catalogue(cls.checkout)
         cls.declaration = yaml.safe_load((ROOT / '.baobab/capability-provider.yaml').read_text())
 
     def generated_fixture(self):
@@ -200,7 +200,7 @@ class PublicationTests(unittest.TestCase):
                 'purpose': 'read-only-provider-declaration-contracts',
                 'source': {'repository': 'baobab-platform/shared', 'commit': '0' * 40}}))
             with self.assertRaisesRegex(ValueError, 'immutable capability catalogue pin'):
-                publication.load_shared(self.checkout, repository)
+                publication.load_capability_catalogue(self.checkout, repository)
 
 
 if __name__ == '__main__':
