@@ -51,7 +51,7 @@ document supersedes their claims that MP8 and shared state are still planned.
 | MP14 | Durable event/replay foundations | Broader cross-provider drift/event reconciliation |
 | MP15 | Separate trust roots, credentials and verified signing material | Deployed rotation, overlap and compromise drills |
 | MP16 | PostgreSQL shared state and recovery fencing in #77 | Cloud HA/failover/restore, residency and measured approved RPO/RTO |
-| MP17 | No final multi-provider estate acceptance | ZuriBeans B2B; Thamani B2C/B2B logistics; Nabhold workforce/executives |
+| MP17 | No final multi-provider estate acceptance | ZuriBeans B2B; Thamani B2B logistics (ADR-THA-0018; former B2C draft superseded); Nabhold workforce/executives |
 | MP18 | Global Keycloak deletion cancelled | Capability-aware native cutover and migration reconciliation |
 | MP19 | Protocol/adversarial/race/live CI construction evidence | Deployed compromise, rotation and resilience certification |
 | MP20 | Not accepted | Staging/production operational evidence and owner sign-off |

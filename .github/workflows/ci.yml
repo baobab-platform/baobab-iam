@@ -63,6 +63,10 @@ jobs:
         run: go test -race ./cmd/n04-development-read ./pkg/workloadresource/... ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
         run: python3 -m pip install PyYAML==6.0.3
+      - name: Enforce immutable native, federation and PostgreSQL image pins
+        run: |
+          python3 scripts/check_runtime_image_pins.py
+          python3 -B -m unittest discover -s tests/unit -p 'test_runtime_image_pins.py'
       - name: Verify IAM-N01 ADR precedence, immutable Shared pin and development boundary
         run: |
           python3 scripts/check_iam_n01.py
@@ -103,18 +107,33 @@ jobs:
           gofmt -d internal/federation
           test -z "$(gofmt -l internal/federation)"
           python3 scripts/check-federation-contracts.py
-      - name: Validate provider declarations against approved Shared contracts
-        run: python3 .shared-contracts/scripts/capability_catalogue.py validate-declaration .baobab/capability-provider.yaml --engine-id baobab-iam --repository-root .
+      # The runtime .shared-contracts checkout above stays pinned to the
+      # issuer's approved workload registry. This separate catalogue checkout
+      # is used only for read-only provider declarations/publication preflight.
+      # Do not swap the newer catalogue revision into issuance or CP authority.
+      - name: Read approved read-only Shared capability catalogue pin
+        id: capability-pin
+        run: python3 -c 'import os,yaml; p=yaml.safe_load(open(".baobab/capability-catalogue.lock.yaml"))["source"]["commit"]; f=open(os.environ["GITHUB_OUTPUT"],"a"); print("commit="+p,file=f)'
+      - name: Checkout read-only Shared capability contracts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: baobab-platform/shared
+          token: ${{ secrets.SHARED_READ_TOKEN || github.token }}
+          persist-credentials: false
+          ref: ${{ steps.capability-pin.outputs.commit }}
+          path: .capability-contracts
+      - name: Validate provider declarations against read-only Shared catalogue
+        run: python3 .capability-contracts/scripts/capability_catalogue.py validate-declaration .baobab/capability-provider.yaml --engine-id baobab-iam --repository-root .
       - name: Verify registration publication exclusions and drift detection
         env:
-          SHARED_REPO_DIR: .shared-contracts
+          SHARED_REPO_DIR: .capability-contracts
         run: |
           go run ./cmd/provider-support-census > /tmp/iam-executable-support.json
-          python3 scripts/provider_publication.py --shared-checkout .shared-contracts --executable-support-export /tmp/iam-executable-support.json
+          python3 scripts/provider_publication.py --shared-checkout .capability-contracts --executable-support-export /tmp/iam-executable-support.json
           python3 -m unittest discover -s tests/unit -p 'test_provider_publication.py'
-          python3 -m unittest discover -s tests/unit -p 'test_runtime_profile_publication.py'
-          python3 -m unittest discover -s tests/unit -p 'test_canonical_workload_request.py'
-          python3 -m unittest discover -s tests/unit -p 'test_canonical_human_auth.py'
+          SHARED_REPO_DIR=.shared-contracts python3 -m unittest discover -s tests/unit -p 'test_runtime_profile_publication.py'
+          SHARED_REPO_DIR=.shared-contracts python3 -m unittest discover -s tests/unit -p 'test_canonical_workload_request.py'
+          SHARED_REPO_DIR=.shared-contracts python3 -m unittest discover -s tests/unit -p 'test_canonical_human_auth.py'
           go test -race ./internal/humanauth ./internal/tokenprofile ./internal/provider/ory ./cmd/ory-token-profile-hook -count=1
       - name: Every issued scope exists in the pinned Shared scope registry
         run: ./scripts/check-issued-scopes.sh
@@ -300,8 +319,11 @@ jobs:
   # Keycloak baseline verification suite (ADR-0002 §48).
   # Restores full fixture lifecycle required by tests/integration/run.sh:
   # secret env, Compose up, readiness, realm bootstrap, suite, logs, teardown.
+  # Browser matrix is deliberately fixed to Noble: ubuntu-latest moves to
+  # Ubuntu 26.04 in late 2026. Keep the Playwright OS stable while its
+  # dependency image and source/browser security receipts are qualified.
   integration-variants:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -317,11 +339,39 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
-      - name: Install pinned passkey qualification runtime and Chromium
+      # The pinned Noble hosted image already supplies the required Linux
+      # browser libraries. Do not run `playwright install --with-deps` here:
+      # it invokes unpinned live Ubuntu apt repository downloads and failed
+      # all 3 variants twice during the Ubuntu 26 runner/DNS transition.
+      # Keep strict npm lock, exact Playwright Chromium and a real launch
+      # preflight; an unsupported host/browser fails before provider setup.
+      - name: Install pinned passkey qualification runtime and launch Chromium
+        shell: bash
         run: |
+          set -euo pipefail
           npm ci --prefix tests/integration/passkey --ignore-scripts
           npm test --prefix tests/integration/passkey
-          node tests/integration/passkey/node_modules/playwright/cli.js install --with-deps chromium
+          node tests/integration/passkey/node_modules/playwright/cli.js install chromium
+          (
+            cd tests/integration/passkey
+            node --input-type=module -e '
+              import { chromium } from "playwright";
+              const browser = await chromium.launch({headless: true});
+              try {
+                const page = await browser.newPage();
+                try {
+                  await page.goto("data:text/html,<title>Baobab Chromium preflight</title>");
+                  if ((await page.title()) !== "Baobab Chromium preflight") {
+                    throw new Error("Playwright Chromium browser preflight denied");
+                  }
+                } finally {
+                  await page.close();
+                }
+              } finally {
+                await browser.close();
+              }
+            '
+          )
       - name: Prepare fresh isolated provider credentials
         shell: bash
         run: |

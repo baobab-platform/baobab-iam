@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -127,24 +128,79 @@ func (s FederatedWorkloadTrustSpec) Validate() error {
 	return nil
 }
 
-// Validate checks that IdentityProvisioningSpec has traits and does not
-// embed forbidden business keys in Traits (lightweight guard).
-func (s IdentityProvisioningSpec) Validate() error {
-	if len(s.Traits) == 0 {
-		return &ProviderError{
-			Kind:    ErrInvalidArgument,
-			Message: "Traits are required",
+// Identity attributes must not launder business authority through a nested
+// Kratos trait map (ADR-0014/0015, ADR-IAM-0020/0033). IAM stores identity
+// facts only; CP and domain owners own the tenant/market/ERP-role graph.
+// The depth bound also makes hand-built cyclic/unbounded metadata fail closed.
+func forbiddenIdentityTrait(value any, depth int) bool {
+	if depth > 8 {
+		return true
+	}
+	switch v := value.(type) {
+	case map[string]any:
+		for key, nested := range v {
+			normalized := strings.ToLower(strings.NewReplacer("_", "", "-", "", ".", "").Replace(key))
+			for _, forbidden := range []string{
+				"tenant", "tenantid", "legalentity", "legalentityid",
+				"capability", "capabilitygrant", "market", "marketid",
+				"buyerpurchaselimit", "erprole", "adrole", "adclient",
+				"adorg", "supplierapproval", "spendlimit",
+				"organisationmembership", "organizationmembership",
+				// Provider identity attributes must not reproduce the
+				// business-authority graph owned by CP and native engines.
+				"role", "roles", "permission", "permissions",
+				"grant", "grants", "entitlement", "entitlements",
+				"group", "groups", "organisationid", "organizationid",
+				"organizationrole", "organisationrole", "approvalauthority",
+				// Sensitive authenticator, recovery and proofing material
+				// belongs in governed credential/evidence stores, never
+				// identity traits or imported migration metadata.
+				"password", "passwordhash", "passwordhint",
+				"totp", "totpsecret", "otpsecret", "lookupsecret",
+				"recoverycode", "recoverycodes", "recoverytoken",
+				"credential", "credentials", "clientsecret", "secret",
+				"privatekey", "passkeyprivatekey", "webauthnprivatekey",
+				"accesstoken", "refreshtoken", "idtoken", "bearertoken",
+				"identitydocument", "passportnumber", "nationalidnumber",
+			} {
+				if normalized == forbidden {
+					return true
+				}
+			}
+			if forbiddenIdentityTrait(nested, depth+1) {
+				return true
+			}
+		}
+	case []any:
+		for _, nested := range v {
+			if forbiddenIdentityTrait(nested, depth+1) {
+				return true
+			}
 		}
 	}
-	for _, forbidden := range []string{
-		"tenant", "legal_entity", "legalEntity", "capability", "market",
-		"buyer_purchase_limit", "erp_role", "supplier_approval",
-	} {
-		if _, ok := s.Traits[forbidden]; ok {
-			return &ProviderError{
-				Kind:    ErrInvalidArgument,
-				Message: fmt.Sprintf("Traits must not contain business field %q (ADR-0020/0021)", forbidden),
-			}
+	return false
+}
+
+// Validate refuses identity provisioning that attempts to smuggle CP,
+// Trade or ERP authority into Ory Kratos traits or provider metadata.
+func (s IdentityProvisioningSpec) Validate() error {
+	if len(s.Traits) == 0 {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "Traits are required"}
+	}
+	// Inspect the exact JSON representation that Kratos will receive.
+	// Nested typed Go maps/slices and json.RawMessage otherwise evade a
+	// type-switch that only examines map[string]any and []any.
+	encoded, err := json.Marshal(s.Traits)
+	if err != nil {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "Identity traits must be valid JSON"}
+	}
+	var traits map[string]any
+	if err := json.Unmarshal(encoded, &traits); err != nil || forbiddenIdentityTrait(traits, 0) {
+		return &ProviderError{Kind: ErrInvalidArgument, Message: "Identity traits cannot carry platform or domain authority"}
+	}
+	for key := range s.Metadata {
+		if forbiddenIdentityTrait(map[string]any{key: true}, 0) {
+			return &ProviderError{Kind: ErrInvalidArgument, Message: "Identity metadata cannot carry platform or domain authority"}
 		}
 	}
 	return nil

@@ -14,7 +14,8 @@ class MatrixTests(unittest.TestCase):
     def setUp(self):
         self.matrix = yaml.safe_load((ROOT / '.baobab/iam-capability-matrix.yaml').read_text())
         self.entries = {'capabilities': [{'capability_key': key, 'owner': 'baobab-iam'} for key in
-                        ('identity.authentication.perform', 'identity.workload-token.issue')]}
+                        ('identity.authentication.assurance', 'identity.authentication.perform',
+                         'identity.federation.enterprise', 'identity.workload-token.issue')]}
 
     def test_valid_and_generated(self):
         module.validate(self.matrix, self.entries, self.entries)

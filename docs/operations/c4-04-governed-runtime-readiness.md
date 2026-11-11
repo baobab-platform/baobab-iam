@@ -142,3 +142,12 @@ receipt and C4-04's CP-governed support/activation and consumption acceptance
 must be demonstrable at the intended integration/staging boundary. Green Go
 tests are source evidence only, not proof of registered runtime or staging.
 The CRITICAL AdministrativeGrant prohibition remains unchanged.
+## Workload JWKS transport
+
+The resource verifier binds its configured TLS client when constructing the
+OIDC remote key set. Initial retrieval and background rotation therefore use
+the configured roots, minimum TLS version, direct transport and redirect
+policy. This implements the JWKS transport part of CTS2-021 and CTS2-043.
+The TLS regression exercises the workload verifier and its signed token
+against a private test CA. Original issuer and current CP decisions still
+require independent consumer evidence.

@@ -56,6 +56,43 @@ def validate(matrix, catalogue, definitions):
         families.add(row['capability_family'])
         if row['classification'] == 'PLATFORM_RESOLVABLE_CAPABILITY' and key not in keys:
             raise ValueError(f'{key} is not an IAM capability in the pinned Shared catalogue')
+    # ADR-SHARED-017: the catalogue is WHAT, IAM's provider declaration is
+    # WHO. Every declared support key must be canonical at the pinned Shared
+    # commit. Reconcile the two new November 2026 capabilities explicitly
+    # without treating a PARTIAL provider as registered, ACTIVE or certified.
+    declaration = yaml.safe_load((ROOT / '.baobab/capability-provider.yaml').read_text())
+    if declaration.get('engine', {}).get('engine_id') != 'baobab-iam':
+        raise ValueError('IAM provider declaration must belong to baobab-iam')
+    expected_provider_support = {
+        'baobab-iam.kratos': {'identity.authentication.perform', 'identity.authentication.assurance'},
+        'baobab-iam.hydra': {'identity.workload-token.issue'},
+        'baobab-iam.keycloak': {'identity.authentication.perform', 'identity.federation.enterprise'},
+    }
+    actual_provider_support = {}
+    for provider in declaration.get('providers', []):
+        name = provider['provider_key']
+        if name in actual_provider_support:
+            raise ValueError(f'duplicate capability provider: {name}')
+        if provider.get('simulated') or provider.get('implementation_key') != name.rsplit('.', 1)[-1]:
+            raise ValueError(f'{name}: incorrect provider identity or simulation classification')
+        supported = set()
+        for support in provider['support']:
+            key = support['capability_key']
+            if key in supported or key not in keys or key not in defined:
+                raise ValueError(f'{name}: invalid/uncatalogued/duplicate support {key}')
+            if support['implementation_status'] != 'PARTIAL' or support['contract_versions'] != [1]:
+                raise ValueError(f'{name}/{key}: full implementation or version cannot be assumed')
+            supported.add(key)
+        actual_provider_support[name] = supported
+    if actual_provider_support != expected_provider_support:
+        raise ValueError(f'out-of-sync IAM provider support declarations: {actual_provider_support}')
+    matrix_resolvable = {row['capability_operation'] for row in matrix['capabilities']
+                         if row['classification'] == 'PLATFORM_RESOLVABLE_CAPABILITY'}
+    if matrix_resolvable != keys:
+        raise ValueError(f'catalogued IAM matrix classification mismatch: {matrix_resolvable ^ keys}')
+    for planned in declaration.get('planned_capabilities', []):
+        if planned.get('proposed_key') in keys:
+            raise ValueError('an already catalogued capability must not stay planned')
     rows = {row['capability_operation']: row for row in matrix['capabilities']}
     expected = {'identity.federation.enterprise': 'Keycloak',
                 'identity.authentication.perform': 'Ory Kratos (native authentication); Keycloak (enterprise federation only)',
@@ -94,7 +131,26 @@ def main():
     parser.add_argument('--write', action='store_true')
     args = parser.parse_args()
     matrix = yaml.safe_load((ROOT / '.baobab/iam-capability-matrix.yaml').read_text())
-    lock = yaml.safe_load((ROOT / 'contracts.lock.yaml').read_text())
+    # Deliberately use a *read-only* capability-contract pin, not the
+    # issuer's runtime contracts.lock.yaml. Its later Shared revision
+    # catalogues two additional v1 capabilities but also introduces ACTIVE
+    # workload profiles. Pinning those into issuance would be a separate
+    # security decision, never an incidental metadata reconciliation.
+    lock = yaml.safe_load((ROOT / '.baobab/capability-catalogue.lock.yaml').read_text())
+    expected_contracts = {
+        'contracts/capability/v1/catalogue.yaml',
+        'contracts/capability/v1/catalogue.schema.json',
+        'contracts/capability/v1/provider-declaration.schema.json',
+        'contracts/identity/v1/capabilities.yaml',
+        'contracts/identity/v1/assurance-evaluation.schema.json',
+        'contracts/identity/v1/enterprise-federation-start.schema.json',
+    }
+    if lock.get('schema') != 'baobab-capability-catalogue-consumer-lock' or (
+        lock.get('purpose') != 'read-only-provider-declaration-contracts'
+        or set(lock.get('contracts', [])) != expected_contracts
+        or len(lock.get('contracts', [])) != len(expected_contracts)
+    ):
+        raise ValueError('read-only capability catalogue pin is invalid')
     validate(matrix, shared_file(lock, 'contracts/capability/v1/catalogue.yaml'),
              shared_file(lock, 'contracts/identity/v1/capabilities.yaml'))
     destination = ROOT / 'docs/governance/iam-capability-matrix.md'
