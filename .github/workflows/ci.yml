@@ -40,9 +40,9 @@ jobs:
           gofmt -d cmd internal pkg
           test -z "$(gofmt -l cmd internal pkg)"
       - name: Build packages
-        run: go build ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./internal/privacy/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
+        run: go build ./internal/privacy/... ./internal/securityops/... ./internal/assurance/... ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
       - name: Test packages
-        run: go test ./pkg/workloadresource/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
+        run: go test ./internal/privacy/... ./internal/securityops/... ./internal/assurance/... ./pkg/workloadresource/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
       - name: Validate IAM-N02 browser/evidence source and negative custody gates
         run: |
           python3 -m py_compile tests/browser/n02_live.py scripts/n02_evidence_gate.py scripts/n02_development_clients.py
@@ -50,7 +50,7 @@ jobs:
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_browser_source.py' -v
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_development_clients.py' -v
       - name: Test federation and native browser boundaries with race detector
-        run: go test -race ./pkg/workloadresource/... ./internal/federation/... ./internal/nativebff/... -count=1
+        run: go test -race ./internal/assurance/... ./pkg/workloadresource/... ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
         run: python3 -m pip install PyYAML==6.0.3
       - name: Enforce immutable native, federation and PostgreSQL image pins
@@ -97,6 +97,8 @@ jobs:
           gofmt -d internal/federation
           test -z "$(gofmt -l internal/federation)"
           python3 scripts/check-federation-contracts.py
+      - name: Verify Hydra client scopes and resource audiences against pinned Shared
+        run: python3 scripts/check_workload_provision_profiles.py --shared-checkout .shared-contracts
       # The runtime .shared-contracts checkout above stays pinned to the
       # issuer's approved workload registry. This separate catalogue checkout
       # is used only for read-only provider declarations/publication preflight.
@@ -163,6 +165,8 @@ jobs:
           go test ./internal/migration -run '^TestN05' -count=1 -v
       - name: N05 concurrent durable database and revocation replay under race detector
         run: go test -race ./internal/migration -run '^TestN05' -count=1
+      - name: Incident containment durable-fence PostgreSQL 17 qualification
+        run: go test -race ./internal/securityops -run '^TestPostgres' -count=1 -v
       - name: Privacy tombstone durable replay PostgreSQL 17 qualification
         run: go test -race ./internal/privacy -run '^TestPostgres' -count=1 -v
 

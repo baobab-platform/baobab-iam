@@ -1,85 +1,55 @@
 package main
 
 import (
-	"context"
-	"os"
-	"path/filepath"
-	"strings"
+	"bytes"
+	"encoding/json"
 	"testing"
-
-	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
-func TestPersistGeneratedSecretRequiresPrivateOutput(t *testing.T) {
-	w := &provider.ProviderWorkload{
-		LogicalClientID: "baobab-cp-workload",
-		ClientSecret:    "super-secret",
+func TestPlanReportsExactPinnedWorkloadAndAudience(t *testing.T) {
+	env := map[string]string{
+		"ORY_ACTION":            "plan",
+		"ORY_LOGICAL_CLIENT_ID": "baobab-trade-workload",
+		"ORY_ALLOWED_SCOPES":    "context:resolve",
 	}
-	if _, err := persistGeneratedSecret("", w); err == nil {
-		t.Fatal("expected generated secret to require ORY_SECRET_OUTPUT_DIR")
-	}
-
-	dir := filepath.Join(t.TempDir(), "secrets")
-	path, err := persistGeneratedSecret(dir, w)
-	if err != nil {
+	var out bytes.Buffer
+	if err := run(func(name string) string { return env[name] }, &out); err != nil {
 		t.Fatal(err)
 	}
-	if path != filepath.Join(dir, "baobab-cp-workload.client-secret") {
-		t.Fatalf("path=%q", path)
-	}
-	got, err := os.ReadFile(path)
-	if err != nil {
+	var plan workloadPlan
+	if err := json.Unmarshal(out.Bytes(), &plan); err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "super-secret\n" {
-		t.Fatal("secret handoff did not preserve cleartext value")
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("mode=%#o want 0600", info.Mode().Perm())
+	if plan.LogicalClientID != env["ORY_LOGICAL_CLIENT_ID"] || plan.Environment != "production" ||
+		plan.RegistryCommit != "1517429bcae601a1b0288ca0279e524ce48a3d77" ||
+		len(plan.Scopes) != 1 || plan.Scopes[0] != "context:resolve" ||
+		len(plan.Audiences) != 1 || plan.Audiences[0] != "baobab-control-plane" {
+		t.Fatalf("unexpected plan: %+v", plan)
 	}
 }
 
-func TestFederatedWorkloadCannotFallBackToClientSecret(t *testing.T) {
-	// Every federated_workload_token identity that has a client-secret path to refuse, including the ERP provisioner (shared#235).
-	for id, scopes := range map[string][]string{
-		"baobab-cp-workload":              {"billing:manage"},
-		"baobab-cp-provisioning-workload": {"erp:provision"},
-		// FB-05 staging evidence provisioner: ACTIVE in Shared, but federated, so it still never gets a client secret.
-		"baobab-cp-provisioning-evidence-workload": {"erp:provision"},
-		"baobab-subscriptions-workload":            {"payment:execute"},
-	} {
-		err := provisionOne(context.Background(), nil, id, scopes, "")
-		if err == nil || !strings.Contains(err.Error(), "federated_workload_token") {
-			t.Fatalf("%s: expected fail-closed federated workload guard, got %v", id, err)
+func TestLegacyMutationsAndInvalidInputsAreRefused(t *testing.T) {
+	for _, action := range []string{"", "provision", "rotate", "disable", "all-primary"} {
+		var out bytes.Buffer
+		err := run(func(name string) string {
+			if name != "ORY_ACTION" {
+				t.Fatalf("mutation read input %s", name)
+			}
+			return action
+		}, &out)
+		if err == nil || out.Len() != 0 {
+			t.Fatalf("unexpected result for %q: %s, %v", action, &out, err)
 		}
 	}
-}
-
-func TestPersistGeneratedSecretNoopWhenUnchanged(t *testing.T) {
-	path, err := persistGeneratedSecret("", &provider.ProviderWorkload{LogicalClientID: "existing"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if path != "(unchanged)" {
-		t.Fatalf("path=%q", path)
-	}
-}
-
-func TestNamedCMSFixturesCannotUseOrdinaryProvisioning(t *testing.T) {
-	for _, id := range []string{"baobab-int03-cms-consumer", "baobab-int03-cms-validator"} {
-		// A nil adapter proves refusal occurs before provider access.
-		if !isINT03CMSFixture(id) {
-			t.Fatal("named fixture boundary missing")
+	for _, scopes := range []string{"", "context:resolve,", " context:resolve", "trade:native-commitment:submit"} {
+		env := map[string]string{
+			"ORY_ACTION":            "plan",
+			"ORY_LOGICAL_CLIENT_ID": "baobab-trade-workload",
+			"ORY_ALLOWED_SCOPES":    scopes,
 		}
-		if err := provisionOne(context.Background(), nil, id, []string{"context:resolve"}, ""); err == nil {
-			t.Fatal("ordinary command admitted a held fixture identity")
+		var out bytes.Buffer
+		if err := run(func(name string) string { return env[name] }, &out); err == nil || out.Len() != 0 {
+			t.Fatalf("invalid scopes %q produced a plan", scopes)
 		}
-	}
-	if isINT03CMSFixture("baobab-cms-workload") {
-		t.Fatal("production identity was reclassified as a fixture")
 	}
 }

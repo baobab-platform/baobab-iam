@@ -121,3 +121,42 @@ This is Gate IAM-12's "kill switch" (`tests/integration/run.sh` §16), used for 
    against a real (non-production) realm; per ADR-0018 §118's "RPO/RTO are tested objectives"
    principle applied to security incidents generally, an untested runbook is a draft, not a
    proven procedure.
+
+
+## 6. ADR-IAM-0029: native-provider, incident-scoped containment (development implementation)
+
+The original procedures above describe historical Keycloak-admin operations.
+**They must not be used as a substitute for native Kratos control** after the
+accepted ADR-IAM-0019/0033 provider allocation: Kratos owns new human identities
+and sessions; Hydra owns OAuth/workloads; Keycloak remains a bounded enterprise
+federation broker. Do not turn an identity incident into a blanket provider or
+tenant suspension.
+
+The new `internal/securityops.Containment` path is a **deny-only identity
+incident command**, not an anomaly detector or a CP authorization service:
+
+1. Obtain an original, recent security/CP containment authorization for the
+   exact `incident_id + operation_id + issuer + subject`.
+2. Commit a `FENCED` intent through `PostgresJournal.Reserve` before the first
+   privileged provider call, using the versioned SQL in
+   `internal/securityops/migrations/001_incident_containment.sql`.
+3. Independently recheck that current authorization before mutation.
+4. Disable the native human identity, confirm a fresh read reports the same
+   issuer+subject as disabled, then revoke native sessions.
+5. Read the native identity/session state again and require a fresh, independent
+   CP/resource witness reporting **current token denial**, not a bearer-token
+   claim, a provider HTTP response or a previously successful incident.
+6. Commit `VERIFIED` only after that readback; record `UNKNOWN` on failure.
+   Replayed historical `VERIFIED` receipts must recheck current authority,
+   including after restore, and become `UNKNOWN` on drift.
+
+This implementation uses *real* provider interfaces and a PostgreSQL durable
+ledger; tests use narrow fakes to exercise negative cases. It **does not**
+pretend that fakes constitute connected CP, Kratos or resource-server evidence.
+Operational activation requires restricted database privileges, applied and
+reviewed DDL, trusted native admin transport, genuine Security/CP authorizer,
+real resource-side veto reader, independent original audit witnesses, journal
+backup/DR replay and staging qualification. A journal status is security
+metadata, **not** a platform entitlement, an issuer kill switch, or permission
+to re-enable credentials. Other scopes (workload, federation, tenant, issuer)
+require separate purpose-bound controls and decision authorities.
