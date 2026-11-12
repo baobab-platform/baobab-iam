@@ -64,6 +64,7 @@ type Signature struct {
 type Approval struct {
 	WorkloadID   string    `json:"workload_id"`
 	SharedCommit string    `json:"shared_commit"`
+	Action       string    `json:"action"`
 	PlanDigest   string    `json:"plan_digest"`
 	ExpiresAt    string    `json:"expires_at"`
 	Maker        Signature `json:"maker"`
@@ -78,10 +79,10 @@ type Keyring struct {
 }
 
 func signatureText(a Approval) string {
-	return "BAOBAB-PEOPLE-DEV-v1\n" + a.WorkloadID + "\n" + a.SharedCommit + "\n" +
+	return "BAOBAB-PEOPLE-DEV-v1\n" + a.WorkloadID + "\n" + a.SharedCommit + "\n" + a.Action + "\n" +
 		a.PlanDigest + "\n" + a.ExpiresAt + "\n"
 }
-func verifyApproval(plan Plan, approval Approval, trust Keyring, now time.Time) error {
+func verifyApproval(plan Plan, approval Approval, trust Keyring, action string, now time.Time) error {
 	digest, err := planDigest(plan)
 	if err != nil {
 		return err
@@ -90,7 +91,8 @@ func verifyApproval(plan Plan, approval Approval, trust Keyring, now time.Time) 
 	if err != nil || !deadline.After(now) || deadline.After(now.Add(24*time.Hour)) {
 		return errors.New("People development approval expired or too long-lived")
 	}
-	if approval.WorkloadID != plan.WorkloadID || approval.SharedCommit != plan.SharedCommit ||
+	if approval.Action != action || (action != "apply" && action != "revoke") ||
+		approval.WorkloadID != plan.WorkloadID || approval.SharedCommit != plan.SharedCommit ||
 		approval.PlanDigest != digest || approval.Maker.KeyID == approval.Checker.KeyID ||
 		approval.Maker.KeyID == "" || approval.Checker.KeyID == "" {
 		return errors.New("People development approval does not bind the exact Shared plan and distinct reviewers")
@@ -180,7 +182,7 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 	if err := loadJSON(getenv("PEOPLE_DEV_TRUSTED_KEYS_FILE"), &keys); err != nil {
 		return fmt.Errorf("load trust: %w", err)
 	}
-	if err := verifyApproval(plan, a, keys, now); err != nil {
+	if err := verifyApproval(plan, a, keys, action, now); err != nil {
 		return err
 	}
 	if err := privateAdmin(getenv("ORY_HYDRA_ADMIN_URL")); err != nil {
