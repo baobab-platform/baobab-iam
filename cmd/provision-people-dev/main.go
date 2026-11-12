@@ -238,14 +238,26 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 	if err != nil {
 		return err
 	}
+	// A successfully created Hydra client is a consequential mutation.
+	// If private custody fails, disable it before returning: an issued
+	// credential without durable custody is an orphan, not an accepted
+	// workload. If compensation also fails, report UNKNOWN issuer state and
+	// require independent operator readback; never report success.
+	compensate := func(cause error) error {
+		revokeErr := adapter.DisableWorkload(ctx, provider.ProviderWorkloadReference{LogicalClientID: clientID})
+		if revokeErr != nil {
+			return fmt.Errorf("People issuer state UNKNOWN after custody failure; independent revocation required: %w", errors.Join(cause, revokeErr))
+		}
+		return fmt.Errorf("People issuer disabled after custody failure: %w", cause)
+	}
 	if identity == nil || identity.ProviderClientID != clientID || len(identity.ClientSecret) < 24 {
-		return errors.New("Ory client creation did not return a private credential; revoke before retry")
+		return compensate(errors.New("Ory client creation did not return a private credential"))
 	}
 	if _, err := dest.WriteString(identity.ClientSecret + "\n"); err != nil {
-		return err
+		return compensate(err)
 	}
 	if err := dest.Sync(); err != nil {
-		return err
+		return compensate(err)
 	}
 	keep = true
 	return json.NewEncoder(out).Encode(map[string]string{
