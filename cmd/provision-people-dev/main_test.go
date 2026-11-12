@@ -19,7 +19,7 @@ func approvedPacket(t *testing.T, now time.Time) (Approval, Keyring) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := Approval{WorkloadID: p.WorkloadID, SharedCommit: p.SharedCommit, PlanDigest: digest,
+	a := Approval{WorkloadID: p.WorkloadID, SharedCommit: p.SharedCommit, Action: "apply", PlanDigest: digest,
 		ExpiresAt: now.Add(30 * time.Minute).Format(time.RFC3339)}
 	trust := Keyring{Reviewers: map[string]TrustedReviewer{}}
 	for _, candidate := range []struct {
@@ -45,8 +45,11 @@ func TestGovernedPeopleIssuerPlanAndDenials(t *testing.T) {
 	now := time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC)
 	a, trust := approvedPacket(t, now)
 	p := approvedPlan()
-	if err := verifyApproval(p, a, trust, now); err != nil {
+	if err := verifyApproval(p, a, trust, "apply", now); err != nil {
 		t.Fatalf("valid distinct signatures denied: %v", err)
+	}
+	if err := verifyApproval(p, a, trust, "revoke", now); err == nil {
+		t.Fatal("apply approval replayed as revoke authority")
 	}
 	cases := map[string]func(*Approval, *Keyring){
 		"replayed approval for another client": func(a *Approval, _ *Keyring) { a.WorkloadID = "baobab-erp-workload" },
@@ -64,15 +67,15 @@ func TestGovernedPeopleIssuerPlanAndDenials(t *testing.T) {
 				other.Reviewers[k] = v
 			}
 			mutate(&cloned, &other)
-			if err := verifyApproval(p, cloned, other, now); err == nil {
+			if err := verifyApproval(p, cloned, other, "apply", now); err == nil {
 				t.Fatal("unsupported authority accepted")
 			}
 		})
 	}
-	if err := verifyApproval(p, a, trust, now.Add(35*time.Minute)); err == nil {
+	if err := verifyApproval(p, a, trust, "apply", now.Add(35*time.Minute)); err == nil {
 		t.Fatal("expired review accepted")
 	}
-	if err := verifyApproval(p, a, trust, now.Add(-24*time.Hour)); err == nil {
+	if err := verifyApproval(p, a, trust, "apply", now.Add(-24*time.Hour)); err == nil {
 		t.Fatal("long-lived review accepted")
 	}
 }
