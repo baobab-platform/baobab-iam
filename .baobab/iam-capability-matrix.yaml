@@ -7,9 +7,8 @@ metadata:
     pinned Shared capability catalogue. All other rows are management, candidate, or provider-internal until a Shared
     catalogue decision. ADR-IAM-0033 retains Keycloak only for enterprise federation; Kratos owns native humans
     and Hydra owns OAuth/workloads. These target allocations do not select providers at runtime.
-  updated: '2026-10-05'
-  shared_catalogue_rule: At the Shared pin used by this branch only identity.authentication.perform and identity.workload-token.issue
-    are catalogued. Do not promote any other key to PLATFORM_RESOLVABLE_CAPABILITY without a Shared catalogue change.
+  updated: '2026-11-10'
+  shared_catalogue_rule: The pinned Shared identity catalogue includes identity.authentication.perform, identity.workload-token.issue, identity.authentication.assurance and identity.federation.enterprise. Provider support remains PARTIAL until full canonical conformance; management operations remain non-catalogued.
 capabilities:
 - capability_family: Authentication
   capability_operation: identity.authentication.perform
@@ -94,10 +93,10 @@ capabilities:
   conformance_evidence: Admin disable + session kill-switch evidence
 - capability_family: Authentication Assurance
   capability_operation: identity.authentication.assurance
-  classification: CANDIDATE_PLATFORM_CAPABILITY
+  classification: PLATFORM_RESOLVABLE_CAPABILITY
   tier: Tier 0
   owning_adr: ADR-IAM-0024, ADR-IAM-0033
-  shared_contract: Assurance model in identity contract; not yet a Shared catalogue key
+  shared_contract: Shared identity/v1/assurance-evaluation.schema.json canonical v1 (catalogued); complete A1-A4 server-owned decision remains unqualified
   iam_port: IAM assurance boundary
   primary_provider: Baobab IAM normalization across assigned providers
   ory_mechanism: Kratos / Ory security policy and ACR/AMR claims
@@ -108,8 +107,8 @@ capabilities:
   security_requirements: ACR values must map to documented assurance levels
   retirement_dependency: Legacy native MFA flows after assurance parity; retain enterprise assurance evidence
   migration_phase: Phase C
-  implementation_status: Partial
-  tests: Assurance and session tests
+  implementation_status: Partial Kratos current AAL2/session evidence; full A3/A4 contract, reviewed policy, and independent evidence pending
+  tests: internal/provider/ory/governed_human_assurance_test.go; internal/nativebff/handler_test.go
   conformance_evidence: ACR/AMR propagation and policy mapping evidence
 - capability_family: Session Security
   capability_operation: identity.session.revoke
@@ -172,10 +171,10 @@ capabilities:
   conformance_evidence: Logical client ID stability and scope enforcement
 - capability_family: Enterprise Federation
   capability_operation: identity.federation.enterprise
-  classification: CANDIDATE_PLATFORM_CAPABILITY
+  classification: PLATFORM_RESOLVABLE_CAPABILITY
   tier: Tier 1
   owning_adr: ADR-IAM-0026, ADR-IAM-0033
-  shared_contract: Federation contract; not yet a Shared catalogue key
+  shared_contract: Shared identity/v1/enterprise-federation-start.schema.json canonical v1 (catalogued)
   iam_port: EnterpriseFederationProvider (permanent bounded adapter implemented)
   primary_provider: Keycloak
   ory_mechanism: Not required for initial self-hosted enterprise federation; native identities remain Kratos-owned
@@ -187,8 +186,7 @@ capabilities:
     authority; assurance provenance
   retirement_dependency: NONE (retained federation capability; replacement requires portability evidence)
   migration_phase: "IAM-MP2 / MP7\u2013MP12"
-  implementation_status: Implemented OIDC/SAML federation, governed authority and bounded CP enterprise dispatch;
-    broader provider support/dispatch and production acceptance remain open
+  implementation_status: Partial OIDC/SAML broker and CP-governed adapter, but exact canonical v1 challenge and federation-key CP resolution remain unqualified
   tests: Provider contract, signed OIDC/SAML adversarial and replay tests; enterprise-federation-live; PostgreSQL
     concurrency/recovery tests
   conformance_evidence: Repository/CI construction evidence from MP8 and shared-state implementation; staging rotation,

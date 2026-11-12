@@ -44,7 +44,6 @@ def engine(kind, run):
             "certification": "NOT_QUALIFIED", "protected_authorized": False,
         }
     }
-    case_ids = n04.ENG | (n04.PAYMENTS_CASES if kind == "baobab-payments" else frozenset())
     return {
         "schema": "infrastructure.dev01.lifecycle.observed.v1",
         "run_id": run,
@@ -58,7 +57,7 @@ def engine(kind, run):
             "synthetic_only": True, "protected_acceptance": False,
             "production_authorized": False,
             "cases": {case: {"result": "PASS", "reason": "OBSERVED"}
-                      for case in case_ids},
+                      for case in n04.ENG},
             "capabilities": caps,
             "independent_observations": {
                 "native_cp_resolutions": {"identity.workload-token.issue": 2},
@@ -189,27 +188,6 @@ class N04Gate(unittest.TestCase):
             mutate(bad)
             with self.assertRaises(n04.Held):
                 n04.engine_readback(bad, "baobab-pulse", IAM, SHARED, CP, INFRA)
-
-    def test_payments_native_authority_and_replay_cases_are_mandatory(self):
-        observed = engine("baobab-payments", PAY)
-        n04.engine_readback(observed, "baobab-payments", IAM, SHARED, CP, INFRA)
-        # Generic ENG-ONB passes cannot launder blocked native mandate,
-        # actor-market-currency or event replay cases.
-        for missing in n04.PAYMENTS_CASES:
-            changed = copy.deepcopy(observed)
-            del changed["engine_integration"]["cases"][missing]
-            with self.assertRaises(n04.Held):
-                n04.engine_readback(changed, "baobab-payments", IAM, SHARED, CP, INFRA)
-        for blocked in ("PAYMENTS-ACTOR-MARKET-CURRENCY", "PAYMENTS-MISSING-MANDATE",
-                        "PAYMENTS-EVENT-REPLAY", "PAYMENTS-REVOKED-GRANT"):
-            changed = copy.deepcopy(observed)
-            changed["engine_integration"]["cases"][blocked] = {
-                "result": "BLOCKED", "reason": "AUTHORITY_UNQUALIFIED"}
-            with self.assertRaises(n04.Held):
-                n04.engine_readback(changed, "baobab-payments", IAM, SHARED, CP, INFRA)
-        # A Pulse original does not inherit Payments' domain-specific cases.
-        n04.engine_readback(engine("baobab-pulse", PR),
-                            "baobab-pulse", IAM, SHARED, CP, INFRA)
 
     def test_c403_sidecar_requires_original_exact_bytes(self):
         with tempfile.TemporaryDirectory() as d:

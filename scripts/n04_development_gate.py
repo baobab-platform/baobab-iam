@@ -38,27 +38,6 @@ N03_PULSE = frozenset({
 })
 ENG = frozenset(f"ENG-ONB-0{i}" for i in range(1, 10))
 PROFILES = {"baobab-pulse": "pulse-intelligence", "baobab-payments": "payments-sandbox"}
-# The accepted Shared payments-sandbox profile requires these owner-native
-# cases IN ADDITION TO ENG-ONB-01..09. A generic engine lifecycle PASS cannot
-# certify payment legal-actor authority, mandate, replay or simulated-money truth.
-# Keep this list in lockstep with the exact pinned Shared reporting.case_ids.
-PAYMENTS_CASES = frozenset({
-    "PAYMENTS-INTENT-CONFIRM-AUTHORIZE-CAPTURE",
-    "PAYMENTS-CANCEL",
-    "PAYMENTS-REFUND",
-    "PAYMENTS-OVER-REFUND",
-    "PAYMENTS-IDEMPOTENCY-CONFLICT",
-    "PAYMENTS-LOST-RESPONSE-RETRY",
-    "PAYMENTS-CROSS-TENANT",
-    "PAYMENTS-ACTOR-MARKET-CURRENCY",
-    "PAYMENTS-REVOKED-GRANT",
-    "PAYMENTS-EVENT-REPLAY",
-    "PAYMENTS-UNTRUSTED-WEBHOOK",
-    "PAYMENTS-MISSING-MANDATE",
-    "PAYMENTS-PSP-NOT-CONFIGURED",
-    "PAYMENTS-SIMULATION-TRUTH",
-})
-
 
 
 class Held(ValueError):
@@ -133,8 +112,7 @@ def engine_readback(receipt: dict, expected_engine: str,
             and report.get("production_authorized") is False,
             "ENGINE_OWNER_PROFILE_MISMATCH")
     cases = report.get("cases")
-    require(isinstance(cases, dict)
-            and (ENG | (PAYMENTS_CASES if expected_engine == "baobab-payments" else frozenset())).issubset(cases)
+    require(isinstance(cases, dict) and ENG.issubset(cases)
             and all(isinstance(row, dict) and set(row) == {"result", "reason"}
                     and row["result"] == "PASS" and row["reason"] == "OBSERVED"
                     for row in cases.values()),

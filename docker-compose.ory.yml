@@ -17,7 +17,7 @@
 
 services:
   postgres-kratos:
-    image: postgres:17-alpine
+    image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     container_name: baobab-iam-postgres-kratos
     environment:
       POSTGRES_USER: ${KRATOS_DB_USER:-kratos}
@@ -34,7 +34,7 @@ services:
       retries: 5
 
   postgres-hydra:
-    image: postgres:17-alpine
+    image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     container_name: baobab-iam-postgres-hydra
     environment:
       POSTGRES_USER: ${HYDRA_DB_USER:-hydra}
@@ -78,6 +78,10 @@ services:
       - "127.0.0.1:4434:4434"
     volumes:
       - ./config/ory/kratos:/etc/config/kratos:ro
+    # Disposable Python SMTP trap lives on the CI host; private loopback
+    # readback remains host-only. This is never a production mail route.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
     restart: unless-stopped
 

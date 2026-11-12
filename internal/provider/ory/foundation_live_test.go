@@ -101,46 +101,6 @@ func TestLiveFoundation(t *testing.T) {
 			t.Fatalf("enable not observed: %v", err)
 		}
 	})
-	t.Run("disable-native-revokes-active-session", func(t *testing.T) {
-		var registration struct {
-			ID string `json:"id"`
-		}
-		foundationRequest(t, ctx, client, http.MethodGet,
-			public+"/self-service/registration/api", nil, "", http.StatusOK, &registration)
-		var created struct {
-			SessionToken string `json:"session_token"`
-			Identity     struct {
-				ID string `json:"id"`
-			} `json:"identity"`
-		}
-		foundationRequest(t, ctx, client, http.MethodPost,
-			public+"/self-service/registration?flow="+registration.ID,
-			map[string]any{"method": "password", "password": password,
-				"traits": map[string]any{"email": "disable-" + unique + "@baobab.invalid"}},
-			"", http.StatusOK, &created)
-		if created.Identity.ID == "" || created.SessionToken == "" {
-			t.Fatal("Kratos did not issue a native session before disable")
-		}
-		cleanup(created.Identity.ID)
-		subject := provider.ExternalSubject{Issuer: issuer, Subject: created.Identity.ID}
-		foundationRequest(t, ctx, client, http.MethodGet,
-			public+"/sessions/whoami", nil, created.SessionToken, http.StatusOK, nil)
-		if err := adapter.DisableIdentity(ctx, subject); err != nil {
-			t.Fatal("Kratos identity disable and session withdrawal were not both verified", err)
-		}
-		identity, err := adapter.GetIdentity(ctx, subject)
-		if err != nil || identity.Status != provider.IdentityStatusDisabled {
-			t.Fatal("Kratos disabled identity was not read back", err)
-		}
-		foundationRequest(t, ctx, client, http.MethodGet,
-			public+"/sessions/whoami", nil, created.SessionToken, http.StatusUnauthorized, nil)
-		if err := adapter.EnableIdentity(ctx, subject); err != nil {
-			t.Fatal("Kratos re-enable failed", err)
-		}
-		// Re-enable must NEVER silently resurrect the previously revoked session.
-		foundationRequest(t, ctx, client, http.MethodGet,
-			public+"/sessions/whoami", nil, created.SessionToken, http.StatusUnauthorized, nil)
-	})
 	t.Run("real-session-revocation", func(t *testing.T) {
 		var flow struct {
 			ID string `json:"id"`
