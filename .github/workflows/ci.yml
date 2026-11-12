@@ -97,6 +97,8 @@ jobs:
           gofmt -d internal/federation
           test -z "$(gofmt -l internal/federation)"
           python3 scripts/check-federation-contracts.py
+      - name: Verify Hydra client scopes and resource audiences against pinned Shared
+        run: python3 scripts/check_workload_provision_profiles.py --shared-checkout .shared-contracts
       # The runtime .shared-contracts checkout above stays pinned to the
       # issuer's approved workload registry. This separate catalogue checkout
       # is used only for read-only provider declarations/publication preflight.
