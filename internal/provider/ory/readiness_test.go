@@ -40,7 +40,7 @@ func TestCheckReady_BothAdminPlanesOK(t *testing.T) {
 		KratosAdminURL: kratos.URL,
 		HydraAdminURL:  hydra.URL,
 		PublicIssuer:   "http://127.0.0.1:4444/",
-		HTTPClient:     kratos.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(kratos),
 		RequestTimeout: 5 * time.Second,
 	})
 	if err != nil {
@@ -79,7 +79,7 @@ func TestCheckReady_FallbackRootHealth(t *testing.T) {
 		KratosAdminURL: srv.URL,
 		HydraAdminURL:  srv.URL,
 		PublicIssuer:   "http://issuer.example/",
-		HTTPClient:     srv.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatalf("NewAdapter: %v", err)
@@ -112,7 +112,7 @@ func TestCheckReady_KratosDownFailsClosed(t *testing.T) {
 		KratosAdminURL: kratos.URL,
 		HydraAdminURL:  hydra.URL,
 		PublicIssuer:   "http://issuer.example/",
-		HTTPClient:     hydra.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(hydra),
 	})
 	if err != nil {
 		t.Fatalf("NewAdapter: %v", err)
