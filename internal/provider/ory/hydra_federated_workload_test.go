@@ -63,7 +63,7 @@ func TestProvisionFederatedWorkloadCreatesNoSecretClientAndExactTrust(t *testing
 		KratosAdminURL: "http://kratos-admin.example",
 		HydraAdminURL:  srv.URL,
 		PublicIssuer:   "https://identity.example",
-		HTTPClient:     srv.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -169,7 +169,7 @@ func TestRotateWorkloadCredentialsRejectsFederatedWorkload(t *testing.T) {
 		KratosAdminURL: "http://kratos-admin.example",
 		HydraAdminURL:  srv.URL,
 		PublicIssuer:   "https://identity.example",
-		HTTPClient:     srv.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Read-only IAM registration preflight; never activate or publish authority.
 
-Uses the exact clean Shared checkout named by contracts.lock.yaml. Output is a
+Uses the exact clean read-only Shared capability catalogue checkout named by
+.baobab/capability-catalogue.lock.yaml. The issuer's contracts.lock.yaml is
+separate and is never changed by this publication preflight. Output is a
 construction report, not a runtime profile, support attestation or readiness
 decision. --require-registrable fails if any provider has no canonical support.
 """
@@ -69,15 +71,27 @@ def write_bundle_candidate(output, path, index, registration, receipt):
         (root / 'receipt.json').rename(output / 'receipt.json')
 
 
-def load_shared(checkout, repository=ROOT):
+def load_capability_catalogue(checkout, repository=ROOT):
+    lock = yaml.safe_load((repository / '.baobab/capability-catalogue.lock.yaml').read_text())
+    if lock.get('schema') != 'baobab-capability-catalogue-consumer-lock' or lock.get('purpose') != 'read-only-provider-declaration-contracts':
+        raise ValueError('read-only capability catalogue pin required')
+    return _load_shared(checkout, lock['source'], 'capability catalogue')
+
+
+def load_runtime_shared(checkout, repository=ROOT):
     lock = yaml.safe_load((repository / 'contracts.lock.yaml').read_text())
-    source = lock['source']
+    if lock.get('schema') != 'baobab-contract-consumer-lock':
+        raise ValueError('runtime Shared consumer pin required')
+    return _load_shared(checkout, lock['source'], 'runtime contract')
+
+
+def _load_shared(checkout, source, purpose):
     if source['repository'] != 'baobab-platform/shared':
         raise ValueError('unapproved contract authority')
     commit = subprocess.check_output(
         ['git', '-C', str(checkout), 'rev-parse', 'HEAD'], text=True).strip()
     if commit != source['commit']:
-        raise ValueError('Shared checkout does not match the immutable IAM pin')
+        raise ValueError(f'Shared checkout does not match the immutable {purpose} pin')
     if subprocess.check_output(
             ['git', '-C', str(checkout), 'status', '--porcelain', '--untracked-files=all'], text=True).strip():
         raise ValueError('Shared checkout must be clean, including untracked files')
@@ -264,7 +278,7 @@ def main(argv=None):
         if any((args.bundle_provider, args.bundle_path, args.bundle_output,
                 args.expected_source_revision, args.expected_index_sha256)) and args.shared_checkout.resolve().is_relative_to(ROOT):
             raise ValueError('candidate preparation requires a Shared checkout outside the IAM worktree; nested checkouts are read-only preflight inputs')
-        module, commit = load_shared(args.shared_checkout.resolve())
+        module, commit = load_capability_catalogue(args.shared_checkout.resolve())
         path = ROOT / '.baobab/capability-provider.yaml'
         raw = path.read_bytes()
         declaration = yaml.safe_load(raw)
@@ -328,7 +342,7 @@ def main(argv=None):
                 raise ValueError('bundle source changed during preparation')
             if subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip() != args.expected_source_revision:
                 raise ValueError('bundle source revision changed during preparation')
-            load_shared(args.shared_checkout.resolve())
+            load_capability_catalogue(args.shared_checkout.resolve())
             write_bundle_candidate(output, args.bundle_path, proposed, registration, receipt)
             report['bundle_candidate'] = receipt
         print(json.dumps(report, indent=2, sort_keys=True))

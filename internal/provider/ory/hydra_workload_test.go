@@ -46,7 +46,7 @@ func TestProvisionWorkload_CreateAndNormalizeScopes(t *testing.T) {
 		KratosAdminURL: "http://kratos-admin.example", // unused for workload
 		HydraAdminURL:  srv.URL,
 		PublicIssuer:   "http://127.0.0.1:4444",
-		HTTPClient:     srv.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(srv),
 		RequestTimeout: 5 * time.Second,
 	})
 	if err != nil {
@@ -147,7 +147,7 @@ func TestHydraWorkloadDisableRefusesUnverifiedProviderReadback(t *testing.T) {
 			defer server.Close()
 			a, err := ory.NewAdapter(ory.Config{
 				KratosAdminURL: server.URL, HydraAdminURL: server.URL,
-				PublicIssuer: "https://issuer.example.test", HTTPClient: server.Client(),
+				PublicIssuer: "https://issuer.example.test", HTTPClient: ory.ProviderFixtureClient(server),
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -199,7 +199,7 @@ func TestDisableWorkload_ClearsGrantTypes(t *testing.T) {
 		KratosAdminURL: "http://kratos-admin.example",
 		HydraAdminURL:  srv.URL,
 		PublicIssuer:   "http://127.0.0.1:4444",
-		HTTPClient:     srv.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatalf("NewAdapter: %v", err)

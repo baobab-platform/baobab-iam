@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/url"
+	"reflect"
 	"regexp"
 	"slices"
 	"time"
@@ -132,7 +133,10 @@ func (d *EnterpriseDispatch) selectAdapter(ctx context.Context, trustID string) 
 	id[8] = (id[8] & 0x3f) | 0x80
 	correlation := fmt.Sprintf("%x-%x-%x-%x-%x", id[:4], id[4:6], id[6:8], id[8:10], id[10:])
 	observation.CorrelationID = correlation
-	request := CapabilityRequest{"identity.authentication.perform", 1, contextHandle.ContextID, correlation}
+	// Enterprise federation is a separately catalogued CP capability. A
+	// native-human authentication grant is NOT a substitute for reviewed
+	// enterprise trust, provider binding and per-operation authorization.
+	request := CapabilityRequest{provider.CapabilityEnterpriseFederation, 1, contextHandle.ContextID, correlation}
 	r, err := c.Resolver.ResolveCapability(ctx, request)
 	if err != nil {
 		return nil, authorityError(err)
@@ -183,12 +187,36 @@ func (d *EnterpriseDispatch) Check(ctx context.Context, trustID string) error {
 	return err
 }
 
+// stillSelected ensures that a second resolved provider is the *same*
+// concrete adapter. Interface comparison can panic for adapters backed by an
+// uncomparable value (e.g., a struct containing a slice); those fail closed.
+func stillSelected(before, after provider.EnterpriseFederationProvider) bool {
+	a, b := reflect.ValueOf(before), reflect.ValueOf(after)
+	return a.IsValid() && b.IsValid() && a.Type() == b.Type() &&
+		a.Comparable() && b.Comparable() && a.Interface() == b.Interface()
+}
+
 func (d *EnterpriseDispatch) BeginFederation(ctx context.Context, input provider.EnterpriseLogin) (provider.EnterpriseChallenge, error) {
 	adapter, err := d.selectAdapter(ctx, input.TrustID)
 	if err != nil {
 		return provider.EnterpriseChallenge{}, err
 	}
-	return adapter.BeginFederation(ctx, input)
+	result, err := adapter.BeginFederation(ctx, input)
+	if err != nil {
+		return provider.EnterpriseChallenge{}, err
+	}
+	// The external broker may have run while CP/TrustLedger was revoked.
+	// Re-resolve the federation-specific grant and reviewed trust, not the
+	// earlier successful provider selection. Returning a stale challenge
+	// after a trust withdrawal would be an unsafe cross-provider handoff.
+	current, err := d.selectAdapter(ctx, input.TrustID)
+	if err != nil {
+		return provider.EnterpriseChallenge{}, err
+	}
+	if !stillSelected(adapter, current) {
+		return provider.EnterpriseChallenge{}, ErrDenied
+	}
+	return result, nil
 }
 
 func (d *EnterpriseDispatch) CompleteFederation(ctx context.Context, input provider.EnterpriseCallback) (provider.EnterpriseEvent, error) {
@@ -196,7 +224,21 @@ func (d *EnterpriseDispatch) CompleteFederation(ctx context.Context, input provi
 	if err != nil {
 		return provider.EnterpriseEvent{}, err
 	}
-	return adapter.CompleteFederation(ctx, input)
+	result, err := adapter.CompleteFederation(ctx, input)
+	if err != nil {
+		return provider.EnterpriseEvent{}, err
+	}
+	// Callback completion can have provider-local effects before this check:
+	// downstream CP and estate session creation must independently deny a
+	// revoked trust. Never return federation evidence on stale CP authority.
+	current, err := d.selectAdapter(ctx, input.TrustID)
+	if err != nil {
+		return provider.EnterpriseEvent{}, err
+	}
+	if !stillSelected(adapter, current) {
+		return provider.EnterpriseEvent{}, ErrDenied
+	}
+	return result, nil
 }
 
 var _ provider.EnterpriseFederationProvider = (*EnterpriseDispatch)(nil)

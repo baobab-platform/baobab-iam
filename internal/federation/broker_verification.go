@@ -260,293 +260,70 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 	conditions := assertion.Conditions
 	statement := assertion.AuthnStatements[0]
 	confirmation := assertion.Subject.SubjectConfirmations[0]
-	if name.Format != "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" || !exact(name.Value) || name.SPProvidedID != "" || name.NameQualifier != "" && name.NameQualifier != s.Trust.UpstreamIssuer || name.SPNameQualifier != "" && name.SPNameQualifier != c.SAML.EntityID || condition…26583 tokens truncated…f another writer races the initial check.
-        # Never rename over an existing (including empty) output directory.
-        output.mkdir()
-        (root / 'contracts').rename(output / 'contracts')
-        (root / 'receipt.json').rename(output / 'receipt.json')
+	if name.Format != "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" || !exact(name.Value) || name.SPProvidedID != "" || name.NameQualifier != "" && name.NameQualifier != s.Trust.UpstreamIssuer || name.SPNameQualifier != "" && name.SPNameQualifier != c.SAML.EntityID || conditions.AudienceRestrictions[0].Audience.Value != c.SAML.EntityID || confirmation.Method != "urn:oasis:names:tc:SAML:2.0:cm:bearer" || confirmation.SubjectConfirmationData.InResponseTo != requestID || confirmation.SubjectConfirmationData.Recipient != c.SAML.ACSURL || !now.Before(confirmation.SubjectConfirmationData.NotOnOrAfter) || conditions.NotBefore.After(now) || !now.Before(conditions.NotOnOrAfter) || conditions.NotOnOrAfter.Sub(conditions.NotBefore) > lifetime || assertion.IssueInstant.After(now) || assertion.IssueInstant.Before(created.Add(-time.Second)) || statement.AuthnInstant.IsZero() || statement.AuthnInstant.After(now) || now.Sub(statement.AuthnInstant) > lifetime || statement.SessionNotOnOrAfter == nil || !now.Before(*statement.SessionNotOnOrAfter) || statement.AuthnContext.AuthnContextClassRef == nil || !exact(statement.AuthnContext.AuthnContextClassRef.Value) {
+		return ExternalPrincipal{}, Assurance{}, "", ErrDenied
+	}
+	until := minimum(c.ValidUntil, s.ValidUntil, conditions.NotOnOrAfter, confirmation.SubjectConfirmationData.NotOnOrAfter, *statement.SessionNotOnOrAfter, now.Add(lifetime))
+	p := ExternalPrincipal{TrustID: s.Trust.ID, ProviderID: c.Binding.ProviderID, EngineInstanceID: c.Binding.EngineInstanceID, Protocol: "SAML2", Issuer: s.Trust.UpstreamIssuer, Subject: QualifiedSAMLSubject(s.Trust.UpstreamIssuer, c.SAML.EntityID, name.Value), ActorType: "human", ObservedAt: now, ExpiresAt: until, Resolution: Resolution{Status: "UNRESOLVED"}}
+	a := Assurance{TrustID: p.TrustID, ProviderID: p.ProviderID, EngineInstanceID: p.EngineInstanceID, Protocol: p.Protocol, Issuer: p.Issuer, Subject: p.Subject, UpstreamEvidence: UpstreamEvidence{SAML: &SAMLAssurance{AuthnContextClassRef: statement.AuthnContext.AuthnContextClassRef.Value, AuthenticatedAt: statement.AuthnInstant, SessionExpiresAt: *statement.SessionNotOnOrAfter}}, MappingStatus: "UNKNOWN", AssurancePolicyReference: s.Trust.AssurancePolicyReference, EvaluatedAt: now, ExpiresAt: until}
+	return p, a, s.Trust.UpstreamIssuer + "\x00" + assertion.ID, nil
+}
 
+// A still-vulnerable upstream SAML parser may panic on malformed assertion
+// structures. Keep untrusted XML from crashing the IAM federation process.
+// Recovery returns a generic denial: no raw XML, assertion or secret leaks.
+// This does NOT fix GO-2026-6909 nor replace a patched dependency.
+func parseBrokerSAMLWithPanicFence(parse func() (*saml.Assertion, error)) (assertion *saml.Assertion, err error) {
+	defer func() {
+		if recover() != nil {
+			assertion = nil
+			err = ErrDenied
+		}
+	}()
+	if parse == nil {
+		return nil, ErrInvalid
+	}
+	return parse()
+}
 
-def load_capability_catalogue(checkout, repository=ROOT):
-    lock = yaml.safe_load((repository / '.baobab/capability-catalogue.lock.yaml').read_text())
-    if lock.get('schema') != 'baobab-capability-catalogue-consumer-lock' or lock.get('purpose') != 'read-only-provider-declaration-contracts':
-        raise ValueError('read-only capability catalogue pin required')
-    return _load_shared(checkout, lock['source'], 'capability catalogue')
+// Readiness and capture use the same bounded, current signing-certificate profile.
+func samlSigningCertificates(encodedCertificates []string, now time.Time) ([]*x509.Certificate, error) {
+	if len(encodedCertificates) < 1 || len(encodedCertificates) > 8 {
+		return nil, ErrInvalid
+	}
+	var certificates []*x509.Certificate
 
-
-def load_runtime_shared(checkout, repository=ROOT):
-    lock = yaml.safe_load((repository / 'contracts.lock.yaml').read_text())
-    if lock.get('schema') != 'baobab-contract-consumer-lock':
-        raise ValueError('runtime Shared consumer pin required')
-    return _load_shared(checkout, lock['source'], 'runtime contract')
-
-
-def _load_shared(checkout, source, purpose):
-    if source['repository'] != 'baobab-platform/shared':
-        raise ValueError('unapproved contract authority')
-    commit = subprocess.check_output(
-        ['git', '-C', str(checkout), 'rev-parse', 'HEAD'], text=True).strip()
-    if commit != source['commit']:
-        raise ValueError(f'Shared checkout does not match the immutable {purpose} pin')
-    if subprocess.check_output(
-            ['git', '-C', str(checkout), 'status', '--porcelain', '--untracked-files=all'], text=True).strip():
-        raise ValueError('Shared checkout must be clean, including untracked files')
-    spec = importlib.util.spec_from_file_location(
-        'iam_pinned_capability_catalogue', checkout / 'scripts/capability_catalogue.py')
-    module = importlib.util.module_from_spec(spec)
-    previous = sys.dont_write_bytecode
-    try:
-        sys.dont_write_bytecode = True
-        spec.loader.exec_module(module)
-    finally:
-        sys.dont_write_bytecode = previous
-    return module, commit
-
-
-def validate_native_provider_roles(declaration):
-    """Enforce ADR-IAM-0033 before any Shared registration candidate exists.
-
-    Keycloak's legacy native authentication contract is deliberately PARTIAL:
-    permanent federation is *not* a general Kratos replacement. A future
-    independently accepted Shared enterprise-federation capability can be
-    registered separately without weakening this prohibition.
-    """
-    roles = {
-        'baobab-iam.kratos': ('kratos', 'identity.authentication.perform'),
-        'baobab-iam.hydra': ('hydra', 'identity.workload-token.issue'),
-        'baobab-iam.keycloak': ('keycloak', 'identity.authentication.perform'),
-    }
-    providers = declaration.get('providers')
-    if not isinstance(providers, list):
-        raise ValueError('native provider roles require an explicit provider list')
-    for entry in providers:
-        key = entry.get('provider_key')
-        if key not in roles:
-            # An alias with the same underlying adapter must not bypass the
-            # federation-only rule while masquerading as a new provider.
-            if entry.get('implementation_key') in {'kratos', 'hydra', 'keycloak'}:
-                raise ValueError('unreviewed alias of an ADR-IAM-0033 native provider')
-            continue  # A new implementation still requires separate Shared review.
-        implementation, capability = roles[key]
-        if entry.get('implementation_key') != implementation:
-            raise ValueError('ADR-IAM-0033 provider implementation role mismatch')
-        for support in entry.get('support', ()):
-            name, status = support.get('capability_key'), support.get('implementation_status')
-            if key == 'baobab-iam.keycloak' and name == capability and status == 'IMPLEMENTED':
-                raise ValueError('Keycloak federation cannot publish native authentication support')
-            if key == 'baobab-iam.kratos' and name == 'identity.workload-token.issue':
-                raise ValueError('Kratos cannot issue workload OAuth tokens')
-            if key == 'baobab-iam.hydra' and name == 'identity.authentication.perform':
-                raise ValueError('Hydra cannot substitute for Kratos native human identity')
-
-
-def prepare(module, checkout, declaration, repository=ROOT):
-    validate_native_provider_roles(declaration)
-    contracts = module.Contracts(checkout / 'contracts')
-    errors = module.validate_catalogue(contracts)
-    errors += module.validate_declaration(contracts, declaration, repository, 'baobab-iam')
-    if errors:
-        raise ValueError('; '.join(errors))
-    registrations, excluded = [], []
-    for provider in sorted(declaration['providers'], key=lambda p: p['provider_key']):
-        for support in provider['support']:
-            if support['implementation_status'] != 'IMPLEMENTED':
-                excluded.append({
-                    'provider_key': provider['provider_key'],
-                    'capability_key': support['capability_key'],
-                    'implementation_status': support['implementation_status'],
-                })
-        if any(s['implementation_status'] == 'IMPLEMENTED' for s in provider['support']):
-            # Shared validates and generates the wire format; no IAM shadow schema.
-            registrations.append(module.generate_registration(
-                contracts, declaration, provider['provider_key'], 'DRAFT'))
-    return contracts, registrations, excluded
-
-
-def compare_exports(module, contracts, registrations, exports):
-    """Compare reviewed EngineRegistration exports, not CP lifecycle/health.
-
-    Input is a JSON array of canonical EngineRegistration documents. Missing,
-    extra, duplicate and substituted declarations all count as drift. This
-    offline comparison has no freshness or runtime-authority claim.
-    """
-    if not isinstance(exports, list):
-        raise ValueError('registration export must be a JSON array')
-    actual = {}
-    for entry in exports:
-        errors = contracts.errors(module.REGISTRATION_REF, entry)
-        if errors:
-            raise ValueError('invalid registration export: ' + '; '.join(errors))
-        key = entry['provider']['provider_key']
-        if entry['repository'] != 'baobab-iam' or key in actual:
-            raise ValueError('foreign or duplicate registration export')
-        actual[key] = entry
-    expected = {entry['provider']['provider_key']: entry for entry in registrations}
-    drift = []
-    for key in sorted(set(actual) | set(expected)):
-        if key not in expected:
-            drift.append({'provider_key': key, 'reason': 'UNDECLARED_SUPPORT'})
-        elif key not in actual:
-            drift.append({'provider_key': key, 'reason': 'MISSING_REGISTRATION'})
-        else:
-            if actual[key] != expected[key]:
-                drift.append({'provider_key': key, 'reason': 'DECLARATION_MISMATCH'})
-    return drift
-
-
-def compare_executable_support(declaration, census):
-    """Bind publication eligibility to adapter declarations; never runtime truth."""
-    validate_native_provider_roles(declaration)
-    if not isinstance(census, dict) or set(census) != {'classification', 'providers'} or census['classification'] != 'EXECUTABLE_CONSTRUCTION_CENSUS':
-        raise ValueError('invalid executable support census')
-    rows = census['providers']
-    if not isinstance(rows, list):
-        raise ValueError('invalid executable provider list')
-    actual = {}
-    for row in rows:
-        if not isinstance(row, dict) or set(row) != {'provider_key', 'implementation_key', 'support'}:
-            raise ValueError('invalid executable provider declaration')
-        key = row['provider_key']
-        if not isinstance(key, str) or key in actual:
-            raise ValueError('duplicate or invalid executable provider')
-        if not isinstance(row['implementation_key'], str) or not row['implementation_key']:
-            raise ValueError('invalid executable implementation key')
-        support = row['support']
-        if not isinstance(support, list):
-            raise ValueError('invalid executable support list')
-        seen_capabilities = set()
-        for entry in support:
-            if not isinstance(entry, dict) or set(entry) != {'capability_key', 'contract_versions', 'implementation_status'}:
-                raise ValueError('invalid executable support entry')
-            capability = entry['capability_key']
-            if not isinstance(capability, str) or not capability or capability in seen_capabilities:
-                raise ValueError('duplicate or invalid executable capability')
-            seen_capabilities.add(capability)
-            versions = entry['contract_versions']
-            if (not isinstance(versions, list) or not versions or
-                    any(type(version) is not int or version < 1 for version in versions) or
-                    len(set(versions)) != len(versions)):
-                raise ValueError('invalid executable contract versions')
-            if entry['implementation_status'] not in ('IMPLEMENTED', 'PARTIAL', 'UNSUPPORTED'):
-                raise ValueError('invalid executable implementation status')
-        actual[key] = row
-    expected = {p['provider_key']: {k: p[k] for k in ('provider_key', 'implementation_key', 'support')}
-                for p in declaration['providers']}
-    # Evidence paths remain validated through Shared; executable code reports
-    # conformance, not copies of the declaration's documentary evidence.
-    for row in expected.values():
-        row['support'] = [{k: s[k] for k in ('capability_key', 'contract_versions', 'implementation_status')}
-                          for s in row['support']]
-    if actual != expected:
-        raise ValueError('canonical declaration and executable support drift')
-
-
-def read_evidence_export(path):
-    """Reject ambiguous wire evidence before any schema or drift comparison."""
-    def unique_object(pairs):
-        result = {}
-        for key, value in pairs:
-            if key in result:
-                raise ValueError('duplicate registration evidence property')
-            result[key] = value
-        return result
-
-    def reject_constant(value):
-        raise ValueError('non-finite registration evidence number')
-
-    return json.loads(path.read_text(), object_pairs_hook=unique_object,
-                      parse_constant=reject_constant)
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--shared-checkout', type=Path, required=True)
-    parser.add_argument('--registration-export', type=Path)
-    parser.add_argument('--executable-support-export', type=Path)
-    parser.add_argument('--require-registrable', action='store_true')
-    parser.add_argument('--bundle-provider')
-    parser.add_argument('--bundle-path')
-    parser.add_argument('--bundle-output', type=Path)
-    parser.add_argument('--expected-source-revision')
-    parser.add_argument('--expected-index-sha256')
-    args = parser.parse_args(argv)
-    try:
-        if any((args.bundle_provider, args.bundle_path, args.bundle_output,
-                args.expected_source_revision, args.expected_index_sha256)) and args.shared_checkout.resolve().is_relative_to(ROOT):
-            raise ValueError('candidate preparation requires a Shared checkout outside the IAM worktree; nested checkouts are read-only preflight inputs')
-        module, commit = load_capability_catalogue(args.shared_checkout.resolve())
-        path = ROOT / '.baobab/capability-provider.yaml'
-        raw = path.read_bytes()
-        declaration = yaml.safe_load(raw)
-        contracts, registrations, excluded = prepare(
-            module, args.shared_checkout.resolve(), declaration)
-        if args.executable_support_export:
-            compare_executable_support(declaration, read_evidence_export(args.executable_support_export))
-        elif args.require_registrable:
-            raise ValueError('strict publication requires an executable support census')
-        drift = compare_exports(module, contracts, registrations,
-                                read_evidence_export(args.registration_export)) if args.registration_export else None
-        eligible = {r['provider']['provider_key'] for r in registrations}
-        blocked = sorted(p['provider_key'] for p in declaration['providers'] if p['provider_key'] not in eligible)
-        report = {
-            'classification': 'CONSTRUCTION_PREFLIGHT',
-            'shared_commit': commit,
-            'declaration_sha256': hashlib.sha256(raw).hexdigest(),
-            'source_revision': subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip(),
-            'source_dirty': bool(subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'], text=True).strip()),
-            'draft_registrations': registrations,
-            'excluded_support': excluded,
-            'executable_support_verified': bool(args.executable_support_export),
-            'blocked_providers': blocked,
-            'registration_drift': drift,
-            'runtime_authority_verified': False,
-        }
-        bundle_options = (args.bundle_provider, args.bundle_path, args.bundle_output,
-                          args.expected_source_revision, args.expected_index_sha256)
-        if any(bundle_options):
-            if not all(bundle_options):
-                raise ValueError('bundle preparation requires provider, path, output, source revision and index digest')
-            if report['source_dirty'] or report['source_revision'] != args.expected_source_revision:
-                raise ValueError('bundle source must be clean and match the reviewed revision')
-            if drift:
-                raise ValueError('registration export drift blocks bundle preparation')
-            if args.require_registrable and blocked:
-                raise ValueError('strict registration requires every provider to be registrable')
-            # Execute this revision, rather than trust an unbound census export.
-            census = json.loads(subprocess.check_output(
-                ['go', 'run', './cmd/provider-support-census'], cwd=ROOT, text=True))
-            compare_executable_support(declaration, census)
-            index_raw = (args.shared_checkout / 'contracts' / INDEX_PATH).read_bytes()
-            digest = hashlib.sha256(index_raw).hexdigest()
-            if digest != args.expected_index_sha256:
-                raise ValueError('registration index changed; reconcile the reviewed base')
-            proposed, registration = bundle_candidate(
-                module, contracts, registrations, yaml.safe_load(index_raw), args.bundle_provider, args.bundle_path)
-            if (args.shared_checkout / 'contracts' / args.bundle_path).exists():
-                raise ValueError('candidate path already exists in Shared')
-            receipt = {'classification': 'SHARED_REGISTRATION_REVIEW_CANDIDATE',
-                       'source_revision': report['source_revision'], 'shared_commit': commit,
-                       'base_index_sha256': digest, 'declaration_sha256': report['declaration_sha256'],
-                       'provider_key': args.bundle_provider, 'bundle_path': args.bundle_path,
-                       'bundle_sha256': hashlib.sha256((json.dumps(registration, indent=2, sort_keys=True) + '\n').encode()).hexdigest(),
-                       'runtime_authority_verified': False, 'published': False}
-            output = args.bundle_output.absolute()
-            resolved_output = output.resolve()
-            if resolved_output.is_relative_to(ROOT) or resolved_output.is_relative_to(args.shared_checkout.resolve()):
-                raise ValueError('review output must be outside IAM and the pinned Shared checkout')
-            if subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=all'], text=True).strip():
-                raise ValueError('bundle source changed during preparation')
-            if subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip() != args.expected_source_revision:
-                raise ValueError('bundle source revision changed during preparation')
-            load_capability_catalogue(args.shared_checkout.resolve())
-            write_bundle_candidate(output, args.bundle_path, proposed, registration, receipt)
-            report['bundle_candidate'] = receipt
-        print(json.dumps(report, indent=2, sort_keys=True))
-        return 2 if drift or (args.require_registrable and blocked) else 0
-    except (ValueError, KeyError, OSError, subprocess.CalledProcessError, yaml.YAMLError) as error:
-        print(f'publication preflight denied: {error}', file=sys.stderr)
-        return 1
-
-
-if __name__ == '__main__':
-    sys.exit(main())
+	for _, encoded := range encodedCertificates {
+		block, rest := pem.Decode([]byte(encoded))
+		if block == nil || block.Type != "CERTIFICATE" || len(bytes.TrimSpace(rest)) != 0 {
+			return nil, ErrInvalid
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, ErrInvalid
+		}
+		if now.Before(cert.NotBefore) || !now.Before(cert.NotAfter) {
+			continue
+		}
+		if cert.KeyUsage != 0 && cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
+			return nil, ErrInvalid
+		}
+		switch key := cert.PublicKey.(type) {
+		case *rsa.PublicKey:
+			if key.N.BitLen() < 2048 || key.E < 65537 {
+				return nil, ErrInvalid
+			}
+		case *ecdsa.PublicKey:
+			if key.Curve != elliptic.P256() {
+				return nil, ErrInvalid
+			}
+		default:
+			return nil, ErrUnsupported
+		}
+		certificates = append(certificates, cert)
+	}
+	if len(certificates) == 0 {
+		return nil, ErrUnverified
+	}
+	return certificates, nil
+}

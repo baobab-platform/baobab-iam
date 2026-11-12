@@ -73,18 +73,22 @@ func NewAdapter(cfg Config) (*Adapter, error) {
 	}
 
 	timeout := cfg.RequestTimeout
+	if timeout < 0 || timeout > 60*time.Second {
+		return nil, fmt.Errorf("ory: administrative request timeout must be 0..60 seconds")
+	}
 	if timeout == 0 {
 		timeout = 15 * time.Second
 	}
-
-	httpClient := cfg.HTTPClient
-	if httpClient == nil {
-		httpClient = &http.Client{
-			Timeout: timeout,
-			// Transport should be configured by the caller for mTLS / custom CA
-			// when required by the deployment.
-		}
+	// The original adapter inherited Go's ambient proxy settings or took an
+	// arbitrary injected RoundTripper for private Kratos/Hydra admin traffic.
+	// Reuse the native trust-boundary policy for both provisioning/revocation
+	// and browser handoff: verified CA roots only; no custom dialers/proxies,
+	// TLS bypass, token-logging transports or HTTP redirects.
+	httpClient, err := newNativeProviderHTTPClient(cfg.HTTPClient)
+	if err != nil {
+		return nil, fmt.Errorf("ory: administrative HTTP transport denied: %w", err)
 	}
+	httpClient.Timeout = timeout
 
 	a := &Adapter{
 		cfg:  cfg,
