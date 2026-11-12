@@ -10,7 +10,10 @@ import {startBrowserUI, stopBrowserUI} from './n06-browser-ui.mjs';
 
 const API = 'http://127.0.0.1:4433';
 const ADMIN = 'http://127.0.0.1:4434';
-const UI = 'http://127.0.0.1:4455';
+// WebAuthn RP IDs are domains, not IP literals. Keep browser cookies and
+// the RP on localhost; server-side administrative probes stay on loopback.
+const BROWSER_API = 'http://localhost:4433';
+const UI = 'http://localhost:4455';
 const envOK = process.env.ORY_FOUNDATION === '1' &&
  process.env.GITHUB_ACTIONS === 'true' &&
  process.env.ORY_KRATOS_ADMIN_URL === ADMIN &&
@@ -49,6 +52,8 @@ function statusExact(r,expected,stage) {
  return r.body;
 }
 async function onPage(method, url, body) {
+ pass(new URL(url).origin===API, 'BROWSER_API_ORIGIN');
+ url=BROWSER_API+new URL(url).pathname+new URL(url).search;
  // These are Kratos *browser* flows. The API registration uses JSON, but
  // browser login/settings require their CSRF-bound HTML form semantics.
  // Encoding these mutations as JSON can fail or bypass browser validation.
@@ -70,7 +75,7 @@ async function onPage(method, url, body) {
  }
 }
 async function browserFlow(kind,extra='') {
- await session.page.goto(API+'/self-service/'+kind+'/browser'+extra,{waitUntil:'domcontentloaded'});
+ await session.page.goto(BROWSER_API+'/self-service/'+kind+'/browser'+extra,{waitUntil:'domcontentloaded'});
  const u=new URL(session.page.url());
  pass(u.origin===UI && u.pathname==='/'+kind && /^[0-9a-f-]{36}$/.test(u.searchParams.get('flow')||''),kind+'_ORIGIN');
  const id=u.searchParams.get('flow');
@@ -119,7 +124,7 @@ async function kratosIdentity() {
  identityID=data.identity.id;
 }
 async function getIdentity() {
- const data=statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)),200,'CURRENT_IDENTITY');
+ const data=statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+'?include_credential=webauthn'),200,'CURRENT_IDENTITY');
  pass(data.id===identityID, 'SUBJECT_MISMATCH');
  return data;
 }
@@ -145,12 +150,14 @@ async function registerWebAuthn() {
  const challenge=field(flow,'webauthn_register_trigger');
  const csrf=field(flow,'csrf_token');
  pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','SETTINGS_RP_CHALLENGE');
- const credential=await nativeCredential('create',challenge,'127.0.0.1');
+ qualificationPhase='KRATOS_PASSKEY_CREATE';
+ const credential=await nativeCredential('create',challenge,'localhost');
  pass(typeof credential.id==='string' && credential.id.length>=16 && added>=1,'CHROMIUM_CREDENTIAL');
  const response=await onPage('POST',API+'/self-service/settings?flow='+id,
   {method:'webauthn',webauthn_register:JSON.stringify(credential),
    webauthn_register_displayname:'disposable-ci-ctap2',csrf_token:csrf});
  pass(response.status===200 || response.redirect, 'REGISTRATION_COMMIT_'+response.status);
+ qualificationPhase='KRATOS_PASSKEY_PROVIDER_READBACK';
  const after=await getIdentity();
  const configured=after.credentials?.webauthn?.config?.credentials;
  pass(Array.isArray(configured) && configured.length===1,'REGISTERED_PROVIDER_KEY_READBACK');
@@ -160,7 +167,7 @@ async function loginSecondFactor() {
  const challenge=field(flow,'webauthn_login_trigger');
  const csrf=field(flow,'csrf_token');
  pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','AAL2_CHALLENGE');
- const credential=await nativeCredential('get',challenge,'127.0.0.1');
+ const credential=await nativeCredential('get',challenge,'localhost');
  pass(credential.type==='public-key' && asserted>=1,'REAL_CREDENTIAL_ASSERTION');
  const success=await onPage('POST',API+'/self-service/login?flow='+id,
   {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
@@ -196,7 +203,7 @@ async function run() {
     isUserVerified:true,automaticPresenceSimulation:true}});
   session.id=response.authenticatorId;
   session.cdp.on('WebAuthn.credentialAdded',({credential})=>{
-   if(credential?.rpId==='127.0.0.1') added++;
+   if(credential?.rpId==='localhost') added++;
   });
   session.cdp.on('WebAuthn.credentialAsserted',()=>{asserted++});
   qualificationPhase='KRATOS_BROWSER_LOGIN';
