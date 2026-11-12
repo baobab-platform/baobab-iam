@@ -1,0 +1,57 @@
+{
+  "schema": "baobab.iam.n07.consumer-http.v1",
+  "environment": "development",
+  "run_id": "00000000000000000000000000000000",
+  "source_pins": {
+    "baobab-iam": "0000000000000000000000000000000000000000",
+    "baobab-cp": "0000000000000000000000000000000000000000",
+    "shared": "0000000000000000000000000000000000000000",
+    "nabhold": "0000000000000000000000000000000000000000",
+    "zuribeans": "0000000000000000000000000000000000000000",
+    "thamani": "0000000000000000000000000000000000000000",
+    "baobab-pulse": "0000000000000000000000000000000000000000",
+    "baobab-payments": "0000000000000000000000000000000000000000"
+  },
+  "consumers": [
+    {
+      "name": "nabhold",
+      "kind": "estate",
+      "origin": "https://nabhold.private.example.invalid",
+      "anonymous_path": "/api/auth/session"
+    },
+    {
+      "name": "zuribeans",
+      "kind": "estate",
+      "origin": "https://zuribeans.private.example.invalid",
+      "anonymous_path": "/api/iam/session"
+    },
+    {
+      "name": "thamani",
+      "kind": "estate",
+      "origin": "https://thamani.private.example.invalid",
+      "anonymous_path": "/api/auth/session"
+    },
+    {
+      "name": "baobab-pulse",
+      "kind": "engine",
+      "origin": "https://pulse.private.example.invalid",
+      "resource_path": "/REPLACE-WITH-OWNER-READ-ONLY-ROUTE",
+      "allowed_token_file": "/run/secrets/iam-n07/baobab-pulse/allowed.token",
+      "wrong_audience_token_file": "/run/secrets/iam-n07/baobab-pulse/wrong_audience.token",
+      "foreign_tenant_token_file": "/run/secrets/iam-n07/baobab-pulse/foreign_tenant.token",
+      "missing_grant_token_file": "/run/secrets/iam-n07/baobab-pulse/missing_grant.token",
+      "revoked_unexpired_token_file": "/run/secrets/iam-n07/baobab-pulse/revoked_unexpired.token"
+    },
+    {
+      "name": "baobab-payments",
+      "kind": "engine",
+      "origin": "https://payments.private.example.invalid",
+      "resource_path": "/REPLACE-WITH-OWNER-READ-ONLY-ROUTE",
+      "allowed_token_file": "/run/secrets/iam-n07/baobab-payments/allowed.token",
+      "wrong_audience_token_file": "/run/secrets/iam-n07/baobab-payments/wrong_audience.token",
+      "foreign_tenant_token_file": "/run/secrets/iam-n07/baobab-payments/foreign_tenant.token",
+      "missing_grant_token_file": "/run/secrets/iam-n07/baobab-payments/missing_grant.token",
+      "revoked_unexpired_token_file": "/run/secrets/iam-n07/baobab-payments/revoked_unexpired.token"
+    }
+  ]
+}
