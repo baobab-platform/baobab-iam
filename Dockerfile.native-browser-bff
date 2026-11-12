@@ -1,0 +1,22 @@
+# IAM-N08: reproducible, unprivileged native Kratos/Hydra browser boundary.
+# This image is a COMPONENT, not an activated provider or deployment.
+# Pin the upstream multi-arch digest to the same reviewed Go base as
+# Dockerfile.federation-authority. Never obtain a toolchain at runtime.
+FROM golang:1.27.3-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f1c58525ec9d8170fd AS build
+ENV GOTOOLCHAIN=local CGO_ENABLED=0 GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+COPY internal/ ./internal/
+COPY cmd/native-browser-bff/ ./cmd/native-browser-bff/
+# No host paths, VCS checkout, timestamps, mutable build metadata or secrets
+# are accepted as Go inputs. The executable has no root or shell dependency.
+RUN go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" \
+    -o /native-browser-bff ./cmd/native-browser-bff
+
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /native-browser-bff /native-browser-bff
+USER 65532:65532
+EXPOSE 8443
+ENTRYPOINT ["/native-browser-bff"]

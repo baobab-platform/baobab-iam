@@ -28,3 +28,9 @@ a23746136065d290d18afca5430e664b3ade4be5:tests/ory-foundation/hydra-audience/sec
 # Same go.sum checksum finding as above, as re-fingerprinted by the squash merge of #90 (commit 4d9ae2c). Fingerprints name
 # the commit, and history scans on main see the squashed commit rather than the PR branch commit. Exact, not a path wildcard.
 4d9ae2c9fb5d35315223d7fdd1ed5bf380f9c3db:tests/ory-foundation/hydra-audience/security.patch:generic-api-key:157
+
+# Historical code-comment false positive: line 5 of this disposable restore
+# witness is English prose ('read it through Admin API, resolves its exact
+# user'). No credential, secret value or bearer token occurs in that line.
+# Suppress only this verified fingerprint; all other secrets remain scanned.
+ca7aedecf5525634a41488ce4664a4355461b3ce:tests/operations/n08_keycloak_session_restore.py:generic-api-key:5

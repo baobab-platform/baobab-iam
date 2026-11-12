@@ -141,6 +141,14 @@ func n06ExecutableSecurity(scope, kratos string, roots *x509.CertPool) (map[stri
 	return operations, gate, nil
 }
 
+// Compatibility with the reviewed N08 negative tests: reuse the exact
+// mandatory N06 assurance policy; do not create a competing weaker gate.
+type unavailableN08Risk = unavailableN06Risk
+
+func n08NativeScopePolicy(scope string) (map[string]assurance.Operation, error) {
+	return n06NativeScopePolicy(scope)
+}
+
 func run(ctx context.Context, listen string, d document, caFile string) error {
 	if ctx == nil || ctx.Err() != nil || d.PublicOrigin == "" || d.Issuer == "" ||
 		d.ClientID == "" || d.KratosAdmin == "" || d.HydraAdmin == "" || d.CPCallerTokenFile == "" || d.TLSCertificateFile == "" ||
@@ -176,7 +184,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("invalid BFF TLS identity")
 	}
-	providerTLS := &http.Client{Timeout: 8 * time.Second, Transport: &http.Transport{TLSClientConfig: trust.Clone(), Proxy: nil}}
+	providerTLS := &http.Client{Timeout: 8 * time.Second, Transport: nativebff.N08TraceTransport{Base: &http.Transport{TLSClientConfig: trust.Clone(), Proxy: nil}}}
 	secret, err := privateBytes(d.ClientSecretFile)
 	if err != nil {
 		return err
@@ -276,8 +284,12 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("invalid native BFF configuration")
 	}
+	// Server-owned bounded operational counters; no principal, token, path
+	// or buyer data is emitted. This is diagnostics, not issuer authority.
+	n08Metrics := nativebff.NewN08OperationalMetrics()
+	defer func() { fmt.Fprintln(os.Stderr, n08Metrics.SnapshotJSON()) }()
 	server := &http.Server{
-		Addr: listen, Handler: handler, ReadHeaderTimeout: 5 * time.Second,
+		Addr: listen, Handler: nativebff.ObserveN08Native(handler, n08Metrics), ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout: 12 * time.Second, WriteTimeout: 20 * time.Second,
 		IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10,
 	}
