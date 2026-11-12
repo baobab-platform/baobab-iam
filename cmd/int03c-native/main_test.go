@@ -25,7 +25,8 @@ type fakeIssuer struct {
 func fixtureIssuer(t *testing.T) (*native, *fakeIssuer, func()) {
 	t.Helper()
 	state := &fakeIssuer{clients: map[string]map[string]any{}}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Use explicit test-server TLS trust without overriding privileged routing.
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		const prefix = "/admin/clients/"
 		state.mu.Lock()
 		defer state.mu.Unlock()
@@ -87,7 +88,10 @@ func fixtureIssuer(t *testing.T) (*native, *fakeIssuer, func()) {
 			w.WriteHeader(405)
 		}
 	}))
-	a, err := ory.NewAdapter(ory.Config{HydraAdminURL: srv.URL, KratosAdminURL: srv.URL, PublicIssuer: srv.URL, HTTPClient: srv.Client()})
+	trustedClient := &http.Client{Transport: &http.Transport{
+		TLSClientConfig: srv.Client().Transport.(*http.Transport).TLSClientConfig.Clone(),
+	}}
+	a, err := ory.NewAdapter(ory.Config{HydraAdminURL: srv.URL, KratosAdminURL: srv.URL, PublicIssuer: srv.URL, HTTPClient: trustedClient})
 	if err != nil {
 		t.Fatal(err)
 	}

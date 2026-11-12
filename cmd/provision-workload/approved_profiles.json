@@ -1,0 +1,99 @@
+{
+  "source_commit": "1517429bcae601a1b0288ca0279e524ce48a3d77",
+  "scope_audiences": {
+    "context:resolve": [
+      "baobab-control-plane"
+    ],
+    "context:validate": [
+      "baobab-control-plane"
+    ],
+    "provider-migration:task": [
+      "baobab-control-plane"
+    ],
+    "erp:read": [
+      "baobab-erp"
+    ],
+    "erp:integrate": [
+      "baobab-erp"
+    ]
+  },
+  "workloads": {
+    "baobab-trade-workload": {
+      "credential_type": "client_credentials",
+      "environment": "production",
+      "status": "ACTIVE",
+      "allowed_scopes": [
+        "context:resolve",
+        "erp:read",
+        "provider-migration:task"
+      ],
+      "allowed_audiences": [
+        "baobab-control-plane",
+        "baobab-erp"
+      ]
+    },
+    "baobab-cms-workload": {
+      "credential_type": "client_credentials",
+      "environment": "production",
+      "status": "ACTIVE",
+      "allowed_scopes": [
+        "context:resolve",
+        "context:validate",
+        "provider-migration:task"
+      ],
+      "allowed_audiences": [
+        "baobab-control-plane"
+      ]
+    },
+    "baobab-erp-workload": {
+      "credential_type": "client_credentials",
+      "environment": "production",
+      "status": "ACTIVE",
+      "allowed_scopes": [
+        "context:resolve",
+        "context:validate",
+        "erp:integrate",
+        "provider-migration:task"
+      ],
+      "allowed_audiences": [
+        "baobab-control-plane",
+        "baobab-erp"
+      ]
+    },
+    "baobab-pulse-workload": {
+      "credential_type": "client_credentials",
+      "environment": "production",
+      "status": "ACTIVE",
+      "allowed_scopes": [
+        "context:resolve",
+        "context:validate",
+        "provider-migration:task"
+      ],
+      "allowed_audiences": [
+        "baobab-control-plane"
+      ]
+    },
+    "thamani-backend": {
+      "credential_type": "client_credentials",
+      "environment": "production",
+      "status": "ACTIVE",
+      "allowed_scopes": [
+        "context:resolve"
+      ],
+      "allowed_audiences": [
+        "baobab-control-plane"
+      ]
+    },
+    "zuribeans-backend": {
+      "credential_type": "client_credentials",
+      "environment": "production",
+      "status": "ACTIVE",
+      "allowed_scopes": [
+        "context:resolve"
+      ],
+      "allowed_audiences": [
+        "baobab-control-plane"
+      ]
+    }
+  }
+}

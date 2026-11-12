@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// ADR-SHARED-042 CAA-03: the login accepts only amr derived from the methods
-// Kratos completed for the verified session; nothing is guessed.
+// Kratos-reported methods are evidence, not a caller-selected factor list.
+// Recovery and generic codes must not become OTP or MFA (ADR-IAM-0024/25).
 func TestNativeAMRFromVerifiedSessionMethods(t *testing.T) {
 	session := func(methods ...string) nativeSession {
 		var s nativeSession
@@ -18,20 +18,24 @@ func TestNativeAMRFromVerifiedSessionMethods(t *testing.T) {
 		}
 		return s
 	}
-	for name, tc := range map[string]struct {
+	cases := map[string]struct {
 		methods []string
 		want    []string
 	}{
-		"password":                {[]string{"password"}, []string{"pwd"}},
-		"password then totp":      {[]string{"password", "totp"}, []string{"pwd", "otp", "mfa"}},
-		"passkey":                 {[]string{"passkey"}, []string{"hwk"}},
-		"password then webauthn":  {[]string{"password", "webauthn"}, []string{"pwd", "hwk", "mfa"}},
-		"email code":              {[]string{"code"}, []string{"otp"}},
-		"repeated factor":         {[]string{"totp", "lookup_secret"}, []string{"otp"}},
-		"unknown method omitted":  {[]string{"magic"}, nil},
-		"unknown never makes mfa": {[]string{"password", "magic"}, []string{"pwd"}},
-		"none":                    {nil, nil},
-	} {
+		"password":                  {methods: []string{"password"}, want: []string{"pwd"}},
+		"password then totp":        {methods: []string{"password", "totp"}, want: []string{"pwd", "otp", "mfa"}},
+		"passkey":                   {methods: []string{"passkey"}, want: nil},
+		"password then webauthn":    {methods: []string{"password", "webauthn"}, want: []string{"pwd"}},
+		"email code is not totp":    {methods: []string{"code"}, want: nil},
+		"recovery code no factor":   {methods: []string{"totp", "lookup_secret"}, want: []string{"otp"}},
+		"password and lookup code":  {methods: []string{"password", "lookup_secret"}, want: []string{"pwd"}},
+		"password and generic code": {methods: []string{"password", "code"}, want: []string{"pwd"}},
+		"unknown method omitted":    {methods: []string{"magic"}, want: nil},
+		"unknown never makes mfa":   {methods: []string{"password", "magic"}, want: []string{"pwd"}},
+		"synced passkey not hwk":    {methods: []string{"password", "passkey"}, want: []string{"pwd"}},
+		"none":                      {methods: nil, want: nil},
+	}
+	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			if got := nativeAMR(session(tc.methods...)); !slices.Equal(got, tc.want) {
 				t.Fatalf("amr = %v, want %v", got, tc.want)

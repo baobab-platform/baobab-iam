@@ -75,7 +75,7 @@ func buyerIntent(scope string) humanauth.Request {
 var buyerSealKey = []byte(strings.Repeat("s", tokenprofile.MinConsentSealKeyBytes))
 
 func (p *buyerProvider) config(t *testing.T, now time.Time, profiles *tokenprofile.Config) NativeHumanConfig {
-	c := NativeHumanConfig{KratosPublicURL: p.server.URL, HydraAdminURL: p.server.URL, Issuer: p.server.URL, Client: p.server.Client(),
+	c := NativeHumanConfig{KratosPublicURL: p.server.URL, HydraAdminURL: p.server.URL, Issuer: p.server.URL, Client: ProviderFixtureClient(p.server),
 		Now: func() time.Time { return now }, Fence: openNativeTestFence(t), TokenProfiles: profiles}
 	if profiles != nil {
 		c.ConsentSealKey = buyerSealKey
