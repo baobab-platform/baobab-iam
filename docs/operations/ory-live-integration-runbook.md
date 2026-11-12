@@ -100,93 +100,37 @@ audience mismatch. Its private callback key/configuration is temporary input,
 never evidence. The hook is workload-only; do not enable it globally on a
 human/browser issuer. The workflow runs both baseline and profile proofs.
 
-## 4. Manually provision one client-credentials workload
+## 4. Validate an M4 workload plan offline
 
 ```bash
-export ORY_PROVISION=1
-export ORY_ACTION=provision
-export ORY_LOGICAL_CLIENT_ID=baobab-trade-workload
-# Use allowed_scopes from the selected workload at contracts.lock.yaml.
-export ORY_ALLOWED_SCOPES=context:resolve,provider-migration:task
-export ORY_SECRET_OUTPUT_DIR="$(mktemp -d)"
-export ORY_KRATOS_ADMIN_URL=http://127.0.0.1:4434
-export ORY_HYDRA_ADMIN_URL=http://127.0.0.1:4445
-export ORY_PUBLIC_ISSUER=http://127.0.0.1:4444
-
+ORY_ACTION=plan \
+ORY_LOGICAL_CLIENT_ID=baobab-trade-workload \
+ORY_ALLOWED_SCOPES=context:resolve,provider-migration:task \
 go run ./cmd/provision-workload/
 ```
 
-The CLI atomically writes the new secret to a mode-0600 file inside the private
-`ORY_SECRET_OUTPUT_DIR` and prints only the handoff path. It never prints the
-secret. Keep that file outside the repository and evidence artifacts. Re-running `provision` updates scopes/metadata and **does not** rotate the secret; use `ORY_ACTION=rotate` for rotation.
+The plan reports the pinned Shared revision, registered environment, requested
+scope subset and derived resource audiences. The profiles in this command are
+production identities. Use the owning approved issuer lifecycle for their
+registration, disable and rotation.
 
-Verify client exists:
+## 5. Exercise client-credentials issuance
 
-```bash
-curl -sf http://127.0.0.1:4445/admin/clients/baobab-trade-workload | jq '{client_id,grant_types,scope,token_endpoint_auth_method}'
-```
+Use the disposable fixture and verification workflow in section 3 for local
+testing. Its identities, secret custody and teardown are owned by that
+workflow. Capture public issuer and resource readback separately for M4
+acceptance.
 
-Expected grant: `client_credentials`. Authorization scopes must come from Shared's canonical workload registry. For `baobab-trade-workload`, use `context:resolve` and `provider-migration:task`. `actor-type-workload` is a legacy Keycloak claim-mapper scope, not a Baobab authorization permission.
+## 6. Observe disable and rotation
 
----
-
-## 5. Client-credentials token
-
-The adapter registers `client_secret_post`. Supply the client ID and secret
-in the form body; HTTP Basic is a different authentication method. This command
-reads the secret from the handoff file without putting it in the process
-argument list or printing the access token:
-
-```bash
-python3 - <<'PYTOKEN'
-import json
-import os
-from pathlib import Path
-import urllib.parse
-import urllib.request
-client_id = os.environ['ORY_LOGICAL_CLIENT_ID']
-secret = (Path(os.environ['ORY_SECRET_OUTPUT_DIR']) /
-          (client_id + '.client-secret')).read_text().strip()
-form = urllib.parse.urlencode({
-    'grant_type': 'client_credentials', 'client_id': client_id,
-    'client_secret': secret,
-    'scope': os.environ['ORY_ALLOWED_SCOPES'].replace(',', ' '),
-}).encode()
-request = urllib.request.Request('http://127.0.0.1:4444/oauth2/token', data=form)
-with urllib.request.urlopen(request, timeout=10) as response:
-    token = json.load(response)
-print(json.dumps({key: token.get(key) for key in ('token_type', 'expires_in', 'scope')}))
-PYTOKEN
-```
-
-HTTP 200 and decoding a JWT payload do not prove its signature or Baobab
-activation. The automated suite verifies the signature against public JWKS;
-actual consumer acceptance remains required by the M4 gate.
-
----
-
-## 6. Disable and rotate
-
-```bash
-export ORY_ACTION=disable
-go run ./cmd/provision-workload/
-# token request should fail
-
-export ORY_ACTION=provision   # re-enable grants without rotating secret
-go run ./cmd/provision-workload/
-
-export ORY_ACTION=rotate
-go run ./cmd/provision-workload/
-# use new secret for subsequent token calls
-```
-
----
+Record the original issuer and consumer denial after disable. For rotation,
+verify the intended new credentials and refusal of the previous credentials
+through the owning lifecycle.
 
 ## 7. Additional workloads
 
-Provision client-credentials workloads individually using their own pinned
-Shared scopes. `all-primary` is deliberately disabled. The client-secret CLI
-cannot provision the CP or Subscriptions federated identities; use the dedicated
+Review each client-credentials workload against its own pinned Shared profile.
+For CP or Subscriptions federated identities, use the dedicated
 federation port with governed public signing keys. The live suite demonstrates
 that port using ephemeral CI-only keys and exact issuer/subject trust.
 
@@ -261,3 +205,12 @@ or validator audiences. Production databases, deployments and real registered
 consumer acceptance remain unproven; EA-04 remains ADVANCED. The M4-F RFC 7523
 resource-audience blocker, PROVISIONED workloads, dual-issuer rollout, cutover
 and retirement gates are unchanged.
+## Signing key rollover preflight
+
+Run `python3 scripts/operations/check_jwks_rotation.py before.json after.json plan.json`
+against captured public key sets and the reviewed rotation plan. The check
+compares public key material independently of `kid`, including when a
+compromised key is published under a different identifier. Routine overlap
+still requires current verification distribution and the complete token,
+cache and clock-skew window. Verify actual issuer rotation and consumer
+refresh separately under CTS2-043.

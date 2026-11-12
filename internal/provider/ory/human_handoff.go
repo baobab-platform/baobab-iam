@@ -98,9 +98,9 @@ func newNativeHumanHandoff(c NativeHumanConfig) (*NativeHumanHandoff, error) {
 	if c.Now == nil || c.Fence == nil {
 		return nil, fmt.Errorf("native handoff clock and challenge fence required")
 	}
-	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	if c.Client != nil {
-		client.Transport = c.Client.Transport
+	client, err := newNativeProviderHTTPClient(c.Client)
+	if err != nil {
+		return nil, err
 	}
 	var buyer *tokenprofile.Config
 	if (c.TokenProfiles == nil) != (c.ConsentSealKey == nil) {
@@ -401,10 +401,22 @@ func nativeAMR(s nativeSession) []string {
 		switch m.Method {
 		case "password":
 			add("pwd")
-		case "totp", "lookup_secret", "code":
+		case "totp":
 			add("otp")
+		case "lookup_secret", "code":
+			// Kratos recovery/lookup secrets and generic codes do not
+			// demonstrate an independent OTP authenticator. They must not
+			// be translated into RFC 8176 otp or manufactured mfa evidence
+			// (ADR-IAM-0024 assurance and ADR-IAM-0025 recovery).
+			continue
 		case "webauthn", "passkey":
-			add("hwk")
+			// A completed WebAuthn/passkey ceremony is not proof of
+			// hardware-key provenance: synced passkeys may be software
+			// backed, and provider method labels do not attest RP-bound
+			// user verification. Do not emit RFC 8176 "hwk" or fabricate
+			// a second factor. Qualified A3/A4 evidence needs a separate
+			// inspected authenticator assertion (ADR-IAM-0024).
+			continue
 		}
 	}
 	if len(out) >= 2 {
