@@ -40,9 +40,9 @@ jobs:
           gofmt -d cmd internal pkg
           test -z "$(gofmt -l cmd internal pkg)"
       - name: Build packages
-        run: go build ./internal/securityops/... ./internal/assurance/... ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
+        run: go build ./internal/privacy/... ./internal/securityops/... ./internal/assurance/... ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
       - name: Test packages
-        run: go test ./internal/securityops/... ./internal/assurance/... ./pkg/workloadresource/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
+        run: go test ./internal/privacy/... ./internal/securityops/... ./internal/assurance/... ./pkg/workloadresource/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
       - name: Validate IAM-N02 browser/evidence source and negative custody gates
         run: |
           python3 -m py_compile tests/browser/n02_live.py scripts/n02_evidence_gate.py scripts/n02_development_clients.py
@@ -167,6 +167,8 @@ jobs:
         run: go test -race ./internal/migration -run '^TestN05' -count=1
       - name: Incident containment durable-fence PostgreSQL 17 qualification
         run: go test -race ./internal/securityops -run '^TestPostgres' -count=1 -v
+      - name: Privacy tombstone durable replay PostgreSQL 17 qualification
+        run: go test -race ./internal/privacy -run '^TestPostgres' -count=1 -v
 
   enterprise-federation-live:
     runs-on: ubuntu-latest

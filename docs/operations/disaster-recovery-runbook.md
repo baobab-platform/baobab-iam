@@ -119,6 +119,37 @@ assertion around an actual Infrastructure-driven backup and restore, once that
 tooling exists to test against.
 
 
+## ADR-IAM-0030: privacy restrictions during restored identity authority
+
+The native IAM owner now has a separate *development implementation* of a
+minimal monotonic restriction tombstone journal:
+`internal/privacy/migrations/001_restriction_tombstone.sql` and
+`internal/privacy.PostgresRepository`. Its identifier is the exact external
+`issuer + subject`, never email. It carries only a decision reference and
+timestamp; raw proofing documents, identity traits and credentials are not
+stored. The journal must be kept **outside the provider backup under restore**
+and must have separately protected custody, roles, retention and recovery.
+
+`Service.RecordRestriction` requires a fresh current privacy authority
+decision before writing a tombstone and independently reads the result.
+`CheckReactivation` vetoes a restricted subject and fails closed on journal
+unavailability; its successful return is **not** a grant of authority.
+`RestoreReconciler.ReassertRestriction` re-disables the exact native subject,
+revokes sessions, checks current provider state, requires fresh CP/resource
+denial and rechecks privacy custody. `ReassertAll` requires a **separate
+checkpoint verifier** before and after walking the restricted set and refuses
+a changed checkpoint. A mock/verifier interface is not independent custody.
+
+**Mandatory promotion hold:** Security and Privacy must independently prove
+the live tombstone journal is complete, review legal holds, prove all provider
+revocations/current CP denials, exercise event replay and backup restore, and
+block every unauthorised reactivation/provision path. No unconnected JSON
+receipt, source-level test or empty local tombstone list certifies global
+erasure or a safe promotion. This increment is not an erasure saga and does
+not implement Trade/ERP/CMS retention decisions, mandatory identity
+reenablement-path enforcement, cross-border compliance or actual legal-hold
+adjudication. Do not reopen production traffic based on it.
+
 ## ADR-IAM-0027 offline promotion preflight (development safeguard)
 
 Before **any** candidate-region writer is enabled, collect an externally witnessed
@@ -152,3 +183,11 @@ The ADR-IAM-0027 preflight rejects ambiguous issuer identifiers, duplicate
 JSON members, non-integer revocation counts and padded witness identifiers.
 It checks the submitted evidence structure. Infrastructure, Security and CP
 verify the underlying receipts and remain responsible for promotion decisions.
+
+### CTS v2 restriction approval freshness, 12 November 2026
+
+Restriction authorization is validated after the authority call returns, at the
+journal-write boundary. Slow or cancelled calls cannot persist a tombstone using
+an approval that expired while waiting. Source tests assert no journal write on
+late or cancelled approval. Independent privacy authority, journal completeness,
+actual restored-provider denial and protected promotion remain separate gates.
