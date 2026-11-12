@@ -95,6 +95,41 @@ class IAMN01Tests(unittest.TestCase):
         self.declaration["providers"][0]["support"][0]["capability_key"] = "identity.human.provision"
         self.deny("canonical capability/major")
 
+    def test_extra_catalogued_support_requires_exact_reviewed_key(self):
+        for index in (0, 2):  # Kratos assurance and Keycloak federation.
+            with self.subTest(provider=index):
+                original = copy.deepcopy(self.declaration)
+                self.declaration["providers"][index]["support"].pop()
+                self.deny("provider support census drift")
+                self.declaration = copy.deepcopy(original)
+
+                self.declaration["providers"][index]["support"][1]["capability_key"] = "identity.human.disable"
+                self.deny("additional canonical capability/major mismatch")
+                self.declaration = copy.deepcopy(original)
+
+                self.declaration["providers"][index]["support"][1]["implementation_status"] = "IMPLEMENTED"
+                self.deny("cannot promote additional support")
+                self.declaration = copy.deepcopy(original)
+
+                self.declaration["providers"][index]["support"][1]["implementation_evidence"][0]["path"] = "internal/migration/bridge.go"
+                self.deny("additional provider support evidence")
+                self.declaration = original
+
+    def test_capability_catalogue_pin_is_read_only_and_exact(self):
+        new_lock = yaml.safe_load(
+            (ROOT / ".baobab/capability-catalogue.lock.yaml").read_text())
+        self.assertTrue(n01.check(record=self.record, lock=self.lock,
+                                  declaration=self.declaration, catalogue_lock=new_lock))
+        for field, value in (("source", {"repository": "baobab-platform/shared", "commit": "0" * 40}),
+                             ("purpose", "issuer-active-workload-pin"),
+                             ("contracts", [])):
+            with self.subTest(field=field):
+                bad = copy.deepcopy(new_lock)
+                bad[field] = value
+                with self.assertRaisesRegex(ValueError, "unreviewed read-only capability catalogue pin"):
+                    n01.check(record=self.record, lock=self.lock,
+                              declaration=self.declaration, catalogue_lock=bad)
+
     def test_planned_key_not_implicitly_approved(self):
         self.declaration["planned_capabilities"][0]["proposal_status"] = "IMPLEMENTED"
         self.deny("improperly promoted")

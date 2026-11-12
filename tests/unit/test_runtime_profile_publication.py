@@ -21,7 +21,7 @@ class RuntimePublicationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         checkout = Path(os.environ['SHARED_REPO_DIR']).resolve()
-        module, _ = publication.load_shared(checkout)
+        module, _ = publication.load_runtime_shared(checkout)
         cls.contracts = module.Contracts(checkout / 'contracts')
 
     def setUp(self):

@@ -25,7 +25,7 @@ jobs:
       packages: write
       attestations: write
       id-token: write
-    uses: baobab-platform/shared/.github/workflows/reusable-staging-image.yml@cf506e9f651f1157880d57d4f5f792ec1263a7ac # shared main; staging workflows are not in a promoted release (v2.3.0) yet
+    uses: baobab-platform/shared/.github/workflows/reusable-staging-image.yml@2a2ac16a26e0c217875002f25d7f00e181cf8c5b # shared main; staging workflows are not in a promoted release (v2.3.0) yet
     with:
       dockerfile: ${{ matrix.dockerfile }}
       image: ${{ matrix.image }}

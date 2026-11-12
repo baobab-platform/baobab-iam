@@ -41,16 +41,14 @@ The audit corrected three migration-branch assumptions:
 
 ## 4. Client-credential migration
 
-`cmd/provision-workload` remains useful for current
-`credential_type=client_credentials` workloads, with two fail-closed changes:
+`cmd/provision-workload` validates offline plans for the reviewed production
+`client_credentials` profiles in the pinned Shared registry. The operator
+supplies an exact logical client ID and requested scope subset. The command
+derives the corresponding resource audiences from Shared.
 
-- `ORY_ALLOWED_SCOPES` is required and must come from the selected Shared
-  registry entry;
-- bulk `all-primary` provisioning is disabled because workloads have different
-  canonical scope sets.
-
-Generated/rotated Hydra secrets are written only to a private
-`ORY_SECRET_OUTPUT_DIR` handoff (0700 directory / 0600 file) and never printed.
+Live mutation requires a separately governed issuer lifecycle bound to the
+profile environment. The local development workflow uses its own disposable
+identities and owns their credentials and teardown.
 
 ## 5. Federated workloads
 
