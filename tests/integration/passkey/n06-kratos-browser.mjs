@@ -6,6 +6,7 @@
  */
 import {chromium} from 'playwright';
 import {randomBytes} from 'node:crypto';
+import {startBrowserUI, stopBrowserUI} from './n06-browser-ui.mjs';
 
 const API = 'http://127.0.0.1:4433';
 const ADMIN = 'http://127.0.0.1:4434';
@@ -23,6 +24,7 @@ const privateEmail = 'a3-live-' + nonce() + '@baobab.invalid';
 const privatePassword = 'Aa!9-' + nonce();
 let identityID, added=0, asserted=0;
 let qualificationPhase='INITIALIZING';
+let browserUI;
 
 const timeout = AbortSignal.timeout(12000);
 async function jsonRequest(url, method='GET', body) {
@@ -178,13 +180,13 @@ async function run() {
  try {
   qualificationPhase='KRATOS_NATIVE_IDENTITY';
   await kratosIdentity();
+  qualificationPhase='BROWSER_UI_LISTEN';
+  browserUI=await startBrowserUI();
   qualificationPhase='CHROMIUM_LAUNCH';
   session.browser=await chromium.launch({headless:true});
   session.context=await session.browser.newContext({acceptDownloads:false});
   session.page=await session.context.newPage();
   session.page.setDefaultTimeout(18000);
-  await session.page.route(UI+'/**', route=>route.fulfill({status:200,contentType:'text/html',
-   body:'<!doctype html><html><meta charset="utf-8"><body>Disposable IAM WebAuthn browser</body></html>'}));
   session.page.on('dialog',dialog=>void dialog.dismiss().catch(()=>{}));
   qualificationPhase='CHROMIUM_AUTHENTICATOR';
   session.cdp=await session.context.newCDPSession(session.page);
@@ -211,6 +213,7 @@ async function run() {
    await session.cdp.send('WebAuthn.removeVirtualAuthenticator',{authenticatorId:session.id}).catch(()=>{});
   }
   await session.browser?.close().catch(()=>{});
+  await stopBrowserUI(browserUI);
   if (identityID) {
    const r=await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID),'DELETE').catch(()=>null);
    if (r?.status!==204) throw Error('N06_A3_DISPOSABLE_IDENTITY_TEARDOWN_UNVERIFIED');
