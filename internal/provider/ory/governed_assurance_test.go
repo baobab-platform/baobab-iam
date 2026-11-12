@@ -3,6 +3,7 @@ package ory
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,8 +12,34 @@ import (
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/assurance"
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
+// The CP grant for interactive login cannot authorize a separately catalogued
+// assurance evaluation, even when it concerns the same native human subject.
+type assuranceCurrentDispatch struct {
+	deny           atomic.Bool
+	onlyHumanLogin atomic.Bool
+	checks         atomic.Int32
+}
+
+func (a *assuranceCurrentDispatch) CheckCapability(_ context.Context, capability string) error {
+	a.checks.Add(1)
+	if a.deny.Load() {
+		return errors.New("CP assurance support not currently granted")
+	}
+	if a.onlyHumanLogin.Load() {
+		// Model a CP that really grants interactive login, but never assurance.
+		if capability == provider.CapabilityHumanAuthentication {
+			return nil
+		}
+		return errors.New("CP assurance support not currently granted")
+	}
+	if capability != provider.CapabilityAuthenticationAssurance {
+		return errors.New("CP assurance support not currently granted")
+	}
+	return nil
+}
 func TestGovernedNativeAssuranceUsesRealCurrentProviderAndCPChecks(t *testing.T) {
 	authenticated := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
 	expires := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
@@ -44,7 +71,7 @@ func TestGovernedNativeAssuranceUsesRealCurrentProviderAndCPChecks(t *testing.T)
 		})
 	}))
 	defer srv.Close()
-	cp := &n02CurrentDispatch{}
+	cp := &assuranceCurrentDispatch{}
 	h, err := NewGovernedNativeHumanHandoff(NativeHumanConfig{
 		KratosPublicURL: srv.URL, HydraAdminURL: srv.URL, Issuer: srv.URL,
 		Client: ProviderFixtureClient(srv), Now: time.Now, Fence: openNativeTestFence(t),
@@ -84,6 +111,16 @@ func TestGovernedNativeAssuranceUsesRealCurrentProviderAndCPChecks(t *testing.T)
 		t.Fatal("CP withdrawal returned new references")
 	}
 	cp.deny.Store(false)
+	cp.onlyHumanLogin.Store(true)
+	if err := cp.CheckCapability(ctx, provider.CapabilityHumanAuthentication); err != nil {
+		t.Fatalf("test setup must retain a genuine human-login CP permission: %v", err)
+	}
+	before := reads.Load()
+	res, err = h.EvaluateAssurance(ctx, credential, req)
+	if err != nil || res.Outcome != assurance.Denied || reads.Load() != before {
+		t.Fatalf("native login grant substituted for canonical assurance grant: %+v %v", res, err)
+	}
+	cp.onlyHumanLogin.Store(false)
 	active.Store(false)
 	res, err = h.EvaluateAssurance(ctx, credential, req)
 	if err != nil || res.Outcome != assurance.Denied || res.Reason != assurance.AssuranceUnavailable {
