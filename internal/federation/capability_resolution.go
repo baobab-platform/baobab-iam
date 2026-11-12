@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
 // CapabilityResolution mirrors the pinned Shared capability/v1 resolution.
@@ -47,7 +49,8 @@ type CapabilityResolver interface {
 // principal. CP independently verifies canonical ownership, bounded context,
 // grant, support, binding, health and existing policy. BFF contexts are not transferable.
 func (a *HTTPAuthority) ResolveCapability(ctx context.Context, request CapabilityRequest) (CapabilityResolution, error) {
-	if runtimeFacet(request.CapabilityKey) == "" || request.RequiredContractVersion != 1 ||
+	if (runtimeFacet(request.CapabilityKey) == "" && request.CapabilityKey != provider.CapabilityEnterpriseFederation) ||
+		request.RequiredContractVersion != 1 ||
 		!validResolutionContextID(request.ContextID) || !uuidPattern.MatchString(request.CorrelationID) {
 		return CapabilityResolution{}, ErrInvalid
 	}
