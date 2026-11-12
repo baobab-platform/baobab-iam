@@ -63,7 +63,9 @@ docker exec "$container" createdb -U n06_ci n08_restored
 restored_owned=1
 docker exec -i "$container" pg_restore --exit-on-error --no-owner --no-acl -U n06_ci -d n08_restored < "$tmp/original.dump"
 restored="$(docker exec "$container" psql -X -At -U n06_ci -d n08_restored -c "SELECT count(*) FROM iam_security.event WHERE event_id='10000000-0000-4000-8000-000000000008'")"
-hold="$(docker exec "$container" psql -X -At -U n06_ci -d n08_restored -c "SELECT count(*) FROM iam_security.recovery_hold WHERE hold_until>now() AND revision=1")"
+# Other N06 tests retain independent holds in the source database. Read back
+# the exact original identity tuple; a global row count is not restore proof.
+hold="$(docker exec "$container" psql -X -At -U n06_ci -d n08_restored -c "SELECT count(*) FROM iam_security.recovery_hold WHERE principal_key=decode(repeat('cd',32),'hex') AND issuer_key=decode(repeat('ef',32),'hex') AND security_domain_key=decode(repeat('12',32),'hex') AND reason='SUSPECTED_TAKEOVER' AND hold_until>now() AND revision=1")"
 if [[ "$restored" != "1" || "$hold" != "1" ]]; then echo N08_RESTORE_ORIGINAL_MISSING >&2; exit 2; fi
 if psql_real n08_restored <<'SQL' > /dev/null 2>&1; then
 INSERT INTO iam_security.event(event_id,event_type,occurred_at,subject_key,correlation_id,outcome,severity)

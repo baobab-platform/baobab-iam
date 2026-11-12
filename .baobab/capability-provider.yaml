@@ -12,8 +12,8 @@ engine:
 providers:
 - provider_key: baobab-iam.kratos
   name: Kratos native identity
-  description: Native credential and session mechanics exist; canonical browser authorization
-    and estate acceptance remain incomplete.
+  description: Native credential/session and current Kratos AAL2 step-up readback mechanics exist;
+    the canonical A1-A4 assurance evaluation contract, A3/A4 RP-bound proof and estate acceptance remain incomplete.
   provider_type: ADAPTER
   simulated: false
   production_permitted: true
@@ -31,6 +31,19 @@ providers:
       path: internal/provider/ory/kratos.go
     - type: integration-test
       path: internal/provider/ory/foundation_live_test.go
+  - capability_key: identity.authentication.assurance
+    contract_versions:
+    - 1
+    implementation_status: PARTIAL
+    implementation_evidence:
+    - type: source
+      path: internal/provider/ory/governed_human_handoff.go
+    - type: source
+      path: internal/nativebff/handler.go
+    - type: integration-test
+      path: internal/provider/ory/governed_human_assurance_test.go
+    - type: integration-test
+      path: internal/provider/ory/human_buyer_live_test.go
   implementation_key: kratos
 - provider_key: baobab-iam.hydra
   name: Hydra OAuth and workloads
@@ -59,8 +72,9 @@ providers:
   implementation_key: hydra
 - provider_key: baobab-iam.keycloak
   name: Permanent enterprise federation and SSO
-  description: OIDC/SAML brokering exists; complete canonical authentication handoff, login
-    discovery and estate acceptance remain open.
+  description: Bounded OIDC/SAML enterprise trust brokering and CP-governed dispatch are implemented;
+    the exact canonical federation request/response, registered federation capability resolution
+    and deployed estate acceptance remain incomplete.
   provider_type: ADAPTER
   simulated: false
   production_permitted: true
@@ -78,6 +92,19 @@ providers:
       path: internal/provider/keycloak/enterprise.go
     - type: integration-test
       path: internal/provider/keycloak/enterprise_live_test.go
+  - capability_key: identity.federation.enterprise
+    contract_versions:
+    - 1
+    implementation_status: PARTIAL
+    implementation_evidence:
+    - type: source
+      path: internal/provider/keycloak/enterprise.go
+    - type: source
+      path: internal/federation/enterprise_dispatch.go
+    - type: integration-test
+      path: internal/provider/keycloak/enterprise_live_test.go
+    - type: integration-test
+      path: internal/federation/enterprise_dispatch_test.go
   implementation_key: keycloak
 planned_capabilities:
 - proposed_key: identity.human.provision

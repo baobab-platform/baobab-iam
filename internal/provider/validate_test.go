@@ -1,6 +1,7 @@
 package provider_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -86,6 +87,93 @@ func TestIdentityProvisioningSpecValidate(t *testing.T) {
 		Traits: map[string]any{"email": "a@b.c"},
 	}).Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestIdentityProvisioningRejectsNestedAuthoritySmuggling(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		traits   map[string]any
+		metadata map[string]string
+	}{
+		{"nested ERP role", map[string]any{"profile": map[string]any{"AD_Role": "System Admin"}}, nil},
+		{"nested tenant", map[string]any{"identity": []any{map[string]any{"tenant_id": "other"}}}, nil},
+		{"nested market", map[string]any{"email": "a@b.c", "attributes": map[string]any{"market": "UG"}}, nil},
+		{"nested supplier approval", map[string]any{"email": "a@b.c", "roles": map[string]any{"supplier-approval": true}}, nil},
+		{"metadata capability", map[string]any{"email": "a@b.c"}, map[string]string{"capability.grant": "allow"}},
+		{"arbitrary role array", map[string]any{"email": "a@b.c", "roles": []any{"administrator"}}, nil},
+		{"arbitrary entitlement graph", map[string]any{"email": "a@b.c", "permissions": map[string]any{"admin": true}}, nil},
+		{"business group grant", map[string]any{"email": "a@b.c", "groups": []any{"approvers"}}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := (provider.IdentityProvisioningSpec{Traits: tc.traits, Metadata: tc.metadata}).Validate(); !provider.IsInvalidArgument(err) {
+				t.Fatalf("identity business authority accepted: %v", err)
+			}
+		})
+	}
+	// The exact wire JSON, not the Go dynamic type, controls whether
+	// nested identity attributes launder CP/ERP/supplier authority.
+	for label, traits := range map[string]map[string]any{
+		"typed nested map":   {"profile": map[string]string{"AD_Client": "System"}},
+		"typed map in slice": {"profile": []map[string]string{{"supplier-approval": "yes"}}},
+		"raw JSON traits":    {"profile": json.RawMessage(`{"market_id":"UG"}`)},
+	} {
+		t.Run(label, func(t *testing.T) {
+			if err := (provider.IdentityProvisioningSpec{Traits: traits}).Validate(); !provider.IsInvalidArgument(err) {
+				t.Fatalf("serialized business authority accepted: %v", err)
+			}
+		})
+	}
+	cyclic := map[string]any{}
+	cyclic["self"] = cyclic
+	if err := (provider.IdentityProvisioningSpec{Traits: cyclic}).Validate(); !provider.IsInvalidArgument(err) {
+		t.Fatalf("non-serializable cyclic identity claims accepted: %v", err)
+	}
+	good := provider.IdentityProvisioningSpec{
+		Traits:   map[string]any{"email": "person@example.test", "name": map[string]any{"given": "Amina", "family": "Nab"}},
+		Metadata: map[string]string{"migration_id": "migration_01"},
+	}
+	if err := good.Validate(); err != nil {
+		t.Fatalf("ordinary identity attributes rejected: %v", err)
+	}
+}
+
+func TestIdentityProvisioningRejectsSecretAndProofingMaterialInTraits(t *testing.T) {
+	cases := []struct {
+		name     string
+		traits   map[string]any
+		metadata map[string]string
+	}{
+		{name: "plaintext password", traits: map[string]any{"email": "person@example.test", "password": "not-for-traits"}},
+		{name: "nested recovery code", traits: map[string]any{"profile": map[string]any{"recovery_codes": []any{"do-not-copy"}}}},
+		{name: "private signing key", traits: map[string]any{"email": "person@example.test", "keys": map[string]any{"private_key": "do-not-copy"}}},
+		{name: "deep token", traits: map[string]any{"identity": []any{map[string]any{"refreshToken": "do-not-copy"}}}},
+		{name: "proofing ID document", traits: map[string]any{"email": "person@example.test", "proof": map[string]any{"passport_number": "do-not-copy"}}},
+		{name: "secret metadata", traits: map[string]any{"email": "person@example.test"}, metadata: map[string]string{"client-secret": "do-not-copy"}},
+		{name: "typed nested map", traits: map[string]any{"email": "person@example.test", "profile": map[string]string{"private_key": "do-not-copy"}}},
+		{name: "typed nested array", traits: map[string]any{"email": "person@example.test", "accounts": []map[string]any{{"refreshToken": "do-not-copy"}}}},
+		{name: "typed nested string array", traits: map[string]any{"email": "person@example.test", "records": []map[string]string{{"recoveryCode": "do-not-copy"}}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := provider.IdentityProvisioningSpec{Traits: tc.traits, Metadata: tc.metadata}
+			if err := spec.Validate(); !provider.IsInvalidArgument(err) {
+				t.Fatalf("secret material accepted in identity attributes: %v", err)
+			}
+		})
+	}
+	// Provider credential migration is a distinct trusted API field. Whether
+	// a specific hash/OTP/passkey can be imported is separately gated by the
+	// pinned provider capability; its presence does not legalise secret traits.
+	spec := provider.IdentityProvisioningSpec{
+		Traits:   map[string]any{"email": "person@example.test", "name": map[string]any{"first": "Amina"}},
+		Metadata: map[string]string{"migration_id": "opaque-test-record"},
+		Credentials: &provider.ImportedCredentials{PasswordHash: &provider.PasswordHashImport{
+			Algorithm: "bcrypt", Hash: "fixture-only-not-an-actual-hash",
+		}},
+	}
+	if err := spec.Validate(); err != nil {
+		t.Fatalf("separate credential import field rejected by identity-trait policy: %v", err)
 	}
 }
 

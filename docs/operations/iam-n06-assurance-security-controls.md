@@ -240,3 +240,19 @@ uniqueness is required; a conflicting second marker fails closed. The
 Kratos server—not a fixture—still issues the code and adjudicates its
 correctness and replay. No code value enters logs, evidence files,
 commit history or a protected email configuration.
+
+## CTS v2 continuation, 12 November 2026
+
+The merged CTS/capability baseline has been reconciled without widening the
+runtime issuer registry. Earlier branch documentation and the N01 guard named
+Shared 7f547cc while contracts.lock.yaml still selected 1517429. That inconsistent
+partial repin is removed. The runtime contract, federation constant, N01 guard
+and CMS fixture now agree with reviewed main. The read-only capability catalogue
+remains separate. A future issuer-registry upgrade needs its own consumer proof.
+
+Ory's Chromium job uses the same Ubuntu 24.04 host baseline as main's browser
+matrix and installs the exact locked browser without live apt dependency
+installation. The actual Kratos/Chromium ceremony remains mandatory and fails
+if the browser or required host libraries are unavailable. No browser result is
+inferred from this workflow correction. N04 prerequisites and independent N06
+owner evidence remain open.

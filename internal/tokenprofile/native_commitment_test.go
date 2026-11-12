@@ -16,6 +16,42 @@ func nativeCommitmentConfig(change func(*Workload)) Config {
 		Workloads: map[string]Workload{"synthetic-server-checkout": w}}
 }
 
+func TestNativeCommitmentDirectClaimsCannotSkipWorkloadIdentityFence(t *testing.T) {
+	evidence := Evidence{
+		ClientID: "synthetic-server-checkout", Subject: "synthetic-server-checkout",
+		Grant:            "client_credentials",
+		RequestedScopes:  []string{nativeCommitmentSubmitScope},
+		GrantedScopes:    []string{nativeCommitmentSubmitScope},
+		GrantedAudiences: []string{nativeCommitmentAudience},
+	}
+	for name, change := range map[string]func(*Workload){
+		"mixed BFF workload": func(w *Workload) {
+			w.Scopes = append(w.Scopes, buyerHandoffScope)
+		},
+		"human BFF profile": func(w *Workload) {
+			w.HumanTokenProfile = &HumanTokenProfile{Purpose: estateBFFBuyerPurpose,
+				Audiences: []string{nativeCommitmentAudience}, Scopes: []string{"trade:buy"}}
+		},
+		"missing Trade audience": func(w *Workload) {
+			w.Audiences = []string{"baobab-control-plane"}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := nativeCommitmentConfig(change)
+			if _, err := c.Claims(evidence); err == nil {
+				t.Fatal("direct hook issued a commitment token despite invalid server identity")
+			}
+		})
+	}
+	invalidID := nativeCommitmentConfig(nil)
+	invalidID.Workloads = map[string]Workload{"pk_publishable_key": invalidID.Workloads[evidence.ClientID]}
+	evidence.ClientID = "pk_publishable_key"
+	evidence.Subject = evidence.ClientID
+	if _, err := invalidID.Claims(evidence); err == nil {
+		t.Fatal("publishable key was accepted as an issuing workload client")
+	}
+}
+
 func TestNativeCommitmentSubmitterIsANarrowServerWorkload(t *testing.T) {
 	config := nativeCommitmentConfig(nil)
 	if err := config.Validate(); err != nil {

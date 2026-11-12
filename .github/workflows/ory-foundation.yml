@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   ory-foundation-live:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -68,14 +68,16 @@ jobs:
         if: success() || failure()
         run: |
           npm ci --prefix tests/integration/passkey --ignore-scripts
-          tests/integration/passkey/node_modules/.bin/playwright install --with-deps chromium
+          tests/integration/passkey/node_modules/.bin/playwright install chromium
       - name: Require real pinned Kratos + Chromium CTAP2 WebAuthn ceremony
         if: success() || failure()
         env:
           ORY_FOUNDATION: '1'
           ORY_KRATOS_PUBLIC_URL: http://127.0.0.1:4433
           ORY_KRATOS_ADMIN_URL: http://127.0.0.1:4434
-        run: node tests/integration/passkey/n06-kratos-browser.mjs
+        run: |
+          node --test tests/integration/passkey/n06-browser-ui.test.mjs
+          node tests/integration/passkey/n06-kratos-browser.mjs
       - name: Check out immutable CP consumer source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
