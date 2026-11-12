@@ -152,3 +152,20 @@ This addendum is a **new observation**, not a replacement of the historical 11 N
 **Dependency and evidence reconciliation:** Shared #422 (proposed N07 TMS issuer/validator) was CLOSED WITHOUT MERGE; CP #455 adopted only inert Shared #430 source declarations; no ACTIVE subject, CP legal mandate or native TMS booking is implied. Thamani #44 and TMS #28 remain held. Infrastructure #69/#72 are connected qualification harness companions but their source/CI alone is not complete N07/N08 original browser/booking qualification. CP #468 merged, while ADR-IAM-0034's native commitment scope remains unallocated. The supported release distinctions remain ENGINEERING-COMPLETE, STAGING-READY packet and independently approved PRODUCTION-READY; no promotion is granted in this register.
 
 **Merge rule:** for implementation PRs, do not substitute draft source acceptance for original native-authority evidence. Recheck actual immutable source HEAD, required CI and review comments, stack/companion ancestry, independent negative receipts and teardown before marking ready or merging. No CI exception, skip, privileged credential injection or protected-stage action was introduced here.
+
+## Source merges after CI re-verification — 12 November 2026
+
+The preceding dated tables are historical observations. A new exact-head audit on 12 November established that the following bounded source changes were sound, had all required GitHub workflows GREEN, and had no unresolved review threads. They were converted out of DRAFT and merged using ordinary GitHub merge commits, preserving stack provenance and retargeting dependent PRs to `main` **before** each merge.
+
+| IAM PR | Merge commit on `main` | Accepted source correction |
+| --- | --- | --- |
+| #174 | `af12a3d221ffade984ddcc3ca5962c45fb18612f` | Conservative live Kratos A1 assurance evaluator; higher-risk evidence denied |
+| #175 | `1aba784bf3d84500ba9bdac7076c454f6eb8acee` | Distinct CP enterprise-federation capability and current-grant rechecks |
+| #176 | `c4aa785d328a5641ecbdccbb40243b5fd5901a88` | No-proxy, no-redirect, verified-TLS privileged Kratos/Hydra transport |
+| #177 | `f19fb51394e6bcae47173c5b79bfe199c5ec4bc2` | Assurance-specific CP authority; independently positive login-only negative regression |
+| #185 | `4dd5e858452b01cccac3594566173ddf66fd600e` | Read-only, no-mutation Hydra client scope/audience plan constrained to pinned Shared |
+| #180 | `95fd4d2476cd3f41a2392ee65372b30007f9bcfe` | Single correct-namespace SAML subject and signature-preserving parser panic denial |
+
+The **source code was merged**, not approved for production. CP capability/provider status, original Kratos/Keycloak/enterprise browser ceremony, A3/A4 WebAuthn risk/attestation, actual Hydra workload tokens and current native resource PEP, and separate N04–N08 qualified evidence remain under their own fail-closed acceptance gates. ADR-IAM-0034's native commitment scope remains unallocated. Issue #188 contains the authoritative merge and acceptance audit. No protected execution or staging release was authorised.
+
+The open inventory after these six merges is **eight** (#149, #151, #152, #153, #181, #182, #183 and this #189), subject to further CI/merge changes.
