@@ -34,7 +34,7 @@ environment:
   profile: "full"
   # Must match the image tag pinned in .devcontainer/devcontainer.json
   # (ghcr.io/baobab-platform/baobab-dev:<minimum_version>).
-  minimum_version: "1.4.4"
+  minimum_version: "1.5.1"
   contract_minimum_version: "1.0"
 
 compatibility_policy:
