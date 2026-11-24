@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   foundation:
-    uses: baobab-platform/shared/.github/workflows/foundation-repository-gates.yml@e7e38e367c4f7cb7d5a651554e1708dcb279f8b9 # Shared PR #470 integration qualification
+    uses: baobab-platform/shared/.github/workflows/foundation-repository-gates.yml@5664b1669736ddc0807709c9d2a1646325c4309a # Shared PR #470 merged
     with:
-      foundation_ref: "e7e38e367c4f7cb7d5a651554e1708dcb279f8b9"
+      foundation_ref: "5664b1669736ddc0807709c9d2a1646325c4309a"
       dependency_review_enabled: true
