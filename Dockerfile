@@ -34,6 +34,7 @@ RUN mkdir -p /mnt/rootfs && \
 FROM tools-build AS security-artifacts
 RUN dnf install -y --allowerasing curl && dnf clean all
 RUN curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+      --retry 6 --retry-all-errors --retry-delay 10 --retry-max-time 180 \
       https://repo.maven.apache.org/maven2/com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar \
       --output /guava.jar && \
     echo 'b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c  /guava.jar' | sha256sum --check --strict
