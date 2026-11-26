@@ -257,9 +257,10 @@ func (e *Evaluator) Evaluate(ctx context.Context, req Request) Result {
 		observed = A2
 	}
 	// A3 requires separately verified RP-bound user verification AND passkey
-	// proof. A4 adds a separately authenticated hardware and privileged witness
-	// record. Neither follows from a Kratos method string or IdP ACR.
-	if observed == A2 && first.PasskeyRPBound && first.PasskeyUserVerified && first.PasskeyAttested && first.PasskeyProofEventReference == first.EventReference {
+	// proof. Attestation is optional under ADR-IAM-0024; specific workforce
+	// operations may impose additional reviewed hardware/attestation policy.
+	// A4 adds a separately authenticated hardware and privileged witness.
+	if observed == A2 && first.PasskeyRPBound && first.PasskeyUserVerified && first.PasskeyProofEventReference == first.EventReference {
 		observed = A3
 	}
 	if observed == A3 && first.HardwareBound && first.PrivilegedWitnessVerified && first.PrivilegedWitnessEventReference == first.EventReference {

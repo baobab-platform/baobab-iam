@@ -119,7 +119,7 @@ func TestBuyerCommitA2VerifiedButNotBusinessApproval(t *testing.T) {
 		t.Fatalf("weak AAL: %+v", res)
 	}
 }
-func TestA3RequiresSeparateAttestationAndA4RequiresHardwareAndWitness(t *testing.T) {
+func TestA3RequiresRPBoundUserVerificationAndA4RequiresHardwareAndWitness(t *testing.T) {
 	s := sample()
 	s.RiskChecked = true
 	s.RecoveryStateChecked = true
@@ -131,12 +131,12 @@ func TestA3RequiresSeparateAttestationAndA4RequiresHardwareAndWitness(t *testing
 		r := &fakeReader{value: incomplete}
 		res := newTestEvaluator(t, r).Evaluate(context.Background(), request(s, HighValueApproval))
 		if res.Outcome != StepUpRequired || res.Reason != FreshStepUpRequired {
-			t.Fatalf("unattested A3: %+v", res)
+			t.Fatalf("incomplete A3 evidence: %+v", res)
 		}
 	}
 	s.PasskeyRPBound = true
 	s.PasskeyUserVerified = true
-	s.PasskeyAttested = true
+	// ADR-IAM-0024 does not make authenticator attestation universal for A3.
 	s.PasskeyProofEventReference = OpaqueReference("event", "foreign-login")
 	r := &fakeReader{value: s}
 	res := newTestEvaluator(t, r).Evaluate(context.Background(), request(s, HighValueApproval))
