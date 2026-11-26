@@ -45,9 +45,9 @@ func NewKratosN06Provider(origin string, roots *x509.CertPool, now func() time.T
 }
 func (k *KratosN06Provider) CurrentNativeAuthentication(
 	ctx context.Context, cred ory.NativeSessionCredential,
-) (assurance.CurrentSessionKey, assurance.Evidence, error) {
+) (assurance.CurrentSessionKey, assurance.NativeEvidence, error) {
 	var none assurance.CurrentSessionKey
-	var empty assurance.Evidence
+	var empty assurance.NativeEvidence
 	if k == nil || ctx == nil || ctx.Err() != nil || cred.SessionToken != "" ||
 		!strings.HasPrefix(cred.Cookie, "ory_kratos_session=") ||
 		len(cred.Cookie) < 25 || len(cred.Cookie) > 2048 ||
@@ -112,10 +112,14 @@ func (k *KratosN06Provider) CurrentNativeAuthentication(
 	key := assurance.CurrentSessionKey{
 		Issuer: k.origin, Subject: row.Identity.ID, SessionID: row.ID,
 	}
-	evidence := assurance.Evidence{
+	aal := assurance.A1
+	if row.AAL == "aal2" {
+		aal = assurance.A2
+	}
+	evidence := assurance.NativeEvidence{
 		Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
-		ObservedAt: now, AuthenticatedAt: row.AuthenticatedAt,
-		AAL: row.AAL, Methods: methods,
+		ObservedAt: now, AuthenticatedAt: row.AuthenticatedAt, ExpiresAt: row.ExpiresAt,
+		AAL: aal, Methods: methods,
 		// No raw WebAuthn attestation or RP user-verification proof in
 		// this Kratos session response. Therefore NEVER award A3/A4.
 		PasskeyUsed: false, UserVerified: false, OriginBound: false,
