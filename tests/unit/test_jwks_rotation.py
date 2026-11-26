@@ -1,5 +1,4 @@
 import base64
-import copy
 import unittest
 from scripts.operations.check_jwks_rotation import verify
 
