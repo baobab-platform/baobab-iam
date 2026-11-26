@@ -19,6 +19,13 @@ disposable build signer. Different runs can have different debug signing
 keys and APK hashes. The APK signer is distinct from the Android Keystore
 key generated during a hardware qualification attempt.
 
+Foundation and the APK workflow use the same committed root Gradle wrapper.
+For a local build, use JDK 21 and run
+`./gradlew --no-daemon lintDebug assembleDebug` from the repository root.
+Set `ANDROID_HOME` to an installed API 35 SDK and Build Tools 35.0.0.
+Linux x86-64 hosts can use the wrapper's checksum-verified SDK installer.
+For local installs, review and accept the Android SDK terms when prompted.
+
 Install on the supervised HONOR 90 Lite through Android's installer or,
 if the operator already uses authorized ADB, run
 `adb install baobab-n06-probe.apk`. Review the source and use the exact
