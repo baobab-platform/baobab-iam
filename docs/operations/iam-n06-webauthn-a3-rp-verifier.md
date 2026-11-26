@@ -45,7 +45,7 @@ browser uses the configured reviewed loopback RP `localhost` at `http://localhos
 Kratos browser-cookie/CSRF password session, original provider settings
 challenge, and CTAP2 virtual authenticator to register a credential in
 Kratos. An independent Admin API readback must contain the registered key.
-It then obtains a real browser AAL2 login flow, performs an actual WebAuthn
+It then creates a fresh password-only browser session, obtains an AAL2 login flow, and performs an actual WebAuthn
 assertion and demands the Kratos `/sessions/whoami` AAL2/WebAuthn method,
 followed by denial of a repeated original assertion. Teardown must delete
 the synthetic identity; no private credential, password, browser recording,

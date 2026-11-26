@@ -157,13 +157,16 @@ async function registerWebAuthn() {
  qualificationPhase='KRATOS_PASSKEY_PROVIDER_READBACK';
  const after=await getIdentity();
  const configured=after.credentials?.webauthn?.config?.credentials;
- pass(Array.isArray(configured) && configured.length===1,'REGISTERED_PROVIDER_KEY_READBACK');
+ pass(Array.isArray(configured) && configured.length===1 &&
+  typeof configured[0]?.id==='string' &&
+  Buffer.from(configured[0].id,'base64').toString('base64url')===credential.id &&
+  typeof configured[0].public_key==='string' && configured[0].public_key.length>0,
+  'REGISTERED_PROVIDER_KEY_READBACK');
 }
 async function loginSecondFactor() {
  qualificationPhase='KRATOS_AAL2_BROWSER_FLOW';
- // Kratos adds the enrolled MFA method to the current session at enrolment.
- // Explicitly refresh AAL2 to require a new signed assertion.
- const {id,flow}=await browserFlow('login','?refresh=true&aal=aal2');
+ // The caller starts from a separate AAL1 password session after enrolment.
+ const {id,flow}=await browserFlow('login','?aal=aal2');
  qualificationPhase='KRATOS_AAL2_CHALLENGE_READBACK';
  const challenge=field(flow,'webauthn_login_trigger');
  const csrf=field(flow,'csrf_token');
@@ -174,7 +177,14 @@ async function loginSecondFactor() {
  qualificationPhase='KRATOS_AAL2_COMMIT';
  const success=await onPage('POST',API+'/self-service/login?flow='+id,
   {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
- pass(success.status===200 || success.redirect,'AAL2_COMMIT_'+success.status);
+ const messages=[...(success.body?.ui?.messages ?? []),
+  ...(success.body?.ui?.nodes ?? []).flatMap(node=>node.messages ?? [])];
+ const codes=[...new Set(messages.map(m=>m.id).filter(id=>Number.isInteger(id) && id>0 && id<10000000))].slice(0,3);
+ const errorID=success.body?.error?.id;
+ const safeError=typeof errorID==='string' && /^[a-z][a-z0-9_]{0,36}$/.test(errorID)
+  ? '_'+errorID.toUpperCase() : '';
+ pass(success.status===200 || success.redirect,
+  'AAL2_COMMIT_'+success.status+safeError+(codes.length?'_'+codes.join('_'):''));
  qualificationPhase='KRATOS_AAL2_SESSION_READBACK';
  const active=statusExact(await onPage('GET',API+'/sessions/whoami'),200,'AAL2_SESSION');
  pass(active.identity?.id===identityID &&
@@ -216,6 +226,10 @@ async function run() {
   await browserLoginPassword();
   qualificationPhase='KRATOS_PASSKEY_REGISTRATION';
   await registerWebAuthn();
+  // Enrolment itself records MFA in the current provider session. Start
+  // with a new password-only browser session to witness a distinct step-up.
+  await session.context.clearCookies();
+  await browserLoginPassword();
   qualificationPhase='KRATOS_AAL2_ASSERTION';
   await loginSecondFactor();
   process.stdout.write('N06_KRATOS_CHROMIUM_CTAP2_A3_CEREMONY_AND_REPLAY_PASS_NOT_A4\n');
