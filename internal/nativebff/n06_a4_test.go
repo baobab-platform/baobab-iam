@@ -80,7 +80,7 @@ func n06A4Fixture(t *testing.T) (*A4Verifier, A4Request) {
 	v := &A4Verifier{
 		Challenges: f.challenges, Hardware: n06A4Hardware{valid: true, observed: when},
 		Approvals: n06A4Approval{valid: true, observed: when},
-		Risk:      n06A4Risk{assurance.Risk{ObservedAt: when, Level: "low", PrivilegedContextVerified: true}},
+		Risk:      n06A4Risk{assurance.Risk{ObservedAt: when, Level: "low", RecoveryStateChecked: true, PrivilegedContextVerified: true}},
 		Policy:    assurance.DefaultDevelopmentPolicy(),
 		Now:       func() time.Time { return when },
 	}
