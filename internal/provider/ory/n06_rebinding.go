@@ -146,7 +146,7 @@ func (a *Adapter) noCurrentNativeSessions(ctx context.Context, id string) bool {
 		return false
 	}
 	var sessions []json.RawMessage
-	return json.Unmarshal(raw, &sessions) == nil && len(sessions) == 0
+	return json.Unmarshal(raw, &sessions) == nil && sessions != nil && len(sessions) == 0
 }
 func (a *Adapter) rebindHTTP(ctx context.Context, method, route string) ([]byte, int, error) {
 	// The origin comes exclusively from reviewed adapter config; scope and

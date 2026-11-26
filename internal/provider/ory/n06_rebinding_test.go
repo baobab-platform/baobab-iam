@@ -49,6 +49,7 @@ func TestN06KratosRebindRequiresTwoPersonHoldAndActualCredentialWithdrawal(t *te
 		refuseDelete    bool
 		stillWebAuthn   bool
 		sessionSurvives bool
+		nullSessions    bool
 		expectSuccess   bool
 	}{
 		{name: "governed-native-rebinding", reviewer: n06RebindReviewer{approved: true}, credential: true, expectSuccess: true},
@@ -57,6 +58,7 @@ func TestN06KratosRebindRequiresTwoPersonHoldAndActualCredentialWithdrawal(t *te
 		{name: "no-old-credential", reviewer: n06RebindReviewer{approved: true}},
 		{name: "provider-passkey-not-deletable", reviewer: n06RebindReviewer{approved: true}, credential: true, passkey: true},
 		{name: "revoke-sessions-not-effective", reviewer: n06RebindReviewer{approved: true}, credential: true, sessionSurvives: true},
+		{name: "session-list-is-null", reviewer: n06RebindReviewer{approved: true}, credential: true, nullSessions: true},
 		{name: "provider-delete-rejected", reviewer: n06RebindReviewer{approved: true}, credential: true, refuseDelete: true},
 		{name: "deletion-not-persisted", reviewer: n06RebindReviewer{approved: true}, credential: true, stillWebAuthn: true},
 	} {
@@ -94,9 +96,12 @@ func TestN06KratosRebindRequiresTwoPersonHoldAndActualCredentialWithdrawal(t *te
 					w.WriteHeader(http.StatusNoContent)
 					return
 				case r.Method == http.MethodGet && r.URL.Path == base+"/sessions":
-					if tc.sessionSurvives {
+					switch {
+					case tc.sessionSurvives:
 						response = []map[string]any{{"active": true, "id": "session-still-active"}}
-					} else {
+					case tc.nullSessions:
+						response = nil
+					default:
 						response = []any{}
 					}
 				case r.Method == http.MethodDelete && r.URL.Path == base+"/credentials/webauthn":
@@ -142,6 +147,9 @@ func TestN06KratosRebindRequiresTwoPersonHoldAndActualCredentialWithdrawal(t *te
 				if deleteCount != 0 || revokeCount != 0 || state != "active" {
 					t.Fatal("unsupported/missing review already mutated native account")
 				}
+			}
+			if tc.nullSessions && (state != "inactive" || revokeCount != 1 || deleteCount != 0) {
+				t.Fatal("ambiguous session inventory did not keep the identity inactive and stop withdrawal")
 			}
 		})
 	}
