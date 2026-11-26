@@ -17,7 +17,6 @@ func TestBrokerSAMLStructuralGuardRejectsNamespaceBlindNameIDAndDuplicateSubject
  xmlns:d="http://www.w3.org/2000/09/xmldsig#"
  xmlns:x="urn:attacker:namespace">
  <a:Assertion ID="assertion-1">
-  <a:Issuer>https://issuer.example.test</a:Issuer>
   <a:Subject><a:NameID>approved-human</a:NameID></a:Subject>
   <a:Conditions/>
   <d:Signature/>

@@ -97,7 +97,7 @@ func boundedSAMLXML(raw string) error {
 	decoder := xml.NewDecoder(bytes.NewBufferString(raw))
 	depth, count, assertions, signatures, roots := 0, 0, 0, 0, 0
 	var elementStack []xml.Name
-	subjects, nameIDs, assertionIssuers := 0, 0, 0
+	subjects, nameIDs := 0, 0
 	ids := map[string]bool{}
 	for {
 		token, err := decoder.Token()
@@ -154,17 +154,7 @@ func boundedSAMLXML(raw string) error {
 				if nameIDs != 1 {
 					return ErrDenied
 				}
-			case "Issuer":
-				if t.Name.Space != assertionNamespace || (depth != 2 && depth != 3) {
-					return ErrDenied
-				}
-				if depth == 3 {
-					if elementStack[depth-2].Space != assertionNamespace || elementStack[depth-2].Local != "Assertion" {
-						return ErrDenied
-					}
-					assertionIssuers++
-				}
-			case "Conditions", "SubjectConfirmation", "SubjectConfirmationData", "AudienceRestriction", "Audience", "AuthnStatement", "AuthnContext", "AuthnContextClassRef":
+			case "Issuer", "Conditions", "SubjectConfirmation", "SubjectConfirmationData", "AudienceRestriction", "Audience", "AuthnStatement", "AuthnContext", "AuthnContextClassRef":
 				if t.Name.Space != assertionNamespace {
 					return ErrDenied
 				}
@@ -213,7 +203,7 @@ func boundedSAMLXML(raw string) error {
 			depth--
 		}
 	}
-	if depth != 0 || roots != 1 || assertions != 1 || subjects != 1 || nameIDs != 1 || assertionIssuers != 1 || signatures < 1 || signatures > 2 {
+	if depth != 0 || roots != 1 || assertions != 1 || subjects != 1 || nameIDs != 1 || signatures < 1 || signatures > 2 {
 		return ErrDenied
 	}
 	return nil

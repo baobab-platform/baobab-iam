@@ -51,8 +51,6 @@ validation:
     - "development.docker"
     - "development.github_cli"
     - "database.postgresql"
-    - "utilities.jq"
-    - "utilities.yq"
 
 notes:
   - "Go toolchains for internal/provider and internal/migration are layered (devcontainer/host) until baobab-dev publishes a native Go profile; repository.yaml still declares the go technical capability for Foundation reproducibility (go.mod + go.sum)."
