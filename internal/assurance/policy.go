@@ -44,6 +44,7 @@ type NativeEvidence struct {
 	Issuer              string
 	Subject             string
 	SessionID           string
+	Operation           Operation
 	ObservedAt          time.Time
 	AuthenticatedAt     time.Time
 	ExpiresAt           time.Time
@@ -118,6 +119,10 @@ func (e *NativeEvaluator) Check(ctx context.Context, session CurrentSessionKey, 
 		!proof.ExpiresAt.After(readAt) || readAt.Sub(proof.AuthenticatedAt) > req.MaxAge ||
 		(proof.AAL != A1 && proof.AAL != A2) || len(proof.Methods) == 0 || len(proof.Methods) > 12 {
 		no.Reason = "MISSING_FRESH_ISSUER_SESSION"
+		return no
+	}
+	if proof.Operation != "" && proof.Operation != op || proof.PasskeyUsed && proof.Operation != op {
+		no.Reason = "ASSURANCE_OPERATION_MISMATCH"
 		return no
 	}
 	proof.Methods = slices.Clone(proof.Methods)
