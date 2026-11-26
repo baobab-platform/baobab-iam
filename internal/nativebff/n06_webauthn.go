@@ -172,7 +172,7 @@ func (v *WebAuthnA3Verifier) Verify(
 		return none, errA3Denied
 	}
 	return assurance.NativeEvidence{
-		Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
+		Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID, Operation: operation,
 		ObservedAt: now, AuthenticatedAt: now, ExpiresAt: kratos.ExpiresAt, AAL: assurance.A2,
 		Methods: []string{"webauthn"}, PasskeyUsed: true,
 		UserVerified: true, OriginBound: true, HardwareBound: false,
