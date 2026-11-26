@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
@@ -114,7 +115,8 @@ func TestIssuerNeverMutatesWithoutDevelopmentAndApprovals(t *testing.T) {
 func TestAdminEndpointAndPrivateFileChecks(t *testing.T) {
 	for _, endpoint := range []string{"https://example.com", "http://hydra-admin:4445",
 		"http://evil.test", "http://127.0.0.1:4445/path", "http://a:b@localhost:4445",
-		"http://127.0.0.1:4445?mode=unsafe", ""} {
+		"http://127.0.0.1:4445?mode=unsafe", "http://127.0.0.1:4445?",
+		"http://127.0.0.1:4445#", "http://127.0.0.1:", ""} {
 		if err := privateAdmin(endpoint); err == nil {
 			t.Fatalf("public/noncanonical admin accepted: %q", endpoint)
 		}
@@ -138,3 +140,57 @@ func TestAdminEndpointAndPrivateFileChecks(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+func TestApprovalRequiresDistinctTrustedPublicKeys(t *testing.T) {
+	now := time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC)
+	plan := approvedPlan()
+	digest, err := planDigest(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	approval := Approval{
+		WorkloadID: plan.WorkloadID, SharedCommit: plan.SharedCommit, Action: "apply",
+		PlanDigest: digest, ExpiresAt: now.Add(30 * time.Minute).Format(time.RFC3339),
+	}
+	signature := base64.StdEncoding.EncodeToString(ed25519.Sign(private, []byte(signatureText(approval))))
+	approval.Maker = Signature{KeyID: "maker_a", Signature: signature}
+	approval.Checker = Signature{KeyID: "checker_b", Signature: signature}
+	trust := Keyring{Reviewers: map[string]TrustedReviewer{
+		"maker_a":   {Role: "MAKER", PublicKey: base64.StdEncoding.EncodeToString(public)},
+		"checker_b": {Role: "CHECKER", PublicKey: base64.StdEncoding.EncodeToString(public)},
+	}}
+	if err := verifyApproval(plan, approval, trust, "apply", now); err == nil {
+		t.Fatal("same public key accepted for maker and checker")
+	}
+}
+
+type closeFailCredentialFile struct {
+	bytes.Buffer
+	closeErr error
+	closed   bool
+}
+
+func (f *closeFailCredentialFile) Sync() error { return nil }
+func (f *closeFailCredentialFile) Close() error {
+	f.closed = true
+	return f.closeErr
+}
+
+func TestPersistCredentialReportsCloseFailure(t *testing.T) {
+	want := errors.New("simulated close failure")
+	file := &closeFailCredentialFile{closeErr: want}
+	err := persistCredential(file, "private-secret")
+	if !errors.Is(err, want) {
+		t.Fatalf("close error was not returned: %v", err)
+	}
+	if !file.closed {
+		t.Fatal("credential file was not closed")
+	}
+	if got := file.String(); got != "private-secret\n" {
+		t.Fatalf("unexpected persisted bytes %q", got)
+	}
+}
+
