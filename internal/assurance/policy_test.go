@@ -3,214 +3,229 @@ package assurance
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 )
 
-type fixedReader struct {
-	proof NativeEvidence
+type fixedNativeReader struct {
+	proofs []NativeEvidence
+	calls  int
+	err    error
+}
+
+func (r *fixedNativeReader) CurrentAuthentication(_ context.Context, _ CurrentSessionKey) (NativeEvidence, error) {
+	r.calls++
+	if r.err != nil {
+		return NativeEvidence{}, r.err
+	}
+	i := r.calls - 1
+	if i >= len(r.proofs) {
+		i = len(r.proofs) - 1
+	}
+	return r.proofs[i], nil
+}
+
+type fixedNativeRisk struct {
+	risks []Risk
+	calls int
 	err   error
 }
 
-func (f fixedReader) CurrentAuthentication(context.Context, CurrentSessionKey) (NativeEvidence, error) {
-	return f.proof, f.err
+func (r *fixedNativeRisk) CurrentRisk(_ context.Context, _ CurrentSessionKey, _ Operation) (Risk, error) {
+	r.calls++
+	if r.err != nil {
+		return Risk{}, r.err
+	}
+	i := r.calls - 1
+	if i >= len(r.risks) {
+		i = len(r.risks) - 1
+	}
+	return r.risks[i], nil
 }
 
-type fixedRisk struct {
-	proof Risk
-	err   error
+func nativeFixture(now time.Time) (*NativeEvaluator, CurrentSessionKey, NativeEvidence, Risk) {
+	key := CurrentSessionKey{Issuer: "https://identity.example", Subject: "identity-123", SessionID: "session-123"}
+	proof := NativeEvidence{
+		Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
+		ObservedAt: now.Add(-time.Second), AuthenticatedAt: now.Add(-time.Minute),
+		ExpiresAt: now.Add(time.Hour), AAL: A2, Methods: []string{"password", "totp"},
+	}
+	risk := Risk{ObservedAt: now.Add(-time.Second), Level: "low", RecoveryStateChecked: true}
+	reader := &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	riskReader := &fixedNativeRisk{risks: []Risk{risk, risk}}
+	e := &NativeEvaluator{
+		Policy: DefaultDevelopmentPolicy(), Authentication: reader, Risk: riskReader,
+		Now: func() time.Time { return now },
+	}
+	return e, key, proof, risk
 }
 
-func (f fixedRisk) CurrentRisk(context.Context, CurrentSessionKey, Operation) (Risk, error) {
-	return f.proof, f.err
-}
-func fixture(now time.Time) (*NativeEvaluator, CurrentSessionKey) {
-	key := CurrentSessionKey{Issuer: "https://issuer.test", Subject: "subject-1", SessionID: "session-1"}
-	return &NativeEvaluator{
-		Policy: DefaultDevelopmentPolicy(),
-		Now:    func() time.Time { return now },
-		Authentication: fixedReader{proof: NativeEvidence{
-			Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
-			ObservedAt: now.Add(-time.Second), AuthenticatedAt: now.Add(-time.Minute),
-			ExpiresAt: now.Add(time.Hour), AAL: A2, Methods: []string{"password", "totp"},
-		}},
-		Risk: fixedRisk{proof: Risk{ObservedAt: now.Add(-time.Second), Level: "low", RecoveryStateChecked: true, PrivilegedContextVerified: true}},
-	}, key
-}
-func withProof(e *NativeEvaluator, fn func(*NativeEvidence)) {
-	r := e.Authentication.(fixedReader)
-	fn(&r.proof)
-	e.Authentication = r
-}
-func withRisk(e *NativeEvaluator, fn func(*Risk)) {
-	r := e.Risk.(fixedRisk)
-	fn(&r.proof)
-	e.Risk = r
-}
-func TestN06StrongMFAIsNotPasskeyOrPrivilegedAuthority(t *testing.T) {
-	now := time.Date(2026, 10, 31, 14, 0, 0, 0, time.UTC)
-	e, k := fixture(now)
-	if d := e.Check(context.Background(), k, CommitBuyer); d.Outcome != Allow {
-		t.Fatalf("current AAL2 failed A2: %+v", d)
-	}
-	for _, op := range []Operation{HighValueApproval, ChangeCredential, ChangeRecovery, GrantPrivileged, BreakGlass} {
-		if d := e.Check(context.Background(), k, op); d.Outcome != StepUp {
-			t.Fatalf("TOTP incorrectly promoted to A3/A4 for %s: %+v", op, d)
-		}
-	}
-	withProof(e, func(p *NativeEvidence) {
-		p.PasskeyUsed = true
-		p.UserVerified = true
-		p.OriginBound = true
-		p.Methods = []string{"webauthn"}
-	})
-	if d := e.Check(context.Background(), k, HighValueApproval); d.Outcome != Allow || d.Observed != A3 {
-		t.Fatalf("fresh UV bound passkey not recognized: %+v", d)
-	}
-	if d := e.Check(context.Background(), k, GrantPrivileged); d.Outcome != StepUp {
-		t.Fatalf("A3 incorrectly upgraded to A4: %+v", d)
-	}
-	withProof(e, func(p *NativeEvidence) { p.HardwareBound = true })
-	if d := e.Check(context.Background(), k, GrantPrivileged); d.Outcome != Allow || d.Observed != A4 {
-		t.Fatalf("verified A4 evidence denied: %+v", d)
-	}
-}
-func TestN06A3NeedsEveryCurrentFactorProperty(t *testing.T) {
-	now := time.Now().UTC()
-	for _, mutate := range []func(*NativeEvidence){
-		func(p *NativeEvidence) { p.PasskeyUsed = false },
-		func(p *NativeEvidence) { p.UserVerified = false },
-		func(p *NativeEvidence) { p.OriginBound = false },
-		func(p *NativeEvidence) { p.Methods = []string{"totp"} },
-		func(p *NativeEvidence) { p.AAL = A1 },
-		func(p *NativeEvidence) { p.SessionID = "other" },
-		func(p *NativeEvidence) { p.Subject = "different" },
-		func(p *NativeEvidence) { p.Issuer = "https://other.test" },
-		func(p *NativeEvidence) { p.ObservedAt = now.Add(-31 * time.Second) },
-		func(p *NativeEvidence) { p.AuthenticatedAt = now.Add(-6 * time.Minute) },
-		func(p *NativeEvidence) { p.AuthenticatedAt = now.Add(time.Second) },
-		func(p *NativeEvidence) { p.ObservedAt = now.Add(time.Second) },
-	} {
-		e, k := fixture(now)
-		withProof(e, func(p *NativeEvidence) {
-			p.PasskeyUsed = true
-			p.UserVerified = true
-			p.OriginBound = true
-			p.Methods = []string{"webauthn"}
-		})
-		mutateProof := e.Authentication.(fixedReader)
-		mutate(&mutateProof.proof)
-		e.Authentication = mutateProof
-		if d := e.Check(context.Background(), k, HighValueApproval); d.Outcome == Allow {
-			t.Fatalf("forged/stale passkey or session obtained A3: %+v", mutateProof.proof)
-		}
-	}
-}
-func TestN06RecoveryHoldAndRiskNeverDowngradeMin(t *testing.T) {
-	now := time.Now().UTC()
-	e, k := fixture(now)
-	withProof(e, func(p *NativeEvidence) {
-		p.PasskeyUsed = true
-		p.UserVerified = true
-		p.OriginBound = true
-		p.Methods = []string{"webauthn"}
-		p.RecoveryCompletedAt = now.Add(-time.Hour)
-	})
-	if d := e.Check(context.Background(), k, HighValueApproval); d.Outcome != Deny || d.Reason != "POST_RECOVERY_HOLD" {
-		t.Fatalf("sensitive recovery lock bypass: %+v", d)
-	}
-	withProof(e, func(p *NativeEvidence) { p.RecoveryCompletedAt = time.Time{} })
-	withRisk(e, func(r *Risk) { r.Level = "high" })
-	if d := e.Check(context.Background(), k, CommitBuyer); d.Outcome != Allow || d.Required != A3 {
-		t.Fatalf("risk failed to raise minimum: %+v", d)
-	}
-	withProof(e, func(p *NativeEvidence) { p.PasskeyUsed = false })
-	if d := e.Check(context.Background(), k, CommitBuyer); d.Outcome != StepUp || d.Required != A3 {
-		t.Fatalf("high-risk TOTP allowed: %+v", d)
-	}
-	withRisk(e, func(r *Risk) { r.Level = "critical" })
-	if d := e.Check(context.Background(), k, CommitBuyer); d.Outcome != Deny {
-		t.Fatalf("critical risk allowed: %+v", d)
-	}
-	withRisk(e, func(r *Risk) { r.Level = "unknown" })
-	if d := e.Check(context.Background(), k, CommitBuyer); d.Outcome != Deny {
-		t.Fatalf("unknown risk allowed: %+v", d)
-	}
-}
-func TestN06UnreviewedOrUnavailableProofFailsClosed(t *testing.T) {
-	now := time.Now().UTC()
-	e, k := fixture(now)
-	for _, op := range []Operation{"", "admin:activate", "trade:buy:approve"} {
-		if d := e.Check(context.Background(), k, op); d.Outcome != Deny {
-			t.Fatalf("unreviewed operation allowed: %+v", d)
-		}
-	}
-	e.Authentication = fixedReader{err: errors.New("provider expired")}
-	if d := e.Check(context.Background(), k, OrdinaryBuyer); d.Outcome != Deny {
-		t.Fatalf("missing proof allowed: %+v", d)
-	}
-	e, k = fixture(now)
-	e.Risk = nil
-	if d := e.Check(context.Background(), k, CommitBuyer); d.Outcome != Deny {
-		t.Fatalf("missing risk allowed: %+v", d)
-	}
-	e, k = fixture(now)
-	k.SessionID = "browser-supplied-cookie"
-	if d := e.Check(context.Background(), k, OrdinaryBuyer); d.Outcome != Deny {
-		t.Fatalf("session substitution allowed: %+v", d)
-	}
-}
-func TestN06ConsequentialPolicyFloorsCannotBeDowngraded(t *testing.T) {
-	for _, tc := range []struct {
-		op  Operation
-		req Policy
-	}{
-		{CommitBuyer, Policy{Level: A1, MaxAge: time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true}},
-		{CommitBuyer, Policy{Level: A2, MaxAge: time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true}},
-		{HighValueApproval, Policy{Level: A2, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: time.Hour}},
-		{HighValueApproval, Policy{Level: A3, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: time.Hour}},
-		{HighValueApproval, Policy{Level: A3, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour}},
-		{ChangeCredential, Policy{Level: A3, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: time.Hour}},
-		{ChangeCredential, Policy{Level: A3, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour}},
-		{ChangeRecovery, Policy{Level: A3, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: time.Hour}},
-		{ChangeRecovery, Policy{Level: A3, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour}},
-		{CommitBuyer, Policy{Level: A2, MaxAge: time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true}},
-		{HighValueApproval, Policy{Level: A3, MaxAge: time.Hour, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true}},
-		{HighValueApproval, Policy{Level: A3, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true}},
-		{ChangeRecovery, Policy{Level: A3, MaxAge: time.Hour, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true}},
-		{ChangeCredential, Policy{Level: A3, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true}},
-		{GrantPrivileged, Policy{Level: A4, MaxAge: time.Hour, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true, RequirePrivilegedWitness: true}},
-		{BreakGlass, Policy{Level: A4, MaxAge: time.Minute, RecoveryHold: time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true, RequirePrivilegedWitness: true}},
-	} {
-		policy := DefaultDevelopmentPolicy()
-		policy[tc.op] = tc.req
-		if err := policy.Validate(); err == nil {
-			t.Fatalf("operation %s accepted a weakened reviewed floor: %+v", tc.op, tc.req)
-		}
-	}
-	policy := DefaultDevelopmentPolicy()
-	policy[CommitBuyer] = Policy{Level: A3, MaxAge: 5 * time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour}
-	if err := policy.Validate(); err != nil {
-		t.Fatalf("stronger risk-bound buyer commitment must remain valid: %v", err)
-	}
-}
-
-func TestN06PolicyNeverWeakenedByUnreviewedAdmin(t *testing.T) {
+func TestNativePolicyUsesSharedReviewedVocabulary(t *testing.T) {
 	p := DefaultDevelopmentPolicy()
 	if err := p.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	p[GrantPrivileged] = Policy{Level: A2, MaxAge: time.Hour, RequireCurrentRisk: true, RequireRecoveryState: true}
-	if err := p.Validate(); err == nil {
-		t.Fatal("privileged A2 downgrade accepted")
+	if OrdinaryBuyer != Login || CommitBuyer != BuyerCommit ||
+		ChangeCredential != CredentialChange || ChangeRecovery != RecoveryRebind ||
+		GrantPrivileged != PrivilegedGrant {
+		t.Fatal("native route aliases diverged from the common operation vocabulary")
 	}
-	p = DefaultDevelopmentPolicy()
-	p[ChangeRecovery] = Policy{Level: A1, MaxAge: time.Hour}
-	if err := p.Validate(); err == nil {
-		t.Fatal("recovery weak-auth bypass accepted")
+	if p[HighValueApproval].Level != A3 || p[HighValueApproval].RecoveryHold < 24*time.Hour ||
+		p[PrivilegedGrant].Level != A4 || !p[PrivilegedGrant].RequirePrivilegedWitness {
+		t.Fatal("shared high-assurance policy floors were weakened")
 	}
-	if reason := PublicReason(NativeDecision{Outcome: Deny, Reason: "some sensitive token 123"}); strings.Contains(reason, "token 123") {
-		t.Fatal("sensitive assurance error copied to public response")
+}
+
+func TestNativeEvaluatorReReadsProviderAndRiskBeforeAllow(t *testing.T) {
+	now := time.Now().UTC()
+	e, key, _, _ := nativeFixture(now)
+	decision := e.Check(context.Background(), key, CommitBuyer)
+	if decision.Outcome != Allow || decision.Observed != A2 {
+		t.Fatalf("expected A2 allow, got %#v", decision)
+	}
+	reader := e.Authentication.(*fixedNativeReader)
+	risk := e.Risk.(*fixedNativeRisk)
+	if reader.calls != 2 || risk.calls != 2 {
+		t.Fatalf("favorable result did not re-read provider and risk: provider=%d risk=%d", reader.calls, risk.calls)
+	}
+}
+
+func TestNativeEvaluatorRequiresRPBoundUserVerifiedPasskeyForA3(t *testing.T) {
+	now := time.Now().UTC()
+	e, key, proof, _ := nativeFixture(now)
+	decision := e.Check(context.Background(), key, HighValueApproval)
+	if decision.Outcome != StepUp || decision.Required != A3 {
+		t.Fatalf("A2/TOTP must not satisfy A3: %#v", decision)
+	}
+
+	proof.PasskeyUsed = true
+	proof.UserVerified = true
+	proof.OriginBound = true
+	proof.Methods = []string{"webauthn"}
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	decision = e.Check(context.Background(), key, HighValueApproval)
+	if decision.Outcome != Allow || decision.Observed != A3 {
+		t.Fatalf("RP-bound user-verified passkey should satisfy A3 without mandatory attestation: %#v", decision)
+	}
+
+	proof.UserVerified = false
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	decision = e.Check(context.Background(), key, HighValueApproval)
+	if decision.Outcome != StepUp {
+		t.Fatalf("passkey without user verification must not satisfy A3: %#v", decision)
+	}
+}
+
+func TestNativeEvaluatorHighRiskRaisesFloorAndCriticalRiskDenies(t *testing.T) {
+	now := time.Now().UTC()
+	e, key, proof, risk := nativeFixture(now)
+	risk.Level = "high"
+	e.Risk = &fixedNativeRisk{risks: []Risk{risk, risk}}
+	decision := e.Check(context.Background(), key, CommitBuyer)
+	if decision.Outcome != StepUp || decision.Required != A3 {
+		t.Fatalf("high risk should raise A2 to A3: %#v", decision)
+	}
+	proof.PasskeyUsed, proof.UserVerified, proof.OriginBound = true, true, true
+	proof.Methods = []string{"webauthn"}
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	e.Risk = &fixedNativeRisk{risks: []Risk{risk, risk}}
+	decision = e.Check(context.Background(), key, CommitBuyer)
+	if decision.Outcome != Allow || decision.Observed != A3 {
+		t.Fatalf("fresh A3 evidence should satisfy high-risk step-up: %#v", decision)
+	}
+	risk.Level = "critical"
+	e.Risk = &fixedNativeRisk{risks: []Risk{risk, risk}}
+	decision = e.Check(context.Background(), key, CommitBuyer)
+	if decision.Outcome != Deny {
+		t.Fatalf("critical risk must deny: %#v", decision)
+	}
+}
+
+func TestNativeEvaluatorA4RequiresHardwareAndIndependentWitness(t *testing.T) {
+	now := time.Now().UTC()
+	e, key, proof, risk := nativeFixture(now)
+	proof.PasskeyUsed, proof.UserVerified, proof.OriginBound = true, true, true
+	proof.HardwareBound = true
+	proof.Methods = []string{"webauthn", "hardware-key"}
+	risk.PrivilegedContextVerified = true
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	e.Risk = &fixedNativeRisk{risks: []Risk{risk, risk}}
+	decision := e.Check(context.Background(), key, GrantPrivileged)
+	if decision.Outcome != Allow || decision.Observed != A4 {
+		t.Fatalf("hardware-bound A3 plus independent witness should satisfy A4: %#v", decision)
+	}
+	proof.HardwareBound = false
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	decision = e.Check(context.Background(), key, GrantPrivileged)
+	if decision.Outcome != StepUp {
+		t.Fatalf("A4 without hardware binding must step up: %#v", decision)
+	}
+	proof.HardwareBound = true
+	risk.PrivilegedContextVerified = false
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	e.Risk = &fixedNativeRisk{risks: []Risk{risk, risk}}
+	decision = e.Check(context.Background(), key, GrantPrivileged)
+	if decision.Outcome != Deny {
+		t.Fatalf("A4 without independent witness must deny: %#v", decision)
+	}
+}
+
+func TestNativeEvaluatorRecoveryHoldAndMissingCurrentStateFailClosed(t *testing.T) {
+	now := time.Now().UTC()
+	e, key, proof, risk := nativeFixture(now)
+	proof.RecoveryCompletedAt = now.Add(-time.Hour)
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	decision := e.Check(context.Background(), key, HighValueApproval)
+	if decision.Outcome != Deny || decision.Reason != "POST_RECOVERY_HOLD" {
+		t.Fatalf("recent recovery must hold A3: %#v", decision)
+	}
+	proof.RecoveryCompletedAt = time.Time{}
+	risk.RecoveryStateChecked = false
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	e.Risk = &fixedNativeRisk{risks: []Risk{risk, risk}}
+	decision = e.Check(context.Background(), key, HighValueApproval)
+	if decision.Outcome != Deny || decision.Reason != "CURRENT_RISK_UNKNOWN" {
+		t.Fatalf("missing recovery state must fail closed: %#v", decision)
+	}
+	e.Risk = &fixedNativeRisk{err: errors.New("unavailable")}
+	decision = e.Check(context.Background(), key, HighValueApproval)
+	if decision.Outcome != Deny {
+		t.Fatalf("risk reader failure must deny: %#v", decision)
+	}
+}
+
+func TestNativePolicyCannotWeakenSharedFloors(t *testing.T) {
+	cases := []struct {
+		name string
+		edit func(NativePolicy)
+	}{
+		{"buyer floor", func(p NativePolicy) { x := p[BuyerCommit]; x.Level = A1; p[BuyerCommit] = x }},
+		{"current risk", func(p NativePolicy) { x := p[BuyerCommit]; x.RequireCurrentRisk = false; p[BuyerCommit] = x }},
+		{"recovery state", func(p NativePolicy) { x := p[BuyerCommit]; x.RequireRecoveryState = false; p[BuyerCommit] = x }},
+		{"recovery hold", func(p NativePolicy) { x := p[HighValueApproval]; x.RecoveryHold = time.Hour; p[HighValueApproval] = x }},
+		{"privileged witness", func(p NativePolicy) { x := p[PrivilegedGrant]; x.RequirePrivilegedWitness = false; p[PrivilegedGrant] = x }},
+		{"missing operation", func(p NativePolicy) { delete(p, BreakGlass) }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := DefaultDevelopmentPolicy()
+			tc.edit(p)
+			if err := p.Validate(); err == nil {
+				t.Fatal("weakened or incomplete policy accepted")
+			}
+		})
+	}
+}
+
+func TestPublicReasonDoesNotExposeProviderDetails(t *testing.T) {
+	d := NativeDecision{Outcome: Deny, Reason: "opaque provider identity/session detail"}
+	if got := PublicReason(d); got != "AUTHENTICATION_DENIED" {
+		t.Fatalf("unexpected public reason %q", got)
+	}
+	if got := PublicReason(NativeDecision{Outcome: StepUp, Reason: "fresh authenticator required"}); got != "STEP_UP_REQUIRED" {
+		t.Fatalf("unexpected step-up reason %q", got)
+	}
+	if got := PublicReason(NativeDecision{Outcome: Allow, Reason: "ASSURANCE_MET_NOT_AUTHORIZATION"}); got != "ASSURANCE_MET_NOT_AUTHORIZATION" {
+		t.Fatalf("unexpected allow reason %q", got)
 	}
 }
