@@ -163,7 +163,7 @@ func minInstant(a, b time.Time) time.Time {
 
 func (s *PostgresStore) putA3Proof(ctx context.Context, id string, proof assurance.NativeEvidence) error {
 	hash, err := hashID(id)
-	if err != nil || s == nil || s.pool == nil || ctx == nil || ctx.Err() != nil ||
+	if err != nil || s == nil || s.pool == nil || s.aead == nil || ctx == nil || ctx.Err() != nil ||
 		proof.Operation != a3BrowserOperation || proof.Issuer == "" || proof.Subject == "" || proof.SessionID == "" ||
 		proof.AAL != assurance.A2 || !hasWebAuthn(proof.Methods) ||
 		proof.AuthenticatedAt.IsZero() || proof.ExpiresAt.IsZero() ||
@@ -196,7 +196,7 @@ func (s *PostgresStore) putA3Proof(ctx context.Context, id string, proof assuran
 func (s *PostgresStore) takeA3Proof(ctx context.Context, id string, operation assurance.Operation, current assurance.CurrentSessionKey) (assurance.NativeEvidence, error) {
 	var none assurance.NativeEvidence
 	hash, err := hashID(id)
-	if err != nil || s == nil || s.pool == nil || ctx == nil || ctx.Err() != nil ||
+	if err != nil || s == nil || s.pool == nil || s.aead == nil || ctx == nil || ctx.Err() != nil ||
 		operation != a3BrowserOperation || current.Issuer == "" || current.Subject == "" || current.SessionID == "" {
 		return none, errA3Denied
 	}
