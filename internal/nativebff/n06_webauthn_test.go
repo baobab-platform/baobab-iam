@@ -158,6 +158,14 @@ func TestN06WebAuthnA3VerifiesRealES256AndDeniesReplay(t *testing.T) {
 	}
 }
 
+func TestN06WebAuthnA3RefusesOperationsBelowTheA3Floor(t *testing.T) {
+	f := makeA3Fixture(t)
+	cred := ory.NativeSessionCredential{Cookie: "ory_kratos_session=server-only"}
+	if _, err := f.v.Verify(context.Background(), cred, assurance.OrdinaryBuyer, f.assertion); err == nil {
+		t.Fatal("A3 verifier accepted an operation whose reviewed floor is below A3")
+	}
+}
+
 func TestN06WebAuthnA3CounterlessAssertionStillConsumesChallenge(t *testing.T) {
 	f := makeA3FixtureWithCounters(t, 0, 0)
 	cred := ory.NativeSessionCredential{Cookie: "ory_kratos_session=server-only"}
