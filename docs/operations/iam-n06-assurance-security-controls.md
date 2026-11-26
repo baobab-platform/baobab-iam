@@ -266,9 +266,12 @@ Go formatting, security and connected evidence must still pass independently.
 1. Review N02’s actual issuer/Kratos/CP source and merge gates, then
    qualify A2 in a first-party real browser including forced step-up,
    session invalidation, wrong issuer, cross-tenant negatives.
-2. Implement and prove **RP-verified** Kratos passkey challenge,
-   user verification, origin binding, signature counter/replay and
-   credential revocation on real authenticators; no fake A3.
+2. Complete connected positive/negative qualification of the implemented
+   **RP-verified** Kratos passkey challenge and assertion routes: user
+   verification, origin binding, signature-counter policy, replay denial,
+   current BFF/Kratos session binding and credential revocation on real
+   authenticators. Then connect one-use proof consumption to the reviewed
+   server-owned operation/resource boundary; no fake A3.
 3. Prove protected A4 with independent CP current privilege,
    sensitive-operation policy, high-assurance device/transaction
    witness and no self-approval; existing CRITICAL CP gate remains
