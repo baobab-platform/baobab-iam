@@ -182,13 +182,15 @@ async function loginSecondFactor(continuation) {
  qualificationPhase='KRATOS_AAL2_CHALLENGE_READBACK';
  const challenge=field(flow,'webauthn_login_trigger');
  const csrf=field(flow,'csrf_token');
- pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','AAL2_CHALLENGE');
+ const identifier=field(flow,'identifier');
+ pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string' &&
+  identifier===privateEmail,'AAL2_CHALLENGE');
  qualificationPhase='KRATOS_AAL2_ASSERTION';
  const credential=await nativeCredential('get',challenge,'localhost');
  pass(credential.type==='public-key' && asserted>=1,'REAL_CREDENTIAL_ASSERTION');
  qualificationPhase='KRATOS_AAL2_COMMIT';
- const success=await onPage('POST',API+'/self-service/login?flow='+id,
-  {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
+ const submission={method:'webauthn',identifier,webauthn_login:JSON.stringify(credential),csrf_token:csrf};
+ const success=await onPage('POST',API+'/self-service/login?flow='+id,submission);
  const messages=[...(success.body?.ui?.messages ?? []),
   ...(success.body?.ui?.nodes ?? []).flatMap(node=>node.messages ?? [])];
  const codes=[...new Set(messages.map(m=>m.id).filter(id=>Number.isInteger(id) && id>0 && id<10000000))].slice(0,3);
@@ -206,8 +208,7 @@ async function loginSecondFactor(continuation) {
  // Replaying the original assertion on the already-consumed server flow must
  // never produce a new authoritative Kratos successful login response.
  qualificationPhase='KRATOS_AAL2_REPLAY';
- const replay=await onPage('POST',API+'/self-service/login?flow='+id,
-  {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
+ const replay=await onPage('POST',API+'/self-service/login?flow='+id,submission);
  pass(!replay.redirect && replay.status>=400 && replay.status<500,
   'REPLAY_REJECTED_HTTP_'+replay.status);
 }
