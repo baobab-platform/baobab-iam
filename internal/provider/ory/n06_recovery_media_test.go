@@ -48,17 +48,17 @@ func TestN06RecoveryNoSensitiveProviderErrorOrMessageText(t *testing.T) {
 }
 
 func TestN06RecoveryBrowserSettingsHandoffIsExactOriginalProviderScope(t *testing.T) {
-	good := "http://127.0.0.1:4455/settings?flow=12345678-1234-1234-1234-123456789abc"
+	good := "http://localhost:4455/settings?flow=12345678-1234-1234-1234-123456789abc"
 	for _, tc := range []struct {
 		url     string
 		allowed bool
 	}{
 		{good, true},
-		{"http://127.0.0.1:4455/login?flow=12345678-1234-1234-1234-123456789abc", false},
-		{"http://127.0.0.1:4455/settings?flow=12345678-1234-1234-1234-123456789abc&next=https://evil.invalid", false},
+		{"http://localhost:4455/login?flow=12345678-1234-1234-1234-123456789abc", false},
+		{"http://localhost:4455/settings?flow=12345678-1234-1234-1234-123456789abc&next=https://evil.invalid", false},
 		{"https://example.invalid/settings?flow=12345678-1234-1234-1234-123456789abc", false},
-		{"http://127.0.0.1:4455/settings?flow=bogus", false},
-		{"http://127.0.0.1:4455/settings?flow=12345678-1234-1234-1234-123456789abc#fragment", false},
+		{"http://localhost:4455/settings?flow=bogus", false},
+		{"http://localhost:4455/settings?flow=12345678-1234-1234-1234-123456789abc#fragment", false},
 	} {
 		if n06TrustedRecoverySettingsURL(tc.url) != tc.allowed {
 			t.Fatal("recovery must not treat a foreign/ambiguous browser redirect as proof")

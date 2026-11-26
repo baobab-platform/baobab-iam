@@ -136,7 +136,8 @@ async function browserLoginPassword() {
  qualificationPhase='KRATOS_BROWSER_LOGIN_SESSION_READBACK';
  const whoami=await onPage('GET',API+'/sessions/whoami');
  statusExact(whoami,200,'BROWSER_SESSION');
- pass(whoami.body?.identity?.id===identityID,'BROWSER_SESSION_SUBJECT');
+ pass(whoami.body?.identity?.id===identityID &&
+  whoami.body.authenticator_assurance_level==='aal1','BROWSER_SESSION_SUBJECT_AND_AAL1');
 }
 async function registerWebAuthn() {
  qualificationPhase='KRATOS_SETTINGS_BROWSER_FLOW';
@@ -160,7 +161,9 @@ async function registerWebAuthn() {
 }
 async function loginSecondFactor() {
  qualificationPhase='KRATOS_AAL2_BROWSER_FLOW';
- const {id,flow}=await browserFlow('login','?aal=aal2');
+ // Kratos adds the enrolled MFA method to the current session at enrolment.
+ // Explicitly refresh AAL2 to require a new signed assertion.
+ const {id,flow}=await browserFlow('login','?refresh=true&aal=aal2');
  qualificationPhase='KRATOS_AAL2_CHALLENGE_READBACK';
  const challenge=field(flow,'webauthn_login_trigger');
  const csrf=field(flow,'csrf_token');
@@ -183,7 +186,8 @@ async function loginSecondFactor() {
  qualificationPhase='KRATOS_AAL2_REPLAY';
  const replay=await onPage('POST',API+'/self-service/login?flow='+id,
   {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
- pass(replay.status!==200,'REPLAY_REJECTED');
+ pass(!replay.redirect && replay.status>=400 && replay.status<500,
+  'REPLAY_REJECTED_HTTP_'+replay.status);
 }
 async function run() {
  try {

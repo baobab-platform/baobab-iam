@@ -111,15 +111,16 @@ func (e *NativeEvaluator) Check(ctx context.Context, session CurrentSessionKey, 
 	no.Required = req.Level
 	now := e.Now().UTC()
 	proof, err := e.Authentication.CurrentAuthentication(ctx, session)
-	if err != nil || proof.Issuer != session.Issuer || proof.Subject != session.Subject ||
-		proof.SessionID != session.SessionID || proof.ObservedAt.IsZero() ||
-		proof.ObservedAt.After(now) || now.Sub(proof.ObservedAt) > 30*time.Second ||
+	readAt := e.Now().UTC()
+	if err != nil || readAt.Before(now) || proof.Issuer != session.Issuer || proof.Subject != session.Subject ||
+		proof.SessionID != session.SessionID || !freshNativeObservation(proof.ObservedAt, readAt) ||
 		proof.AuthenticatedAt.IsZero() || proof.AuthenticatedAt.After(now) ||
 		!proof.ExpiresAt.After(now) || now.Sub(proof.AuthenticatedAt) > req.MaxAge ||
-		!proof.AAL.Valid() || len(proof.Methods) == 0 || len(proof.Methods) > 12 {
+		(proof.AAL != A1 && proof.AAL != A2) || len(proof.Methods) == 0 || len(proof.Methods) > 12 {
 		no.Reason = "MISSING_FRESH_ISSUER_SESSION"
 		return no
 	}
+	proof.Methods = slices.Clone(proof.Methods)
 	level := proof.AAL
 	if proof.PasskeyUsed && proof.UserVerified && proof.OriginBound && hasWebAuthn(proof.Methods) && level >= A2 {
 		level = A3
@@ -142,8 +143,8 @@ func (e *NativeEvaluator) Check(ctx context.Context, session CurrentSessionKey, 
 			return no
 		}
 		firstRisk, err = e.Risk.CurrentRisk(ctx, session, op)
-		if err != nil || firstRisk.ObservedAt.IsZero() || firstRisk.ObservedAt.After(now) ||
-			now.Sub(firstRisk.ObservedAt) > 30*time.Second ||
+		riskReadAt := e.Now().UTC()
+		if err != nil || riskReadAt.Before(readAt) || !freshNativeObservation(firstRisk.ObservedAt, riskReadAt) ||
 			!slices.Contains([]string{"low", "medium", "high", "critical"}, firstRisk.Level) ||
 			(req.RequireRecoveryState && !firstRisk.RecoveryStateChecked) {
 			no.Reason = "CURRENT_RISK_UNKNOWN"
@@ -176,28 +177,41 @@ func (e *NativeEvaluator) Check(ctx context.Context, session CurrentSessionKey, 
 		return no
 	}
 
-	// A favorable result is based on two identical, fresh provider and risk
-	// observations. The reader must perform real reads, not replay a cached
-	// proof from this invocation.
+	// Observation timestamps vary on real independent reads. Validate each
+	// timestamp separately and compare the session and risk attributes.
 	second, err := e.Authentication.CurrentAuthentication(ctx, session)
-	if err != nil || !reflect.DeepEqual(proof, second) {
+	secondReadAt := e.Now().UTC()
+	secondObservedAt := second.ObservedAt
+	second.ObservedAt = proof.ObservedAt
+	if err != nil || secondReadAt.Before(readAt) ||
+		secondObservedAt.Before(proof.ObservedAt) ||
+		!freshNativeObservation(secondObservedAt, secondReadAt) || !reflect.DeepEqual(proof, second) {
 		no.Reason = "CURRENT_SESSION_CHANGED"
 		return no
 	}
+	var secondRiskObservedAt time.Time
 	if req.RequireCurrentRisk || req.RequireRecoveryState || req.Level == A4 {
 		secondRisk, riskErr := e.Risk.CurrentRisk(ctx, session, op)
-		if riskErr != nil || !reflect.DeepEqual(firstRisk, secondRisk) {
+		riskReadAt := e.Now().UTC()
+		secondRiskObservedAt = secondRisk.ObservedAt
+		secondRisk.ObservedAt = firstRisk.ObservedAt
+		if riskErr != nil || riskReadAt.Before(secondReadAt) ||
+			secondRiskObservedAt.Before(firstRisk.ObservedAt) ||
+			!freshNativeObservation(secondRiskObservedAt, riskReadAt) || firstRisk != secondRisk {
 			no.Reason = "CURRENT_RISK_CHANGED"
 			return no
 		}
+		secondReadAt = riskReadAt
 	}
 	completed := e.Now().UTC()
-	if ctx.Err() != nil || completed.Before(now) || !proof.ExpiresAt.After(completed) ||
+	if ctx.Err() != nil || completed.Before(secondReadAt) || !proof.ExpiresAt.After(completed) ||
+		!freshNativeObservation(secondObservedAt, completed) ||
+		(!secondRiskObservedAt.IsZero() && !freshNativeObservation(secondRiskObservedAt, completed)) ||
 		completed.Sub(proof.AuthenticatedAt) > req.MaxAge {
 		no.Reason = "FRESH_AUTHENTICATOR_REQUIRED"
 		return no
 	}
-	methods := slices.Clone(proof.Methods)
+	methods := proof.Methods
 	seen := map[string]bool{}
 	for _, method := range methods {
 		if method == "" || len(method) > 64 || seen[method] {
@@ -210,6 +224,10 @@ func (e *NativeEvaluator) Check(ctx context.Context, session CurrentSessionKey, 
 	no.Reason = "ASSURANCE_MET_NOT_AUTHORIZATION"
 	no.Observed = level
 	return no
+}
+
+func freshNativeObservation(observedAt, readAt time.Time) bool {
+	return !observedAt.IsZero() && !observedAt.After(readAt) && readAt.Sub(observedAt) <= 30*time.Second
 }
 
 func hasWebAuthn(methods []string) bool {

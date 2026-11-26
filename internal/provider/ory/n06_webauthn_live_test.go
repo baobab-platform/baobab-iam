@@ -220,7 +220,7 @@ func n06BrowserFlowID(t *testing.T, ctx context.Context, client *http.Client, or
 	}
 	redirect, err := url.Parse(res.Header.Get("Location"))
 	if err != nil || redirect == nil ||
-		redirect.Scheme != "http" || redirect.Host != "127.0.0.1:4455" ||
+		redirect.Scheme != "http" || redirect.Host != "localhost:4455" ||
 		redirect.Path != "/"+name || redirect.User != nil || redirect.Fragment != "" {
 		t.Fatal("Kratos browser flow redirected to unreviewed UI")
 	}

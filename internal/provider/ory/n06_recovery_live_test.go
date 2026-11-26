@@ -244,7 +244,7 @@ func n06TrustedRecoverySettingsURL(raw string) bool {
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.User != nil || u.Fragment != "" ||
-		u.Scheme != "http" || u.Host != "127.0.0.1:4455" ||
+		u.Scheme != "http" || u.Host != "localhost:4455" ||
 		u.Path != "/settings" {
 		return false
 	}

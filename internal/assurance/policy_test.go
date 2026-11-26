@@ -90,6 +90,38 @@ func TestNativeEvaluatorReReadsProviderAndRiskBeforeAllow(t *testing.T) {
 	}
 }
 
+func TestNativeEvaluatorAcceptsFreshReadTimesAndRejectsChangedEvidence(t *testing.T) {
+	now := time.Now().UTC()
+	for _, tc := range []struct {
+		name string
+		edit func(*NativeEvidence, *Risk)
+		want Outcome
+	}{
+		{"independent observations", func(*NativeEvidence, *Risk) {}, Allow},
+		{"changed session", func(p *NativeEvidence, _ *Risk) { p.SessionID = "another-session" }, Deny},
+		{"provider level cannot establish A4", func(p *NativeEvidence, _ *Risk) { p.AAL = A4 }, Deny},
+		{"older readback", func(p *NativeEvidence, _ *Risk) { p.ObservedAt = now.Add(-2 * time.Second) }, Deny},
+		{"future provider observation", func(p *NativeEvidence, _ *Risk) { p.ObservedAt = now.Add(time.Second) }, Deny},
+		{"changed risk", func(_ *NativeEvidence, r *Risk) { r.Level = "critical" }, Deny},
+		{"future risk observation", func(_ *NativeEvidence, r *Risk) { r.ObservedAt = now.Add(time.Second) }, Deny},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e, key, first, risk := nativeFixture(now)
+			second, nextRisk := first, risk
+			first.ObservedAt, second.ObservedAt = now.Add(time.Millisecond), now.Add(3*time.Millisecond)
+			risk.ObservedAt, nextRisk.ObservedAt = now.Add(2*time.Millisecond), now.Add(4*time.Millisecond)
+			tc.edit(&second, &nextRisk)
+			e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{first, second}}
+			e.Risk = &fixedNativeRisk{risks: []Risk{risk, nextRisk}}
+			var tick time.Duration
+			e.Now = func() time.Time { instant := now.Add(tick); tick += time.Millisecond; return instant }
+			if got := e.Check(context.Background(), key, BuyerCommit); got.Outcome != tc.want {
+				t.Fatalf("outcome: %+v, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestNativeEvaluatorRequiresRPBoundUserVerifiedPasskeyForA3(t *testing.T) {
 	now := time.Now().UTC()
 	e, key, proof, _ := nativeFixture(now)
