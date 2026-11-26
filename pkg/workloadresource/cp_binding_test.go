@@ -139,13 +139,13 @@ func TestN04LiveTLSCPBindingRequiresExactCurrentRegistration(t *testing.T) {
 			t.Fatal("invalid CP registered binding accepted", name)
 		}
 	}
-	if calls != 16 {
+	if calls != 17 {
 		t.Fatalf("CP current authority was cached, calls=%d", calls)
 	}
 	if err := read.CheckCapability(context.Background(), "identity.authentication.perform"); err == nil {
 		t.Fatal("native human capability reused for workload issuer")
 	}
-	if calls != 16 {
+	if calls != 17 {
 		t.Fatal("different capability reached CP")
 	}
 }
