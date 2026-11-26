@@ -8,6 +8,7 @@ SMTP service or account is involved.
 """
 from __future__ import annotations
 
+import argparse
 import hmac
 import json
 import os
@@ -155,7 +156,9 @@ class API(BaseHTTPRequestHandler):
 
 
 def main():
-    smtp = SMTPServer(("0.0.0.0", 1025), SMTP)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--listen", required=True, choices=("172.30.146.1",))
+    smtp = SMTPServer((parser.parse_args().listen, 1025), SMTP)
     thread = threading.Thread(target=smtp.serve_forever, daemon=True)
     thread.start()
     try:

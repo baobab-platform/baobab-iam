@@ -2,24 +2,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source tests/ory-foundation/hydra-audience/compose.sh
-# Only local ephemeral recovery emails. Keep codes out of output/artifacts.
-export BAOBAB_TEST_MAIL_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
-python3 tests/ory-foundation/smtp_sink.py >/dev/null 2>&1 &
-MAIL_SINK_PID=$!
-cleanup_mail_sink() {
-  kill "$MAIL_SINK_PID" 2>/dev/null || true
-  wait "$MAIL_SINK_PID" 2>/dev/null || true
-  unset BAOBAB_TEST_MAIL_KEY
-}
-trap cleanup_mail_sink EXIT
-for attempt in $(seq 1 30); do
-  if curl -fsS --max-time 1 -o /dev/null http://127.0.0.1:4457/health; then break; fi
-  if ! kill -0 "$MAIL_SINK_PID" 2>/dev/null; then
-    echo "Local disposable SMTP sink terminated" >&2; exit 1
-  fi
-  sleep 1
-done
-curl -fsS --max-time 2 -o /dev/null http://127.0.0.1:4457/health
 mkdir -p ory-foundation-evidence
 # Require lock/Compose agreement before contacting registries or starting services.
 python3 - <<'PY'
@@ -36,14 +18,39 @@ for provider in ('kratos', 'hydra'):
 print('Kratos and Hydra Compose images match the exact provider lock')
 PY
 timeout 240 docker compose -p ory-foundation-ci "${ory_compose[@]}" up -d
-# Assert Docker created the CI stack on an internal-only network. Published
-# loopback ports and the explicit host SMTP sink remain reachable; Internet
-# egress from Kratos/Hydra/PostgreSQL containers is not permitted.
-if [ "$(docker network inspect ory-foundation-ci_default --format '{{.Internal}}')" != "true" ]; then
-  echo "Ory Foundation network is not isolated from external egress" >&2
-  exit 1
-fi
-for port in 4434 4445; do
+# Keep provider containers on the internal bridge even when the host opens
+# fixed loopback listeners for the browser and API witnesses.
+docker network inspect ory-foundation-ci_default --format '{{.Internal}} {{.EnableIPv6}}' |
+  grep -Fx 'true false' > ory-foundation-evidence/network-boundary.txt
+for service in kratos hydra postgres-kratos postgres-hydra; do
+  container=$(docker compose -p ory-foundation-ci "${ory_compose[@]}" ps -q "$service")
+  docker inspect "$container" --format '{{range $name, $value := .NetworkSettings.Networks}}{{$name}}{{end}}' |
+    grep -Fx 'ory-foundation-ci_default' >/dev/null
+done
+runtime_dir="${RUNNER_TEMP:-$PWD/.ory-foundation-runtime}"
+mkdir -m 700 -p "$runtime_dir"
+relay_pid_file="$runtime_dir/ory-foundation-relay.pid"
+python3 tests/ory-foundation/loopback_relay.py > /dev/null 2>&1 &
+printf '%s\n' "$!" > "$relay_pid_file"
+# Only local ephemeral recovery emails. Keep codes out of output/artifacts.
+export BAOBAB_TEST_MAIL_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+python3 tests/ory-foundation/smtp_sink.py --listen 172.30.146.1 >/dev/null 2>&1 &
+MAIL_SINK_PID=$!
+cleanup_mail_sink() {
+  kill "$MAIL_SINK_PID" 2>/dev/null || true
+  wait "$MAIL_SINK_PID" 2>/dev/null || true
+  unset BAOBAB_TEST_MAIL_KEY
+}
+trap cleanup_mail_sink EXIT
+for attempt in $(seq 1 30); do
+  if curl -fsS --max-time 1 -o /dev/null http://127.0.0.1:4457/health; then break; fi
+  if ! kill -0 "$MAIL_SINK_PID" 2>/dev/null; then
+    echo "Local disposable SMTP sink terminated" >&2; exit 1
+  fi
+  sleep 1
+done
+curl -fsS --max-time 2 -o /dev/null http://127.0.0.1:4457/health
+for port in 4433 4434 4444 4445; do
   ready=0
   for attempt in $(seq 1 30); do
     if curl --connect-timeout 2 --max-time 3 -fsS -o /dev/null "http://127.0.0.1:$port/admin/health/ready" 2>/dev/null ||

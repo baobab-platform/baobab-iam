@@ -17,7 +17,7 @@ The current `provider.lock.yaml` and `docker-compose.ory.yml` pin the OSS `oryd/
 
 This upstream behaviour is useful credential-state machinery, not Baobab's atomic replay authority. A non-increasing counter is not a sufficient basis to reject a valid assertion from a static-counter authenticator, and a persisted counter does not make a challenge single-use. The current `WebAuthnA3Verifier` still rejects zero and non-increasing counters and its `KratosCredentialReader.AdvanceKratosSignCounter` contract assumes a strictly increasing value. This must be reconciled before A3 activation: preserve Kratos as credential authority, accept authenticators whose counter is zero/static where policy permits, and retain durable, atomic, single-use challenge consumption independently of the counter. Do not introduce a parallel counter authority until the pinned provider capability has been tested and the exact missing guarantee identified.
 
-The disposable Kratos config already sets `selfservice.methods.password.config.haveibeenpwned_enabled: false` and documents synthetic identities only. However, the shared `docker-compose.ory.yml` network is not declared internal, so this configuration alone does not enforce an outbound egress boundary. Add a CI-only isolated network override (without breaking the optional local developer stack), verify the containers cannot reach external services, and test breach-check behaviour separately against a controlled local service or offline corpus. Keep production password-breach policy intact; never bypass the approval mechanism.
+The disposable Kratos config disables external breach checks for synthetic fixture passwords. This setting exists in the pinned v26.2.0 configuration schema. The Foundation workflow uses a Docker internal bridge with no IPv6 and no provider port publications. Fixed runner-loopback relays carry only the four Kratos/Hydra API listeners. SMTP and the Hydra token hook bind to the bridge gateway. The local developer Compose definition and protected password policies are outside this override. Qualify breach checking separately with a controlled local endpoint or offline corpus. Adopt the same egress evidence requirement in DEV-10 and DEV-14.
 
 The implementation sequence is now explicitly split:
 1. **A3 increment:** qualify the provider release, implement trusted Kratos credential readback and durable challenge replay protection, connect verified RP-bound user-verified proof to the production BFF, then run connected browser, concurrency, revocation and recovery negatives.
@@ -33,6 +33,12 @@ ADR-IAM-0024, ADR-IAM-0025, ADR-IAM-0028, ADR-IAM-0029 and ADR-IAM-0033.
 PR `baobab-iam#151` targets `main` after the N04 source merge in #149. Independent N04 and N06 connected qualification still applies before protected deployment. Keycloak remains the enterprise federation provider.
 The Control Plane (not IAM) owns canonical identity, membership,
 tenant privileges and business authorization.
+
+### Kratos release and assertion counters
+
+Ory's [v26.3.4 changelog](https://changelog.ory.com/announcements/ory-network-ory-hydra-ory-kratos-ory-keto-ory-oathkeeper-ory-elements-v26-3-4-released) describes persisted counter and clone-warning state and permits non-increasing counters. The public `ory/kratos` Git tag and `oryd/kratos:v26.3.4` registry manifest were unavailable in the 26 November 2026 check. The pinned v26.2.0 registry digest resolved and stays in use. A candidate upgrade requires an approved obtainable edition, exact image digest and source, PostgreSQL 17 migration and rollback evidence, admin credential readback, and live login, concurrency, revocation and recovery tests.
+
+The PostgreSQL single-use challenge deletion is the replay control, including for zero-counter authenticators. Under the [WebAuthn signature-counter rules](https://www.w3.org/TR/webauthn-3/#sctn-sign-counter), zero on both observations can represent a counterless authenticator. A decreasing or equal nonzero counter is a credential-risk signal that needs a reviewed policy. The current A3 verifier remains strict while that policy and the trusted credential/counter authority are unconnected. The component browser result does not activate production A3 or A4.
 
 ## IAM-N06 implemented source boundary
 

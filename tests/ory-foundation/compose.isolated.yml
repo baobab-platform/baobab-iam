@@ -1,6 +1,27 @@
-# CI-only override for the disposable Ory Foundation stack.
-# Do not apply to the optional local developer stack: local federation tests
-# may deliberately need explicitly approved external providers.
+# Disposable Foundation only. The runner reaches providers via fixed loopback
+# relays. Containers can reach only the internal subnet and its host gateway.
 networks:
   default:
     internal: true
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 172.30.146.0/28
+          gateway: 172.30.146.1
+          ip_range: 172.30.146.8/29
+
+services:
+  kratos:
+    ports: !reset []
+    networks:
+      default:
+        ipv4_address: 172.30.146.2
+    extra_hosts: !override
+      - "host.docker.internal:172.30.146.1"
+  hydra:
+    ports: !reset []
+    networks:
+      default:
+        ipv4_address: 172.30.146.3
+    extra_hosts:
+      - "host.docker.internal:172.30.146.1"
