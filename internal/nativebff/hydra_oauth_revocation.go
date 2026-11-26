@@ -44,7 +44,8 @@ func NewHydraOAuthRevoker(c HydraOAuthRevokeConfig) (*HydraOAuthRevoker, error) 
 	if err != nil || origin.Scheme != "https" && !c.AllowTestLoopback {
 		return nil, errors.New("private verified Hydra administration required")
 	}
-	if !c.AllowTestLoopback && (c.TrustedRoots == nil || len(c.TrustedRoots.Subjects()) == 0 || c.AdminTestClient != nil) {
+	if !c.AllowTestLoopback && (c.TrustedRoots == nil || len(c.TrustedRoots.Subjects()) == 0 || c.AdminTestClient != nil) ||
+		c.AllowTestLoopback && origin.Scheme == "https" && (c.TrustedRoots == nil || len(c.TrustedRoots.Subjects()) == 0) {
 		return nil, errors.New("explicit Hydra administration trust required")
 	}
 	client := &http.Client{
