@@ -81,7 +81,7 @@ func (s *PGWebAuthnChallengeStore) Create(ctx context.Context, challenge WebAuth
 	if s == nil || s.pool == nil || s.aead == nil || ctx == nil || ctx.Err() != nil ||
 		!n06ChallengeID.MatchString(challenge.ID) ||
 		challenge.Session.Issuer == "" || challenge.Session.Subject == "" ||
-		challenge.Session.SessionID == "" || len(challenge.Nonce) != 32 ||
+		challenge.Session.SessionID == "" || !challenge.Operation.Valid() || len(challenge.Nonce) != 32 ||
 		!validRelyingParty(challenge) {
 		return errA3Denied
 	}
