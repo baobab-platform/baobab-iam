@@ -1,5 +1,17 @@
 # IAM-N06 — Authentication assurance, recovery and security operations
 
+## Review reconciliation — 26 November 2026
+
+The production BFF composition now sets `N06Required: true`, supplies the reviewed `N06ScopeOperations` mapping and passes the `N06Gate`; the earlier runtime-wiring omission is corrected. This does not qualify A3/A4 or grant business authority.
+
+N06 remains DRAFT / HELD. The current N06 branch is based on an older N04 head and is not mergeable with the current N04 branch. Before updating that stack, converge on the single assurance model already present in current `main` from merged PR #174 (`internal/assurance/evaluator.go`). N06 currently introduces a parallel `internal/assurance/policy.go` model with overlapping `Level`, `Operation`, `Evidence`, `Policy` and `Evaluator` concepts. Do not carry both models or resolve the conflict by weakening either policy.
+
+The current Kratos live test demonstrates forged WebAuthn registration denial and absence of a persisted usable credential; it explicitly does not demonstrate a positive authenticator ceremony. The RP-bound A3 verifier still depends on a `KratosCredentialReader` interface without a concrete provider adapter wired into the production BFF, and the current `N06SecurityGate` does not invoke that verifier. The inherited Ory Foundation Live check therefore remains held at `N06_A3_HELD_KRATOS_PASSKEY_REGISTRATION_UNCLASSIFIED`. A4 remains unavailable until real trusted hardware-attestation, current risk and independent privileged-approval authorities are connected and verified.
+
+The current N06 head has no exact-head CI run attached. Descendant N07/N08 runs are not a substitute for N06 exact-head verification. Keep all A3/A4, recovery/rebinding, provider rotation and protected acceptance claims separate; do not treat the runtime gate wiring correction as completion.
+
+---
+
 **Status: draft engineering source, connected evidence HELD.**
 **Authority:** EA v2.3/EA-DEV; ADR-IAM-0015–0018, ADR-IAM-0023,
 ADR-IAM-0024, ADR-IAM-0025, ADR-IAM-0028, ADR-IAM-0029 and ADR-IAM-0033.
