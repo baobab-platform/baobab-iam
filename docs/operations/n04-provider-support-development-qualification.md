@@ -8,6 +8,8 @@ The three historical Code Quality findings on #149 have been addressed: the N04 
 
 The closed N05 PR #150 does not need reopening: its former head `6d56cb08d912796320c16612515644bfdbaddf8b` is an ancestor of current `main`, and the migration ledger, containment implementation and runbook are present there. This is source integration only; N05 owner/development qualification and production cutover remain separate.
 
+The resource-side CP target now also requires the SHA-256 digest of the running resource image from its private deployment configuration. The adapter compares both CP `artifact_digest` and `deployed_artifact_digest` with that local expected digest; equality between two CP-returned values alone is insufficient. This digest is local-only and is not added to the CP request contract. The CP origin parser also rejects empty query/fragment delimiters, empty ports and non-origin URL components. Regression tests cover a different running image even when CP's two returned digests agree.
+
 N04 still does not promote canonical provider support, activate a CP binding, certify an owner engine, or grant protected deployment authority. The original C4-03/DEV-14/DEV-15 evidence and all consumer-owned native positive/negative cases remain independently required.
 
 ---
