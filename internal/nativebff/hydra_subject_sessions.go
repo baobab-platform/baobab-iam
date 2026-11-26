@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -66,6 +67,35 @@ func (h *HydraSubjectSessionsRevoker) RevokeSubjectSessions(ctx context.Context,
 		if response.StatusCode != http.StatusNoContent && response.StatusCode != http.StatusOK {
 			return errors.New("Hydra subject revocation not confirmed")
 		}
+	}
+	return h.verifyNoConsentSessions(ctx, subject)
+}
+
+func (h *HydraSubjectSessionsRevoker) verifyNoConsentSessions(ctx context.Context, subject string) error {
+	values := url.Values{"subject": {subject}, "page_size": {"250"}}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		h.origin+"/admin/oauth2/auth/sessions/consent?"+values.Encode(), nil)
+	if err != nil {
+		return errors.New("invalid Hydra consent-session readback")
+	}
+	request.Header.Set("Accept", "application/json")
+	request.Header.Set("Cache-Control", "no-store")
+	response, err := h.client.Do(request)
+	if err != nil {
+		return errors.New("Hydra consent-session readback unavailable")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 512))
+		return errors.New("Hydra consent-session readback not confirmed")
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, 64*1024+1))
+	if err != nil || len(body) > 64*1024 || len(body) == 0 || body[0] != '[' {
+		return errors.New("Hydra consent-session readback malformed")
+	}
+	var sessions []json.RawMessage
+	if err := json.Unmarshal(body, &sessions); err != nil || len(sessions) != 0 {
+		return errors.New("Hydra consent sessions remain")
 	}
 	return nil
 }
