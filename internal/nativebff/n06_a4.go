@@ -24,7 +24,7 @@ var a4Ref = regexp.MustCompile(`^ref_[a-z0-9_-]{8,128}$`)
 type A4Request struct {
 	Session                      assurance.CurrentSessionKey
 	Operation                    assurance.Operation
-	A3                           assurance.Evidence
+	A3                           assurance.NativeEvidence
 	ChallengeID                  string
 	HardwareSignatureDER         []byte
 	DevicePublicKeyDER           []byte
@@ -60,7 +60,7 @@ type A4Verifier struct {
 	Hardware   A4AttestationAuthority
 	Approvals  A4PrivilegedAuthority
 	Risk       assurance.RiskReader
-	Policy     assurance.Policy
+	Policy     assurance.NativePolicy
 	Now        func() time.Time
 }
 
@@ -83,8 +83,8 @@ func a4Transcript(session assurance.CurrentSessionKey, op assurance.Operation, n
 // genuine fresh, user-verified A3 session, one-use server challenge, signed
 // hardware transaction, current pinned hardware attestation and a distinct
 // independent privileged approval. CP still owns business permission.
-func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.Evidence, error) {
-	none := assurance.Evidence{}
+func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.NativeEvidence, error) {
+	none := assurance.NativeEvidence{}
 	if v == nil || ctx == nil || ctx.Err() != nil || v.Challenges == nil ||
 		v.Hardware == nil || v.Approvals == nil || v.Risk == nil || v.Now == nil ||
 		v.Policy.Validate() != nil ||
@@ -99,17 +99,17 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.Evidenc
 		return none, errA4Denied
 	}
 	requirement, ok := v.Policy[r.Operation]
-	if !ok || requirement.Min != assurance.A4 ||
+	if !ok || requirement.Level != assurance.A4 ||
 		!requirement.RequireCurrentRisk || !requirement.RequirePrivilegedWitness {
 		return none, errA4Denied
 	}
 	now := v.Now().UTC()
 	proof := r.A3
 	if proof.Issuer != r.Session.Issuer || proof.Subject != r.Session.Subject ||
-		proof.SessionID != r.Session.SessionID || proof.AAL != "aal2" ||
+		proof.SessionID != r.Session.SessionID || proof.AAL != assurance.A2 ||
 		!proof.PasskeyUsed || !proof.UserVerified || !proof.OriginBound ||
 		proof.HardwareBound || proof.ObservedAt.IsZero() ||
-		proof.AuthenticatedAt.IsZero() || proof.ObservedAt.After(now) ||
+		proof.AuthenticatedAt.IsZero() || !proof.ExpiresAt.After(now) || proof.ObservedAt.After(now) ||
 		now.Sub(proof.ObservedAt) > 30*time.Second ||
 		proof.AuthenticatedAt.After(now) ||
 		now.Sub(proof.AuthenticatedAt) > 5*time.Minute ||
@@ -154,7 +154,7 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.Evidenc
 	}
 	risk, err := v.Risk.CurrentRisk(ctx, r.Session, r.Operation)
 	if err != nil || risk.ObservedAt.IsZero() || risk.ObservedAt.After(now) ||
-		now.Sub(risk.ObservedAt) > 30*time.Second ||
+		now.Sub(risk.ObservedAt) > 30*time.Second || !risk.RecoveryStateChecked ||
 		!risk.PrivilegedContextVerified || risk.RecoverySuspicious ||
 		(risk.Level != "low" && risk.Level != "medium") {
 		return none, errA4Denied
