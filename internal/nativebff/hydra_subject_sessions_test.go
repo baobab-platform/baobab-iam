@@ -2,8 +2,8 @@ package nativebff
 
 import (
 	"context"
-	"encoding/json"
 	"crypto/x509"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
