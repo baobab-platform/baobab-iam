@@ -1,5 +1,17 @@
 # IAM-N04 — Canonical support registration and connected development qualification
 
+## Review reconciliation — 26 November 2026
+
+IAM #149 remains DRAFT / HELD. The PR branch is based on an older `main` snapshot (`5fd97af34a20f814b12af00b938baf7a08c3a5bc`); current `main` is `6ce5fc6395058c0fc811f03c9ee75e4dada7f06d`. GitHub reports the PR as `dirty` / not mergeable. A temporary attempt to merge current `main` into the N04 branch (PR #195) was closed without merge because GitHub also reported conflicts (`dirty`, 128 changed paths). No source or default-branch changes resulted from that attempt. Do not force-update this branch or overwrite newer current-main provider, federation, dependency, CI or runtime changes; reconcile those changes selectively before treating N04 as reviewable for merge.
+
+The three historical Code Quality findings on #149 have been addressed: the N04 lifecycle test syntax is repaired, and unused `copy` imports were removed from the DR-promotion and JWKS-rotation tests. Their review threads are resolved. The 12 November exact-head run on the previous N04 head contained CodeQL and Code Quality checks only; the current post-correction head still requires full exact-head CI/Foundation/Go verification.
+
+The closed N05 PR #150 does not need reopening: its former head `6d56cb08d912796320c16612515644bfdbaddf8b` is an ancestor of current `main`, and the migration ledger, containment implementation and runbook are present there. This is source integration only; N05 owner/development qualification and production cutover remain separate.
+
+N04 still does not promote canonical provider support, activate a CP binding, certify an owner engine, or grant protected deployment authority. The original C4-03/DEV-14/DEV-15 evidence and all consumer-owned native positive/negative cases remain independently required.
+
+---
+
 > **STATUS (6 November 2026): N04 SOURCE REVIEWED / INTEGRATION CANDIDATE — DEVELOPMENT NOT CERTIFIED.**
 > N01–N03 source PRs #145–#148 were merged on 5 November, but their independent [development-completion holds](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md) remain until real connected qualification is recorded. N04 must **not** reinterpret those held cases as staging/production-only, re-pin Shared, mark any canonical provider IMPLEMENTED, publish CP support, activate CP bindings or merge solely because this source or its fixture tests exist.
 
