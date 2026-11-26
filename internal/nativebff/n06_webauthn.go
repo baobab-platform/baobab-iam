@@ -77,8 +77,8 @@ type WebAuthnA3Verifier struct {
 
 func (v *WebAuthnA3Verifier) Verify(
 	ctx context.Context, cookie ory.NativeSessionCredential, a WebAuthnAssertion,
-) (assurance.Evidence, error) {
-	none := assurance.Evidence{}
+) (assurance.NativeEvidence, error) {
+	none := assurance.NativeEvidence{}
 	if ctx == nil || ctx.Err() != nil || v == nil || v.Now == nil ||
 		v.Kratos == nil || v.Challenges == nil || v.Credentials == nil ||
 		cookie.Cookie == "" || cookie.SessionToken != "" ||
@@ -91,7 +91,7 @@ func (v *WebAuthnA3Verifier) Verify(
 	}
 	key, kratos, err := v.Kratos.CurrentNativeAuthentication(ctx, cookie)
 	if err != nil || key.Issuer == "" || key.Subject == "" || key.SessionID == "" ||
-		kratos.AAL != "aal2" || !hasWebAuthn(kratos.Methods) ||
+		kratos.AAL != assurance.A2 || !hasWebAuthn(kratos.Methods) ||
 		kratos.Issuer != key.Issuer || kratos.Subject != key.Subject ||
 		kratos.SessionID != key.SessionID ||
 		kratos.ObservedAt.IsZero() || kratos.AuthenticatedAt.IsZero() ||
@@ -151,9 +151,9 @@ func (v *WebAuthnA3Verifier) Verify(
 	if v.Credentials.AdvanceKratosSignCounter(ctx, credential, counter) != nil {
 		return none, errA3Denied
 	}
-	return assurance.Evidence{
+	return assurance.NativeEvidence{
 		Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
-		ObservedAt: now, AuthenticatedAt: now, AAL: "aal2",
+		ObservedAt: now, AuthenticatedAt: now, ExpiresAt: kratos.ExpiresAt, AAL: assurance.A2,
 		Methods: []string{"webauthn"}, PasskeyUsed: true,
 		UserVerified: true, OriginBound: true, HardwareBound: false,
 	}, nil
