@@ -41,6 +41,7 @@ type WebAuthnAssertion struct {
 type WebAuthnChallenge struct {
 	ID                  string
 	Session             assurance.CurrentSessionKey
+	Operation           assurance.Operation
 	RPID                string
 	Origin              string
 	Nonce               []byte
@@ -85,12 +86,12 @@ type WebAuthnA3Verifier struct {
 }
 
 func (v *WebAuthnA3Verifier) Verify(
-	ctx context.Context, cookie ory.NativeSessionCredential, a WebAuthnAssertion,
+	ctx context.Context, cookie ory.NativeSessionCredential, operation assurance.Operation, a WebAuthnAssertion,
 ) (assurance.NativeEvidence, error) {
 	none := assurance.NativeEvidence{}
 	if ctx == nil || ctx.Err() != nil || v == nil || v.Now == nil ||
 		v.Kratos == nil || v.Challenges == nil || v.Credentials == nil || v.Counters == nil ||
-		cookie.Cookie == "" || cookie.SessionToken != "" ||
+		!operation.Valid() || cookie.Cookie == "" || cookie.SessionToken != "" ||
 		len(a.ChallengeID) < 12 || len(a.ChallengeID) > 160 ||
 		len(a.CredentialID) < 16 || len(a.CredentialID) > 1024 ||
 		len(a.ClientDataJSON) < 60 || len(a.ClientDataJSON) > 4096 ||
@@ -115,7 +116,7 @@ func (v *WebAuthnA3Verifier) Verify(
 		return none, errA3Denied
 	}
 	now := v.Now().UTC()
-	if now.Before(readAt) || challenge.ID != a.ChallengeID || challenge.Session != key ||
+	if now.Before(readAt) || challenge.ID != a.ChallengeID || challenge.Session != key || challenge.Operation != operation ||
 		challenge.CreatedAt.IsZero() || challenge.ExpiresAt.IsZero() ||
 		challenge.CreatedAt.After(now) || !now.Before(challenge.ExpiresAt) ||
 		now.Sub(challenge.CreatedAt) > 2*time.Minute ||
