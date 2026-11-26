@@ -741,8 +741,9 @@ func TestAllSessionLogoutProviderFailureDoesNotRestoreSession(t *testing.T) {
 	r.AddCookie(session)
 	w = httptest.NewRecorder()
 	f.h.ServeHTTP(w, r)
-	if w.Code != http.StatusServiceUnavailable || f.revoker.calls != 1 {
-		t.Fatal("unknown Kratos global logout not reported")
+	if w.Code != http.StatusServiceUnavailable || native.calls != 1 ||
+		hydraSubject.calls != 1 || f.revoker.calls != 1 {
+		t.Fatal("provider failure was reported incorrectly or skipped another revocation attempt")
 	}
 	if _, err = f.store.ReadSession(context.Background(), session.Value); err == nil {
 		t.Fatal("failed global logout resurrected browser session")
