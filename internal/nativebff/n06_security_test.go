@@ -14,17 +14,17 @@ import (
 )
 
 type fixedN06Gate struct {
-	result  assurance.Decision
+	result  assurance.NativeDecision
 	failure bool
 	calls   int
 	last    assurance.Operation
 }
 
-func (f *fixedN06Gate) EvaluateNative(_ context.Context, _ ory.NativeSessionCredential, op assurance.Operation) (assurance.Decision, error) {
+func (f *fixedN06Gate) EvaluateNative(_ context.Context, _ ory.NativeSessionCredential, op assurance.Operation) (assurance.NativeDecision, error) {
 	f.calls++
 	f.last = op
 	if f.failure {
-		return assurance.Decision{Outcome: assurance.Deny}, errors.New("risk unavailable")
+		return assurance.NativeDecision{Outcome: assurance.Deny}, errors.New("risk unavailable")
 	}
 	return f.result, nil
 }
@@ -56,7 +56,7 @@ func TestN06BFFRejectsUnreviewedScopeAndMissingGate(t *testing.T) {
 func TestN06BFFLoginAndConsentRequireCurrentSecurity(t *testing.T) {
 	f := makeFixture(t)
 	conf := f.h.c
-	gate := &fixedN06Gate{result: assurance.Decision{Outcome: assurance.StepUp}}
+	gate := &fixedN06Gate{result: assurance.NativeDecision{Outcome: assurance.StepUp}}
 	conf.N06Required = true
 	conf.N06ScopeOperations = map[string]assurance.Operation{"trade:buy": assurance.CommitBuyer}
 	// makeFixture registers exact openid + buyer scope to the native app.
@@ -71,7 +71,7 @@ func TestN06BFFLoginAndConsentRequireCurrentSecurity(t *testing.T) {
 	if started.Code != 403 || f.hand.accepted != 0 || gate.calls != 1 || gate.last != assurance.CommitBuyer {
 		t.Fatalf("N06 fresh step-up bypassed login: %d handoff=%d gate=%d", started.Code, f.hand.accepted, gate.calls)
 	}
-	gate.result = assurance.Decision{Outcome: assurance.Allow}
+	gate.result = assurance.NativeDecision{Outcome: assurance.Allow}
 	allowed := request(h, "GET", "http://127.0.0.1:3000/auth/login?login_challenge=real-hydra-challenge", "", flow, kratos)
 	if allowed.Code != 303 || f.hand.accepted != 1 {
 		t.Fatalf("A2 current assurance refused: %d", allowed.Code)
