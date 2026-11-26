@@ -163,9 +163,17 @@ func minInstant(a, b time.Time) time.Time {
 
 func (s *PostgresStore) putA3Proof(ctx context.Context, id string, proof assurance.NativeEvidence) error {
 	hash, err := hashID(id)
-	if err != nil || proof.Operation != a3BrowserOperation || !proof.PasskeyUsed || !proof.UserVerified || !proof.OriginBound {
+	if err != nil || s == nil || s.pool == nil || ctx == nil || ctx.Err() != nil ||
+		proof.Operation != a3BrowserOperation || proof.Issuer == "" || proof.Subject == "" || proof.SessionID == "" ||
+		proof.AAL != assurance.A2 || !hasWebAuthn(proof.Methods) ||
+		proof.AuthenticatedAt.IsZero() || proof.ExpiresAt.IsZero() ||
+		!proof.ExpiresAt.After(proof.AuthenticatedAt) || proof.ExpiresAt.Sub(proof.AuthenticatedAt) > 30*time.Second ||
+		!proof.PasskeyUsed || !proof.UserVerified || !proof.OriginBound || proof.HardwareBound {
 		return errA3Denied
 	}
+	// PostgreSQL stores microsecond precision. Seal the exact same instant
+	// that is persisted so authenticated readback can compare it exactly.
+	proof.ExpiresAt = proof.ExpiresAt.UTC().Truncate(time.Microsecond)
 	sealed, err := s.seal("a3", id, proof)
 	if err != nil {
 		return errA3Denied
@@ -174,9 +182,43 @@ func (s *PostgresStore) putA3Proof(ctx context.Context, id string, proof assuran
  SELECT id_hash,$2,$3,$4 FROM native_bff_sessions WHERE id_hash=$1
    AND expires_at>clock_timestamp() AND $4>clock_timestamp() AND $4<=expires_at
  ON CONFLICT (id_hash,operation) DO UPDATE SET sealed=EXCLUDED.sealed,expires_at=EXCLUDED.expires_at
- WHERE ledger.expires_at<=EXCLUDED.expires_at`, hash, proof.Operation, sealed, proof.ExpiresAt)
+ WHERE ledger.expires_at<=clock_timestamp()`, hash, proof.Operation, sealed, proof.ExpiresAt)
 	if err != nil || result.RowsAffected() != 1 {
 		return errA3Denied
 	}
 	return nil
+}
+
+// takeA3Proof is the one-use BFF proof-consumption fence. The opaque browser
+// session ID is the AEAD context and row key; the current Kratos session and
+// operation are checked after the atomic DELETE. A mismatch consumes the
+// stale proof rather than allowing it to be retried after identity changes.
+func (s *PostgresStore) takeA3Proof(ctx context.Context, id string, operation assurance.Operation, current assurance.CurrentSessionKey) (assurance.NativeEvidence, error) {
+	var none assurance.NativeEvidence
+	hash, err := hashID(id)
+	if err != nil || s == nil || s.pool == nil || ctx == nil || ctx.Err() != nil ||
+		operation != a3BrowserOperation || current.Issuer == "" || current.Subject == "" || current.SessionID == "" {
+		return none, errA3Denied
+	}
+	var sealed []byte
+	var expires time.Time
+	err = s.pool.QueryRow(ctx, `DELETE FROM native_bff_a3_proofs AS proof
+USING native_bff_sessions AS session
+WHERE proof.id_hash=$1 AND proof.operation=$2 AND proof.expires_at>clock_timestamp()
+  AND session.id_hash=proof.id_hash AND session.expires_at>clock_timestamp()
+RETURNING proof.sealed,proof.expires_at`, hash, operation).Scan(&sealed, &expires)
+	if err != nil {
+		return none, errA3Denied
+	}
+	var evidence assurance.NativeEvidence
+	if s.open("a3", id, sealed, &evidence) != nil ||
+		evidence.Operation != operation || evidence.Issuer != current.Issuer ||
+		evidence.Subject != current.Subject || evidence.SessionID != current.SessionID ||
+		evidence.AAL != assurance.A2 || !hasWebAuthn(evidence.Methods) ||
+		!evidence.PasskeyUsed || !evidence.UserVerified || !evidence.OriginBound || evidence.HardwareBound ||
+		evidence.AuthenticatedAt.IsZero() ||
+		!evidence.ExpiresAt.UTC().Truncate(time.Microsecond).Equal(expires.UTC()) {
+		return none, errA3Denied
+	}
+	return evidence, nil
 }
