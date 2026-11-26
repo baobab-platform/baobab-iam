@@ -123,7 +123,7 @@ func makeA3Fixture(t *testing.T) a3Fixture {
 	challenges := &a3Challenges{item: challenge}
 	base := assurance.NativeEvidence{Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
 		AAL: assurance.A2, Methods: []string{"webauthn"}, AuthenticatedAt: now.Add(-15 * time.Second),
-		ObservedAt: now}
+		ExpiresAt: now.Add(time.Hour), ObservedAt: now}
 	return a3Fixture{
 		v: &WebAuthnA3Verifier{
 			Kratos: a3Current{key: key, evidence: base}, Challenges: challenges,
@@ -140,7 +140,7 @@ func TestN06WebAuthnA3VerifiesRealES256AndDeniesReplay(t *testing.T) {
 	f := makeA3Fixture(t)
 	cred := ory.NativeSessionCredential{Cookie: "ory_kratos_session=server-only"}
 	evidence, err := f.v.Verify(context.Background(), cred, f.assertion)
-	if err != nil || evidence.AAL != "aal2" || !evidence.PasskeyUsed ||
+	if err != nil || evidence.AAL != assurance.A2 || !evidence.PasskeyUsed ||
 		!evidence.UserVerified || !evidence.OriginBound || evidence.HardwareBound ||
 		evidence.Subject != f.challenges.item.Session.Subject {
 		t.Fatal("valid real ES256 RP assertion did not produce strictly A3-only proof")
@@ -169,7 +169,7 @@ func TestN06WebAuthnA3FailClosedNegativeMatrix(t *testing.T) {
 		"replayed-sign-count":    func(f *a3Fixture) { f.credentials.counter = 2 },
 		"no-native-current-aal2": func(f *a3Fixture) {
 			v := f.v.Kratos.(a3Current)
-			v.evidence.AAL = "aal1"
+			v.evidence.AAL = assurance.A1
 			f.v.Kratos = v
 		},
 		"untrusted-method-only": func(f *a3Fixture) {
