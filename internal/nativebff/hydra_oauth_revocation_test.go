@@ -71,12 +71,14 @@ func TestHydraOAuthRevocationRequiresInactiveTokenReadback(t *testing.T) {
 
 func TestHydraOAuthRevocationFailsWhenReadbackRemainsActiveOrUnavailable(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		status int
-		active bool
+		name          string
+		status        int
+		active        bool
+		includeActive bool
 	}{
-		{name: "still active", status: http.StatusOK, active: true},
+		{name: "still active", status: http.StatusOK, active: true, includeActive: true},
 		{name: "admin unavailable", status: http.StatusServiceUnavailable},
+		{name: "missing active field", status: http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			public := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -85,8 +87,10 @@ func TestHydraOAuthRevocationFailsWhenReadbackRemainsActiveOrUnavailable(t *test
 			defer public.Close()
 			admin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tc.status)
-				if tc.status == http.StatusOK {
+				if tc.status == http.StatusOK && tc.includeActive {
 					_ = json.NewEncoder(w).Encode(map[string]bool{"active": tc.active})
+				} else if tc.status == http.StatusOK {
+					_, _ = w.Write([]byte("{}"))
 				}
 			}))
 			defer admin.Close()
