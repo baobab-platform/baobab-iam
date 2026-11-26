@@ -26,9 +26,9 @@ type HydraOAuthRevoker struct {
 
 type HydraOAuthRevokeConfig struct {
 	Issuer, AdminOrigin, ClientID, ClientSecret string
-	TrustedRoots                                 *x509.CertPool
-	TestClient, AdminTestClient                  *http.Client
-	AllowTestLoopback                            bool
+	TrustedRoots                                *x509.CertPool
+	TestClient, AdminTestClient                 *http.Client
+	AllowTestLoopback                           bool
 }
 
 func NewHydraOAuthRevoker(c HydraOAuthRevokeConfig) (*HydraOAuthRevoker, error) {
