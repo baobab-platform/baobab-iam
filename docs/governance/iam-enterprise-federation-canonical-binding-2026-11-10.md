@@ -1,0 +1,11 @@
+# ADR-IAM-0026/0033 — Canonical enterprise federation dispatch binding (2026-11-10)
+
+**Source audit:** In `internal/federation/enterprise_dispatch.go`, the permanent Keycloak OIDC/SAML enterprise broker selected the provider through CP by resolving `identity.authentication.perform`, a *native human authentication* capability. The Shared canonical catalogue separately defines `identity.federation.enterprise`, and IAM capability-declaration draft #169 registers it as Keycloak PARTIAL. A CP grant for native human authentication must never activate a different enterprise federation operation.
+
+**Correction:** All enterprise trust-bound begin and callback selections now require CP `identity.federation.enterprise` contract major 1. Request/response checks still require exact context, correlation, binding/grant, TTL, source-approved trust snapshot, provider/instance/service reference and current protocol-specific platform projection. A CP `identity.authentication.perform` resolution is explicitly rejected in regression tests; there is **no fallback** to old grants and no unilateral local provider activation.
+
+**Effect:** Until CP has a separately reviewed and authorised federation-specific canonical grant, provider support, engine-instance binding and environment profile, enterprise federation returns denied/unavailable rather than silently reusing human authentication permission. This is an intentional fail-closed migration and **not a claim that production enterprise federation is now available**.
+
+**Companion:** IAM #169 independently reconciles Shared's support declarations; its later merge must reconcile the same `CapabilityEnterpriseFederation` constant without duplication and must retain the issuer runtime Shared lock. A separate CP-authorised, original Keycloak OIDC/SAML positive/negative consumer run is still required, including signed issuer assertion, logout, replay, cross-organisation refusal and privilege boundaries.
+
+**Acceptance hold:** source review, Go formatting, exact-head CI, CP profile/grant acceptance, native Keycloak / CP connected test, SAML dependency security advisories and protected approvals. No automatic native-provider switch or Business Partner/tenant/organisation grant is permitted.

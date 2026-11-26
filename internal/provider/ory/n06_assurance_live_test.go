@@ -102,7 +102,7 @@ func TestLiveN06KratosCurrentSessionAndRevocation(t *testing.T) {
 	}
 	credential := ory.NativeSessionCredential{Cookie: cookie}
 	key, proof, err := current.CurrentNativeAuthentication(ctx, credential)
-	if err != nil || key.Subject != created.Identity.ID || proof.SessionID == "" || (proof.AAL != "aal1" && proof.AAL != "aal2") {
+	if err != nil || key.Subject != created.Identity.ID || proof.SessionID == "" || (proof.AAL != assurance.A1 && proof.AAL != assurance.A2) {
 		t.Fatal("real Kratos current session issuer/subject/AAL mismatch", err)
 	}
 	if proof.PasskeyUsed || proof.UserVerified || proof.OriginBound || proof.HardwareBound {
@@ -123,7 +123,7 @@ func TestLiveN06KratosCurrentSessionAndRevocation(t *testing.T) {
 	if _, _, err := current.CurrentNativeAuthentication(ctx, ory.NativeSessionCredential{Cookie: "ory_kratos_session=unissued-" + hex.EncodeToString(seed[:12])}); err == nil {
 		t.Fatal("unissued cookie accepted")
 	}
-	adapter, err := ory.NewAdapter(ory.Config{KratosAdminURL: admin, HydraAdminURL: hydra, PublicIssuer: issuer, HTTPClient: client})
+	adapter, err := ory.NewAdapter(ory.Config{KratosAdminURL: admin, HydraAdminURL: hydra, PublicIssuer: issuer})
 	if err != nil {
 		t.Fatal("real provider revoker unavailable", err)
 	}

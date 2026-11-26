@@ -120,7 +120,7 @@ func TestN06KratosRebindRequiresTwoPersonHoldAndActualCredentialWithdrawal(t *te
 			defer server.Close()
 			a, err := ory.NewAdapter(ory.Config{
 				KratosAdminURL: server.URL, HydraAdminURL: server.URL,
-				PublicIssuer: "https://issuer.example.test", HTTPClient: server.Client(),
+				PublicIssuer: "https://issuer.example.test", HTTPClient: ory.ProviderFixtureClient(server),
 			})
 			if err != nil {
 				t.Fatal(err)

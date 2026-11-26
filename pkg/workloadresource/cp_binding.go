@@ -24,6 +24,9 @@ type CPBindingTarget struct {
 	EstateID                string `json:"estate_id"`
 	ConfigurationReference  string `json:"configuration_reference"`
 	SecurityDomainReference string `json:"security_domain_reference"`
+	// ArtifactDigest is the digest of THIS running resource image, pinned by
+	// deployment configuration. It is local-only and is not sent to CP.
+	ArtifactDigest string `json:"artifact_digest"`
 }
 
 // CPRegistrationToken obtains a separately registered CP identity-runtime:read
@@ -52,7 +55,8 @@ func validCPBindingTarget(t CPBindingTarget) bool {
 		orgIdentifier.MatchString(t.OrganisationID) &&
 		len(t.EstateID) >= 3 && len(t.EstateID) <= 63 && estateIdentifier.MatchString(t.EstateID) &&
 		len(t.ConfigurationReference) >= 8 && len(t.ConfigurationReference) <= 63 && referenceIdentifier.MatchString(t.ConfigurationReference) &&
-		len(t.SecurityDomainReference) >= 8 && len(t.SecurityDomainReference) <= 63 && referenceIdentifier.MatchString(t.SecurityDomainReference)
+		len(t.SecurityDomainReference) >= 8 && len(t.SecurityDomainReference) <= 63 && referenceIdentifier.MatchString(t.SecurityDomainReference) &&
+		artifactDigest.MatchString(t.ArtifactDigest)
 }
 
 // NewCPRegisteredBinding is an ADAPTER to CP's already implemented
@@ -63,7 +67,9 @@ func NewCPRegisteredBinding(origin string, roots *x509.CertPool, target CPBindin
 	token CPRegistrationToken) (*CPRegisteredBinding, error) {
 	u, err := url.Parse(origin)
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" ||
-		u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" ||
+		strings.HasSuffix(u.Host, ":") || u.User != nil || u.Opaque != "" ||
+		u.Path != "" || u.RawPath != "" || u.RawQuery != "" || u.ForceQuery ||
+		u.Fragment != "" || u.RawFragment != "" || strings.ContainsAny(origin, "?# \t\r\n") ||
 		roots == nil || len(roots.Subjects()) == 0 ||
 		token == nil || !validCPBindingTarget(target) {
 		return nil, ErrDenied
@@ -189,7 +195,8 @@ func (b *CPRegisteredBinding) CheckCapability(ctx context.Context, capability st
 		observed.SupportStatus != "VERIFIED" ||
 		observed.ProfileRevision == 0 ||
 		!artifactDigest.MatchString(observed.ArtifactDigest) ||
-		observed.ArtifactDigest != observed.DeployedArtifactDigest ||
+		observed.ArtifactDigest != t.ArtifactDigest ||
+		observed.DeployedArtifactDigest != t.ArtifactDigest ||
 		!now.Before(observed.EvidenceExpiresAt) {
 		return ErrDenied
 	}

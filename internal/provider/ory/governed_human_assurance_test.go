@@ -42,7 +42,7 @@ func TestGovernedNativeAAL2ReadsCurrentKratosAndCP(t *testing.T) {
 	cp := &n02CurrentDispatch{}
 	h, err := NewGovernedNativeHumanHandoff(NativeHumanConfig{
 		KratosPublicURL: srv.URL, HydraAdminURL: srv.URL, Issuer: srv.URL,
-		Client: srv.Client(), Now: time.Now, Fence: openNativeTestFence(t),
+		Client: ProviderFixtureClient(srv), Now: time.Now, Fence: openNativeTestFence(t),
 	}, cp)
 	if err != nil {
 		t.Fatal(err)

@@ -98,9 +98,9 @@ func newNativeHumanHandoff(c NativeHumanConfig) (*NativeHumanHandoff, error) {
 	if c.Now == nil || c.Fence == nil {
 		return nil, fmt.Errorf("native handoff clock and challenge fence required")
 	}
-	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	if c.Client != nil {
-		client.Transport = c.Client.Transport
+	client, err := newNativeProviderHTTPClient(c.Client)
+	if err != nil {
+		return nil, err
 	}
 	var buyer *tokenprofile.Config
 	if (c.TokenProfiles == nil) != (c.ConsentSealKey == nil) {

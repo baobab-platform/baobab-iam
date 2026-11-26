@@ -36,27 +36,18 @@ context:resolve
 provider-migration:task
 ```
 
-Provision one workload at a time:
+Validate the production profile offline:
 
 ```bash
-export ORY_PROVISION=1
-export ORY_ACTION=provision
-export ORY_LOGICAL_CLIENT_ID=baobab-trade-workload
-export ORY_ALLOWED_SCOPES=context:resolve,provider-migration:task
-export ORY_SECRET_OUTPUT_DIR=/private/runtime/handoff
+ORY_ACTION=plan \
+ORY_LOGICAL_CLIENT_ID=baobab-trade-workload \
+ORY_ALLOWED_SCOPES=context:resolve,provider-migration:task \
 go run ./cmd/provision-workload/
 ```
 
-Expected:
-
-- stable Hydra client ID;
-- no non-canonical `context-resolve`;
-- no `actor-type-workload` authorization scope;
-- secret written to the private handoff directory, never printed;
-- resulting token profile still requires live audience/claim verification.
-
-Then exercise disable and rotate. Rotate also requires
-`ORY_SECRET_OUTPUT_DIR`.
+Record the exact Shared revision and expected audiences. Obtain independent
+Hydra registration, disable, rotation and consumer readbacks through the
+approved issuer lifecycle.
 
 ## 3. M4-F — federated workloads
 

@@ -203,7 +203,11 @@ func TestNativePolicyCannotWeakenSharedFloors(t *testing.T) {
 		{"current risk", func(p NativePolicy) { x := p[BuyerCommit]; x.RequireCurrentRisk = false; p[BuyerCommit] = x }},
 		{"recovery state", func(p NativePolicy) { x := p[BuyerCommit]; x.RequireRecoveryState = false; p[BuyerCommit] = x }},
 		{"recovery hold", func(p NativePolicy) { x := p[HighValueApproval]; x.RecoveryHold = time.Hour; p[HighValueApproval] = x }},
-		{"privileged witness", func(p NativePolicy) { x := p[PrivilegedGrant]; x.RequirePrivilegedWitness = false; p[PrivilegedGrant] = x }},
+		{"privileged witness", func(p NativePolicy) {
+			x := p[PrivilegedGrant]
+			x.RequirePrivilegedWitness = false
+			p[PrivilegedGrant] = x
+		}},
 		{"missing operation", func(p NativePolicy) { delete(p, BreakGlass) }},
 	}
 	for _, tc := range cases {

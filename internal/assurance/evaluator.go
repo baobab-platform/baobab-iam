@@ -118,11 +118,11 @@ type Reader interface {
 	Read(context.Context, string, string) (Evidence, error)
 }
 type Policy struct {
-	Level                   Level
-	MaxAge                  time.Duration
-	RequireCurrentRisk      bool
-	RequireRecoveryState    bool
-	RecoveryHold            time.Duration
+	Level                    Level
+	MaxAge                   time.Duration
+	RequireCurrentRisk       bool
+	RequireRecoveryState     bool
+	RecoveryHold             time.Duration
 	RequirePrivilegedWitness bool
 }
 

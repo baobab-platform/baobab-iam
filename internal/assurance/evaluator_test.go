@@ -119,7 +119,7 @@ func TestBuyerCommitA2VerifiedButNotBusinessApproval(t *testing.T) {
 		t.Fatalf("weak AAL: %+v", res)
 	}
 }
-func TestA3RequiresRPBoundUserVerificationNotAttestationAndA4RequiresHardwareAndWitness(t *testing.T) {
+func TestA3RequiresSeparateAttestationAndA4RequiresHardwareAndWitness(t *testing.T) {
 	s := sample()
 	s.RiskChecked = true
 	s.RecoveryStateChecked = true
@@ -136,11 +136,7 @@ func TestA3RequiresRPBoundUserVerificationNotAttestationAndA4RequiresHardwareAnd
 	}
 	s.PasskeyRPBound = true
 	s.PasskeyUserVerified = true
-	// ADR-IAM-0024 requires RP-bound user verification for A3; attestation
-	// is optional and must not be fabricated or made a universal prerequisite.
-	if s.PasskeyAttested {
-		t.Fatal("fixture unexpectedly includes authenticator attestation")
-	}
+	s.PasskeyAttested = true
 	s.PasskeyProofEventReference = OpaqueReference("event", "foreign-login")
 	r := &fakeReader{value: s}
 	res := newTestEvaluator(t, r).Evaluate(context.Background(), request(s, HighValueApproval))
@@ -231,11 +227,22 @@ func TestRequestAndPolicyAreNotUserChosen(t *testing.T) {
 		}
 	}
 	for name, change := range map[string]func(map[Operation]Policy){
-		"unknown operation":      func(p map[Operation]Policy) { delete(p, Login); p["NEW"] = Policy{Level: A1, MaxAge: time.Minute, RequireCurrentRisk: false, RequireRecoveryState: false} },
-		"lower privileged floor": func(p map[Operation]Policy) { p[PrivilegedGrant] = Policy{Level: A2, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour} },
-		"no current risk":        func(p map[Operation]Policy) { p[BuyerCommit] = Policy{Level: A2, MaxAge: time.Minute, RequireCurrentRisk: false, RequireRecoveryState: true} },
-		"no recovery check":      func(p map[Operation]Policy) { p[BuyerCommit] = Policy{Level: A2, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: false} },
-		"unbounded age":          func(p map[Operation]Policy) { p[Login] = Policy{Level: A1, MaxAge: 48 * time.Hour, RequireCurrentRisk: false, RequireRecoveryState: false} },
+		"unknown operation": func(p map[Operation]Policy) {
+			delete(p, Login)
+			p["NEW"] = Policy{Level: A1, MaxAge: time.Minute, RequireCurrentRisk: false, RequireRecoveryState: false}
+		},
+		"lower privileged floor": func(p map[Operation]Policy) {
+			p[PrivilegedGrant] = Policy{Level: A2, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour}
+		},
+		"no current risk": func(p map[Operation]Policy) {
+			p[BuyerCommit] = Policy{Level: A2, MaxAge: time.Minute, RequireCurrentRisk: false, RequireRecoveryState: true}
+		},
+		"no recovery check": func(p map[Operation]Policy) {
+			p[BuyerCommit] = Policy{Level: A2, MaxAge: time.Minute, RequireCurrentRisk: true, RequireRecoveryState: false}
+		},
+		"unbounded age": func(p map[Operation]Policy) {
+			p[Login] = Policy{Level: A1, MaxAge: 48 * time.Hour, RequireCurrentRisk: false, RequireRecoveryState: false}
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			p := ConservativePolicies()

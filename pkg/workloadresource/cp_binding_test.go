@@ -19,6 +19,7 @@ func n04Target() CPBindingTarget {
 		EstateID:                "estate_nabhold",
 		ConfigurationReference:  "ref_config1234",
 		SecurityDomainReference: "ref_security1234",
+		ArtifactDigest:          "sha256:" + strings.Repeat("a", 64),
 	}
 }
 
@@ -100,6 +101,9 @@ func TestN04LiveTLSCPBindingRequiresExactCurrentRegistration(t *testing.T) {
 			data["runtime_capability"] = "HUMAN_AUTHENTICATION"
 		case "artifact-drift":
 			data["deployed_artifact_digest"] = "sha256:" + strings.Repeat("b", 64)
+		case "wrong-running-artifact":
+			data["artifact_digest"] = "sha256:" + strings.Repeat("b", 64)
+			data["deployed_artifact_digest"] = "sha256:" + strings.Repeat("b", 64)
 		case "stale":
 			data["evidence_expires_at"] = time.Now().Add(-time.Second)
 		case "revision-zero":
@@ -127,7 +131,7 @@ func TestN04LiveTLSCPBindingRequiresExactCurrentRegistration(t *testing.T) {
 	for _, name := range []string{
 		"redirect", "error", "cache", "duplicate", "inactive",
 		"partial", "binding-withdrawn", "wrong-tenant", "wrong-instance",
-		"wrong-facet", "artifact-drift", "stale", "revision-zero",
+		"wrong-facet", "artifact-drift", "wrong-running-artifact", "stale", "revision-zero",
 		"unapproved-configuration", "extra",
 	} {
 		mode = name
@@ -135,13 +139,13 @@ func TestN04LiveTLSCPBindingRequiresExactCurrentRegistration(t *testing.T) {
 			t.Fatal("invalid CP registered binding accepted", name)
 		}
 	}
-	if calls != 16 {
+	if calls != 17 {
 		t.Fatalf("CP current authority was cached, calls=%d", calls)
 	}
 	if err := read.CheckCapability(context.Background(), "identity.authentication.perform"); err == nil {
 		t.Fatal("native human capability reused for workload issuer")
 	}
-	if calls != 16 {
+	if calls != 17 {
 		t.Fatal("different capability reached CP")
 	}
 }
@@ -160,7 +164,8 @@ func TestN04CPBindingRejectsUntrustedOriginAndReferences(t *testing.T) {
 	}
 	for _, origin := range []string{
 		"http://localhost:8080", "https://bad.invalid/path",
-		"https://bad.invalid/?q=1", "https://user@bad.invalid", "",
+		"https://bad.invalid/?q=1", "https://bad.invalid?", "https://bad.invalid#",
+		"https://bad.invalid#fragment", "https://bad.invalid:", "https://user@bad.invalid", "",
 	} {
 		if _, err := NewCPRegisteredBinding(origin, roots, tgt, token); err == nil {
 			t.Fatal("untrusted CP address accepted")
@@ -175,6 +180,11 @@ func TestN04CPBindingRejectsUntrustedOriginAndReferences(t *testing.T) {
 	bad.ProviderID = "provider_"
 	if _, err := NewCPRegisteredBinding(srv.URL, roots, bad, token); err == nil {
 		t.Fatal("unregistered provider id admitted")
+	}
+	bad = tgt
+	bad.ArtifactDigest = ""
+	if _, err := NewCPRegisteredBinding(srv.URL, roots, bad, token); err == nil {
+		t.Fatal("missing running artifact digest admitted")
 	}
 	if _, err := NewCPRegisteredBinding(srv.URL, roots, tgt, nil); err == nil {
 		t.Fatal("missing separately registered CP caller accepted")

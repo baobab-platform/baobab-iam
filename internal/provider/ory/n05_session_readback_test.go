@@ -37,7 +37,7 @@ func TestN05KratosSessionReadbackIsCurrentAndExact(t *testing.T) {
 		KratosAdminURL: api.URL,
 		HydraAdminURL:  "http://127.0.0.1:4445",
 		PublicIssuer:   issuer,
-		HTTPClient:     api.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(api),
 	})
 	if err != nil {
 		t.Fatal(err)

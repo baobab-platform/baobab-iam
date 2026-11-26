@@ -7,7 +7,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED_PIN = "1517429bcae601a1b0288ca0279e524ce48a3d77"  # Shared #364-#370 add estate commerce and resource-assignment contracts; existing Pulse authority stays unchanged
+SHARED_PIN = "7f547ccdd759208355ef9224d2177929f4bf224e"  # Shared #430 adds development profiles. Existing Pulse registry entries are unchanged.
 PULSE_SCOPES = {
     "intelligence:evidence:search",
     "intelligence:research-mission:manage",

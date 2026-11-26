@@ -3,18 +3,14 @@ package ory_test
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
-	"strings"
+	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
 )
-
-type workloadTTLTransport func(*http.Request) (*http.Response, error)
-
-func (f workloadTTLTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 // Protocol-only tests: no issuer, registry row or runtime qualification exists.
 func TestWorkloadTokenLifetimeIndependentReadback(t *testing.T) {
@@ -45,7 +41,11 @@ func TestWorkloadTokenLifetimeIndependentReadback(t *testing.T) {
 				"scope": "context:resolve", "token_endpoint_auth_method": "client_secret_post",
 				"client_credentials_grant_access_token_lifespan": "30s"}
 			exists, mutated, gets, calls := tc.existing, false, 0, 0
-			transport := workloadTTLTransport(func(r *http.Request) (*http.Response, error) {
+			var state sync.Mutex
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				state.Lock()
+				defer state.Unlock()
+				w.Header().Set("Content-Type", "application/json")
 				calls++
 				status, value := http.StatusOK, map[string]any{}
 				switch r.Method {
@@ -70,34 +70,41 @@ func TestWorkloadTokenLifetimeIndependentReadback(t *testing.T) {
 					}
 				case http.MethodPost, http.MethodPut:
 					if json.NewDecoder(r.Body).Decode(&value) != nil {
-						t.Fatal("invalid admin request")
+						t.Error("invalid admin request")
+						http.Error(w, "invalid request", http.StatusBadRequest)
+						return
 					}
 					stored, exists, mutated = value, true, true
 					if r.Method == http.MethodPost {
 						status = http.StatusCreated
 					}
 				default:
-					t.Fatal("unexpected admin method")
+					t.Error("unexpected admin method")
+					http.Error(w, "invalid request", http.StatusBadRequest)
+					return
 				}
-				raw, err := json.Marshal(value)
-				if err != nil {
-					t.Fatal("invalid protocol test observation")
+				w.WriteHeader(status)
+				if err := json.NewEncoder(w).Encode(value); err != nil {
+					t.Error("encode provider response:", err)
 				}
-				return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": {"application/json"}},
-					Body: io.NopCloser(strings.NewReader(string(raw)))}, nil
-			})
-			a, err := ory.NewAdapter(ory.Config{KratosAdminURL: "https://kratos.example.test", HydraAdminURL: "https://hydra.example.test",
-				PublicIssuer: "https://issuer.example.test", HTTPClient: &http.Client{Transport: transport}})
+			}))
+			defer server.Close()
+			a, err := ory.NewAdapter(ory.Config{KratosAdminURL: server.URL, HydraAdminURL: server.URL,
+				PublicIssuer: "https://issuer.example.test", HTTPClient: ory.ProviderFixtureClient(server)})
 			if err != nil {
 				t.Fatal("adapter construction failed")
 			}
 			w, err := a.ProvisionWorkload(context.Background(), provider.WorkloadProvisioningSpec{LogicalClientID: "unit-client",
 				AllowedScopes: []string{"context:resolve"}, AuthMethod: provider.WorkloadAuthClientSecret, AccessTokenTTLSeconds: tc.seconds})
+			state.Lock()
+			providerCalls, providerGets := calls, gets
+			lifetime, hasLifetime := stored["client_credentials_grant_access_token_lifespan"]
+			state.Unlock()
 			if tc.deny {
 				if err == nil || w != nil {
 					t.Fatal("invalid or unretained lifetime was accepted")
 				}
-				if (tc.seconds < 0 || tc.seconds > 300) && calls != 0 {
+				if (tc.seconds < 0 || tc.seconds > 300) && providerCalls != 0 {
 					t.Fatal("invalid ceiling reached provider I/O")
 				}
 				return
@@ -106,18 +113,16 @@ func TestWorkloadTokenLifetimeIndependentReadback(t *testing.T) {
 				t.Fatal("valid lifetime request denied")
 			}
 			if tc.seconds == 0 {
-				if gets != 1 {
+				if providerGets != 1 {
 					t.Fatal("unspecified ceiling changed the provider-default path")
 				}
-				if tc.existing && stored["client_credentials_grant_access_token_lifespan"] != "30s" {
+				if tc.existing && lifetime != "30s" {
 					t.Fatal("existing ceiling discarded")
 				}
-				if !tc.existing {
-					if _, present := stored["client_credentials_grant_access_token_lifespan"]; present {
-						t.Fatal("default ceiling invented")
-					}
+				if !tc.existing && hasLifetime {
+					t.Fatal("default ceiling invented")
 				}
-			} else if gets != 2 {
+			} else if providerGets != 2 {
 				t.Fatal("ceiling was not independently read after mutation")
 			}
 			if tc.seconds == 60 && tc.override == "" {
@@ -125,13 +130,19 @@ func TestWorkloadTokenLifetimeIndependentReadback(t *testing.T) {
 				if _, err := a.RotateWorkloadCredentials(context.Background(), ref); err != nil {
 					t.Fatal("rotation failed")
 				}
-				if stored["client_credentials_grant_access_token_lifespan"] != "60s" {
+				state.Lock()
+				lifetime = stored["client_credentials_grant_access_token_lifespan"]
+				state.Unlock()
+				if lifetime != "60s" {
 					t.Fatal("rotation discarded token ceiling")
 				}
 				if err := a.DisableWorkload(context.Background(), ref); err != nil {
 					t.Fatal("disable failed")
 				}
-				if stored["client_credentials_grant_access_token_lifespan"] != "60s" {
+				state.Lock()
+				lifetime = stored["client_credentials_grant_access_token_lifespan"]
+				state.Unlock()
+				if lifetime != "60s" {
 					t.Fatal("disable discarded token ceiling")
 				}
 			}

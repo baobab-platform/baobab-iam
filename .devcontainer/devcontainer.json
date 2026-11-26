@@ -1,7 +1,7 @@
 {
   "name": "Baobab IAM Development",
   "image": "ghcr.io/baobab-platform/baobab-dev:1.4.4",
-  "postCreateCommand": "make dev-up && sleep 10 && make bootstrap",
+  "postCreateCommand": "go version",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -11,6 +11,21 @@
       ]
     }
   },
-  "forwardPorts": [8080, 9000, 5432],
-  "remoteUser": "vscode"
+  "forwardPorts": [
+    8080,
+    9000,
+    5432
+  ],
+  "remoteUser": "vscode",
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.27.3"
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    }
+  },
+  "waitFor": "postCreateCommand",
+  "init": true,
+  "updateRemoteUserUID": true
 }

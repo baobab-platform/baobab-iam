@@ -33,9 +33,9 @@ type N06SecurityGate struct {
 }
 
 type nativeProof struct {
-	provider N06ProviderProof
+	provider   N06ProviderProof
 	credential ory.NativeSessionCredential
-	key assurance.CurrentSessionKey
+	key        assurance.CurrentSessionKey
 }
 
 func (n nativeProof) CurrentAuthentication(ctx context.Context, k assurance.CurrentSessionKey) (assurance.NativeEvidence, error) {

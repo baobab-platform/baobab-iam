@@ -24,7 +24,7 @@ func TestKratosAdminErrorRedactsProviderBody(t *testing.T) {
 		KratosAdminURL: server.URL,
 		HydraAdminURL:  server.URL,
 		PublicIssuer:   "https://identity.example",
-		HTTPClient:     server.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(server),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestHydraAdminErrorRedactsProviderBody(t *testing.T) {
 		KratosAdminURL: server.URL,
 		HydraAdminURL:  server.URL,
 		PublicIssuer:   "https://identity.example",
-		HTTPClient:     server.Client(),
+		HTTPClient:     ory.ProviderFixtureClient(server),
 	})
 	if err != nil {
 		t.Fatal(err)

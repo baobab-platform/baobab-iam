@@ -96,12 +96,8 @@ func boundedSAMLXML(raw string) error {
 	}
 	decoder := xml.NewDecoder(bytes.NewBufferString(raw))
 	depth, count, assertions, signatures, roots := 0, 0, 0, 0, 0
-	// GO-2026-6909: crewjam/saml v0.5.1 can panic when a signed
-	// assertion omits its Issuer, and its NameID tag is namespace-blind.
-	// Reject structurally ambiguous XML *before* entering ParseXMLResponse.
-	// The library must still verify the signature after this denial-only gate.
-	issuerCount, subjectCount, nameIDCount, subjectDepth, assertionDepth := 0, 0, 0, 0, 0
-	const assertionNS = "urn:oasis:names:tc:SAML:2.0:assertion"
+	var elementStack []xml.Name
+	subjects, nameIDs := 0, 0
 	ids := map[string]bool{}
 	for {
 		token, err := decoder.Token()
@@ -124,6 +120,7 @@ func boundedSAMLXML(raw string) error {
 			return ErrDenied
 		case xml.StartElement:
 			depth++
+			elementStack = append(elementStack, t.Name)
 			if depth == 1 {
 				roots++
 			}
@@ -133,31 +130,43 @@ func boundedSAMLXML(raw string) error {
 			if depth == 1 && (t.Name.Space != "urn:oasis:names:tc:SAML:2.0:protocol" || t.Name.Local != "Response") {
 				return ErrDenied
 			}
-			if t.Name.Space == "urn:oasis:names:tc:SAML:2.0:assertion" && t.Name.Local == "Assertion" {
+			// Check the supported assertion shape before invoking the signed
+			// protocol verifier. Identity elements must have the expected namespace.
+			const assertionNamespace = "urn:oasis:names:tc:SAML:2.0:assertion"
+			switch t.Name.Local {
+			case "Assertion":
+				if t.Name.Space != assertionNamespace {
+					return ErrDenied
+				}
+			case "Subject":
+				if t.Name.Space != assertionNamespace || depth != 3 || elementStack[depth-2].Space != assertionNamespace || elementStack[depth-2].Local != "Assertion" {
+					return ErrDenied
+				}
+				subjects++
+				if subjects != 1 {
+					return ErrDenied
+				}
+			case "NameID":
+				if t.Name.Space != assertionNamespace || depth != 4 || elementStack[depth-2].Space != assertionNamespace || elementStack[depth-2].Local != "Subject" {
+					return ErrDenied
+				}
+				nameIDs++
+				if nameIDs != 1 {
+					return ErrDenied
+				}
+			case "Issuer", "Conditions", "SubjectConfirmation", "SubjectConfirmationData", "AudienceRestriction", "Audience", "AuthnStatement", "AuthnContext", "AuthnContextClassRef":
+				if t.Name.Space != assertionNamespace {
+					return ErrDenied
+				}
+			}
+			if t.Name.Space == assertionNamespace && t.Name.Local == "Assertion" {
 				assertions++
 				if depth != 2 {
 					return ErrDenied
 				}
-				assertionDepth = depth
 			}
 			if t.Name.Local == "EncryptedAssertion" {
 				return ErrUnsupported
-			}
-			if depth == 3 && assertionDepth == 2 && t.Name.Space == assertionNS && t.Name.Local == "Issuer" {
-				issuerCount++
-			}
-			if depth == 3 && assertionDepth == 2 && t.Name.Space == assertionNS && t.Name.Local == "Subject" {
-				subjectCount++
-				subjectDepth = depth
-			}
-			// The upstream library's xml:"NameID" accepts a foreign XML
-			// namespace. Explicitly fence both the namespace and the
-			// immediate parent to prevent signed subject substitution.
-			if t.Name.Local == "NameID" {
-				if t.Name.Space != assertionNS || depth != 4 || subjectDepth != 3 {
-					return ErrDenied
-				}
-				nameIDCount++
 			}
 			for _, a := range t.Attr {
 				if a.Name.Local == "ID" {
@@ -187,17 +196,14 @@ func boundedSAMLXML(raw string) error {
 				}
 			}
 		case xml.EndElement:
-			if depth == 3 && t.Name.Space == assertionNS && t.Name.Local == "Subject" {
-				subjectDepth = 0
+			if depth == 0 || len(elementStack) != depth || elementStack[depth-1] != t.Name {
+				return ErrInvalid
 			}
-			if depth == 2 && t.Name.Space == assertionNS && t.Name.Local == "Assertion" {
-				assertionDepth = 0
-			}
+			elementStack = elementStack[:depth-1]
 			depth--
 		}
 	}
-	if depth != 0 || roots != 1 || assertions != 1 || signatures < 1 || signatures > 2 ||
-		issuerCount != 1 || subjectCount != 1 || nameIDCount != 1 || subjectDepth != 0 || assertionDepth != 0 {
+	if depth != 0 || roots != 1 || assertions != 1 || subjects != 1 || nameIDs != 1 || signatures < 1 || signatures > 2 {
 		return ErrDenied
 	}
 	return nil
@@ -213,7 +219,7 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 	var envelope struct {
 		Assertion *saml.Assertion `xml:"urn:oasis:names:tc:SAML:2.0:assertion Assertion"`
 	}
-	if xml.Unmarshal([]byte(raw), &envelope) != nil || envelope.Assertion == nil || !exact(envelope.Assertion.Issuer.Value) || envelope.Assertion.Subject == nil || envelope.Assertion.Conditions == nil || envelope.Assertion.Subject.NameID == nil || len(envelope.Assertion.Subject.SubjectConfirmations) != 1 || envelope.Assertion.Subject.SubjectConfirmations[0].SubjectConfirmationData == nil {
+	if xml.Unmarshal([]byte(raw), &envelope) != nil || envelope.Assertion == nil || envelope.Assertion.Subject == nil || envelope.Assertion.Conditions == nil || envelope.Assertion.Subject.NameID == nil || len(envelope.Assertion.Subject.SubjectConfirmations) != 1 || envelope.Assertion.Subject.SubjectConfirmations[0].SubjectConfirmationData == nil {
 		return ExternalPrincipal{}, Assurance{}, "", ErrDenied
 	}
 	acs, err := brokerURL(c.SAML.ACSURL, false)
@@ -228,14 +234,16 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 	for _, cert := range certificates {
 		der := base64.StdEncoding.EncodeToString(cert.Raw)
 		sp := saml.ServiceProvider{EntityID: c.SAML.EntityID, AcsURL: *acs, IDPMetadata: &saml.EntityDescriptor{EntityID: s.Trust.UpstreamIssuer}, IDPCertificate: &der}
-		candidate, e := sp.ParseXMLResponse([]byte(raw), []string{requestID}, *acs)
+		candidate, e := parseBrokerSAMLWithPanicFence(func() (*saml.Assertion, error) {
+			return sp.ParseXMLResponse([]byte(raw), []string{requestID}, *acs)
+		})
 		if e == nil {
 			assertion = candidate
 			break
 		}
 	}
 	// Library errors contain original XML; never return/log them.
-	if assertion == nil || !exact(assertion.Issuer.Value) || assertion.Subject == nil || assertion.Subject.NameID == nil || assertion.Conditions == nil || assertion.Issuer.Value != s.Trust.UpstreamIssuer || len(assertion.AuthnStatements) != 1 || len(assertion.Subject.SubjectConfirmations) != 1 || len(assertion.Conditions.AudienceRestrictions) != 1 {
+	if assertion == nil || assertion.Subject == nil || assertion.Subject.NameID == nil || assertion.Conditions == nil || assertion.Issuer.Value != s.Trust.UpstreamIssuer || len(assertion.AuthnStatements) != 1 || len(assertion.Subject.SubjectConfirmations) != 1 || len(assertion.Conditions.AudienceRestrictions) != 1 {
 		return ExternalPrincipal{}, Assurance{}, "", ErrDenied
 	}
 	name := assertion.Subject.NameID
@@ -249,6 +257,23 @@ func verifyBrokerSAML(s TrustSnapshot, c BrokerConfiguration, raw, requestID str
 	p := ExternalPrincipal{TrustID: s.Trust.ID, ProviderID: c.Binding.ProviderID, EngineInstanceID: c.Binding.EngineInstanceID, Protocol: "SAML2", Issuer: s.Trust.UpstreamIssuer, Subject: QualifiedSAMLSubject(s.Trust.UpstreamIssuer, c.SAML.EntityID, name.Value), ActorType: "human", ObservedAt: now, ExpiresAt: until, Resolution: Resolution{Status: "UNRESOLVED"}}
 	a := Assurance{TrustID: p.TrustID, ProviderID: p.ProviderID, EngineInstanceID: p.EngineInstanceID, Protocol: p.Protocol, Issuer: p.Issuer, Subject: p.Subject, UpstreamEvidence: UpstreamEvidence{SAML: &SAMLAssurance{AuthnContextClassRef: statement.AuthnContext.AuthnContextClassRef.Value, AuthenticatedAt: statement.AuthnInstant, SessionExpiresAt: *statement.SessionNotOnOrAfter}}, MappingStatus: "UNKNOWN", AssurancePolicyReference: s.Trust.AssurancePolicyReference, EvaluatedAt: now, ExpiresAt: until}
 	return p, a, s.Trust.UpstreamIssuer + "\x00" + assertion.ID, nil
+}
+
+// A still-vulnerable upstream SAML parser may panic on malformed assertion
+// structures. Keep untrusted XML from crashing the IAM federation process.
+// Recovery returns a generic denial: no raw XML, assertion or secret leaks.
+// This does NOT fix GO-2026-6909 nor replace a patched dependency.
+func parseBrokerSAMLWithPanicFence(parse func() (*saml.Assertion, error)) (assertion *saml.Assertion, err error) {
+	defer func() {
+		if recover() != nil {
+			assertion = nil
+			err = ErrDenied
+		}
+	}()
+	if parse == nil {
+		return nil, ErrInvalid
+	}
+	return parse()
 }
 
 // Readiness and capture use the same bounded, current signing-certificate profile.

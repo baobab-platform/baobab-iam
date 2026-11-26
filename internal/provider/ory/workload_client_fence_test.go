@@ -25,7 +25,7 @@ func TestHydraClientIdentityCannotSelectForeignAdminResource(t *testing.T) {
 	defer srv.Close()
 	a, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL,
-		PublicIssuer: "https://identity.example", HTTPClient: srv.Client(),
+		PublicIssuer: "https://identity.example", HTTPClient: ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestHydraMismatchedClientReadbackMustNotPermitDisable(t *testing.T) {
 	defer srv.Close()
 	a, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL,
-		PublicIssuer: "https://identity.example", HTTPClient: srv.Client(),
+		PublicIssuer: "https://identity.example", HTTPClient: ory.ProviderFixtureClient(srv),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +99,7 @@ func TestHydraProvisioningRequiresOriginalCreateIdentity(t *testing.T) {
 			defer server.Close()
 			adapter, err := ory.NewAdapter(ory.Config{
 				KratosAdminURL: server.URL, HydraAdminURL: server.URL,
-				PublicIssuer: "https://identity.example", HTTPClient: server.Client(),
+				PublicIssuer: "https://identity.example", HTTPClient: ory.ProviderFixtureClient(server),
 			})
 			if err != nil {
 				t.Fatal(err)

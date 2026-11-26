@@ -95,7 +95,7 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 				json.NewEncoder(w).Encode(c)
 			}))
 			defer server.Close()
-			h, err := NewNativeHumanHandoff(NativeHumanConfig{KratosPublicURL: server.URL, HydraAdminURL: server.URL, Issuer: server.URL, Client: server.Client(), Now: func() time.Time { return now }, Fence: openNativeTestFence(t)})
+			h, err := NewNativeHumanHandoff(NativeHumanConfig{KratosPublicURL: server.URL, HydraAdminURL: server.URL, Issuer: server.URL, Client: ProviderFixtureClient(server), Now: func() time.Time { return now }, Fence: openNativeTestFence(t)})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -118,7 +118,7 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 				if err != nil || redirect == "" || accepts != 1 {
 					t.Fatalf("valid native handoff failed: %v", err)
 				}
-				replica, err := NewNativeHumanHandoff(NativeHumanConfig{KratosPublicURL: server.URL, HydraAdminURL: server.URL, Issuer: server.URL + "/", Client: server.Client(), Now: func() time.Time { return now }, Fence: h.fence})
+				replica, err := NewNativeHumanHandoff(NativeHumanConfig{KratosPublicURL: server.URL, HydraAdminURL: server.URL, Issuer: server.URL + "/", Client: ProviderFixtureClient(server), Now: func() time.Time { return now }, Fence: h.fence})
 				if err != nil {
 					t.Fatal(err)
 				}

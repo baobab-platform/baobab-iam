@@ -69,7 +69,7 @@ func TestN06HydraJWKSMutationRequiresRealIssuerReadbackAndIndependentRetirement(
 	defer server.Close()
 	adapter, err := ory.NewAdapter(ory.Config{
 		KratosAdminURL: server.URL, HydraAdminURL: server.URL,
-		PublicIssuer: server.URL, HTTPClient: server.Client(),
+		PublicIssuer: server.URL, HTTPClient: ory.ProviderFixtureClient(server),
 	})
 	if err != nil {
 		t.Fatal(err)

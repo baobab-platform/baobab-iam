@@ -229,11 +229,11 @@ func DefaultDevelopmentPolicy() NativePolicy {
 
 // PublicReason never reflects provider response bodies, subject or risk data.
 func PublicReason(d NativeDecision) string {
-	if strings.HasPrefix(d.Reason, "ASSURANCE_") || d.Outcome == StepUp {
-		return "STEP_UP_REQUIRED"
-	}
 	if d.Outcome == Allow {
 		return "ASSURANCE_MET_NOT_AUTHORIZATION"
+	}
+	if strings.HasPrefix(d.Reason, "ASSURANCE_") || d.Outcome == StepUp {
+		return "STEP_UP_REQUIRED"
 	}
 	return "AUTHENTICATION_DENIED"
 }

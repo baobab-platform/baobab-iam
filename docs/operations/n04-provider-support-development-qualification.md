@@ -1,7 +1,23 @@
 # IAM-N04 — Canonical support registration and connected development qualification
 
-> **STATUS (6 November 2026): N04 SOURCE REVIEWED / INTEGRATION CANDIDATE — DEVELOPMENT NOT CERTIFIED.**
-> N01–N03 source PRs #145–#148 were merged on 5 November, but their independent [development-completion holds](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md) remain until real connected qualification is recorded. N04 must **not** reinterpret those held cases as staging/production-only, re-pin Shared, mark any canonical provider IMPLEMENTED, publish CP support, activate CP bindings or merge solely because this source or its fixture tests exist.
+## Review reconciliation — 26 November 2026
+
+IAM #149 remains DRAFT / HELD. The N04 branch has now been reconciled with current `main` using merge commit `b4d14e73ee7cf1f57a5e7f28e04666473b209dff`, with the previous N04 head and current `main` (`6ce5fc6395058c0fc811f03c9ee75e4dada7f06d`) as its two parents. This preserves N04 ancestry, makes current main an ancestor of the PR head, and leaves a focused 43-file N04 delta. Current-main versions were retained for unrelated or superseded devcontainer, foundation, federation/SAML, ADR and governance changes. The temporary synchronization PR #195 was closed without merge and made no default-branch changes. GitHub now reports #149 mergeable; this is not a merge into main.
+
+The three historical Code Quality findings on #149 have been addressed: the N04 lifecycle test syntax is repaired, and unused `copy` imports were removed from the DR-promotion and JWKS-rotation tests. Their review threads are resolved. The full exact-head CI/Foundation/Go suite has been triggered on the reconciled branch; merge readiness remains pending its results.
+
+The closed N05 PR #150 does not need reopening: its former head `6d56cb08d912796320c16612515644bfdbaddf8b` is an ancestor of current `main`, and the migration ledger, containment implementation and runbook are present there. This is source integration only; N05 owner/development qualification and production cutover remain separate.
+
+The N01 source-pin reconciliation is now incorporated on this branch: Shared PR #430's merged development inventory `7f547ccdd759208355ef9224d2177929f4bf224e` is aligned across `contracts.lock.yaml`, the federation `SharedCommit`, the N01 guard/record, Proposed ADR-IAM-0034 and `cmd/provision-workload/approved_profiles.json`. The original Decision 9 contract source remains separately identified in ADR-IAM-0034. The approved Hydra planning snapshot's source commit was advanced only after reviewing the Shared #430 diff: the selected production workload entries and the five scopes/audiences represented by that snapshot were not changed; new development declarations remain outside that production planning allowlist. The exact-source CI validator must still pass, and this source reconciliation is not live issuance, CP registration, engine acceptance or development certification.
+
+The resource-side CP target now also requires the SHA-256 digest of the running resource image from its private deployment configuration. The adapter compares both CP `artifact_digest` and `deployed_artifact_digest` with that local expected digest; equality between two CP-returned values alone is insufficient. This digest is local-only and is not added to the CP request contract. The CP origin parser also rejects empty query/fragment delimiters, empty ports and non-origin URL components. Regression tests cover a different running image even when CP's two returned digests agree.
+
+N04 still does not promote canonical provider support, activate a CP binding, certify an owner engine, or grant protected deployment authority. The original C4-03/DEV-14/DEV-15 evidence and all consumer-owned native positive/negative cases remain independently required.
+
+---
+
+> **STATUS (26 November 2026): N04 SOURCE REVIEWED / INTEGRATION CANDIDATE — DEVELOPMENT NOT CERTIFIED.**
+> N01–N03 source PRs #145–#148 were merged on 5 November, but their independent [development-completion holds](../governance/iam-n01-n03-development-closure-audit-2026-10-31.md) remain until real connected qualification is recorded. N04 now adopts the separately merged Shared #430 development inventory as a source pin; that does not close the held runtime qualification. Do not mark any canonical provider IMPLEMENTED, publish CP support, activate CP bindings or merge solely because this source or its fixture tests exist.
 
 **Source PR:** IAM #149 is based on `main` (N01–N03 source PRs #145–#148 merged 5 November). IAM-N06 #151 has been retargeted to #149 and given an explicit N04 parent merge commit, with N04 file contents checked against both branches. Source merge is not development qualification.
 
@@ -139,7 +155,7 @@ Only a genuine, current `200 no-store` CP binding reply with ACTIVE provider/ins
 
 ## N04 remaining mandatory *development* work
 
-- **N04-D01**: Reconcile N01's held Shared workload/scope registry. Validate the real compiled Kratos/Hydra/Keycloak adapters and the new profiles' exact registration bundles against the current immutable Shared checkout. No support-state promotion or synthetic provider grant.
+- **N04-D01**: The source-pin portion is now implemented on this branch: adopt Shared #430 at the exact immutable commit, align the N01 guard/record, Proposed ADR-IAM-0034 and the approved production planning snapshot, and validate the snapshot against the selected unchanged Shared production profiles. The remaining D01 runtime qualification is still open: validate real compiled Kratos/Hydra/Keycloak adapters and exact registration bundles with genuine issuer evidence and actual current CP readback. No support-state promotion or synthetic provider grant.
 - **N04-D02**: Implement owner-governed **CP** registration lifecycle and readback of actual development ProviderCapabilitySupport, provider instance, scoped binding, current configuration/security-domain reference and deployed artifact. Test wrong scope, version, facet, lifecycle, revoked credential and drift denial. A live C4-04A observation is not enough; CP owns its write operations and contract.
 - **N04-D03**: Complete real same-source N02/DEV-04 browser + actual C4-03B–E and C4-04B/C development tests. Verify genuine identity, exact current caller, market/organisation/tenant, unexpired issuer and CP withdrawal, no automatic Keycloak fallback and negative coverage. Do not invent proof to resolve N02/N03 source-only holds.
 - **N04-D04**: Validate real Pulse/Payments DEV-14/15 independent run receipts and engine-native PEP consequences under current IAM/CP authority, including replay, issuer/provider outage, revocation and teardown. Actual PSP settlement is a different qualification.
