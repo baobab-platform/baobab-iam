@@ -90,14 +90,15 @@ func (v *WebAuthnA3Verifier) Verify(
 		return none, errA3Denied
 	}
 	key, kratos, err := v.Kratos.CurrentNativeAuthentication(ctx, cookie)
+	readAt := v.Now().UTC()
 	if err != nil || key.Issuer == "" || key.Subject == "" || key.SessionID == "" ||
 		kratos.AAL != assurance.A2 || !hasWebAuthn(kratos.Methods) ||
 		kratos.Issuer != key.Issuer || kratos.Subject != key.Subject ||
 		kratos.SessionID != key.SessionID ||
 		kratos.ObservedAt.IsZero() || kratos.AuthenticatedAt.IsZero() ||
-		kratos.ObservedAt.After(v.Now().UTC()) ||
-		v.Now().UTC().Sub(kratos.ObservedAt) > 30*time.Second ||
-		v.Now().UTC().Sub(kratos.AuthenticatedAt) > 2*time.Minute {
+		kratos.ObservedAt.After(readAt) || readAt.Sub(kratos.ObservedAt) > 30*time.Second ||
+		kratos.AuthenticatedAt.After(readAt) || readAt.Sub(kratos.AuthenticatedAt) > 2*time.Minute ||
+		!kratos.ExpiresAt.After(readAt) {
 		return none, errA3Denied
 	}
 	challenge, err := v.Challenges.Consume(ctx, a.ChallengeID)
@@ -105,7 +106,7 @@ func (v *WebAuthnA3Verifier) Verify(
 		return none, errA3Denied
 	}
 	now := v.Now().UTC()
-	if challenge.ID != a.ChallengeID || challenge.Session != key ||
+	if now.Before(readAt) || challenge.ID != a.ChallengeID || challenge.Session != key ||
 		challenge.CreatedAt.IsZero() || challenge.ExpiresAt.IsZero() ||
 		challenge.CreatedAt.After(now) || !now.Before(challenge.ExpiresAt) ||
 		now.Sub(challenge.CreatedAt) > 2*time.Minute ||
@@ -151,6 +152,11 @@ func (v *WebAuthnA3Verifier) Verify(
 	if v.Credentials.AdvanceKratosSignCounter(ctx, credential, counter) != nil {
 		return none, errA3Denied
 	}
+	completed := v.Now().UTC()
+	if ctx.Err() != nil || completed.Before(now) || !kratos.ExpiresAt.After(completed) ||
+		!challenge.ExpiresAt.After(completed) || completed.Sub(kratos.AuthenticatedAt) > 2*time.Minute {
+		return none, errA3Denied
+	}
 	return assurance.NativeEvidence{
 		Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
 		ObservedAt: now, AuthenticatedAt: now, ExpiresAt: kratos.ExpiresAt, AAL: assurance.A2,
@@ -170,15 +176,15 @@ func hasWebAuthn(methods []string) bool {
 func validRelyingParty(c WebAuthnChallenge) bool {
 	u, err := url.Parse(c.Origin)
 	if err != nil || u == nil || u.User != nil ||
-		u.Fragment != "" || u.RawQuery != "" || u.Path != "" ||
+		u.Fragment != "" || strings.Contains(c.Origin, "#") || u.ForceQuery || u.RawQuery != "" || u.Path != "" ||
 		u.Hostname() != c.RPID || strings.ContainsAny(c.RPID, "\r\n/@:") {
 		return false
 	}
 	if u.Scheme == "https" && u.Port() != "0" {
 		return true
 	}
-	return c.DevelopmentLoopback && c.RPID == "127.0.0.1" &&
-		c.Origin == "http://127.0.0.1:4455"
+	return c.DevelopmentLoopback && c.RPID == "localhost" &&
+		c.Origin == "http://localhost:4455"
 }
 
 type webAuthnClientData struct {

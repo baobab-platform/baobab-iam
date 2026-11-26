@@ -13,10 +13,10 @@ Use exact-head CI and connected owner receipts for review. Promotion of A3/A4, r
 
 ---
 
-**Status: draft engineering source, connected evidence HELD.**
+**Status: engineering source open for review. Connected acceptance is held.**
 **Authority:** EA v2.3/EA-DEV; ADR-IAM-0015–0018, ADR-IAM-0023,
 ADR-IAM-0024, ADR-IAM-0025, ADR-IAM-0028, ADR-IAM-0029 and ADR-IAM-0033.
-Pull request: `baobab-iam#151`, **now based on IAM-N04 #149**. Source PRs #145–#148 were merged on 5 November 2026; #149 remains the unmerged, separately reviewed N04 dependency. The N06 branch has a non-force merge parent from the current #149 branch, with N04 blobs preserved unchanged. Neither #149 nor #151 is development-certified or authorised for protected deployment. Keycloak remains enterprise federation.
+PR `baobab-iam#151` targets `main` after the N04 source merge in #149. Independent N04 and N06 connected qualification still applies before protected deployment. Keycloak remains the enterprise federation provider.
 The Control Plane (not IAM) owns canonical identity, membership,
 tenant privileges and business authorization.
 

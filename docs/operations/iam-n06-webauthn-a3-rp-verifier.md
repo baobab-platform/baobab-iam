@@ -23,6 +23,12 @@ to require independently witnessed hardware-backed private key attestation,
 current privileged CP risk/context and distinct approval. No business PEP,
 CP grant or consumption is conveyed by this verifier.
 
+The pinned Kratos v26.2.0 login strategy validates the assertion but
+[does not use the returned credential to write the updated sign counter](https://github.com/ory/kratos/blob/v26.2.0/selfservice/strategy/webauthn/login.go#L290-L306).
+An Admin API credential read alone cannot satisfy the verifier's atomic
+counter contract. The production integration needs a reviewed counter
+authority with durable compare-and-swap semantics and live revocation proof.
+
 Next native development closure requires real pinned Kratos/Chromium
 registration and proof, durable challenge/counter storage, live forged
 origin/UV/counter/credential negatives, recovery/rebinding tests and
@@ -35,7 +41,7 @@ Playwright 1.64.1/Chromium browser and executes
 `tests/integration/passkey/n06-kratos-browser.mjs` **against the same
 running disposable Kratos v26.2.0**, immediately after foundation setup.
 No live browser proof is accepted if that test is skipped or fails. The
-browser uses the configured reviewed loopback RP `127.0.0.1:4455`, a fresh
+browser uses the configured reviewed loopback RP `localhost` at `http://localhost:4455`, a fresh
 Kratos browser-cookie/CSRF password session, original provider settings
 challenge, and CTAP2 virtual authenticator to register a credential in
 Kratos. An independent Admin API readback must contain the registered key.

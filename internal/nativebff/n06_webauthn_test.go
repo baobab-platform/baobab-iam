@@ -172,6 +172,16 @@ func TestN06WebAuthnA3FailClosedNegativeMatrix(t *testing.T) {
 			v.evidence.AAL = assurance.A1
 			f.v.Kratos = v
 		},
+		"expired-provider-session": func(f *a3Fixture) {
+			v := f.v.Kratos.(a3Current)
+			v.evidence.ExpiresAt = f.v.Now()
+			f.v.Kratos = v
+		},
+		"future-provider-authentication": func(f *a3Fixture) {
+			v := f.v.Kratos.(a3Current)
+			v.evidence.AuthenticatedAt = f.v.Now().Add(time.Second)
+			f.v.Kratos = v
+		},
 		"untrusted-method-only": func(f *a3Fixture) {
 			v := f.v.Kratos.(a3Current)
 			v.evidence.Methods = []string{"password", "totp"}
@@ -201,6 +211,23 @@ func TestN06WebAuthnA3FailClosedNegativeMatrix(t *testing.T) {
 				t.Fatal("invalid WebAuthn A3 proof was accepted")
 			}
 		})
+	}
+}
+
+func TestN06WebAuthnDevelopmentReliesOnTheBrowserLocalhostOrigin(t *testing.T) {
+	for _, tc := range []struct {
+		rp, origin        string
+		development, want bool
+	}{
+		{"localhost", "http://localhost:4455", true, true},
+		{"localhost", "http://localhost:4455", false, false},
+		{"localhost", "http://localhost:4455?", true, false},
+		{"localhost", "http://localhost:4456", true, false},
+		{"127.0.0.1", "http://127.0.0.1:4455", true, false},
+	} {
+		if got := validRelyingParty(WebAuthnChallenge{RPID: tc.rp, Origin: tc.origin, DevelopmentLoopback: tc.development}); got != tc.want {
+			t.Fatalf("RP %q origin %q development=%t: got %t", tc.rp, tc.origin, tc.development, got)
+		}
 	}
 }
 
