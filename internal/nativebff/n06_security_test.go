@@ -106,7 +106,7 @@ func TestN06KratosLiveReaderDeniesUnknownA3AndForgedProviderResponse(t *testing.
 		t.Fatal(err)
 	}
 	key, proof, err := p.CurrentNativeAuthentication(context.Background(), ory.NativeSessionCredential{Cookie: "ory_kratos_session=synthetic-cookie"})
-	if err != nil || key.Subject != "human-original" || proof.AAL != "aal2" {
+	if err != nil || key.Subject != "human-original" || proof.AAL != assurance.A2 {
 		t.Fatalf("real Kratos browser current proof failed: %+v %+v %v", key, proof, err)
 	}
 	if proof.PasskeyUsed || proof.UserVerified || proof.OriginBound || proof.HardwareBound {
