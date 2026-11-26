@@ -119,7 +119,7 @@ func TestBuyerCommitA2VerifiedButNotBusinessApproval(t *testing.T) {
 		t.Fatalf("weak AAL: %+v", res)
 	}
 }
-func TestA3RequiresSeparateAttestationAndA4RequiresHardwareAndWitness(t *testing.T) {
+func TestA3RequiresRPBoundUserVerificationNotAttestationAndA4RequiresHardwareAndWitness(t *testing.T) {
 	s := sample()
 	s.RiskChecked = true
 	s.RecoveryStateChecked = true
@@ -136,7 +136,11 @@ func TestA3RequiresSeparateAttestationAndA4RequiresHardwareAndWitness(t *testing
 	}
 	s.PasskeyRPBound = true
 	s.PasskeyUserVerified = true
-	s.PasskeyAttested = true
+	// ADR-IAM-0024 requires RP-bound user verification for A3; attestation
+	// is optional and must not be fabricated or made a universal prerequisite.
+	if s.PasskeyAttested {
+		t.Fatal("fixture unexpectedly includes authenticator attestation")
+	}
 	s.PasskeyProofEventReference = OpaqueReference("event", "foreign-login")
 	r := &fakeReader{value: s}
 	res := newTestEvaluator(t, r).Evaluate(context.Background(), request(s, HighValueApproval))
