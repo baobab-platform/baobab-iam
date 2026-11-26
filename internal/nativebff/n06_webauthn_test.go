@@ -20,10 +20,10 @@ import (
 
 type a3Current struct {
 	key      assurance.CurrentSessionKey
-	evidence assurance.Evidence
+	evidence assurance.NativeEvidence
 }
 
-func (c a3Current) CurrentNativeAuthentication(_ context.Context, cred ory.NativeSessionCredential) (assurance.CurrentSessionKey, assurance.Evidence, error) {
+func (c a3Current) CurrentNativeAuthentication(_ context.Context, cred ory.NativeSessionCredential) (assurance.CurrentSessionKey, assurance.NativeEvidence, error) {
 	return c.key, c.evidence, nil
 }
 
@@ -121,8 +121,8 @@ func makeA3Fixture(t *testing.T) a3Fixture {
 		PublicKeyDER: pub, SignCount: 1,
 	}, counter: 1}
 	challenges := &a3Challenges{item: challenge}
-	base := assurance.Evidence{Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
-		AAL: "aal2", Methods: []string{"webauthn"}, AuthenticatedAt: now.Add(-15 * time.Second),
+	base := assurance.NativeEvidence{Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
+		AAL: assurance.A2, Methods: []string{"webauthn"}, AuthenticatedAt: now.Add(-15 * time.Second),
 		ObservedAt: now}
 	return a3Fixture{
 		v: &WebAuthnA3Verifier{
