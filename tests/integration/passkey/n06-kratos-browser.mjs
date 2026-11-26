@@ -29,7 +29,6 @@ let identityID, added=0, asserted=0;
 let qualificationPhase='INITIALIZING';
 let browserUI;
 
-const timeout = AbortSignal.timeout(12000);
 async function jsonRequest(url, method='GET', body) {
  const u = new URL(url);
  pass([API,ADMIN].includes(u.origin), 'ORIGIN');
@@ -82,12 +81,6 @@ async function browserFlow(kind,extra='') {
  const r=await onPage('GET',API+'/self-service/'+kind+'/flows?id='+encodeURIComponent(id));
  statusExact(r,200,kind+'_READ');
  return {id,flow:r.body};
-}
-function decode(s) {
- return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
-}
-function encode(bytes) {
- return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 async function nativeCredential(operation, value, expectedRP) {
  // Run *only* in real Chromium secure loopback context, never node crypto.
