@@ -38,7 +38,7 @@ func n04LiveProviderComponentFixture(t *testing.T, ctx context.Context,
 		EstateID:                "estate_nabhold",
 		ConfigurationReference:  "ref_cfgfixture",
 		SecurityDomainReference: "ref_secfixture",
-		ArtifactDigest:           "sha256:" + strings.Repeat("a", 64),
+		ArtifactDigest:          "sha256:" + strings.Repeat("a", 64),
 	}
 	mode := ""
 	calls := 0
