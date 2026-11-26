@@ -397,3 +397,42 @@ installation. The actual Kratos/Chromium ceremony remains mandatory and fails
 if the browser or required host libraries are unavailable. No browser result is
 inferred from this workflow correction. N04 prerequisites and independent N06
 owner evidence remain open.
+
+
+## 26 November 2026 — Hydra subject-session and token revocation read-back
+
+The native BFF now uses a dedicated Hydra token revoker. It first submits the
+confidential-client-authenticated access-token and refresh-token revocation
+requests to the public issuer, then independently calls the private
+`POST /admin/oauth2/introspect` endpoint for each supplied token. Logout is
+reported as complete only when each supplied token is read back with
+`active=false`; transport errors, malformed responses, active tokens and
+partial revocation remain UNKNOWN/failed.
+
+The subject-session adapter deletes all consent sessions and login sessions
+for the exact signed Kratos subject. It then reads the subject's consent
+sessions through `GET /admin/oauth2/auth/sessions/consent` and requires an
+empty JSON array. The pinned Hydra v26.2.0 OpenAPI exposes this consent-session
+list endpoint but does not expose a corresponding login-session list/read
+endpoint. Therefore the login-session DELETE response is acknowledged, not
+independently read back; this limitation is explicit and is not represented as
+a verified login-session inventory.
+
+The existing Ory Foundation suite now includes a live Hydra case that creates
+a disposable confidential client, obtains a real client-credentials access
+token, confirms it is active, performs revocation through the native BFF
+adapter, and requires Hydra Admin introspection to report it inactive. The
+same live case exercises subject-wide consent/login deletion and consent-list
+read-back. Disposable client cleanup is attempted in test teardown.
+
+**Resource boundary:** the development Hydra configuration selects JWT access
+tokens. Hydra reporting a JWT as inactive does not prove that every resource
+server which validates JWT signatures offline has stopped accepting it. CP
+and domain-resource denial remains a separate required read-back; this IAM
+change does not claim that downstream resource caches or validators have
+been invalidated. See the pinned [Hydra v26.2.0 OAuth2 API](https://docs.rs/crate/ory-hydra-client/26.2.0/source/docs/OAuth2Api.md)
+for the documented introspection and session endpoints.
+
+The live Foundation result is not yet available for the new head. Until the
+exact-head Ory Foundation workflow passes, this increment remains source and
+test implemented, not connected-qualified.
