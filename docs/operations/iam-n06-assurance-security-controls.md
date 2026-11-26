@@ -32,6 +32,28 @@ are not promoted to acceptance.
 
 ---
 
+## 26 November 2026 — one-use A3 proof custody increment
+
+A3 proof storage is now non-overwritable while the existing proof is live.
+The new PostgreSQL consumer atomically deletes and returns a proof only while
+the associated BFF session remains live, then validates its AEAD context,
+current Kratos issuer/subject/session, exact operation, A2 base session,
+WebAuthn user-verification/RP-binding evidence and database expiry. A changed
+Kratos session consumes and denies the stale proof. The PostgreSQL 17
+integration test exercises concurrent consumers through two independent store
+instances and requires exactly one winner; it also verifies that BFF session
+revocation cascades proof deletion.
+
+This is **not yet production A3 operation acceptance**. The BFF verification
+route stores the proof, but `N06SecurityGate` does not yet invoke the one-use
+consumer. The next increment must integrate it at a server-owned operation
+boundary and preserve the distinction between assurance evidence and CP/domain
+authorization. Connected revocation and recovery qualification follow. A4
+remains gated on independent original hardware evidence and current independent
+privileged approval.
+
+---
+
 # IAM-N06 — Authentication assurance, recovery and security operations
 
 ## Review reconciliation — 26 November 2026
