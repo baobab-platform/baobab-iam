@@ -69,6 +69,28 @@ privileged approval.
 
 ---
 
+## High-value B2B procurement operation candidate
+
+The accepted Shared ADR-SHARED-042 and
+`contracts/trade/v2/buyer-execution-context.schema.json` define the buyer-side
+operation `trade.purchase-approval.decide`. The contract binds the decision
+to the selected buyer Organisation and Market, exact resource/version and
+transaction digest, amount/currency, policy revision and independent
+approver references. It also requires separation of duties and continued
+applicability before native commit. This is the appropriate candidate for
+operation-specific A3 step-up; the IAM A3 proof must remain evidence and must
+not make the purchase-approval decision.
+
+The current Trade source tree contains the `PurchaseApproval` persistence
+model and buyer operation policy vocabulary, but no purchase-approval decision
+route or handler was found in the inspected `src/api` and `src/baobab`
+surfaces. The operation contract exists; its authoritative domain endpoint
+is not yet implemented/qualified. IAM-N06 therefore records this as a
+connected-operation dependency. Do not substitute `trade.order.commit`,
+`trade:buy`, an OAuth scope, or a browser-selected operation, and do not
+implement Trade approval workflow or spending policy in IAM. A minimal
+companion contract/endpoint change requires separate approval before work.
+
 # IAM-N06 — Authentication assurance, recovery and security operations
 
 ## Review reconciliation — 26 November 2026
