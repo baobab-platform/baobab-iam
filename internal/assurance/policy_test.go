@@ -90,6 +90,34 @@ func TestNativeEvaluatorReReadsProviderAndRiskBeforeAllow(t *testing.T) {
 	}
 }
 
+func TestNativeEvaluatorAcceptsAuthenticationCompletedDuringProviderRead(t *testing.T) {
+	started := time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC)
+	e, key, proof, _ := nativeFixture(started)
+	proof.AuthenticatedAt = started.Add(500 * time.Millisecond)
+	proof.ObservedAt = started.Add(800 * time.Millisecond)
+	second := proof
+	second.ObservedAt = started.Add(1500 * time.Millisecond)
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, second}}
+	var calls int
+	e.Now = func() time.Time {
+		calls++
+		switch calls {
+		case 1:
+			return started
+		case 2:
+			return started.Add(time.Second)
+		case 3:
+			return started.Add(2 * time.Second)
+		default:
+			return started.Add(3 * time.Second)
+		}
+	}
+	decision := e.Check(context.Background(), key, OrdinaryBuyer)
+	if decision.Outcome != Allow {
+		t.Fatalf("a session authenticated during the provider read was rejected: %#v", decision)
+	}
+}
+
 func TestNativeEvaluatorAcceptsFreshReadTimesAndRejectsChangedEvidence(t *testing.T) {
 	now := time.Now().UTC()
 	for _, tc := range []struct {
