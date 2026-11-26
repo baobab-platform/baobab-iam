@@ -219,7 +219,7 @@ jobs:
           go test ./internal/assurance ./internal/securityops ./internal/nativebff -run 'TestN06' -count=1 -v
           go test ./internal/provider/ory -run '^TestN06RebindLedger' -count=1 -v
       - name: Race-check real security ledger and credential-change negatives
-        run: go test -race ./internal/securityops ./internal/assurance -run 'TestN06' -count=1
+        run: go test -race ./internal/securityops ./internal/assurance ./internal/nativebff -run 'TestN06' -count=1
 
   enterprise-federation-live:
     runs-on: ubuntu-latest

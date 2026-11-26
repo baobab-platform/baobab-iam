@@ -27,8 +27,18 @@ func InstallN06WebAuthnSchema(ctx context.Context, pool *pgxpool.Pool) error {
 	if ctx == nil || ctx.Err() != nil || pool == nil {
 		return errA3Denied
 	}
-	_, err := pool.Exec(ctx, n06WebAuthnDDL)
-	return err
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, n06WebAuthnDDL); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, n06WebAuthnCounterDDL); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 var n06ChallengeID = regexp.MustCompile(`^[a-zA-Z0-9_-]{12,160}$`)

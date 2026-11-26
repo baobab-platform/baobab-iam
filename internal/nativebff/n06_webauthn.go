@@ -5,6 +5,7 @@ package nativebff
 // method string by itself is an A3 proof. Credential keys and counter state
 // MUST be read from the real Kratos credential record by an IAM-owned port.
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -61,8 +62,15 @@ type KratosCredentialReader interface {
 	// This reads the credential from the trusted current Kratos identity,
 	// NEVER from the browser registration payload.
 	CurrentKratosCredential(context.Context, assurance.CurrentSessionKey, string) (KratosWebAuthnCredential, error)
-	// Compare-and-swap counter. A concurrent duplicate MUST lose.
-	AdvanceKratosSignCounter(context.Context, KratosWebAuthnCredential, uint32) error
+}
+
+type WebAuthnCounterStore interface {
+	// Atomically record the IAM-observed counter without writing to Kratos.
+	RecordAssertionCounter(context.Context, KratosWebAuthnCredential, uint32) error
+}
+
+func counterAdmissible(stored, received uint32) bool {
+	return (stored == 0 && received == 0) || received > stored
 }
 
 // WebAuthnA3Verifier produces a short-lived authentication-only A3 evidence
@@ -72,6 +80,7 @@ type WebAuthnA3Verifier struct {
 	Kratos      N06ProviderProof
 	Challenges  WebAuthnChallengeStore
 	Credentials KratosCredentialReader
+	Counters    WebAuthnCounterStore
 	Now         func() time.Time
 }
 
@@ -80,7 +89,7 @@ func (v *WebAuthnA3Verifier) Verify(
 ) (assurance.NativeEvidence, error) {
 	none := assurance.NativeEvidence{}
 	if ctx == nil || ctx.Err() != nil || v == nil || v.Now == nil ||
-		v.Kratos == nil || v.Challenges == nil || v.Credentials == nil ||
+		v.Kratos == nil || v.Challenges == nil || v.Credentials == nil || v.Counters == nil ||
 		cookie.Cookie == "" || cookie.SessionToken != "" ||
 		len(a.ChallengeID) < 12 || len(a.ChallengeID) > 160 ||
 		len(a.CredentialID) < 16 || len(a.CredentialID) > 1024 ||
@@ -132,8 +141,7 @@ func (v *WebAuthnA3Verifier) Verify(
 	credential, err := v.Credentials.CurrentKratosCredential(ctx, key, a.CredentialID)
 	if err != nil || credential.ID != a.CredentialID ||
 		credential.Issuer != key.Issuer || credential.Subject != key.Subject ||
-		len(credential.PublicKeyDER) > 1024 || counter == 0 ||
-		counter <= credential.SignCount {
+		len(credential.PublicKeyDER) > 1024 || !counterAdmissible(credential.SignCount, counter) {
 		return none, errA3Denied
 	}
 	keyValue, err := x509.ParsePKIXPublicKey(credential.PublicKeyDER)
@@ -149,7 +157,12 @@ func (v *WebAuthnA3Verifier) Verify(
 	if !ecdsa.VerifyASN1(pub, digest[:], a.SignatureDER) {
 		return none, errA3Denied
 	}
-	if v.Credentials.AdvanceKratosSignCounter(ctx, credential, counter) != nil {
+	// Recheck the provider record before writing IAM's independent ledger.
+	current, err := v.Credentials.CurrentKratosCredential(ctx, key, a.CredentialID)
+	if err != nil || current.ID != credential.ID || current.Issuer != credential.Issuer ||
+		current.Subject != credential.Subject || current.SignCount != credential.SignCount ||
+		!bytes.Equal(current.PublicKeyDER, credential.PublicKeyDER) ||
+		v.Counters.RecordAssertionCounter(ctx, credential, counter) != nil {
 		return none, errA3Denied
 	}
 	completed := v.Now().UTC()

@@ -59,10 +59,10 @@ func (s *a3Credentials) CurrentKratosCredential(_ context.Context, _ assurance.C
 	v.SignCount = s.counter
 	return v, nil
 }
-func (s *a3Credentials) AdvanceKratosSignCounter(_ context.Context, item KratosWebAuthnCredential, next uint32) error {
+func (s *a3Credentials) RecordAssertionCounter(_ context.Context, item KratosWebAuthnCredential, next uint32) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if item.SignCount != s.counter || next <= s.counter {
+	if item.SignCount != s.counter || !counterAdmissible(s.counter, next) {
 		return errA3Denied
 	}
 	s.counter = next
@@ -77,6 +77,11 @@ type a3Fixture struct {
 }
 
 func makeA3Fixture(t *testing.T) a3Fixture {
+	t.Helper()
+	return makeA3FixtureWithCounters(t, 1, 2)
+}
+
+func makeA3FixtureWithCounters(t *testing.T, stored, received uint32) a3Fixture {
 	t.Helper()
 	now := time.Date(2026, 11, 6, 8, 0, 0, 0, time.UTC)
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -108,7 +113,7 @@ func makeA3Fixture(t *testing.T) a3Fixture {
 	rp := sha256.Sum256([]byte(challenge.RPID))
 	copy(auth[:32], rp[:])
 	auth[32] = 0x05 // UP and UV, NOT a hardware attestation
-	binary.BigEndian.PutUint32(auth[33:], 2)
+	binary.BigEndian.PutUint32(auth[33:], received)
 	cd := sha256.Sum256(raw)
 	signed := append(append([]byte{}, auth...), cd[:]...)
 	digest := sha256.Sum256(signed)
@@ -118,8 +123,8 @@ func makeA3Fixture(t *testing.T) a3Fixture {
 	}
 	credentials := &a3Credentials{item: KratosWebAuthnCredential{
 		ID: "credential-owned-by-kratos", Issuer: key.Issuer, Subject: key.Subject,
-		PublicKeyDER: pub, SignCount: 1,
-	}, counter: 1}
+		PublicKeyDER: pub, SignCount: stored,
+	}, counter: stored}
 	challenges := &a3Challenges{item: challenge}
 	base := assurance.NativeEvidence{Issuer: key.Issuer, Subject: key.Subject, SessionID: key.SessionID,
 		AAL: assurance.A2, Methods: []string{"webauthn"}, AuthenticatedAt: now.Add(-15 * time.Second),
@@ -127,7 +132,7 @@ func makeA3Fixture(t *testing.T) a3Fixture {
 	return a3Fixture{
 		v: &WebAuthnA3Verifier{
 			Kratos: a3Current{key: key, evidence: base}, Challenges: challenges,
-			Credentials: credentials, Now: func() time.Time { return now },
+			Credentials: credentials, Counters: credentials, Now: func() time.Time { return now },
 		},
 		assertion: WebAuthnAssertion{
 			ChallengeID: challenge.ID, CredentialID: credentials.item.ID,
@@ -150,6 +155,17 @@ func TestN06WebAuthnA3VerifiesRealES256AndDeniesReplay(t *testing.T) {
 	}
 	if _, err := f.v.Verify(context.Background(), cred, f.assertion); err == nil {
 		t.Fatal("one-time challenge was replayed")
+	}
+}
+
+func TestN06WebAuthnA3CounterlessAssertionStillConsumesChallenge(t *testing.T) {
+	f := makeA3FixtureWithCounters(t, 0, 0)
+	cred := ory.NativeSessionCredential{Cookie: "ory_kratos_session=server-only"}
+	if _, err := f.v.Verify(context.Background(), cred, f.assertion); err != nil {
+		t.Fatal("valid counterless proof denied", err)
+	}
+	if _, err := f.v.Verify(context.Background(), cred, f.assertion); err == nil {
+		t.Fatal("counterless challenge replay accepted")
 	}
 }
 

@@ -32,16 +32,20 @@ func NewKratosN06Provider(origin string, roots *x509.CertPool, now func() time.T
 	if err != nil || now == nil || (!allowTestLoopback && (roots == nil || len(roots.Subjects()) == 0 || testClient != nil)) {
 		return nil, errors.New("N06 exact trusted Kratos origin and roots required")
 	}
-	client := &http.Client{
+	client := n06KratosTLSClient(roots)
+	if allowTestLoopback && testClient != nil {
+		client.Transport = testClient.Transport
+	}
+	return &KratosN06Provider{origin: strings.TrimRight(u.String(), "/"), client: client, now: now}, nil
+}
+
+func n06KratosTLSClient(roots *x509.CertPool) *http.Client {
+	return &http.Client{
 		Timeout:       5 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		Transport: &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12, RootCAs: roots}},
 	}
-	if allowTestLoopback && testClient != nil {
-		client.Transport = testClient.Transport
-	}
-	return &KratosN06Provider{origin: strings.TrimRight(u.String(), "/"), client: client, now: now}, nil
 }
 func (k *KratosN06Provider) CurrentNativeAuthentication(
 	ctx context.Context, cred ory.NativeSessionCredential,
@@ -147,6 +151,7 @@ func n06UniqueJSON(decoder *json.Decoder) error {
 		if start == '{' {
 			name, err := decoder.Token()
 			key, ok := name.(string)
+			key = strings.ToLower(key)
 			if err != nil || !ok || seen[key] {
 				return errors.New("N06 duplicate or invalid JSON key")
 			}

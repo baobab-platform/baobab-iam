@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"os"
 	"sync"
@@ -143,5 +144,68 @@ func TestN06RealPGWebAuthnWrongSecretCannotImpersonate(t *testing.T) {
 	if read, err := store.Consume(ctx, challenge.ID); err != nil ||
 		read.Session != challenge.Session {
 		t.Fatal("failed wrong-key read must roll back without consuming real original")
+	}
+}
+
+func TestN06RealPGWebAuthnCounterSerializesAndPreservesHighWaterMark(t *testing.T) {
+	_, pool := n06PGChallengeStore(t)
+	f := makeA3Fixture(t)
+	credential := f.credentials.item
+	// The disposable ledger key is stable across test invocations. Each
+	// invocation uses a different credential to keep concurrent cases isolated.
+	salt := sha256.Sum256([]byte("disposable IAM N06 ledger key"))
+	var nonce [16]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		t.Fatal(err)
+	}
+	credential.ID = hex.EncodeToString(nonce[:])
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	store, err := NewPGWebAuthnCounterStore(ctx, pool, salt[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	credential.SignCount = 0
+	for i := 0; i < 2; i++ {
+		if err := store.RecordAssertionCounter(ctx, credential, 0); err != nil {
+			t.Fatal("different valid challenges may report zero", err)
+		}
+	}
+	const writers = 12
+	outcomes := make(chan error, writers)
+	for i := 0; i < writers; i++ {
+		go func() { outcomes <- store.RecordAssertionCounter(ctx, credential, 3) }()
+	}
+	accepted := 0
+	for i := 0; i < writers; i++ {
+		if <-outcomes == nil {
+			accepted++
+		}
+	}
+	if accepted != 1 {
+		t.Fatalf("same nonzero counter had %d concurrent winners", accepted)
+	}
+	// A new store instance must observe the same durable ledger.
+	reopened, err := NewPGWebAuthnCounterStore(ctx, pool, salt[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherSalt := salt
+	otherSalt[0] ^= 1
+	if _, err := NewPGWebAuthnCounterStore(ctx, pool, otherSalt[:]); err == nil {
+		t.Fatal("replacement key reset the counter namespace")
+	}
+	for _, count := range []uint32{0, 2, 3} {
+		if reopened.RecordAssertionCounter(ctx, credential, count) == nil {
+			t.Fatalf("zero reset or rollback accepted: %d", count)
+		}
+	}
+	changedKey := credential
+	changedKey.PublicKeyDER = []byte("other-public-key")
+	if reopened.RecordAssertionCounter(ctx, changedKey, 4) == nil {
+		t.Fatal("same credential ID admitted a replacement public key")
+	}
+	if err := reopened.RecordAssertionCounter(ctx, credential, 4); err != nil {
+		t.Fatal("advancing counter denied", err)
 	}
 }

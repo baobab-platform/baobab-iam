@@ -1,38 +1,36 @@
 # N06 Kratos A3 cryptographic RP boundary
 
-**Implementation candidate; REAL Kratos/Chromium ceremony not yet qualified.**
+**Status:** Credential readback and the IAM PostgreSQL counter ledger have
+source implementations. Production BFF integration and connected A3
+qualification remain held.
 
-`internal/nativebff/n06_webauthn.go` implements an actual ES256 WebAuthn
-assertion verifier using Go standard crypto primitives. It requires a current
-Kratos AAL2 session whose observed authentication method is WebAuthn, a
-server-issued atomic one-use challenge for the **same issuer/subject/session**,
-exact reviewed RP origin and SHA-256 RP ID, user presence+verification flags,
-type=webauthn.get, signed challenge, exact provider-owned credential ID,
-P-256 signature and strictly increasing atomic Kratos credential counter.
+- `KratosWebAuthnReader` uses a TLS-only, fixed private Admin API origin with
+  explicit trust roots. It requests the active session subject's WebAuthn
+  credentials without forwarding a browser cookie. It selects one exact
+  credential ID, rejects reported clone warnings and validates the pinned
+  provider's COSE ES256/P-256 public key.
+- `WebAuthnA3Verifier` checks a current Kratos AAL2 WebAuthn session, consumes
+  the server-minted one-use challenge, and verifies the RP, origin, user
+  presence, user verification and signature. It reads the provider credential
+  again before recording the assertion counter.
+- `PGWebAuthnCounterStore` is separate from the provider reader. An atomic
+  PostgreSQL upsert preserves IAM's high-water mark and refuses key substitution,
+  equal nonzero counters and rollback. Counters of zero are accepted when
+  both the provider count and IAM's committed high-water mark are zero. The
+  challenge remains one-use for every counter value.
+- The counter table stores HMAC references in place of subject and credential
+  data. A ledger key commitment prevents a silent reset if the configured
+  key changes. Provision one stable private 32-byte key per ledger. Apply
+  migration 002 alongside migration 001 in the reviewed database step.
+  The component never updates Kratos credential state.
 
-Browser-supplied RP/origin, cross-origin context, duplicate JSON keys, replay
-counters, forged signatures, unknown credentials and stale challenges fail
-closed. Only an **issuer-authenticated credential reader** populated from
-current Kratos provider state and durable compare-and-swap nonce/counter
-implementations may be wired to a real server. A memory fixture alone is NOT
-deployment-ready. The verifier never treats authenticator enrolment, TOTP,
-historical ACR, browser claims or unverified method labels as A3 evidence.
-
-**Crucially:** the produced evidence is `HardwareBound=false`. A4 continues
-to require independently witnessed hardware-backed private key attestation,
-current privileged CP risk/context and distinct approval. No business PEP,
-CP grant or consumption is conveyed by this verifier.
-
-The pinned Kratos v26.2.0 login strategy validates the assertion but
-[does not use the returned credential to write the updated sign counter](https://github.com/ory/kratos/blob/v26.2.0/selfservice/strategy/webauthn/login.go#L290-L306).
-An Admin API credential read alone cannot satisfy the verifier's atomic
-counter contract. The production integration needs a reviewed counter
-authority with durable compare-and-swap semantics and live revocation proof.
-
-Next native development closure requires real pinned Kratos/Chromium
-registration and proof, durable challenge/counter storage, live forged
-origin/UV/counter/credential negatives, recovery/rebinding tests and
-independent original artifacts. Those are NOT claimed by this source.
+The pinned Kratos v26.2.0 login strategy
+[validates an assertion without persisting its counter](https://github.com/ory/kratos/blob/v26.2.0/selfservice/strategy/webauthn/login.go#L290-L306).
+IAM records counters only for its own independently verified assertions.
+A failed or interrupted ledger operation yields a denial and a new challenge
+is required. Production acceptance still needs BFF proof custody, immediate
+revocation and recovery evidence, and connected concurrency qualification.
+A4 also needs its independent hardware, privilege and risk witnesses.
 
 ## Actual Chromium / pinned Kratos positive and replay test
 
@@ -52,7 +50,6 @@ the synthetic identity; no private credential, password, browser recording,
 recovery code or token is stored in evidence.
 
 This is original **browser/cryptographic A3 candidate qualification** only.
-Chromium virtual CTAP2 is not hardware-backed attestation. The independent
-Kratos credential reader and durable sign-counter CAS within IAM's A3
-verifier, CP consequential operation, and a genuine A4 hardware/nonexportable
-attestation with distinct operator remain separately HELD until evidenced.
+Chromium virtual CTAP2 is not hardware-backed attestation. Production A3 acceptance requires execution through the IAM verifier, with
+admin-plane credential readback and the durable ledger exercised on the same
+request. CP authorization and A4 hardware-backed approval have separate gates.
