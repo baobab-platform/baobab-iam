@@ -13,11 +13,13 @@ import (
 )
 
 // HydraSubjectSessionsRevoker owns IAM-private issuer-admin session withdrawal.
-// These two Hydra endpoints remove remembered login and consent sessions for
-// the exact signed Kratos subject. Login-session revocation alone does NOT
-// invalidate OAuth tokens. Even consent-session deletion cannot certify
-// stateless JWT bearer withdrawal at CP/Trade: verify issuer status at the
-// protected resource independently before declaring global logout complete.
+// These Hydra endpoints remove remembered login and consent sessions for
+// the exact signed Kratos subject. Hydra v26.2.0 exposes consent-session
+// listing but not login-session listing, so only consent deletion has a
+// direct session-list read-back. Login-session revocation alone does NOT
+// invalidate OAuth tokens. Even issuer token introspection cannot certify
+// stateless JWT denial at CP/Trade; the protected resource must be checked
+// independently before an incident is declared contained.
 type HydraSubjectSessionsRevoker struct {
 	origin string
 	client *http.Client
@@ -31,7 +33,8 @@ type HydraSubjectSessionsConfig struct {
 func NewHydraSubjectSessionsRevoker(config HydraSubjectSessionsConfig) (*HydraSubjectSessionsRevoker, error) {
 	origin, err := originURL(config.AdminOrigin, config.AllowTestLoopback)
 	if err != nil || origin.Scheme != "https" && !config.AllowTestLoopback ||
-		!config.AllowTestLoopback && (config.Roots == nil || len(config.Roots.Subjects()) == 0) {
+		!config.AllowTestLoopback && (config.Roots == nil || len(config.Roots.Subjects()) == 0) ||
+		config.AllowTestLoopback && origin.Scheme == "https" && (config.Roots == nil || len(config.Roots.Subjects()) == 0) {
 		return nil, errors.New("private verified Hydra administration required")
 	}
 	return &HydraSubjectSessionsRevoker{
