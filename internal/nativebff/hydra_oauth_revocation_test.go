@@ -71,7 +71,7 @@ func TestHydraOAuthRevocationRequiresInactiveTokenReadback(t *testing.T) {
 
 func TestHydraOAuthRevocationFailsWhenReadbackRemainsActiveOrUnavailable(t *testing.T) {
 	for _, tc := range []struct {
-		name string
+		name   string
 		status int
 		active bool
 	}{
