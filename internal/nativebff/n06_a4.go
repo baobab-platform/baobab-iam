@@ -118,7 +118,7 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.NativeE
 	}
 	challenge, err := v.Challenges.Consume(ctx, r.ChallengeID)
 	if err != nil || challenge.ID != r.ChallengeID ||
-		challenge.Session != r.Session || len(challenge.Nonce) != 32 ||
+		challenge.Session != r.Session || challenge.Operation != r.Operation || len(challenge.Nonce) != 32 ||
 		challenge.CreatedAt.IsZero() || challenge.ExpiresAt.IsZero() ||
 		challenge.CreatedAt.After(now) || !challenge.ExpiresAt.After(now) ||
 		now.Sub(challenge.CreatedAt) > time.Minute ||
