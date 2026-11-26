@@ -21,7 +21,7 @@ func TestPlanReportsExactPinnedWorkloadAndAudience(t *testing.T) {
 		t.Fatal(err)
 	}
 	if plan.LogicalClientID != env["ORY_LOGICAL_CLIENT_ID"] || plan.Environment != "production" ||
-		plan.RegistryCommit != "1517429bcae601a1b0288ca0279e524ce48a3d77" ||
+		plan.RegistryCommit != "7f547ccdd759208355ef9224d2177929f4bf224e" ||
 		len(plan.Scopes) != 1 || plan.Scopes[0] != "context:resolve" ||
 		len(plan.Audiences) != 1 || plan.Audiences[0] != "baobab-control-plane" {
 		t.Fatalf("unexpected plan: %+v", plan)

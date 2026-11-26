@@ -60,7 +60,9 @@ The cross-repository checkout uses the existing read token with credential
 persistence disabled. Missing checkout access fails the proof, never substitutes
 an older verifier or a stub.
 
-`current/main.go` runs CP's production HTTP router, middleware, schema,
+`current/main.go.in` is copied to `cmd/iam-m4-route/main.go` in the pinned CP
+checkout, so IAM module discovery never loads the probe's CP-private imports.
+The resulting probe runs CP's production HTTP router, middleware, schema,
 `TokenVerifier`/`SubjectVerifiers` (`AudienceVerifiers` JWT implementation),
 registry parser, canonical identity repository and context handler. Both the
 validator bearer and subject credential are real tokens signed by disposable

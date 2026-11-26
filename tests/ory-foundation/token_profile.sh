@@ -115,7 +115,7 @@ python3 tests/consumer/verify_snapshot.py
 (cd tests/consumer/cp && go build -mod=readonly -o "$task_dir/cp-consumer-probe" .)
 python3 tests/consumer/verify_current.py .cp-consumer-source
 mkdir .cp-consumer-source/cmd/iam-m4-route
-cp tests/consumer/current/main.go .cp-consumer-source/cmd/iam-m4-route/main.go
+cp tests/consumer/current/main.go.in .cp-consumer-source/cmd/iam-m4-route/main.go
 (cd .cp-consumer-source && go build -mod=readonly -tags iam_m4_route -o "$task_dir/cp-route-probe" ./cmd/iam-m4-route)
 # CP's own route tests also retain the provider-neutral opaque-token contract.
 (cd .cp-consumer-source && go test -mod=readonly ./internal/auth ./api)
