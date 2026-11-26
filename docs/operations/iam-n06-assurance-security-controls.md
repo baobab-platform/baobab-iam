@@ -4,12 +4,26 @@
 
 The production BFF composition now sets `N06Required: true`, supplies the reviewed `N06ScopeOperations` mapping and passes the `N06Gate`; the earlier runtime-wiring omission is corrected. This does not qualify A3/A4 or grant business authority.
 
-PR #151 is open for review on `main`, which includes the merged N04 source. N06 and the provider-neutral evaluator share the operation, level, outcome and policy vocabulary and its validated floors. The provider-neutral evaluator retains its independent attestation requirement. Native session readbacks compare stable provider and risk evidence across separate fresh observations. Connected qualification and the merge hold still apply.
+PR #151 is based on current `main`, which includes the merged N04 source; the branch is no longer behind `main`. N06 and the provider-neutral evaluator share the operation, level, outcome and policy vocabulary and its validated floors. Both A3 evaluation paths now require same-event RP-bound passkey proof and user verification, but do not make authenticator attestation a universal A3 prerequisite under ADR-IAM-0024. Native session readbacks compare stable provider and risk evidence across separate fresh observations. Connected qualification and the merge hold still apply.
 
 
 The Go Kratos live test checks that malformed registration cannot persist a credential. The Chromium case registers a real CTAP2 credential, reads it back from Kratos, starts a separate AAL1 password session for the subsequent AAL2 assertion and checks that a repeated submission is denied. The BFF still does not consume a server-stored RP assertion for A3. The RP verifier needs a concrete trusted Kratos credential reader and an atomic sign-counter implementation. A4 requires the independent hardware-attestation, risk and privileged-approval authorities.
 
 Use exact-head CI and connected owner receipts for review. Promotion of A3/A4, recovery/rebinding, provider rotation and protected acceptance requires original evidence for the relevant operation.
+
+## 26 November 2026 — Kratos counter and isolated-runtime assessment
+
+The current `provider.lock.yaml` and `docker-compose.ory.yml` pin the OSS `oryd/kratos:v26.2.0` image by digest. Ory's v26.3.4 changelog documents persistence of WebAuthn/passkey signature counters, clone-warning state and backup state after successful login. It explicitly allows non-increasing counters (including static counters from synced passkeys) while recording a possible-clone warning. The release note described the change as available for Ory Network/OEL and forthcoming in the next OSS release. Do not change the OSS pin until the exact OSS tag, published digest, migration behaviour and actual browser behaviour have been verified for the image Baobab will run.
+
+This upstream behaviour is useful credential-state machinery, not Baobab's atomic replay authority. A non-increasing counter is not a sufficient basis to reject a valid assertion from a static-counter authenticator, and a persisted counter does not make a challenge single-use. The current `WebAuthnA3Verifier` still rejects zero and non-increasing counters and its `KratosCredentialReader.AdvanceKratosSignCounter` contract assumes a strictly increasing value. This must be reconciled before A3 activation: preserve Kratos as credential authority, accept authenticators whose counter is zero/static where policy permits, and retain durable, atomic, single-use challenge consumption independently of the counter. Do not introduce a parallel counter authority until the pinned provider capability has been tested and the exact missing guarantee identified.
+
+The disposable Kratos config already sets `selfservice.methods.password.config.haveibeenpwned_enabled: false` and documents synthetic identities only. However, the shared `docker-compose.ory.yml` network is not declared internal, so this configuration alone does not enforce an outbound egress boundary. Add a CI-only isolated network override (without breaking the optional local developer stack), verify the containers cannot reach external services, and test breach-check behaviour separately against a controlled local service or offline corpus. Keep production password-breach policy intact; never bypass the approval mechanism.
+
+The implementation sequence is now explicitly split:
+1. **A3 increment:** qualify the provider release, implement trusted Kratos credential readback and durable challenge replay protection, connect verified RP-bound user-verified proof to the production BFF, then run connected browser, concurrency, revocation and recovery negatives.
+2. **A4 increment:** only after A3 acceptance, connect independent hardware provenance and current privileged-approval/risk witnesses; retain deny by default until both authorities are independently verified.
+
+A1/A2-only operations may progress under their own reviewed policy and qualification. They must not inherit A3/A4 acceptance, and assurance never substitutes for CP or domain business authorization.
 
 ---
 
