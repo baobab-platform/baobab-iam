@@ -120,14 +120,17 @@ class API(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path)
         if path.path == "/health":
-            return self.send_json(200, {"ready": True})
+            self.send_json(200, {"ready": True})
+            return
         supplied = self.headers.get("X-Baobab-Test-Key", "")
         if not hmac.compare_digest(supplied, KEY) or path.path not in ("/messages", "/metadata"):
-            return self.send_json(403, {"error": "forbidden"})
+            self.send_json(403, {"error": "forbidden"})
+            return
         qs = parse_qs(path.query)
         target = qs.get("recipient", [""])[0].lower()
         if not re.fullmatch(r"[a-z0-9._+@-]{3,320}", target):
-            return self.send_json(400, {"error": "invalid_recipient"})
+            self.send_json(400, {"error": "invalid_recipient"})
+            return
         with LOCK:
             results = [m["body"] for m in MAIL if m["recipient"] == target]
         if path.path == "/metadata":
