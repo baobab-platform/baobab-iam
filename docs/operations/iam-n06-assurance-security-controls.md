@@ -81,13 +81,17 @@ privileged approval.
 
 The accepted Shared ADR-SHARED-042 and
 `contracts/trade/v2/buyer-execution-context.schema.json` define the buyer-side
-operation `trade.purchase-approval.decide`. The contract binds the decision
-to the selected buyer Organisation and Market, exact resource/version and
-transaction digest, amount/currency, policy revision and independent
-approver references. It also requires separation of duties and continued
-applicability before native commit. This is the appropriate candidate for
-operation-specific A3 step-up; the IAM A3 proof must remain evidence and must
-not make the purchase-approval decision.
+operation `trade.purchase-approval.decide`. The identity assurance policy
+schema canonically maps it to `BUYER_COMMITMENT`; that profile is not itself
+an IAM A3 level. An approved, issuer-specific policy must define the accepted
+`acr`, required `amr`, freshness and step-up evidence. The operation contract
+binds the decision to the selected buyer Organisation and Market, exact
+resource/version and transaction digest, amount/currency, policy revision
+and independent approver references. It also requires separation of duties
+and continued applicability before native commit. This is the strongest
+existing candidate for operation-specific A3 evidence, subject to the
+approved profile's exact evidence mapping; IAM assurance remains evidence
+and must not make the purchase-approval decision.
 
 The current Trade source tree contains the `PurchaseApproval` persistence
 model and buyer operation policy vocabulary, but no purchase-approval decision
