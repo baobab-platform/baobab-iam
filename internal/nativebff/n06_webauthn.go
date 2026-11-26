@@ -89,9 +89,10 @@ func (v *WebAuthnA3Verifier) Verify(
 	ctx context.Context, cookie ory.NativeSessionCredential, operation assurance.Operation, a WebAuthnAssertion,
 ) (assurance.NativeEvidence, error) {
 	none := assurance.NativeEvidence{}
+	policy, reviewedOperation := assurance.DefaultDevelopmentPolicy()[operation]
 	if ctx == nil || ctx.Err() != nil || v == nil || v.Now == nil ||
 		v.Kratos == nil || v.Challenges == nil || v.Credentials == nil || v.Counters == nil ||
-		!operation.Valid() || cookie.Cookie == "" || cookie.SessionToken != "" ||
+		!reviewedOperation || policy.Level < assurance.A3 || cookie.Cookie == "" || cookie.SessionToken != "" ||
 		len(a.ChallengeID) < 12 || len(a.ChallengeID) > 160 ||
 		len(a.CredentialID) < 16 || len(a.CredentialID) > 1024 ||
 		len(a.ClientDataJSON) < 60 || len(a.ClientDataJSON) > 4096 ||
