@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/baobab-platform/baobab-iam/internal/assurance"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -64,6 +65,11 @@ func TestN06RealPGWebAuthnOneUseAndEncryptedSessionCustody(t *testing.T) {
 	challenge.ExpiresAt = now.Add(60 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
+	lowFloor := challenge
+	lowFloor.Operation = assurance.Login
+	if err := store.Create(ctx, lowFloor); err == nil {
+		t.Fatal("durable WebAuthn challenge accepted an operation below the A3 floor")
+	}
 	if err := store.Create(ctx, challenge); err != nil {
 		t.Fatal("durable challenge insert", err)
 	}
