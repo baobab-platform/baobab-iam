@@ -52,6 +52,7 @@ func (h *HydraSubjectSessionsRevoker) RevokeSubjectSessions(ctx context.Context,
 	}
 	// Consent first: revocation may be completed partially. Never silently
 	// interpret a timeout as consent or token withdrawal success.
+	var revokeErr error
 	for _, endpoint := range []string{"/admin/oauth2/auth/sessions/consent", "/admin/oauth2/auth/sessions/login"} {
 		values := url.Values{"subject": {subject}}
 		if endpoint == "/admin/oauth2/auth/sessions/consent" {
@@ -65,15 +66,16 @@ func (h *HydraSubjectSessionsRevoker) RevokeSubjectSessions(ctx context.Context,
 		request.Header.Set("Cache-Control", "no-store")
 		response, err := h.client.Do(request)
 		if err != nil {
-			return errors.New("Hydra subject revocation outcome unknown")
+			revokeErr = errors.New("Hydra subject revocation outcome unknown")
+			continue
 		}
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 512))
 		_ = response.Body.Close()
 		if response.StatusCode != http.StatusNoContent && response.StatusCode != http.StatusOK {
-			return errors.New("Hydra subject revocation not confirmed")
+			revokeErr = errors.New("Hydra subject revocation not confirmed")
 		}
 	}
-	return h.verifyNoConsentSessions(ctx, subject)
+	return errors.Join(revokeErr, h.verifyNoConsentSessions(ctx, subject))
 }
 
 func (h *HydraSubjectSessionsRevoker) verifyNoConsentSessions(ctx context.Context, subject string) error {

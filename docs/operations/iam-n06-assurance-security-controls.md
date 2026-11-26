@@ -101,7 +101,8 @@ is not yet implemented/qualified. IAM-N06 therefore records this as a
 connected-operation dependency. Do not substitute `trade.order.commit`,
 `trade:buy`, an OAuth scope, or a browser-selected operation, and do not
 implement Trade approval workflow or spending policy in IAM. A minimal
-companion contract/endpoint change requires separate approval before work.
+companion binding is proposed in [Shared #471](https://github.com/baobab-platform/shared/pull/471)
+for review before connecting the providers.
 
 # IAM-N06 — Authentication assurance, recovery and security operations
 

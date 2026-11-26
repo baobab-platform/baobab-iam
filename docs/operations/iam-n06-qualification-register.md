@@ -1,3 +1,29 @@
+## 26 November 2026 — exact source and connected purchase approval
+
+The reviewed green baseline was `6ad5f16a9bb755c8e0f766c8086c4a0ded59eb50`.
+The later `47934e3ffac6ef23ebd592b6f09a854ee3e7462d` failed
+[CI formatting](https://github.com/baobab-platform/baobab-iam/actions/runs/45874782527)
+and the [Ory Foundation harness](https://github.com/baobab-platform/baobab-iam/actions/runs/45874782895).
+`3bff4e2d6a6648ae6ad2f4284203773f3429b90d` restores the shell harness and
+both required Hydra live cases, fixes formatting and registers disposable client
+cleanup immediately after creation. Each subsequent head requires its own runs.
+
+The Hydra session adapter attempts login-session withdrawal and consent
+readback after a consent DELETE failure. An incomplete provider result remains
+unavailable. Two-person recovery/credential rebinding, full subject
+containment and denial by CP/Trade remain separate live checks.
+
+The initial connected operation is `trade.purchase-approval.decide`.
+Trade #189 at `d59a500f78038252bd37b27aec22d134a00b36af` has a
+`PurchaseApproval` model and an approver policy evaluator. Its buy route
+implements a separate order commitment. No approval transition handler was
+found. [Shared #471](https://github.com/baobab-platform/shared/pull/471) proposes
+the server-owned attempt binding. It needs an agreed issuer profile, a current
+risk/recovery witness, CP authority, a Trade transaction owner, and the
+first-party ZuriBeans handoff before a physical HONOR operation can qualify.
+Store sanitized originals keyed to candidate hashes, including an independent
+Trade outcome and replay readback. PR #152 still owns N07 consumer acceptance.
+
 ## 26 November 2026 — bounded session revocation after browser disconnect
 
 The native BFF's explicit all-session logout now uses a bounded cleanup
