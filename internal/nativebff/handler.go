@@ -119,6 +119,7 @@ type Config struct {
 	N06Required        bool
 	N06ScopeOperations map[string]assurance.Operation
 	N06Gate            N06Gate
+	A3StepUp           *A3BrowserStepUp
 	NativeSessions     NativeSessionRevoker
 	OAuthSessions      OAuthSubjectSessionRevoker
 	TrustedRoots       *x509.CertPool
@@ -189,6 +190,9 @@ func New(c Config) (*Handler, error) {
 	}
 	if c.RequireAAL2 && c.Assurance == nil {
 		return nil, errors.New("step-up requires real Kratos AAL proof")
+	}
+	if c.A3StepUp != nil && (!c.N06Required || c.A3StepUp.origin != c.PublicOrigin || c.A3StepUp.store != c.Store) {
+		return nil, errors.New("reviewed A3 origin and browser session store required")
 	}
 	if c.N06Required {
 		if c.N06Gate == nil || len(c.N06ScopeOperations) == 0 {
@@ -356,6 +360,10 @@ func (h *Handler) routes() http.Handler {
 	mux.HandleFunc("POST /auth/logout", h.logout)
 	mux.HandleFunc("POST /auth/logout-all", h.logoutAll)
 	mux.HandleFunc("GET /auth/recovery", h.recovery)
+	if h.c.A3StepUp != nil {
+		mux.HandleFunc("POST /auth/a3/challenge", h.a3Challenge)
+		mux.HandleFunc("POST /auth/a3/verify", h.a3Verify)
+	}
 	return mux
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

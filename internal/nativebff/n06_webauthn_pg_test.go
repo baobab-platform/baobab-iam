@@ -12,8 +12,70 @@ import (
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/assurance"
+	"github.com/baobab-platform/baobab-iam/internal/humanauth"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func TestN06RealPGA3BrowserProofFollowsSessionRevocation(t *testing.T) {
+	_, pool := n06PGChallengeStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	for _, migration := range []string{"001_native_browser_bff.sql", "002_subject_session_revocation.sql", "003_n06_a3_browser_proof.sql"} {
+		ddl, err := os.ReadFile("migrations/" + migration)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, string(ddl)); err != nil {
+			t.Fatalf("%s: %v", migration, err)
+		}
+	}
+	key, idErr := randomValue()
+	if idErr != nil {
+		t.Fatal(idErr)
+	}
+	keyBytes := sha256.Sum256([]byte(key))
+	store, err := NewPostgresStore(pool, keyBytes[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessionID, err := randomValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	session := Session{Subject: "synthetic-n06-browser-proof-subject", Issuer: "https://issuer.invalid",
+		PrincipalID: "11111111-1111-4111-8111-111111111111", CSRF: sessionID, ExpiresAt: now.Add(time.Minute),
+		Tokens: humanauth.Response{AccessToken: key, TokenType: "Bearer", ExpiresIn: 60, IDToken: key}}
+	proof := assurance.NativeEvidence{Subject: session.Subject, Operation: a3BrowserOperation,
+		PasskeyUsed: true, UserVerified: true, OriginBound: true, ExpiresAt: now.Add(30 * time.Second)}
+	if err := store.putA3Proof(ctx, sessionID, proof); err == nil {
+		t.Fatal("proof written before a browser session exists")
+	}
+	if err := store.PutSession(ctx, sessionID, session); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.putA3Proof(ctx, sessionID, proof); err != nil {
+		t.Fatal(err)
+	}
+	var ciphertext []byte
+	idHash, _ := hashID(sessionID)
+	if err := pool.QueryRow(ctx, `SELECT sealed FROM native_bff_a3_proofs WHERE id_hash=$1`, idHash).Scan(&ciphertext); err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(ciphertext, []byte(session.Subject)) {
+		t.Fatal("proof subject visible in the database")
+	}
+	if err := store.DeleteSession(ctx, sessionID); err != nil {
+		t.Fatal(err)
+	}
+	var retained bool
+	if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM native_bff_a3_proofs WHERE id_hash=$1)`, idHash).Scan(&retained); err != nil || retained {
+		t.Fatalf("revoked session retained proof: %v", err)
+	}
+	if err := store.putA3Proof(ctx, sessionID, proof); err == nil {
+		t.Fatal("revoked session accepted a new proof")
+	}
+}
 
 func n06PGChallengeStore(t *testing.T) (*PGWebAuthnChallengeStore, *pgxpool.Pool) {
 	t.Helper()

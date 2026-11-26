@@ -166,6 +166,39 @@ func TestN06WebAuthnA3RefusesOperationsBelowTheA3Floor(t *testing.T) {
 	}
 }
 
+func TestN06WebAuthnA3BrowserChallengeBindsSessionAndCredential(t *testing.T) {
+	bound := sha256.Sum256([]byte("browser-session-that-requested-the-challenge"))
+	other := sha256.Sum256([]byte("other-browser-session"))
+	for _, c := range []struct {
+		name            string
+		hash            [32]byte
+		wrongCredential bool
+		wantProof       bool
+	}{
+		{name: "bound", hash: bound, wantProof: true},
+		{name: "different browser session", hash: other},
+		{name: "unbound verifier"},
+		{name: "different credential", hash: bound, wrongCredential: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := makeA3Fixture(t)
+			f.challenges.item.BrowserSessionHash = bound
+			f.challenges.item.CredentialID = f.assertion.CredentialID
+			if c.wrongCredential {
+				f.challenges.item.CredentialID = "different-credential-at-issuance"
+			}
+			cred := ory.NativeSessionCredential{Cookie: "ory_kratos_session=server-only"}
+			_, err := f.v.verifyBound(context.Background(), cred, assurance.HighValueApproval, c.hash, f.assertion)
+			if (err == nil) != c.wantProof {
+				t.Fatalf("unexpected browser binding result: %v", err)
+			}
+			if !c.wantProof && f.credentials.counter != 1 {
+				t.Fatal("refused browser binding advanced the assertion counter")
+			}
+		})
+	}
+}
+
 func TestN06WebAuthnA3CounterlessAssertionStillConsumesChallenge(t *testing.T) {
 	f := makeA3FixtureWithCounters(t, 0, 0)
 	cred := ory.NativeSessionCredential{Cookie: "ory_kratos_session=server-only"}
@@ -224,7 +257,7 @@ func TestN06WebAuthnA3FailClosedNegativeMatrix(t *testing.T) {
 			f.assertion.ClientDataJSON = []byte(`{"type":"webauthn.get","origin":"https://auth.example.test","challenge":"fake","crossOrigin":true}`)
 		},
 		"unknown-challenge": func(f *a3Fixture) { f.assertion.ChallengeID = "challenge-from-other-actor" },
-		"wrong-operation": func(f *a3Fixture) { f.challenges.item.Operation = assurance.CommitBuyer },
+		"wrong-operation":   func(f *a3Fixture) { f.challenges.item.Operation = assurance.CommitBuyer },
 	}
 	for name, mutate := range testCases {
 		t.Run(name, func(t *testing.T) {

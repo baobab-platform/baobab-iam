@@ -104,9 +104,9 @@ func TestN06A4DeniesWithoutIndependentHardwareAndPrivilege(t *testing.T) {
 		"privileged-self-approval": func(_ *A4Verifier, r *A4Request) {
 			r.IndependentReviewerReference = r.RequesterReference
 		},
-		"browser-fabricated-A3":         func(_ *A4Verifier, r *A4Request) { r.A3.PasskeyUsed = false },
-		"not-user-verified":             func(_ *A4Verifier, r *A4Request) { r.A3.UserVerified = false },
-		"wrong-session":                 func(_ *A4Verifier, r *A4Request) { r.Session.Subject = "other-subject" },
+		"browser-fabricated-A3": func(_ *A4Verifier, r *A4Request) { r.A3.PasskeyUsed = false },
+		"not-user-verified":     func(_ *A4Verifier, r *A4Request) { r.A3.UserVerified = false },
+		"wrong-session":         func(_ *A4Verifier, r *A4Request) { r.Session.Subject = "other-subject" },
 		"challenge-other-operation": func(v *A4Verifier, _ *A4Request) {
 			v.Challenges.(*a3Challenges).item.Operation = assurance.BreakGlass
 		},

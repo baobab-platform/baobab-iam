@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -44,6 +45,8 @@ type document struct {
 	BrowserDatabaseDSNFile  string                           `json:"browser_database_dsn_file"`
 	BrowserVaultKeyFile     string                           `json:"browser_vault_key_file"`
 	BrowserRateKeyFile      string                           `json:"browser_rate_key_file"`
+	A3ChallengeKeyFile      string                           `json:"a3_challenge_key_file"`
+	A3CounterKeyFile        string                           `json:"a3_counter_key_file"`
 	ChallengeStorage        federation.PostgresStorageConfig `json:"challenge_storage"`
 	HumanTokenProfilesFile  string                           `json:"human_token_profiles_file"`
 	HumanConsentSealKeyFile string                           `json:"human_consent_seal_key_file"`
@@ -262,6 +265,46 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("native browser admission ledger unavailable")
 	}
+	var a3 *nativebff.A3BrowserStepUp
+	if d.A3ChallengeKeyFile != "" || d.A3CounterKeyFile != "" {
+		challengeKey, challengeErr := privateBytes(d.A3ChallengeKeyFile)
+		counterKey, counterErr := privateBytes(d.A3CounterKeyFile)
+		if challengeErr != nil || counterErr != nil ||
+			slices.Equal(challengeKey, counterKey) || slices.Equal(challengeKey, vaultKey) || slices.Equal(counterKey, vaultKey) {
+			return errors.New("separate private A3 challenge and counter keys required")
+		}
+		privatePEM, err := privateBytes(caFile)
+		privateRoots := x509.NewCertPool()
+		if err != nil || !privateRoots.AppendCertsFromPEM(privatePEM) {
+			return errors.New("explicit CA trust for Kratos credential readback required")
+		}
+		var version int
+		if pool.QueryRow(ctx, "SELECT current_setting('server_version_num')::integer").Scan(&version) != nil ||
+			version/10000 != 17 {
+			return errors.New("PostgreSQL 17 required for A3 step-up")
+		}
+		challenges, err := nativebff.NewPGWebAuthnChallengeStore(ctx, pool, challengeKey, time.Now)
+		if err != nil {
+			return err
+		}
+		credentials, err := nativebff.NewKratosWebAuthnReader(d.KratosPublic, d.KratosAdmin, privateRoots)
+		if err != nil {
+			return err
+		}
+		counters, err := nativebff.NewPGWebAuthnCounterStore(ctx, pool, counterKey)
+		if err != nil {
+			return err
+		}
+		provider, err := nativebff.NewKratosN06Provider(d.KratosPublic, roots, time.Now, false, nil)
+		if err != nil {
+			return err
+		}
+		verifier := &nativebff.WebAuthnA3Verifier{Kratos: provider, Challenges: challenges, Credentials: credentials, Counters: counters, Now: time.Now}
+		a3, err = nativebff.NewA3BrowserStepUp(ctx, verifier, challenges, browserStore, d.PublicOrigin)
+		if err != nil {
+			return err
+		}
+	}
 	handler, err := nativebff.New(nativebff.Config{
 		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer, KratosOrigin: d.KratosPublic,
 		RequireAAL2: d.RequireAAL2, Assurance: handoff, NativeSessions: kratosSessions, OAuthSessions: hydraSessions,
@@ -271,7 +314,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
 		Store: browserStore, Limiter: limiter,
-		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate,
+		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate, A3StepUp: a3,
 	})
 	if err != nil {
 		return errors.New("invalid native BFF configuration")

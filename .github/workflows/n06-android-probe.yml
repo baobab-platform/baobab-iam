@@ -17,10 +17,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Build and verify the disposable debug APK
         env:
           GRADLE_VERSION: '8.9'
           GRADLE_SHA256: d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab
+          ANDROID_TOOLS_BUILD: '15859902'
+          ANDROID_TOOLS_SHA256: 4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583
         shell: bash
         run: |
           export JAVA_HOME="$JAVA_HOME_17_X64"
@@ -29,7 +32,18 @@ jobs:
             "https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip" -o "$RUNNER_TEMP/gradle.zip"
           printf '%s  %s\n' "$GRADLE_SHA256" "$RUNNER_TEMP/gradle.zip" | sha256sum -c -
           unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          export ANDROID_HOME="$RUNNER_TEMP/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_TOOLS_BUILD}_latest.zip" \
+            -o "$RUNNER_TEMP/android-tools.zip"
+          printf '%s  %s\n' "$ANDROID_TOOLS_SHA256" "$RUNNER_TEMP/android-tools.zip" | sha256sum -c -
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          unzip -q "$RUNNER_TEMP/android-tools.zip" -d "$RUNNER_TEMP/android-cli"
+          mv "$RUNNER_TEMP/android-cli/cmdline-tools" "$ANDROID_HOME/cmdline-tools/$ANDROID_TOOLS_BUILD"
+          sdkmanager="$ANDROID_HOME/cmdline-tools/$ANDROID_TOOLS_BUILD/bin/sdkmanager"
+          (set +o pipefail; yes | "$sdkmanager" --licenses >/dev/null)
+          "$sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
           "$RUNNER_TEMP/gradle-$GRADLE_VERSION/bin/gradle" --no-daemon -p tools/n06-android-probe lintDebug assembleDebug
           mkdir -p "$RUNNER_TEMP/n06-android"
           install -m 644 tools/n06-android-probe/app/build/outputs/apk/debug/app-debug.apk \
@@ -37,7 +51,7 @@ jobs:
           cd "$RUNNER_TEMP/n06-android"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs baobab-n06-probe.apk > APK-SIGNER.txt
           sha256sum baobab-n06-probe.apk > SHA256SUMS
-          printf '%s\n' "$GITHUB_SHA" > CHECKED-OUT-SOURCE.txt
+          git -C "$GITHUB_WORKSPACE" rev-parse HEAD > CHECKED-OUT-SOURCE.txt
           printf '%s\n' "${{ github.event.pull_request.head.sha || github.sha }}" > CANDIDATE-HEAD.txt
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

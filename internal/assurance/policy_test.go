@@ -219,6 +219,7 @@ func TestNativeEvaluatorHighRiskRaisesFloorAndCriticalRiskDenies(t *testing.T) {
 func TestNativeEvaluatorA4RequiresHardwareAndIndependentWitness(t *testing.T) {
 	now := time.Now().UTC()
 	e, key, proof, risk := nativeFixture(now)
+	proof.Operation = GrantPrivileged
 	proof.PasskeyUsed, proof.UserVerified, proof.OriginBound = true, true, true
 	proof.HardwareBound = true
 	proof.Methods = []string{"webauthn", "hardware-key"}
