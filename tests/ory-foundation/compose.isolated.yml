@@ -11,6 +11,10 @@ networks:
           ip_range: 172.30.146.8/29
 
 services:
+  postgres-kratos:
+    ports: !reset []
+  postgres-hydra:
+    ports: !reset []
   kratos:
     ports: !reset []
     networks:
