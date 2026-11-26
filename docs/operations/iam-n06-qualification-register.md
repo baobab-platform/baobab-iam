@@ -1,3 +1,23 @@
+## 26 November 2026 — bounded session revocation after browser disconnect
+
+The native BFF's explicit all-session logout now uses a bounded cleanup
+context independent of the browser request cancellation after the request's
+session and CSRF token have been authenticated. It attempts local BFF session
+deletion, deletion of all BFF sessions for the exact issuer/subject, Kratos
+subject-session revocation, Hydra subject-session revocation and revocation
+of the current BFF's access/refresh tokens. A failure in one provider does
+not skip the remaining attempts; any unconfirmed result returns unavailable.
+Local session deletion is not rolled back. A3 proof custody follows the BFF
+session lifecycle and is removed with its parent session.
+
+A regression test cancels the browser request immediately after the trusted
+session read and verifies that all provider revocation calls still execute
+with a live bounded cleanup context. This is source/test evidence. Real
+Kratos/Hydra deployment evidence, credential withdrawal, recovery/rebinding
+and containment readback remain separate connected qualification items.
+
+---
+
 ## 26 November 2026 — A3 proof custody and single-use consumption
 
 The optional BFF ceremony now stores a successful RP-bound assertion as a
