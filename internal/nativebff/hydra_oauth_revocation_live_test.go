@@ -55,6 +55,15 @@ func TestLiveN06HydraTokenRevocationReadback(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("Hydra test client registration status %d", resp.StatusCode)
 	}
+	subjectSessions, err := NewHydraSubjectSessionsRevoker(HydraSubjectSessionsConfig{
+		AdminOrigin: admin, AllowTestLoopback: true,
+	})
+	if err != nil {
+		t.Fatal("Hydra subject-session adapter unavailable", err)
+	}
+	if err := subjectSessions.RevokeSubjectSessions(ctx, "11111111-1111-4111-8111-111111111111"); err != nil {
+		t.Fatal("real Hydra subject-session deletion/consent read-back failed", err)
+	}
 	t.Cleanup(func() {
 		cleanup, stop := context.WithTimeout(context.Background(), 10*time.Second)
 		defer stop()
