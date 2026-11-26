@@ -1,3 +1,36 @@
+## 26 November 2026 — operation-scoped proof and evaluator timing correction
+
+The N06 evaluator now validates provider authentication time, expiry and freshness
+against the clock captured **after** the trusted provider read. A regression test
+covers a valid session whose authentication completes while the provider read is
+in flight. The two-read stability check independently validates each
+`ObservedAt` timestamp and excludes that changing observation timestamp from
+the security-state equality comparison; the risk readback uses the same rule.
+
+The RP-bound WebAuthn challenge now carries a server-owned assurance operation.
+The A3 verifier requires the caller's reviewed operation to match the consumed
+challenge and places that operation into the resulting evidence. The shared
+assurance evaluator rejects an operation-scoped passkey proof when reused for
+another operation. The A4 verifier also requires the A3 proof and hardware
+challenge to name the exact privileged operation. These changes make the
+cryptographic proof artifacts operation-scoped; they do **not** yet connect the
+A3 verifier to a production BFF route.
+
+**Production A3 remains HELD.** The executable BFF still composes only the
+current Kratos A1/A2 provider reader and unavailable risk reader. It does not
+issue operation-specific WebAuthn challenges, accept assertions, or consume
+operation-scoped A3 evidence against the BFF's own current session. That
+integration requires a server-owned operation-to-route contract; no operation
+is inferred from a browser parameter or from the generic `trade:buy` scope.
+Connected session revocation and recovery qualification remain required after
+that BFF binding is implemented. A4 remains HELD pending independent hardware
+attestation and current independent privileged approval.
+
+Exact-head CI for the current source changes is pending. Prior successful runs
+are not promoted to acceptance.
+
+---
+
 # IAM-N06 — Authentication assurance, recovery and security operations
 
 ## Review reconciliation — 26 November 2026
