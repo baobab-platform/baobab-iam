@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
@@ -82,6 +83,18 @@ func signatureText(a Approval) string {
 	return "BAOBAB-PEOPLE-DEV-v1\n" + a.WorkloadID + "\n" + a.SharedCommit + "\n" + a.Action + "\n" +
 		a.PlanDigest + "\n" + a.ExpiresAt + "\n"
 }
+func trustedReviewerPublicKey(trust Keyring, signature Signature, role string) (ed25519.PublicKey, error) {
+	reviewer, ok := trust.Reviewers[signature.KeyID]
+	if !ok || reviewer.Role != role {
+		return nil, errors.New("People development approver not in independently trusted keyring")
+	}
+	key, err := base64.StdEncoding.DecodeString(reviewer.PublicKey)
+	if err != nil || len(key) != ed25519.PublicKeySize {
+		return nil, errors.New("People development trusted reviewer key invalid")
+	}
+	return ed25519.PublicKey(key), nil
+}
+
 func verifyApproval(plan Plan, approval Approval, trust Keyring, action string, now time.Time) error {
 	digest, err := planDigest(plan)
 	if err != nil {
@@ -97,22 +110,26 @@ func verifyApproval(plan Plan, approval Approval, trust Keyring, action string, 
 		approval.Maker.KeyID == "" || approval.Checker.KeyID == "" {
 		return errors.New("People development approval does not bind the exact Shared plan and distinct reviewers")
 	}
+
+	makerKey, err := trustedReviewerPublicKey(trust, approval.Maker, "MAKER")
+	if err != nil {
+		return err
+	}
+	checkerKey, err := trustedReviewerPublicKey(trust, approval.Checker, "CHECKER")
+	if err != nil {
+		return err
+	}
+	if bytes.Equal(makerKey, checkerKey) {
+		return errors.New("People development maker and checker must use distinct trusted public keys")
+	}
 	for _, candidate := range []struct {
 		signature Signature
-		role      string
+		key       ed25519.PublicKey
 	}{
-		{approval.Maker, "MAKER"}, {approval.Checker, "CHECKER"},
+		{approval.Maker, makerKey}, {approval.Checker, checkerKey},
 	} {
-		reviewer, ok := trust.Reviewers[candidate.signature.KeyID]
-		if !ok || reviewer.Role != candidate.role {
-			return errors.New("People development approver not in independently trusted keyring")
-		}
-		key, err := base64.StdEncoding.DecodeString(reviewer.PublicKey)
-		if err != nil || len(key) != ed25519.PublicKeySize {
-			return errors.New("People development trusted reviewer key invalid")
-		}
 		sig, err := base64.StdEncoding.DecodeString(candidate.signature.Signature)
-		if err != nil || !ed25519.Verify(ed25519.PublicKey(key), []byte(signatureText(approval)), sig) {
+		if err != nil || !ed25519.Verify(candidate.key, []byte(signatureText(approval)), sig) {
 			return errors.New("People development approval signature invalid")
 		}
 	}
@@ -145,9 +162,33 @@ func loadJSON(path string, target any) error {
 	}
 	return nil
 }
+
+type credentialFile interface {
+	io.Writer
+	Sync() error
+	Close() error
+}
+
+// persistCredential treats a close error as a custody failure, just like a
+// write or sync error. The caller must compensate the already-created issuer
+// workload whenever this function returns an error.
+func persistCredential(dest credentialFile, secret string) error {
+	_, writeErr := io.WriteString(dest, secret+"\n")
+	var syncErr error
+	if writeErr == nil {
+		syncErr = dest.Sync()
+	}
+	closeErr := dest.Close()
+	return errors.Join(writeErr, syncErr, closeErr)
+}
+
 func privateAdmin(raw string) error {
 	u, err := url.Parse(raw)
-	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
+	if err != nil || u == nil || !u.IsAbs() || u.Host == "" || u.Hostname() == "" ||
+		u.User != nil || u.Opaque != "" || u.RawQuery != "" || u.ForceQuery ||
+		strings.Contains(raw, "#") || strings.HasSuffix(u.Host, ":") ||
+		u.Fragment != "" || u.RawFragment != "" || u.Path != "" || u.RawPath != "" ||
+		strings.TrimSpace(raw) != raw || strings.ContainsAny(raw, "\\\r\n\t") {
 		return errors.New("invalid private Hydra administrative endpoint")
 	}
 	// The developer port-forward/Compose private network must terminate on
@@ -221,10 +262,13 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 		return err
 	}
 	keep := false
+	destClosed := false
 	defer func() {
-		dest.Close()
+		if !destClosed {
+			_ = dest.Close()
+		}
 		if !keep {
-			os.Remove(path)
+			_ = os.Remove(path)
 		}
 	}()
 	identity, err := adapter.ProvisionWorkload(ctx, provider.WorkloadProvisioningSpec{
@@ -253,12 +297,11 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 	if identity == nil || identity.ProviderClientID != clientID || len(identity.ClientSecret) < 24 {
 		return compensate(errors.New("Ory client creation did not return a private credential"))
 	}
-	if _, err := dest.WriteString(identity.ClientSecret + "\n"); err != nil {
+	if err := persistCredential(dest, identity.ClientSecret); err != nil {
+		destClosed = true
 		return compensate(err)
 	}
-	if err := dest.Sync(); err != nil {
-		return compensate(err)
-	}
+	destClosed = true
 	keep = true
 	return json.NewEncoder(out).Encode(map[string]string{
 		"workload_id": clientID, "provider_client_id": identity.ProviderClientID,
