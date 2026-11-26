@@ -860,13 +860,19 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, http.StatusForbidden)
 		return
 	}
+	// Once the caller has authenticated the destructive request, finish
+	// revocation even if the browser disconnects. A bounded independent context
+	// prevents request cancellation from skipping provider cleanup; it does not
+	// turn an unconfirmed provider result into success.
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 20*time.Second)
+	defer cancel()
 	// Never make the local session live again after a provider timeout.
-	localOk := h.c.Store.DeleteSession(r.Context(), c.Value) == nil
-	allOk := h.c.Store.DeleteHumanSessions(r.Context(), s.Issuer, s.Subject) == nil
+	localOk := h.c.Store.DeleteSession(cleanupCtx, c.Value) == nil
+	allOk := h.c.Store.DeleteHumanSessions(cleanupCtx, s.Issuer, s.Subject) == nil
 	expireCookie(w, sessionCookie, http.SameSiteStrictMode)
-	kratosOk := h.c.NativeSessions != nil && h.c.NativeSessions.RevokeNativeSessions(r.Context(), s.Subject) == nil
-	hydraSessionOk := h.c.OAuthSessions != nil && h.c.OAuthSessions.RevokeSubjectSessions(r.Context(), s.Subject) == nil
-	hydraOk := h.c.Revoker.Revoke(r.Context(), s.Tokens) == nil
+	kratosOk := h.c.NativeSessions != nil && h.c.NativeSessions.RevokeNativeSessions(cleanupCtx, s.Subject) == nil
+	hydraSessionOk := h.c.OAuthSessions != nil && h.c.OAuthSessions.RevokeSubjectSessions(cleanupCtx, s.Subject) == nil
+	hydraOk := h.c.Revoker.Revoke(cleanupCtx, s.Tokens) == nil
 	if !localOk || !allOk || !kratosOk || !hydraSessionOk || !hydraOk {
 		h.fail(w, http.StatusServiceUnavailable)
 		return
