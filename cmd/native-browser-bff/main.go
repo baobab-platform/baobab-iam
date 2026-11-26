@@ -251,8 +251,9 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("Hydra all-subject logout authority unavailable")
 	}
-	revoker, err := nativebff.NewOAuthRevoker(nativebff.OAuthRevokeConfig{
-		Issuer: d.Issuer, ClientID: d.ClientID, ClientSecret: string(secret), TrustedRoots: roots,
+	revoker, err := nativebff.NewHydraOAuthRevoker(nativebff.HydraOAuthRevokeConfig{
+		Issuer: d.Issuer, AdminOrigin: d.HydraAdmin, ClientID: d.ClientID,
+		ClientSecret: string(secret), TrustedRoots: roots,
 	})
 	if err != nil {
 		return errors.New("confidential token revocation unavailable")
