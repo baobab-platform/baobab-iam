@@ -109,10 +109,12 @@ func TestN06RealPGA3BrowserProofIsSingleUseAndFollowsSessionRevocation(t *testin
 			t.Fatal("consumed A3 proof did not retain exact provider/session/operation evidence")
 		}
 	}
+	failureCount := 0
 	for range failures {
+		failureCount++
 	}
-	if success != 1 {
-		t.Fatalf("cross-replica A3 proof consumption had %d winners, want exactly one", success)
+	if success != 1 || failureCount != parallel-1 {
+		t.Fatalf("cross-replica A3 proof consumption had %d winners and %d denials, want 1 and %d", success, failureCount, parallel-1)
 	}
 	if _, err := otherReplica.takeA3Proof(ctx, sessionID, a3BrowserOperation, current); err == nil {
 		t.Fatal("consumed A3 proof was replayed")
