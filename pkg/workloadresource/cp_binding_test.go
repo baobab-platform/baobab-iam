@@ -181,6 +181,11 @@ func TestN04CPBindingRejectsUntrustedOriginAndReferences(t *testing.T) {
 	if _, err := NewCPRegisteredBinding(srv.URL, roots, bad, token); err == nil {
 		t.Fatal("unregistered provider id admitted")
 	}
+	bad = tgt
+	bad.ArtifactDigest = ""
+	if _, err := NewCPRegisteredBinding(srv.URL, roots, bad, token); err == nil {
+		t.Fatal("missing running artifact digest admitted")
+	}
 	if _, err := NewCPRegisteredBinding(srv.URL, roots, tgt, nil); err == nil {
 		t.Fatal("missing separately registered CP caller accepted")
 	}
