@@ -106,7 +106,7 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.NativeE
 	now := v.Now().UTC()
 	proof := r.A3
 	if proof.Issuer != r.Session.Issuer || proof.Subject != r.Session.Subject ||
-		proof.SessionID != r.Session.SessionID || proof.AAL != assurance.A2 ||
+		proof.SessionID != r.Session.SessionID || proof.Operation != r.Operation || proof.AAL != assurance.A2 ||
 		!proof.PasskeyUsed || !proof.UserVerified || !proof.OriginBound ||
 		proof.HardwareBound || proof.ObservedAt.IsZero() ||
 		proof.AuthenticatedAt.IsZero() || !proof.ExpiresAt.After(now) || proof.ObservedAt.After(now) ||
@@ -160,6 +160,7 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.NativeE
 		return none, errA4Denied
 	}
 	proof.HardwareBound = true
+	proof.Operation = r.Operation
 	proof.AuthenticatedAt = now
 	proof.ObservedAt = now
 	return proof, nil
