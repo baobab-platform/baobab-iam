@@ -116,6 +116,10 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.NativeE
 		!hasWebAuthn(proof.Methods) {
 		return none, errA4Denied
 	}
+	if !proof.RecoveryCompletedAt.IsZero() &&
+		(proof.RecoveryCompletedAt.After(now) || now.Sub(proof.RecoveryCompletedAt) < requirement.RecoveryHold) {
+		return none, errA4Denied
+	}
 	challenge, err := v.Challenges.Consume(ctx, r.ChallengeID)
 	if err != nil || challenge.ID != r.ChallengeID ||
 		challenge.Session != r.Session || challenge.Operation != r.Operation || len(challenge.Nonce) != 32 ||
@@ -136,32 +140,42 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.NativeE
 		return none, errA4Denied
 	}
 	hardware, err := v.Hardware.CurrentDeviceAttestation(ctx, r.Session, r.DevicePublicKeyDER)
+	hardwareAt := v.Now().UTC()
 	if err != nil || !hardware.ExactDeviceKey || !hardware.HardwareAttestationVerified ||
 		!hardware.PinnedTrustRootVerified || !hardware.NonExportablePrivateKeyVerified ||
 		!a4Ref.MatchString(hardware.OriginalReference) ||
-		hardware.ObservedAt.After(now) || hardware.ObservedAt.IsZero() ||
-		now.Sub(hardware.ObservedAt) > time.Minute {
+		hardwareAt.Before(now) || !a4Fresh(hardware.ObservedAt, hardwareAt, time.Minute) {
 		return none, errA4Denied
 	}
 	approval, err := v.Approvals.CurrentPrivilegedApproval(ctx, r.Session, r.Operation,
 		r.RequesterReference, r.IndependentReviewerReference)
+	approvalAt := v.Now().UTC()
 	if err != nil || !approval.ExactSession || !approval.CurrentPrivilege ||
 		!approval.IndependentReviewer || !approval.SameOperation ||
 		!a4Ref.MatchString(approval.OriginalReference) ||
-		approval.ObservedAt.After(now) || approval.ObservedAt.IsZero() ||
-		now.Sub(approval.ObservedAt) > time.Minute {
+		approvalAt.Before(hardwareAt) || !a4Fresh(approval.ObservedAt, approvalAt, time.Minute) {
 		return none, errA4Denied
 	}
 	risk, err := v.Risk.CurrentRisk(ctx, r.Session, r.Operation)
-	if err != nil || risk.ObservedAt.IsZero() || risk.ObservedAt.After(now) ||
-		now.Sub(risk.ObservedAt) > 30*time.Second || !risk.RecoveryStateChecked ||
+	completed := v.Now().UTC()
+	if err != nil || ctx.Err() != nil || completed.Before(approvalAt) ||
+		!a4Fresh(risk.ObservedAt, completed, 30*time.Second) || !risk.RecoveryStateChecked ||
 		!risk.PrivilegedContextVerified || risk.RecoverySuspicious ||
-		(risk.Level != "low" && risk.Level != "medium") {
+		(risk.Level != "low" && risk.Level != "medium") ||
+		!a4Fresh(hardware.ObservedAt, completed, time.Minute) ||
+		!a4Fresh(approval.ObservedAt, completed, time.Minute) ||
+		!a4Fresh(proof.ObservedAt, completed, 30*time.Second) ||
+		!proof.ExpiresAt.After(completed) || !challenge.ExpiresAt.After(completed) ||
+		completed.Sub(challenge.CreatedAt) > time.Minute {
 		return none, errA4Denied
 	}
 	proof.HardwareBound = true
 	proof.Operation = r.Operation
-	proof.AuthenticatedAt = now
-	proof.ObservedAt = now
+	proof.AuthenticatedAt = completed
+	proof.ObservedAt = completed
 	return proof, nil
+}
+
+func a4Fresh(observed, checked time.Time, maximumAge time.Duration) bool {
+	return !observed.IsZero() && !observed.After(checked) && checked.Sub(observed) <= maximumAge
 }

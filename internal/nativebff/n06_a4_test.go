@@ -46,6 +46,16 @@ func (r n06A4Risk) CurrentRisk(context.Context, assurance.CurrentSessionKey, ass
 	return r.value, nil
 }
 
+type n06A4AdvancingRisk struct {
+	clock *time.Time
+	delay time.Duration
+}
+
+func (r n06A4AdvancingRisk) CurrentRisk(context.Context, assurance.CurrentSessionKey, assurance.Operation) (assurance.Risk, error) {
+	*r.clock = r.clock.Add(r.delay)
+	return assurance.Risk{ObservedAt: *r.clock, Level: "low", RecoveryStateChecked: true, PrivilegedContextVerified: true}, nil
+}
+
 func n06A4Fixture(t *testing.T) (*A4Verifier, A4Request) {
 	t.Helper()
 	f := makeA3Fixture(t)
@@ -106,6 +116,7 @@ func TestN06A4DeniesWithoutIndependentHardwareAndPrivilege(t *testing.T) {
 		},
 		"browser-fabricated-A3": func(_ *A4Verifier, r *A4Request) { r.A3.PasskeyUsed = false },
 		"not-user-verified":     func(_ *A4Verifier, r *A4Request) { r.A3.UserVerified = false },
+		"recent-known-recovery": func(v *A4Verifier, r *A4Request) { r.A3.RecoveryCompletedAt = v.Now().Add(-time.Hour) },
 		"wrong-session":         func(_ *A4Verifier, r *A4Request) { r.Session.Subject = "other-subject" },
 		"challenge-other-operation": func(v *A4Verifier, _ *A4Request) {
 			v.Challenges.(*a3Challenges).item.Operation = assurance.BreakGlass
@@ -152,6 +163,29 @@ func TestN06A4DeniesWithoutIndependentHardwareAndPrivilege(t *testing.T) {
 			mutate(v, &request)
 			if _, err := v.Verify(context.Background(), request); err == nil {
 				t.Fatal("A4 admitted missing or untrusted independent hardware/privileged proof")
+			}
+		})
+	}
+}
+
+func TestN06A4ChecksExpiryAfterAuthorityReadback(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		delay      time.Duration
+		wantPermit bool
+	}{
+		{name: "fresh observation obtained during readback", delay: time.Second, wantPermit: true},
+		{name: "challenge expired during readback", delay: 30 * time.Second},
+		{name: "stale sources after readback", delay: time.Minute},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v, request := n06A4Fixture(t)
+			clock := v.Now()
+			v.Now = func() time.Time { return clock }
+			v.Risk = n06A4AdvancingRisk{clock: &clock, delay: tc.delay}
+			evidence, err := v.Verify(context.Background(), request)
+			if (err == nil) != tc.wantPermit || tc.wantPermit && !evidence.ObservedAt.Equal(clock) {
+				t.Fatalf("unexpected A4 evidence at authority completion: %v", err)
 			}
 		})
 	}
