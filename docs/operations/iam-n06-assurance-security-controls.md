@@ -1,34 +1,41 @@
-## 26 November 2026 — operation-scoped proof and evaluator timing correction
+## 26 November 2026 — independent review reconciliation and current A3 boundary
 
-The N06 evaluator now validates provider authentication time, expiry and freshness
-against the clock captured **after** the trusted provider read. A regression test
-covers a valid session whose authentication completes while the provider read is
-in flight. The two-read stability check independently validates each
-`ObservedAt` timestamp and excludes that changing observation timestamp from
-the security-state equality comparison; the risk readback uses the same rule.
+The N06 evaluator validates provider authentication time, expiry and freshness
+against the clock captured **after** the trusted provider read. Its two-read
+stability check independently validates each `ObservedAt` timestamp and
+excludes that changing observation timestamp from security-state equality;
+risk readback follows the same rule. Regression tests cover both timing cases.
 
-The RP-bound WebAuthn challenge now carries a server-owned assurance operation.
-The A3 verifier requires the caller's reviewed operation to match the consumed
-challenge and places that operation into the resulting evidence. The shared
-assurance evaluator rejects an operation-scoped passkey proof when reused for
-another operation. The A4 verifier also requires the A3 proof and hardware
-challenge to name the exact privileged operation. These changes make the
-cryptographic proof artifacts operation-scoped; they do **not** yet connect the
-A3 verifier to a production BFF route.
+The RP-bound WebAuthn challenge and verifier are implemented and exposed through
+the BFF's `/auth/a3/challenge` and `/auth/a3/verify` routes. The challenge uses
+the server-owned `HIGH_VALUE_APPROVAL` operation, and binds the opaque BFF
+session hash as well as the current Kratos issuer/subject/session. Verification
+stores encrypted, short-lived proof through `putA3Proof`. The PostgreSQL
+`takeA3Proof` consumer atomically consumes that proof once and validates its
+session, operation and evidence bindings.
 
-**Production A3 remains HELD.** The executable BFF still composes only the
-current Kratos A1/A2 provider reader and unavailable risk reader. It does not
-issue operation-specific WebAuthn challenges, accept assertions, or consume
-operation-scoped A3 evidence against the BFF's own current session. The new
-challenge contract binds the Kratos session, not the separate BFF session cookie. That
-integration requires a server-owned operation-to-route contract; no operation
-is inferred from a browser parameter or from the generic `trade:buy` scope.
+**Production A3 remains HELD because the final enforcement connection is not
+implemented:** no server-owned operation decision boundary currently invokes
+`takeA3Proof` and combines the consumed proof with a fresh current provider
+session and current risk/recovery evidence. The current executable's
+`trade:buy` mapping is authentication-only; it is not a high-value business
+operation and must not be treated as one. Do not infer an operation from a
+browser parameter or generic OAuth scope. CP and the domain engine retain
+canonical privilege and business authorization.
+
 Connected session revocation and recovery qualification remain required after
-that BFF binding is implemented. A4 remains HELD pending independent hardware
-attestation and current independent privileged approval.
+the enforcement boundary is implemented. A4 remains HELD pending independent
+hardware attestation and current independent privileged approval.
 
-Exact-head CI for the current source changes is pending. Prior successful runs
-are not promoted to acceptance.
+**Inherited release blocker:** IAM issue [#163](https://github.com/baobab-platform/baobab-iam/issues/163)
+tracks GO-2026-6909 in the active SAML federation parser. This is a separate
+enterprise-federation release hold, not a defect introduced by the A3 proof
+custody change. Do not claim SAML/SSO security qualification or release
+readiness until the advisory-specific remediation, negative fixtures,
+provenance and Security sign-off recorded in #163 are complete.
+
+Exact-head CI and connected qualification are separate gates. Prior successful
+runs are not promoted to a later head or to production A3/A4 acceptance.
 
 ---
 
