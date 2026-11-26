@@ -36,6 +36,13 @@ for provider in ('kratos', 'hydra'):
 print('Kratos and Hydra Compose images match the exact provider lock')
 PY
 timeout 240 docker compose -p ory-foundation-ci "${ory_compose[@]}" up -d
+# Assert Docker created the CI stack on an internal-only network. Published
+# loopback ports and the explicit host SMTP sink remain reachable; Internet
+# egress from Kratos/Hydra/PostgreSQL containers is not permitted.
+if [ "$(docker network inspect ory-foundation-ci_default --format '{{.Internal}}')" != "true" ]; then
+  echo "Ory Foundation network is not isolated from external egress" >&2
+  exit 1
+fi
 for port in 4434 4445; do
   ready=0
   for attempt in $(seq 1 30); do

@@ -1,0 +1,6 @@
+# CI-only override for the disposable Ory Foundation stack.
+# Do not apply to the optional local developer stack: local federation tests
+# may deliberately need explicitly approved external providers.
+networks:
+  default:
+    internal: true
