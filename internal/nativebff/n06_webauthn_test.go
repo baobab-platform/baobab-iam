@@ -98,7 +98,7 @@ func makeA3FixtureWithCounters(t *testing.T, stored, received uint32) a3Fixture 
 	}
 	key := assurance.CurrentSessionKey{Issuer: "https://iam.example.test", Subject: "subject-existing", SessionID: "session-existing"}
 	challenge := WebAuthnChallenge{
-		ID: "challenge-original-unique", Session: key,
+		ID: "challenge-original-unique", Session: key, Operation: assurance.HighValueApproval,
 		RPID: "auth.example.test", Origin: "https://auth.example.test",
 		Nonce: nonce, CreatedAt: now.Add(-20 * time.Second), ExpiresAt: now.Add(30 * time.Second),
 	}
@@ -144,7 +144,7 @@ func makeA3FixtureWithCounters(t *testing.T, stored, received uint32) a3Fixture 
 func TestN06WebAuthnA3VerifiesRealES256AndDeniesReplay(t *testing.T) {
 	f := makeA3Fixture(t)
 	cred := ory.NativeSessionCredential{Cookie: "ory_kratos_session=server-only"}
-	evidence, err := f.v.Verify(context.Background(), cred, f.assertion)
+	evidence, err := f.v.Verify(context.Background(), cred, assurance.HighValueApproval, f.assertion)
 	if err != nil || evidence.AAL != assurance.A2 || !evidence.PasskeyUsed ||
 		!evidence.UserVerified || !evidence.OriginBound || evidence.HardwareBound ||
 		evidence.Subject != f.challenges.item.Session.Subject {
@@ -223,7 +223,7 @@ func TestN06WebAuthnA3FailClosedNegativeMatrix(t *testing.T) {
 			mutate(&f)
 			if _, err := f.v.Verify(context.Background(),
 				ory.NativeSessionCredential{Cookie: "ory_kratos_session=server-only"},
-				f.assertion); err == nil {
+				assurance.HighValueApproval, f.assertion); err == nil {
 				t.Fatal("invalid WebAuthn A3 proof was accepted")
 			}
 		})
