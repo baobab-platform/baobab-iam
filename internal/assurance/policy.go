@@ -23,6 +23,11 @@ func (p NativePolicy) Validate() error {
 // second set of operation classes or assurance floors.
 func (l Level) Valid() bool { return rank(l) > 0 }
 
+func (op Operation) Valid() bool {
+	_, ok := floors[op]
+	return ok
+}
+
 // CurrentSessionKey is passed from the trusted server's authenticated native
 // session. No claim from a request body, query, cookie contents or frontend
 // properties is accepted as an assurance statement.
