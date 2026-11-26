@@ -1,0 +1,47 @@
+name: IAM N06 Android qualification APK
+on:
+  pull_request:
+    paths:
+      - 'tools/n06-android-probe/**'
+      - '.github/workflows/n06-android-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and verify the disposable debug APK
+        env:
+          GRADLE_VERSION: '8.9'
+          GRADLE_SHA256: d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab
+        shell: bash
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip" -o "$RUNNER_TEMP/gradle.zip"
+          printf '%s  %s\n' "$GRADLE_SHA256" "$RUNNER_TEMP/gradle.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          "$RUNNER_TEMP/gradle-$GRADLE_VERSION/bin/gradle" --no-daemon -p tools/n06-android-probe lintDebug assembleDebug
+          mkdir -p "$RUNNER_TEMP/n06-android"
+          install -m 644 tools/n06-android-probe/app/build/outputs/apk/debug/app-debug.apk \
+            "$RUNNER_TEMP/n06-android/baobab-n06-probe.apk"
+          cd "$RUNNER_TEMP/n06-android"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs baobab-n06-probe.apk > APK-SIGNER.txt
+          sha256sum baobab-n06-probe.apk > SHA256SUMS
+          printf '%s\n' "$GITHUB_SHA" > CHECKED-OUT-SOURCE.txt
+          printf '%s\n' "${{ github.event.pull_request.head.sha || github.sha }}" > CANDIDATE-HEAD.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: n06-android-qualification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/n06-android/
+          if-no-files-found: error
+          retention-days: 14
