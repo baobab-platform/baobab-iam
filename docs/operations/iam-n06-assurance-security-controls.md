@@ -19,7 +19,8 @@ A3 verifier to a production BFF route.
 **Production A3 remains HELD.** The executable BFF still composes only the
 current Kratos A1/A2 provider reader and unavailable risk reader. It does not
 issue operation-specific WebAuthn challenges, accept assertions, or consume
-operation-scoped A3 evidence against the BFF's own current session. That
+operation-scoped A3 evidence against the BFF's own current session. The new
+challenge contract binds the Kratos session, not the separate BFF session cookie. That
 integration requires a server-owned operation-to-route contract; no operation
 is inferred from a browser parameter or from the generic `trade:buy` scope.
 Connected session revocation and recovery qualification remain required after
