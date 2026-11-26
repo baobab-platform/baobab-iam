@@ -23,9 +23,17 @@ operation and must not be treated as one. Do not infer an operation from a
 browser parameter or generic OAuth scope. CP and the domain engine retain
 canonical privilege and business authorization.
 
-Connected session revocation and recovery qualification remain required after
-the enforcement boundary is implemented. A4 remains HELD pending independent
-hardware attestation and current independent privileged approval.
+IAM-owned session revocation is implemented independently of domain
+operation integration. BFF local-session deletion, all BFF sessions for the
+issuer/subject, Kratos subject-session revocation, Hydra subject-session
+revocation and the current BFF OAuth access/refresh-token revocation are
+attempted under a bounded cleanup context that survives browser disconnect.
+Any unconfirmed component returns an unavailable result; local sessions are
+not restored. A3 proof custody is removed with the BFF session. Connected
+Kratos/Hydra provider qualification, credential withdrawal, recovery/rebinding
+and containment readback remain required; they do not wait for a Trade
+procurement workflow. A4 remains HELD pending independent hardware
+attestation and current independent privileged approval.
 
 **Inherited release blocker:** IAM issue [#163](https://github.com/baobab-platform/baobab-iam/issues/163)
 tracks GO-2026-6909 in the active SAML federation parser. This is a separate
@@ -70,7 +78,7 @@ The production BFF composition now sets `N06Required: true`, supplies the review
 PR #151 is based on current `main`, which includes the merged N04 source; the branch is no longer behind `main`. N06 and the provider-neutral evaluator share the operation, level, outcome and policy vocabulary and its validated floors. Both A3 evaluation paths now require same-event RP-bound passkey proof and user verification, but do not make authenticator attestation a universal A3 prerequisite under ADR-IAM-0024. Native session readbacks compare stable provider and risk evidence across separate fresh observations. Connected qualification and the merge hold still apply.
 
 
-The Go Kratos live test checks that malformed registration cannot persist a credential. The Chromium case registers a real CTAP2 credential, reads it back from Kratos, starts a separate AAL1 password session for the subsequent AAL2 assertion and checks that a repeated submission is denied. The BFF still needs to consume server-stored RP assertion evidence for A3. The RP verifier now has a TLS Kratos credential reader and an independent PostgreSQL counter ledger. Their live integration with the BFF and connected revocation and recovery qualification remain open. A4 requires the independent hardware-attestation, risk and privileged-approval authorities.
+The Go Kratos live test rejects malformed registration without persisting a credential. The Chromium test registers a real CTAP2 credential, reads it back from Kratos, performs the AAL2 assertion and denies replay. The BFF challenge and assertion routes are wired, and successful proof is stored against the opaque BFF session. The remaining A3 source gap is operation-bound consumption: no reviewed domain operation contract currently invokes the one-use consumer with a fresh provider and risk/recovery decision. Connected revocation and recovery qualification remain open. A4 requires independent hardware-attestation, risk and privileged-approval authorities.
 
 Use exact-head CI and connected owner receipts for review. Promotion of A3/A4, recovery/rebinding, provider rotation and protected acceptance requires original evidence for the relevant operation.
 
