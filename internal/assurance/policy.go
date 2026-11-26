@@ -109,13 +109,13 @@ func (e *NativeEvaluator) Check(ctx context.Context, session CurrentSessionKey, 
 		return no
 	}
 	no.Required = req.Level
-	now := e.Now().UTC()
+	startedAt := e.Now().UTC()
 	proof, err := e.Authentication.CurrentAuthentication(ctx, session)
 	readAt := e.Now().UTC()
-	if err != nil || readAt.Before(now) || proof.Issuer != session.Issuer || proof.Subject != session.Subject ||
+	if err != nil || readAt.Before(startedAt) || proof.Issuer != session.Issuer || proof.Subject != session.Subject ||
 		proof.SessionID != session.SessionID || !freshNativeObservation(proof.ObservedAt, readAt) ||
-		proof.AuthenticatedAt.IsZero() || proof.AuthenticatedAt.After(now) ||
-		!proof.ExpiresAt.After(now) || now.Sub(proof.AuthenticatedAt) > req.MaxAge ||
+		proof.AuthenticatedAt.IsZero() || proof.AuthenticatedAt.After(readAt) ||
+		!proof.ExpiresAt.After(readAt) || readAt.Sub(proof.AuthenticatedAt) > req.MaxAge ||
 		(proof.AAL != A1 && proof.AAL != A2) || len(proof.Methods) == 0 || len(proof.Methods) > 12 {
 		no.Reason = "MISSING_FRESH_ISSUER_SESSION"
 		return no
@@ -127,11 +127,11 @@ func (e *NativeEvaluator) Check(ctx context.Context, session CurrentSessionKey, 
 	}
 	no.Observed = level
 	if !proof.RecoveryCompletedAt.IsZero() {
-		if proof.RecoveryCompletedAt.After(now) {
+		if proof.RecoveryCompletedAt.After(readAt) {
 			no.Reason = "RECOVERY_EVIDENCE_INVALID"
 			return no
 		}
-		if req.RecoveryHold > 0 && now.Sub(proof.RecoveryCompletedAt) < req.RecoveryHold {
+		if req.RecoveryHold > 0 && readAt.Sub(proof.RecoveryCompletedAt) < req.RecoveryHold {
 			no.Reason = "POST_RECOVERY_HOLD"
 			return no
 		}
