@@ -33,7 +33,7 @@ async function jsonRequest(url, method='GET', body) {
  const u = new URL(url);
  pass([API,ADMIN].includes(u.origin), 'ORIGIN');
  const r = await fetch(url, {method, redirect:'manual', signal:AbortSignal.timeout(12000),
-  headers:{Accept:'application/json', ...(body===undefined?{}:{'Content-Type':'application/json'})},
+  headers:{Accept:'application/json', ...(body===undefined?{}:{'Content-Type':method==='PATCH'?'application/json-patch+json':'application/json'})},
   body:body===undefined?undefined:JSON.stringify(body)});
  const raw = r.status===204?{}:await r.json().catch(()=>null);
  return {status:r.status, body:raw};
@@ -212,6 +212,29 @@ async function loginSecondFactor(continuation) {
  pass(!replay.redirect && replay.status>=400 && replay.status<500,
   'REPLAY_REJECTED_HTTP_'+replay.status);
 }
+async function withdrawWebAuthnCredential() {
+ qualificationPhase='KRATOS_REBIND_DISABLE_IDENTITY';
+ const disabled=await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID),'PATCH',
+  [{op:'replace',path:'/state',value:'inactive'}]);
+ pass(disabled.status===200 || disabled.status===204,'IDENTITY_DISABLE_HTTP_'+disabled.status);
+ qualificationPhase='KRATOS_REBIND_REVOKE_SESSIONS';
+ statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+'/sessions','DELETE'),
+  204,'SESSION_REVOCATION');
+ qualificationPhase='KRATOS_REBIND_SESSION_READBACK';
+ statusExact(await onPage('GET',API+'/sessions/whoami'),401,'OLD_SESSION_REVOKED');
+ qualificationPhase='KRATOS_REBIND_WITHDRAW_WEBAUTHN';
+ statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+'/credentials/webauthn','DELETE'),
+  204,'WEBAUTHN_WITHDRAWAL');
+ qualificationPhase='KRATOS_REBIND_PROVIDER_READBACK';
+ const current=statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+
+  '?include_credential=webauthn&include_credential=passkey'),200,'REBOUND_IDENTITY');
+ const webauthn=current.credentials?.webauthn?.config?.credentials ?? [];
+ const passkeys=current.credentials?.passkey?.config?.credentials ?? [];
+ pass(current.id===identityID && current.state==='inactive' &&
+  Array.isArray(webauthn) && webauthn.length===0 &&
+  Array.isArray(passkeys) && passkeys.length===0,'OLD_CREDENTIALS_ABSENT_AND_IDENTITY_DISABLED');
+}
+
 async function run() {
  try {
   qualificationPhase='KRATOS_NATIVE_IDENTITY';
@@ -245,7 +268,9 @@ async function run() {
   const continuation=await browserLoginPassword(true);
   qualificationPhase='KRATOS_AAL2_ASSERTION';
   await loginSecondFactor(continuation);
-  process.stdout.write('N06_KRATOS_CHROMIUM_CTAP2_A3_CEREMONY_AND_REPLAY_PASS_NOT_A4\n');
+  qualificationPhase='KRATOS_CREDENTIAL_WITHDRAWAL';
+  await withdrawWebAuthnCredential();
+  process.stdout.write('N06_KRATOS_CHROMIUM_CTAP2_A3_CEREMONY_REPLAY_AND_NATIVE_CREDENTIAL_WITHDRAWAL_PASS_NOT_GOVERNED_REBIND_OR_A4\n');
  } finally {
   // Preserve the failing protocol stage through mandatory cleanup;
   // cleanup must not conceal a real Kratos/Chromium qualification failure.
