@@ -55,7 +55,8 @@ func TestN04DevelopmentReaderExactPrivateConfig(t *testing.T) {
 	observed, err := checkedConfig(configFile)
 	if err != nil || observed.Environment != "development" ||
 		observed.Target.ProviderID != c.Target.ProviderID ||
-		observed.Target.ConfigurationReference != c.Target.ConfigurationReference {
+		observed.Target.ConfigurationReference != c.Target.ConfigurationReference ||
+		observed.Target.ArtifactDigest != c.Target.ArtifactDigest {
 		t.Fatal("valid exact canonical development config refused", err)
 	}
 	for _, bad := range []string{
