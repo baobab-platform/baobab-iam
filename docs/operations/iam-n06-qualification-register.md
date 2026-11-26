@@ -1,3 +1,37 @@
+## 26 November 2026 — A3 proof custody and single-use consumption
+
+The optional BFF ceremony now stores a successful RP-bound assertion as a
+short-lived encrypted record keyed to the opaque BFF session and the
+server-owned `HIGH_VALUE_APPROVAL` operation. The first implementation
+allowed a later proof to replace an earlier unexpired proof and had no
+atomic consumer. This increment closes that storage-lifecycle gap:
+
+- An unexpired proof for the same BFF session/operation cannot be overwritten.
+- PostgreSQL 17 `DELETE ... RETURNING` atomically consumes a live proof only
+  while its parent BFF session remains live.
+- The consumer authenticates the sealed record with the opaque BFF session ID
+  as AEAD context and verifies the exact Kratos issuer, subject, session,
+  operation, A2 base session, WebAuthn method, user verification, RP binding
+  and stored expiry.
+- A proof presented against a changed Kratos session is consumed and denied,
+  preventing retry against a later session.
+- Cross-replica concurrency qualification requires exactly one consumer to
+  win. BFF session deletion still cascades proof custody.
+
+**Boundary:** this is the durable single-use consumption primitive, not yet
+its production operation-gate integration. The existing `/auth/a3/verify`
+route still records proof; the current `N06SecurityGate` does not call
+`takeA3Proof`, and no business operation is executed by IAM. Production A3
+therefore remains HELD. Next increment: connect this one-use consumer to a
+server-owned operation-specific assurance evaluation boundary, while keeping
+CP/domain authorization separate; then execute connected revocation and
+recovery qualification. A4 remains independently gated.
+
+Exact-head PostgreSQL 17 N06 CI for this change must pass before the primitive
+is treated as qualified. No result from the preceding head is promoted.
+
+---
+
 # IAM-N06 implementation and qualification register
 
 PR #151 owns authentication assurance. PR #152 owns connected consumer
