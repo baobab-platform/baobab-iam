@@ -97,7 +97,7 @@ func TestLiveN06HydraTokenRevocationReadback(t *testing.T) {
 	defer tokenResp.Body.Close()
 	var issued struct {
 		AccessToken string `json:"access_token"`
-		TokenType string `json:"token_type"`
+		TokenType   string `json:"token_type"`
 	}
 	if tokenResp.StatusCode != http.StatusOK || json.NewDecoder(tokenResp.Body).Decode(&issued) != nil ||
 		len(issued.AccessToken) < 20 || !strings.EqualFold(issued.TokenType, "bearer") {
