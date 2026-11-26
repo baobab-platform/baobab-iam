@@ -49,9 +49,9 @@ func NewHydraOAuthRevoker(c HydraOAuthRevokeConfig) (*HydraOAuthRevoker, error) 
 		return nil, errors.New("explicit Hydra administration trust required")
 	}
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout:       5 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		Transport: &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{RootCAs: c.TrustedRoots, MinVersion: tls.VersionTLS12}},
+		Transport:     &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{RootCAs: c.TrustedRoots, MinVersion: tls.VersionTLS12}},
 	}
 	if c.AllowTestLoopback && c.AdminTestClient != nil {
 		client.Transport = c.AdminTestClient.Transport
