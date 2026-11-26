@@ -12,9 +12,13 @@ session lifecycle and is removed with its parent session.
 
 A regression test cancels the browser request immediately after the trusted
 session read and verifies that all provider revocation calls still execute
-with a live bounded cleanup context. This is source/test evidence. Real
-Kratos/Hydra deployment evidence, credential withdrawal, recovery/rebinding
-and containment readback remain separate connected qualification items.
+with a live bounded cleanup context. The existing Ory Foundation Chromium
+workflow now also exercises real Kratos identity disablement, session
+revocation, WebAuthn credential withdrawal and provider readback after the
+real CTAP2 ceremony. This is provider-mechanics evidence only: the live
+two-person recovery-hold authority is not yet connected to that adapter test.
+Hydra deployment evidence, governed rebinding, recovery and containment
+readback remain separate qualification items.
 
 ---
 
