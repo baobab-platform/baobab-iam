@@ -1,93 +1,27 @@
-// Package assurance evaluates current authentication *evidence*, not CP
-// business permissions. IAM-N06 follows ADR-IAM-0024/0025/0029/0033.
-//
-// No browser assertions, configured passkey enrollment, or historical ACR
-// alone can satisfy an operation's fresh A3/A4 requirement.
+// Package assurance evaluates current authentication evidence, not CP
+// business permissions. Native provider readers and the provider-neutral
+// evaluator share one operation, level and reviewed policy vocabulary.
 package assurance
 
 import (
 	"context"
-	"errors"
-	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
 )
 
-type Level uint8
+// NativePolicy is the provider-native adapter view of the same server-owned
+// policies used by the provider-neutral Evaluator. It is not browser supplied.
+type NativePolicy map[Operation]Policy
 
-const (
-	A0 Level = iota
-	A1
-	A2
-	A3
-	A4
-)
-
-func (l Level) Valid() bool { return l >= A1 && l <= A4 }
-
-type Operation string
-
-const (
-	OrdinaryBuyer     Operation = "buyer.read"
-	CommitBuyer       Operation = "buyer.commit"
-	HighValueApproval Operation = "buyer.approve"
-	ChangeCredential  Operation = "identity.credential.change"
-	ChangeRecovery    Operation = "identity.recovery.rebind"
-	GrantPrivileged   Operation = "iam.privileged.grant"
-	BreakGlass        Operation = "iam.breakglass.activate"
-)
-
-// Requirement is a reviewed server-side policy, never supplied by a browser.
-// MaxAge is the maximum age of the actual provider authentication event,
-// not the age of the application session or a cookie.
-type Requirement struct {
-	Min                      Level
-	MaxAge                   time.Duration
-	RecoveryHold             time.Duration
-	RequireCurrentRisk       bool
-	RequirePrivilegedWitness bool
+func (p NativePolicy) Validate() error {
+	return ValidatePolicies(map[Operation]Policy(p))
 }
 
-type Policy map[Operation]Requirement
-
-func (p Policy) Validate() error {
-	if len(p) == 0 {
-		return errors.New("assurance: reviewed operation policy required")
-	}
-	for operation, req := range p {
-		if operation == "" || !req.Min.Valid() || req.MaxAge <= 0 ||
-			req.MaxAge > 24*time.Hour || req.RecoveryHold < 0 ||
-			req.RecoveryHold > 30*24*time.Hour {
-			return errors.New("assurance: invalid reviewed requirement")
-		}
-		if (operation == GrantPrivileged || operation == BreakGlass) &&
-			(req.Min != A4 || !req.RequirePrivilegedWitness || !req.RequireCurrentRisk ||
-				req.MaxAge > 5*time.Minute || req.RecoveryHold < 24*time.Hour) {
-			return errors.New("assurance: privileged operation requires A4 and independent risk/context")
-		}
-		// A reviewed deployment policy may tighten the defaults, but cannot
-		// silently demote a consequential operation to weaker assurance or
-		// remove its live risk witness. These are immutable ADR-IAM-0024 floors.
-		switch operation {
-		case CommitBuyer:
-			if req.Min < A2 || !req.RequireCurrentRisk || req.MaxAge > 30*time.Minute {
-				return errors.New("assurance: buyer commitment requires A2 and current risk")
-			}
-		case HighValueApproval:
-			if req.Min < A3 || !req.RequireCurrentRisk ||
-				req.MaxAge > 5*time.Minute || req.RecoveryHold < 24*time.Hour {
-				return errors.New("assurance: high-value approval requires A3, current risk and recovery hold")
-			}
-		case ChangeCredential, ChangeRecovery:
-			if req.Min < A3 || !req.RequireCurrentRisk ||
-				req.MaxAge > 5*time.Minute || req.RecoveryHold < 24*time.Hour {
-				return errors.New("assurance: credential/rebinding operation requires A3, current risk and recovery hold")
-			}
-		}
-	}
-	return nil
-}
+// Operation aliases preserve the N06 route vocabulary without defining a
+// second set of operation classes or assurance floors.
+func (l Level) Valid() bool { return rank(l) > 0 }
 
 // CurrentSessionKey is passed from the trusted server's authenticated native
 // session. No claim from a request body, query, cookie contents or frontend
@@ -98,16 +32,17 @@ type CurrentSessionKey struct {
 	SessionID string
 }
 
-// Evidence is populated ONLY by a concrete trusted current-provider readback
-// in a verified issuer session, with evidence of the actual method USED.
-// A strong authenticator merely being enrolled is never proof of use.
-type Evidence struct {
+// NativeEvidence is populated ONLY by a concrete trusted current-provider
+// readback in a verified issuer session, with evidence of the actual method
+// used. Enrollment or an IdP method label alone is not proof of A3.
+type NativeEvidence struct {
 	Issuer              string
 	Subject             string
 	SessionID           string
 	ObservedAt          time.Time
 	AuthenticatedAt     time.Time
-	AAL                 string // "aal1", "aal2"; provider-neutral normalization is below.
+	ExpiresAt           time.Time
+	AAL                 Level
 	Methods             []string
 	PasskeyUsed         bool
 	UserVerified        bool
@@ -116,13 +51,14 @@ type Evidence struct {
 	RecoveryCompletedAt time.Time
 }
 
-type Reader interface {
-	CurrentAuthentication(context.Context, CurrentSessionKey) (Evidence, error)
+type NativeReader interface {
+	CurrentAuthentication(context.Context, CurrentSessionKey) (NativeEvidence, error)
 }
 
 type Risk struct {
 	ObservedAt                time.Time
-	Level                     string // "low", "medium", "high", "critical"; unknown fails closed
+	Level                     string // low, medium, high, critical; unknown fails closed
+	RecoveryStateChecked      bool
 	RecoverySuspicious        bool
 	PrivilegedContextVerified bool
 }
@@ -131,32 +67,32 @@ type RiskReader interface {
 	CurrentRisk(context.Context, CurrentSessionKey, Operation) (Risk, error)
 }
 
-type Outcome string
-
+// N06 outcomes are aliases of the shared assurance outcome vocabulary.
 const (
-	Allow  Outcome = "ALLOW_AUTHENTICATION_ASSURANCE_ONLY"
-	StepUp Outcome = "STEP_UP_REQUIRED"
-	Deny   Outcome = "DENIED"
+	Allow  Outcome = MetNotAuthorization
+	StepUp Outcome = StepUpRequired
+	Deny   Outcome = Denied
 )
 
-type Decision struct {
+type NativeDecision struct {
 	Outcome  Outcome
 	Required Level
 	Observed Level
-	Reason   string // low-cardinality reason only, never identity/secret material
+	Reason   string // low-cardinality reason only; never identity or secret material
 }
 
-// Evaluator NEVER makes a business authorization decision. The caller must
-// still query CP and the domain PEP and revalidate before commit.
-type Evaluator struct {
-	Policy         Policy
-	Authentication Reader
+// NativeEvaluator is a provider-native session adapter over the common
+// operation/level/policy model. It re-reads the provider and risk source before
+// returning a favorable result; it never makes a business authorization.
+type NativeEvaluator struct {
+	Policy         NativePolicy
+	Authentication NativeReader
 	Risk           RiskReader
 	Now            func() time.Time
 }
 
-func (e *Evaluator) Check(ctx context.Context, session CurrentSessionKey, op Operation) Decision {
-	no := Decision{Outcome: Deny, Reason: "ASSURANCE_UNAVAILABLE"}
+func (e *NativeEvaluator) Check(ctx context.Context, session CurrentSessionKey, op Operation) NativeDecision {
+	no := NativeDecision{Outcome: Deny, Reason: "ASSURANCE_UNAVAILABLE"}
 	if e == nil || ctx == nil || ctx.Err() != nil || e.Now == nil ||
 		e.Authentication == nil || e.Policy.Validate() != nil ||
 		session.Issuer == "" || session.Subject == "" || session.SessionID == "" {
@@ -167,35 +103,21 @@ func (e *Evaluator) Check(ctx context.Context, session CurrentSessionKey, op Ope
 		no.Reason = "UNREVIEWED_OPERATION"
 		return no
 	}
-	no.Required = req.Min
+	no.Required = req.Level
 	now := e.Now().UTC()
 	proof, err := e.Authentication.CurrentAuthentication(ctx, session)
 	if err != nil || proof.Issuer != session.Issuer || proof.Subject != session.Subject ||
 		proof.SessionID != session.SessionID || proof.ObservedAt.IsZero() ||
 		proof.ObservedAt.After(now) || now.Sub(proof.ObservedAt) > 30*time.Second ||
 		proof.AuthenticatedAt.IsZero() || proof.AuthenticatedAt.After(now) ||
-		now.Sub(proof.AuthenticatedAt) > req.MaxAge {
+		!proof.ExpiresAt.After(now) || now.Sub(proof.AuthenticatedAt) > req.MaxAge ||
+		!proof.AAL.Valid() || len(proof.Methods) == 0 || len(proof.Methods) > 12 {
 		no.Reason = "MISSING_FRESH_ISSUER_SESSION"
 		return no
 	}
-	level := A0
-	switch proof.AAL {
-	case "aal1":
-		level = A1
-	case "aal2":
-		level = A2
-	default:
-		no.Reason = "UNKNOWN_PROVIDER_ASSURANCE"
-		return no
-	}
-	// A3 cannot come from TOTP or an enrollment record. The Kratos/Keycloak
-	// reader must independently prove THIS authentication used WebAuthn,
-	// that the RP origin was bound, and user verification was performed.
-	if proof.PasskeyUsed && proof.UserVerified && proof.OriginBound &&
-		(slices.Contains(proof.Methods, "webauthn") || slices.Contains(proof.Methods, "passkey")) {
-		if level >= A2 {
-			level = A3
-		}
+	level := proof.AAL
+	if proof.PasskeyUsed && proof.UserVerified && proof.OriginBound && hasWebAuthn(proof.Methods) && level >= A2 {
+		level = A3
 	}
 	no.Observed = level
 	if !proof.RecoveryCompletedAt.IsZero() {
@@ -208,34 +130,37 @@ func (e *Evaluator) Check(ctx context.Context, session CurrentSessionKey, op Ope
 			return no
 		}
 	}
-	if req.RequireCurrentRisk || req.Min == A4 {
+	var firstRisk Risk
+	if req.RequireCurrentRisk || req.RequireRecoveryState || req.Level == A4 {
 		if e.Risk == nil {
 			no.Reason = "RISK_PROOF_REQUIRED"
 			return no
 		}
-		risk, err := e.Risk.CurrentRisk(ctx, session, op)
-		if err != nil || risk.ObservedAt.IsZero() || risk.ObservedAt.After(now) ||
-			now.Sub(risk.ObservedAt) > 30*time.Second || !slices.Contains([]string{"low", "medium", "high", "critical"}, risk.Level) {
+		firstRisk, err = e.Risk.CurrentRisk(ctx, session, op)
+		if err != nil || firstRisk.ObservedAt.IsZero() || firstRisk.ObservedAt.After(now) ||
+			now.Sub(firstRisk.ObservedAt) > 30*time.Second ||
+			!slices.Contains([]string{"low", "medium", "high", "critical"}, firstRisk.Level) ||
+			(req.RequireRecoveryState && !firstRisk.RecoveryStateChecked) {
 			no.Reason = "CURRENT_RISK_UNKNOWN"
 			return no
 		}
-		if risk.RecoverySuspicious || risk.Level == "critical" {
+		if firstRisk.RecoverySuspicious || firstRisk.Level == "critical" {
 			no.Reason = "SECURITY_CONTAINMENT_REQUIRED"
 			return no
 		}
-		if risk.Level == "high" && req.Min < A3 {
+		if firstRisk.Level == "high" && req.Level < A3 {
 			no.Required = A3
 		}
-		if req.Min == A4 && !risk.PrivilegedContextVerified {
+		if req.Level == A4 && !firstRisk.PrivilegedContextVerified {
 			no.Reason = "PRIVILEGED_A4_WITNESS_REQUIRED"
 			return no
 		}
-		if req.Min == A4 && !proof.HardwareBound {
+		if req.Level == A4 && !proof.HardwareBound {
 			no.Outcome = StepUp
 			no.Reason = "FRESH_HARDWARE_STEP_UP_REQUIRED"
 			return no
 		}
-		if req.Min == A4 && level >= A3 && risk.PrivilegedContextVerified && proof.HardwareBound {
+		if req.Level == A4 && level >= A3 && firstRisk.PrivilegedContextVerified && proof.HardwareBound {
 			level = A4
 			no.Observed = level
 		}
@@ -245,33 +170,65 @@ func (e *Evaluator) Check(ctx context.Context, session CurrentSessionKey, op Ope
 		no.Reason = "FRESH_AUTHENTICATOR_REQUIRED"
 		return no
 	}
+
+	// A favorable result is based on two identical, fresh provider and risk
+	// observations. The reader must perform real reads, not replay a cached
+	// proof from this invocation.
+	second, err := e.Authentication.CurrentAuthentication(ctx, session)
+	if err != nil || !reflect.DeepEqual(proof, second) {
+		no.Reason = "CURRENT_SESSION_CHANGED"
+		return no
+	}
+	if req.RequireCurrentRisk || req.RequireRecoveryState || req.Level == A4 {
+		secondRisk, riskErr := e.Risk.CurrentRisk(ctx, session, op)
+		if riskErr != nil || !reflect.DeepEqual(firstRisk, secondRisk) {
+			no.Reason = "CURRENT_RISK_CHANGED"
+			return no
+		}
+	}
+	completed := e.Now().UTC()
+	if ctx.Err() != nil || completed.Before(now) || !proof.ExpiresAt.After(completed) ||
+		completed.Sub(proof.AuthenticatedAt) > req.MaxAge {
+		no.Reason = "FRESH_AUTHENTICATOR_REQUIRED"
+		return no
+	}
+	methods := slices.Clone(proof.Methods)
+	seen := map[string]bool{}
+	for _, method := range methods {
+		if method == "" || len(method) > 64 || seen[method] {
+			no.Reason = "INVALID_AUTHENTICATOR_METHODS"
+			return no
+		}
+		seen[method] = true
+	}
 	no.Outcome = Allow
 	no.Reason = "ASSURANCE_MET_NOT_AUTHORIZATION"
+	no.Observed = level
 	return no
 }
 
-// DefaultDevelopmentPolicy is a conservative template, not certification.
-// A4 remains impossible without a real risk/privilege witness and native
-// phishing-resistant+hardware-bound authentication evidence.
-func DefaultDevelopmentPolicy() Policy {
-	return Policy{
-		OrdinaryBuyer:     {Min: A1, MaxAge: 12 * time.Hour},
-		CommitBuyer:       {Min: A2, MaxAge: 30 * time.Minute, RequireCurrentRisk: true},
-		HighValueApproval: {Min: A3, MaxAge: 5 * time.Minute, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true},
-		ChangeCredential:  {Min: A3, MaxAge: 5 * time.Minute, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true},
-		ChangeRecovery:    {Min: A3, MaxAge: 5 * time.Minute, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true},
-		GrantPrivileged:   {Min: A4, MaxAge: 5 * time.Minute, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true, RequirePrivilegedWitness: true},
-		BreakGlass:        {Min: A4, MaxAge: 5 * time.Minute, RecoveryHold: 24 * time.Hour, RequireCurrentRisk: true, RequirePrivilegedWitness: true},
+func hasWebAuthn(methods []string) bool {
+	for _, method := range methods {
+		if method == "webauthn" || method == "passkey" {
+			return true
+		}
 	}
+	return false
+}
+
+// DefaultDevelopmentPolicy is the same conservative, reviewed policy map
+// used by the provider-neutral evaluator. It is not production certification.
+func DefaultDevelopmentPolicy() NativePolicy {
+	return NativePolicy(ConservativePolicies())
 }
 
 // PublicReason never reflects provider response bodies, subject or risk data.
-func PublicReason(d Decision) string {
+func PublicReason(d NativeDecision) string {
 	if strings.HasPrefix(d.Reason, "ASSURANCE_") || d.Outcome == StepUp {
 		return "STEP_UP_REQUIRED"
 	}
 	if d.Outcome == Allow {
 		return "ASSURANCE_MET_NOT_AUTHORIZATION"
 	}
-	return fmt.Sprintf("%s", "AUTHENTICATION_DENIED")
+	return "AUTHENTICATION_DENIED"
 }
