@@ -2,6 +2,7 @@ package nativebff
 
 import (
 	"context"
+	"encoding/json"
 	"crypto/x509"
 	"net/http"
 	"net/http/httptest"
@@ -13,7 +14,26 @@ func TestHydraSubjectWideLogoutUsesPrivateTLSAndExactSubject(t *testing.T) {
 	subject := "11111111-1111-4111-8111-111111111111"
 	seen := []string{}
 	failure := false
+	remaining := false
+	readbackFailure := false
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/admin/oauth2/auth/sessions/consent" {
+			if r.URL.Query().Get("subject") != subject || r.URL.Query().Get("page_size") != "250" {
+				t.Error("Hydra consent-session readback was not subject-bound")
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if readbackFailure {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			if remaining {
+				_ = json.NewEncoder(w).Encode([]map[string]string{{"client": "still-authorized"}})
+				return
+			}
+			_ = json.NewEncoder(w).Encode([]any{})
+			return
+		}
 		if r.Method != http.MethodDelete || r.URL.Query().Get("subject") != subject {
 			t.Error("Hydra subject unbound")
 			w.WriteHeader(http.StatusForbidden)
@@ -55,6 +75,16 @@ func TestHydraSubjectWideLogoutUsesPrivateTLSAndExactSubject(t *testing.T) {
 	failure = true
 	if h.RevokeSubjectSessions(context.Background(), subject) == nil {
 		t.Fatal("Hydra subject-session 503 counted as confirmed")
+	}
+	failure = false
+	remaining = true
+	if h.RevokeSubjectSessions(context.Background(), subject) == nil {
+		t.Fatal("remaining consent session passed provider read-back")
+	}
+	remaining = false
+	readbackFailure = true
+	if h.RevokeSubjectSessions(context.Background(), subject) == nil {
+		t.Fatal("unavailable consent-session read-back counted as confirmed")
 	}
 	if _, err = NewHydraSubjectSessionsRevoker(HydraSubjectSessionsConfig{
 		AdminOrigin: "http://127.0.0.1:4445", Roots: roots}); err == nil {
