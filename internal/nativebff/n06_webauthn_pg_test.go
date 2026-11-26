@@ -16,9 +16,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestN06RealPGA3BrowserProofFollowsSessionRevocation(t *testing.T) {
+func TestN06RealPGA3BrowserProofIsSingleUseAndFollowsSessionRevocation(t *testing.T) {
 	_, pool := n06PGChallengeStore(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	for _, migration := range []string{"001_native_browser_bff.sql", "002_subject_session_revocation.sql", "003_n06_a3_browser_proof.sql"} {
 		ddl, err := os.ReadFile("migrations/" + migration)
@@ -38,6 +38,10 @@ func TestN06RealPGA3BrowserProofFollowsSessionRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	otherReplica, err := NewPostgresStore(pool, keyBytes[:])
+	if err != nil {
+		t.Fatal(err)
+	}
 	sessionID, err := randomValue()
 	if err != nil {
 		t.Fatal(err)
@@ -46,8 +50,11 @@ func TestN06RealPGA3BrowserProofFollowsSessionRevocation(t *testing.T) {
 	session := Session{Subject: "synthetic-n06-browser-proof-subject", Issuer: "https://issuer.invalid",
 		PrincipalID: "11111111-1111-4111-8111-111111111111", CSRF: sessionID, ExpiresAt: now.Add(time.Minute),
 		Tokens: humanauth.Response{AccessToken: key, TokenType: "Bearer", ExpiresIn: 60, IDToken: key}}
-	proof := assurance.NativeEvidence{Subject: session.Subject, Operation: a3BrowserOperation,
-		PasskeyUsed: true, UserVerified: true, OriginBound: true, ExpiresAt: now.Add(30 * time.Second)}
+	current := assurance.CurrentSessionKey{Issuer: session.Issuer, Subject: session.Subject, SessionID: "synthetic-kratos-session"}
+	proof := assurance.NativeEvidence{Issuer: current.Issuer, Subject: current.Subject, SessionID: current.SessionID,
+		Operation: a3BrowserOperation, AAL: assurance.A2, Methods: []string{"webauthn"},
+		AuthenticatedAt: now, ObservedAt: now, ExpiresAt: now.Add(30 * time.Second),
+		PasskeyUsed: true, UserVerified: true, OriginBound: true}
 	if err := store.putA3Proof(ctx, sessionID, proof); err == nil {
 		t.Fatal("proof written before a browser session exists")
 	}
@@ -57,6 +64,9 @@ func TestN06RealPGA3BrowserProofFollowsSessionRevocation(t *testing.T) {
 	if err := store.putA3Proof(ctx, sessionID, proof); err != nil {
 		t.Fatal(err)
 	}
+	if err := otherReplica.putA3Proof(ctx, sessionID, proof); err == nil {
+		t.Fatal("a second unexpired proof overwrote the existing operation proof")
+	}
 	var ciphertext []byte
 	idHash, _ := hashID(sessionID)
 	if err := pool.QueryRow(ctx, `SELECT sealed FROM native_bff_a3_proofs WHERE id_hash=$1`, idHash).Scan(&ciphertext); err != nil {
@@ -65,12 +75,64 @@ func TestN06RealPGA3BrowserProofFollowsSessionRevocation(t *testing.T) {
 	if bytes.Contains(ciphertext, []byte(session.Subject)) {
 		t.Fatal("proof subject visible in the database")
 	}
+	if _, err := store.takeA3Proof(ctx, sessionID, assurance.Login, current); err == nil {
+		t.Fatal("proof consumed for an operation below the A3 floor")
+	}
+	const parallel = 16
+	var wg sync.WaitGroup
+	outcomes := make(chan assurance.NativeEvidence, parallel)
+	failures := make(chan error, parallel)
+	for i := 0; i < parallel; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			replica := store
+			if i%2 == 1 {
+				replica = otherReplica
+			}
+			got, takeErr := replica.takeA3Proof(ctx, sessionID, a3BrowserOperation, current)
+			if takeErr != nil {
+				failures <- takeErr
+				return
+			}
+			outcomes <- got
+		}(i)
+	}
+	wg.Wait()
+	close(outcomes)
+	close(failures)
+	success := 0
+	for got := range outcomes {
+		success++
+		if got.Subject != current.Subject || got.SessionID != current.SessionID ||
+			got.Operation != a3BrowserOperation || !got.PasskeyUsed || !got.UserVerified || !got.OriginBound {
+			t.Fatal("consumed A3 proof did not retain exact provider/session/operation evidence")
+		}
+	}
+	for range failures {
+	}
+	if success != 1 {
+		t.Fatalf("cross-replica A3 proof consumption had %d winners, want exactly one", success)
+	}
+	if _, err := otherReplica.takeA3Proof(ctx, sessionID, a3BrowserOperation, current); err == nil {
+		t.Fatal("consumed A3 proof was replayed")
+	}
+	// A fresh assertion may create a new short-lived proof, but BFF session
+	// revocation must cascade-delete that proof before it can be consumed.
+	proof.AuthenticatedAt = time.Now().UTC()
+	proof.ExpiresAt = proof.AuthenticatedAt.Add(30 * time.Second)
+	if err := store.putA3Proof(ctx, sessionID, proof); err != nil {
+		t.Fatal("fresh proof after prior one-use consumption was refused", err)
+	}
 	if err := store.DeleteSession(ctx, sessionID); err != nil {
 		t.Fatal(err)
 	}
 	var retained bool
 	if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM native_bff_a3_proofs WHERE id_hash=$1)`, idHash).Scan(&retained); err != nil || retained {
 		t.Fatalf("revoked session retained proof: %v", err)
+	}
+	if _, err := store.takeA3Proof(ctx, sessionID, a3BrowserOperation, current); err == nil {
+		t.Fatal("revoked session proof was consumed")
 	}
 	if err := store.putA3Proof(ctx, sessionID, proof); err == nil {
 		t.Fatal("revoked session accepted a new proof")
