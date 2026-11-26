@@ -50,6 +50,7 @@ func n06A4Fixture(t *testing.T) (*A4Verifier, A4Request) {
 	t.Helper()
 	f := makeA3Fixture(t)
 	when := f.v.Now()
+	f.challenges.item.Operation = assurance.GrantPrivileged
 	original := f.v.Kratos.(a3Current).evidence
 	original.PasskeyUsed = true
 	original.UserVerified = true
@@ -105,6 +106,9 @@ func TestN06A4DeniesWithoutIndependentHardwareAndPrivilege(t *testing.T) {
 		"browser-fabricated-A3":         func(_ *A4Verifier, r *A4Request) { r.A3.PasskeyUsed = false },
 		"not-user-verified":             func(_ *A4Verifier, r *A4Request) { r.A3.UserVerified = false },
 		"wrong-session":                 func(_ *A4Verifier, r *A4Request) { r.Session.Subject = "other-subject" },
+		"challenge-other-operation": func(v *A4Verifier, _ *A4Request) {
+			v.Challenges.(*a3Challenges).item.Operation = assurance.BreakGlass
+		},
 		"wrong-operation":               func(_ *A4Verifier, r *A4Request) { r.Operation = assurance.OrdinaryBuyer },
 		"other-privileged-operation":    func(_ *A4Verifier, r *A4Request) { r.Operation = assurance.BreakGlass },
 		"substituted-distinct-reviewer": func(_ *A4Verifier, r *A4Request) { r.IndependentReviewerReference = "ref_anotherreviewer" },
