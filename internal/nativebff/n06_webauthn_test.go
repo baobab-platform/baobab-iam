@@ -153,7 +153,7 @@ func TestN06WebAuthnA3VerifiesRealES256AndDeniesReplay(t *testing.T) {
 	if f.credentials.counter != 2 {
 		t.Fatal("Kratos credential counter not advanced")
 	}
-	if _, err := f.v.Verify(context.Background(), cred, f.assertion); err == nil {
+	if _, err := f.v.Verify(context.Background(), cred, assurance.HighValueApproval, f.assertion); err == nil {
 		t.Fatal("one-time challenge was replayed")
 	}
 }
@@ -161,10 +161,10 @@ func TestN06WebAuthnA3VerifiesRealES256AndDeniesReplay(t *testing.T) {
 func TestN06WebAuthnA3CounterlessAssertionStillConsumesChallenge(t *testing.T) {
 	f := makeA3FixtureWithCounters(t, 0, 0)
 	cred := ory.NativeSessionCredential{Cookie: "ory_kratos_session=server-only"}
-	if _, err := f.v.Verify(context.Background(), cred, f.assertion); err != nil {
+	if _, err := f.v.Verify(context.Background(), cred, assurance.HighValueApproval, f.assertion); err != nil {
 		t.Fatal("valid counterless proof denied", err)
 	}
-	if _, err := f.v.Verify(context.Background(), cred, f.assertion); err == nil {
+	if _, err := f.v.Verify(context.Background(), cred, assurance.HighValueApproval, f.assertion); err == nil {
 		t.Fatal("counterless challenge replay accepted")
 	}
 }
@@ -216,6 +216,7 @@ func TestN06WebAuthnA3FailClosedNegativeMatrix(t *testing.T) {
 			f.assertion.ClientDataJSON = []byte(`{"type":"webauthn.get","origin":"https://auth.example.test","challenge":"fake","crossOrigin":true}`)
 		},
 		"unknown-challenge": func(f *a3Fixture) { f.assertion.ChallengeID = "challenge-from-other-actor" },
+		"wrong-operation": func(f *a3Fixture) { f.challenges.item.Operation = assurance.CommitBuyer },
 	}
 	for name, mutate := range testCases {
 		t.Run(name, func(t *testing.T) {
