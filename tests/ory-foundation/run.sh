@@ -79,17 +79,26 @@ export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
 go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated|TestLiveN06KratosCurrentSessionAndRevocation|TestLiveN06KratosRecoveryCourier|TestLiveN06KratosWebAuthnRegistrationChallenge|TestLiveN06HydraIssuerSigningKeyOverlap)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
 # N02 native-browser Hydra client registration is ADDITIONAL to all
 # provider live tests. No skipped/unexecuted case can satisfy its gate.
-go test -json ./internal/nativebff -run '^(TestLiveDevelopmentHydraEstateClientRegistration|TestLiveN06HydraTokenRevocationReadback)$' -count=1 | tee ory-foundation-evidence/nativebff-tests.jsonl
+go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistration$' -count=1 | tee ory-foundation-evidence/nativebff-tests.jsonl
 python3 - <<'PYNATIVE'
 import json
 from pathlib import Path
-names = ('TestLiveDevelopmentHydraEstateClientRegistration', 'TestLiveN06HydraTokenRevocationReadback')
+name = 'TestLiveDevelopmentHydraEstateClientRegistration'
 events = [json.loads(line) for line in Path('ory-foundation-evidence/nativebff-tests.jsonl').read_text().splitlines()]
-for name in names:
-    if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
-        raise SystemExit(f'{name}: missing real Hydra PASS evidence')
-print('Real native Hydra estate-client registration and N06 token revocation/read-back passed without skips')
+if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+    raise SystemExit('Native Hydra estate client registration did not pass')
+print('Real native Hydra estate-client registration passed without skips')
 PYNATIVE
+go test -json ./internal/nativebff -run '^TestLiveN06HydraTokenRevocationReadback$' -count=1 | tee ory-foundation-evidence/n06-hydra-revocation-tests.jsonl
+python3 - <<'PYN06'
+import json
+from pathlib import Path
+name = 'TestLiveN06HydraTokenRevocationReadback'
+events = [json.loads(line) for line in Path('ory-foundation-evidence/n06-hydra-revocation-tests.jsonl').read_text().splitlines()]
+if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+    raise SystemExit('Native Hydra N06 token revocation and readback did not pass')
+print('Real native Hydra token revocation and readback passed without skips')
+PYN06
 python3 - <<'PY'
 import json
 from pathlib import Path
