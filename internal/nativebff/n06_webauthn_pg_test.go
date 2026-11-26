@@ -117,12 +117,27 @@ func TestN06RealPGA3BrowserProofIsSingleUseAndFollowsSessionRevocation(t *testin
 	if _, err := otherReplica.takeA3Proof(ctx, sessionID, a3BrowserOperation, current); err == nil {
 		t.Fatal("consumed A3 proof was replayed")
 	}
+	// A proof for a different current Kratos session is consumed and denied;
+	// it cannot be retried after the provider session has changed.
+	proof.AuthenticatedAt = time.Now().UTC()
+	proof.ExpiresAt = proof.AuthenticatedAt.Add(30 * time.Second)
+	if err := store.putA3Proof(ctx, sessionID, proof); err != nil {
+		t.Fatal("fresh proof after prior one-use consumption was refused", err)
+	}
+	changedSession := current
+	changedSession.SessionID = "different-kratos-session"
+	if _, err := otherReplica.takeA3Proof(ctx, sessionID, a3BrowserOperation, changedSession); err == nil {
+		t.Fatal("proof for a different current Kratos session was accepted")
+	}
+	if _, err := store.takeA3Proof(ctx, sessionID, a3BrowserOperation, current); err == nil {
+		t.Fatal("mismatched-session proof remained available for replay")
+	}
 	// A fresh assertion may create a new short-lived proof, but BFF session
 	// revocation must cascade-delete that proof before it can be consumed.
 	proof.AuthenticatedAt = time.Now().UTC()
 	proof.ExpiresAt = proof.AuthenticatedAt.Add(30 * time.Second)
 	if err := store.putA3Proof(ctx, sessionID, proof); err != nil {
-		t.Fatal("fresh proof after prior one-use consumption was refused", err)
+		t.Fatal("fresh proof before session revocation was refused", err)
 	}
 	if err := store.DeleteSession(ctx, sessionID); err != nil {
 		t.Fatal(err)
