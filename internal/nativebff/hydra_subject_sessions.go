@@ -23,13 +23,15 @@ type HydraSubjectSessionsRevoker struct {
 	client *http.Client
 }
 type HydraSubjectSessionsConfig struct {
-	AdminOrigin string
-	Roots       *x509.CertPool
+	AdminOrigin       string
+	Roots             *x509.CertPool
+	AllowTestLoopback bool
 }
 
 func NewHydraSubjectSessionsRevoker(config HydraSubjectSessionsConfig) (*HydraSubjectSessionsRevoker, error) {
-	origin, err := originURL(config.AdminOrigin, false)
-	if err != nil || origin.Scheme != "https" || config.Roots == nil {
+	origin, err := originURL(config.AdminOrigin, config.AllowTestLoopback)
+	if err != nil || origin.Scheme != "https" && !config.AllowTestLoopback ||
+		!config.AllowTestLoopback && (config.Roots == nil || len(config.Roots.Subjects()) == 0) {
 		return nil, errors.New("private verified Hydra administration required")
 	}
 	return &HydraSubjectSessionsRevoker{
