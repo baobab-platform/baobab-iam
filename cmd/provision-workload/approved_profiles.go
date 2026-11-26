@@ -36,7 +36,7 @@ func approvedClient(id string) (approvedManifest, approvedProfile, error) {
 		return approvedManifest{}, approvedProfile{}, fmt.Errorf("invalid reviewed workload manifest: %w", err)
 	}
 	p, ok := manifest.Workloads[id]
-	if !ok || manifest.SourceCommit != "1517429bcae601a1b0288ca0279e524ce48a3d77" ||
+	if !ok || manifest.SourceCommit != "7f547ccdd759208355ef9224d2177929f4bf224e" ||
 		p.Environment != "production" || p.CredentialType != "client_credentials" || p.Status != "ACTIVE" ||
 		!slices.Contains(m4ClientCredentials, id) {
 		return approvedManifest{}, approvedProfile{}, fmt.Errorf("workload not admitted by the pinned Shared client-credentials profile")

@@ -26,7 +26,7 @@ class IAMN01Tests(unittest.TestCase):
         self.assertTrue(n01.check(record=self.record, lock=self.lock, declaration=self.declaration))
 
     def test_new_shared_pin_without_qualification_denied(self):
-        self.lock["source"]["commit"] = self.record["shared"]["reviewed_head"]
+        self.lock["source"]["commit"] = "4ea2cbb5638a5605e057a02665bc7360864fc253"
         self.deny("Shared lock differs")
 
     def test_manifest_cannot_pretend_repin_is_approved(self):
@@ -34,7 +34,7 @@ class IAMN01Tests(unittest.TestCase):
         self.deny("re-pin was not independently reviewed")
 
     def test_manifest_cannot_move_to_new_shared_head(self):
-        self.record["shared"]["pin"] = self.record["shared"]["reviewed_head"]
+        self.record["shared"]["pin"] = "4ea2cbb5638a5605e057a02665bc7360864fc253"
         self.deny("re-pin was not independently reviewed")
 
     def test_source_record_cannot_claim_staging_acceptance(self):

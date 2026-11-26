@@ -46,6 +46,11 @@
 # and the unallocated estate:commerce-profile:resolve, estate:resource-assignment:resolve/:write/:approve and
 # trade:native-commitment:submit scopes (ADR-IAM-0034), plus the INT-03C development proof workloads. No
 # existing scope or federation entry changes and no workload holds a new scope, so this pin grants nothing.
+# Shared #430 accepted merge (2026-11-04): 7f547cc reconciles N02/N04/N07
+# development workload declarations. All four new machine clients remain
+# PROVISIONED. This source pin grants no credentials, CP Principal, capability
+# binding, native commitment authority, protected deployment or certification.
+# The separate browser authorization-code client is NOT a workload identity.
 # Every scope this repository issues must exist in the scope registry at this
 # exact commit: scripts/check-issued-scopes.sh, run in CI and in
 # tests/integration/run.sh section 9b.
@@ -53,7 +58,7 @@ schema: baobab-contract-consumer-lock
 version: "1.0"
 source:
   repository: baobab-platform/shared
-  commit: 1517429bcae601a1b0288ca0279e524ce48a3d77
+  commit: 7f547ccdd759208355ef9224d2177929f4bf224e
 contracts:
   - contracts/capability/v1/resolution.schema.json
   - contracts/identity/v1/federation-authority-policy.yaml

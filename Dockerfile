@@ -28,15 +28,24 @@ RUN mkdir -p /mnt/rootfs && \
       jq \
     && dnf clean all --installroot /mnt/rootfs
 
-# A patch-level Guava security update from the canonical Maven repository.
-# Build tooling never enters the runtime rootfs. The reviewed SHA binds bytes,
-# not a mutable version URL or a scanner suppression.
+# A patch-level Guava security update from Maven Central. Build tooling
+# never enters the runtime rootfs. Maven Central can rate-limit shared CI
+# egress (HTTP 429), so use its Google-hosted mirror only as a download
+# fallback. The reviewed SHA binds the bytes from either endpoint; a mirror
+# mismatch, missing artifact or failed checksum remains a hard build failure.
 FROM tools-build AS security-artifacts
 RUN dnf install -y --allowerasing curl && dnf clean all
-RUN curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
-      --retry 6 --retry-all-errors --retry-delay 10 --retry-max-time 180 \
-      https://repo.maven.apache.org/maven2/com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar \
-      --output /guava.jar && \
+RUN set -eu; \
+    artifact='com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar'; \
+    if ! curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+        --retry 2 --retry-all-errors --retry-delay 5 --retry-max-time 90 \
+        "https://repo.maven.apache.org/maven2/${artifact}" --output /guava.jar; then \
+      rm -f /guava.jar; \
+      curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+        --retry 2 --retry-all-errors --retry-delay 5 --retry-max-time 90 \
+        "https://maven-central.storage-download.googleapis.com/maven2/${artifact}" \
+        --output /guava.jar; \
+    fi; \
     echo 'b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c  /guava.jar' | sha256sum --check --strict
 
 FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS bridge-libraries

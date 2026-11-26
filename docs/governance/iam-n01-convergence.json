@@ -11,9 +11,9 @@
   },
   "shared": {
     "repository": "baobab-platform/shared",
-    "pin": "1517429bcae601a1b0288ca0279e524ce48a3d77",
-    "reviewed_head": "c97387ed8e27eeffb0c0382e043db98cb450b900",
-    "decision": "HOLD_REPIN_PENDING_CONSUMER_QUALIFICATION"
+    "pin": "7f547ccdd759208355ef9224d2177929f4bf224e",
+    "reviewed_head": "7f547ccdd759208355ef9224d2177929f4bf224e",
+    "decision": "DEVELOPMENT_SOURCE_REPIN_ONLY_RUNTIME_QUALIFICATION_HELD"
   },
   "providers": {
     "baobab-iam.kratos": {

@@ -3,7 +3,9 @@
 **Status:** Proposed. This is IAM's implementation record for ADR-SHARED-042 §14 Decision 9, covering the server workload identity.
 **Date:** 2026-10-23
 **Governing decision:** Shared ADR-SHARED-042 §14 Decision 9, the Platform Owner ruling of 23 October 2026. Where this record and ADR-SHARED-042 differ, ADR-SHARED-042 governs.
-**Canonical contracts:** `baobab-platform/shared` at `1517429bcae601a1b0288ca0279e524ce48a3d77`:
+**Original Decision 9 source:** `baobab-platform/shared` at `1517429bcae601a1b0288ca0279e524ce48a3d77` (23 October 2026). The current development consumer inventory is pinned separately at Shared `7f547ccdd759208355ef9224d2177929f4bf224e`, merged through Shared PR #430 on 4 November 2026. That later source reconciles N02/N04/N07 development-only workload and scope declarations; it does not amend Decision 9 or allocate the native-commitment scope.
+
+**Decision 9 canonical contracts at original ruling:**
 - `authorization/v1/scope-registry.yaml` `trade:native-commitment:submit` (audience `baobab-trade`, workload actors only, `grants_authority: false`, allocated to no workload);
 - `control-plane/v1/estate-resource-assignment.schema.json` (`workloadClientId`).
 
@@ -35,7 +37,8 @@ IAM grants no authority with this scope. Estate, Tenant, Market and operation co
 ## Consequences
 
 - Allocating the scope to a real server application needs three separate approved steps: a Shared workload-registry change, an IAM client registration and a CP assignment. Activation needs connected evidence and the Platform Owner's approval. Nothing here allocates or activates.
-- `contracts.lock.yaml` (now also listing `estate-resource-assignment.schema.json`), `internal/federation/consume.go` and the Pulse authority test move to Shared `1517429`. That revision adds unallocated scopes and the two INT-03C development proof workloads, which `tests/integration/run.sh` admits as fixture-only (exact closed ceilings, no committed or live product client), like the INT-02 and INT-03 proof identities. It changes no existing scope or federation entry.
+- `contracts.lock.yaml` and `internal/federation/consume.go` consume the reviewed Shared development inventory at `7f547ccdd759208355ef9224d2177929f4bf224e` (Shared PR #430). This is a source/contract pin only. The N04 gate validates the exact lock, current provider mechanics and development-only scope ceiling; it does not issue credentials, allocate `trade:native-commitment:submit`, register a server application, create a CP assignment or qualify a protected consumer.
+- The original Decision 9 contract definitions and the `workloadClientId` grammar remain governed by the 23 October Shared ruling at `1517429bcae601a1b0288ca0279e524ce48a3d77`. The later PR #430 inventory must not be misrepresented as changing that ruling.
 
 ## Evidence
 

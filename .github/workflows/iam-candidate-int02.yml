@@ -1,0 +1,29 @@
+# Exact candidate IAM source -> real disposable IAM/CP component qualification.
+# This calls the Infrastructure #72 implementation by immutable SHA.
+# L4 CP/IAM synthetic-data proof is not N04 registration, N06 A3/A4,
+# protected staging, production admission, or a native-engine acceptance.
+name: IAM N04-N06 exact candidate real IAM CP development INT-02
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/iam-candidate-int02.yml"
+      - ".github/workflows/ci.yml"
+      - "cmd/**"
+      - "internal/**"
+      - "pkg/**"
+      - "scripts/**"
+      - "tests/**"
+      - "provider.lock.yaml"
+      - "go.mod"
+      - "go.sum"
+permissions:
+  contents: read
+  packages: read
+jobs:
+  int02-real-candidate:
+    uses: baobab-platform/infrastructure/.github/workflows/platform-int02.yml@47f0c253112a466eb9612f81c6ba5d84a2184207
+    with:
+      harness_sha: 47f0c253112a466eb9612f81c6ba5d84a2184207
+      candidate_repository: baobab-iam
+      candidate_sha: ${{ github.event.pull_request.head.sha }}
+      dev11_connected_required: false
