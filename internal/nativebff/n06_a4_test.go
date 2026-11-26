@@ -52,6 +52,7 @@ func n06A4Fixture(t *testing.T) (*A4Verifier, A4Request) {
 	when := f.v.Now()
 	f.challenges.item.Operation = assurance.GrantPrivileged
 	original := f.v.Kratos.(a3Current).evidence
+	original.Operation = assurance.GrantPrivileged
 	original.PasskeyUsed = true
 	original.UserVerified = true
 	original.OriginBound = true
