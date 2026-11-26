@@ -1,5 +1,15 @@
 # IAM-N08 — Native operational hardening
 
+## Review reconciliation — 26 November 2026
+
+N08 remains DRAFT / HELD. On head `961399cab4e3e218481acc37f859c4677be997c3`, the N08-specific workflow run `43156605326` passed all three jobs: pinned native image/source negatives/rootless runtime, real Keycloak enterprise-provider database restore, and real Kratos/Hydra PostgreSQL 17 restore with retained-denial readback. The main build, Foundation, INT-02 candidate, federation, PostgreSQL negative suites, secret scanning and action-pinning checks also passed.
+
+Both Ory Foundation Live variants in run `43156605324` failed on the inherited N06 result `N06_A3_HELD_KRATOS_PASSKEY_REGISTRATION_UNCLASSIFIED`. N08 cannot bypass its N06/N07 parent. The three successful N08 jobs are real development evidence for their named scopes, not full cross-provider DR acceptance, protected deployment approval, measured RPO/RTO, or production readiness.
+
+N08 currently follows the N07 head, but N07 itself must be updated after N04/N06 reconciliation. Rebase/reconcile N08 only after the N07 parent is current, then rerun the exact-head N08 and inherited workflows. Preserve the restore-denial/non-resurrection checks and complete teardown.
+
+---
+
 31 October 2026 | DRAFT, CONNECTED QUALIFICATION HELD
 
 Accepted sequence: N01 architecture; N02 native Kratos→Hydra→CP human login; N03 workload/resource; N04 provider qualification; N05 lifecycle; N06 assurance/security; N07 connected estates/engines; N08 native operational hardening. Source branch is stacked on N07 #152 and N06 #151. N03 #148 and N04 #149 remain separately reviewed dependencies.
