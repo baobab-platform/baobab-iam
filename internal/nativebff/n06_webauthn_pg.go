@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/baobab-platform/baobab-iam/internal/assurance"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -78,11 +79,12 @@ func NewPGWebAuthnChallengeStore(ctx context.Context, pool *pgxpool.Pool, key []
 	return &PGWebAuthnChallengeStore{pool: pool, aead: gcm, now: now}, nil
 }
 func (s *PGWebAuthnChallengeStore) Create(ctx context.Context, challenge WebAuthnChallenge) error {
+	policy, reviewedOperation := assurance.DefaultDevelopmentPolicy()[challenge.Operation]
 	if s == nil || s.pool == nil || s.aead == nil || ctx == nil || ctx.Err() != nil ||
 		!n06ChallengeID.MatchString(challenge.ID) ||
 		challenge.Session.Issuer == "" || challenge.Session.Subject == "" ||
-		challenge.Session.SessionID == "" || !challenge.Operation.Valid() || len(challenge.Nonce) != 32 ||
-		!validRelyingParty(challenge) {
+		challenge.Session.SessionID == "" || !reviewedOperation || policy.Level < assurance.A3 ||
+		len(challenge.Nonce) != 32 || !validRelyingParty(challenge) {
 		return errA3Denied
 	}
 	now := s.now().UTC()
