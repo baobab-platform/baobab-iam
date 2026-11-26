@@ -97,18 +97,17 @@ func (h *HydraOAuthRevoker) introspect(ctx context.Context, token string) (bool,
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 512))
 		return false, errors.New("Hydra token readback denied")
 	}
-	decoder := json.NewDecoder(io.LimitReader(resp.Body, 4097))
-	var result struct {
-		Active bool `json:"active"`
-	}
-	if err := decoder.Decode(&result); err != nil {
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 4097))
+	if err != nil || len(raw) > 4096 {
 		return false, errors.New("Hydra token readback malformed")
 	}
-	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		return false, errors.New("Hydra token readback ambiguous")
+	var result struct {
+		Active *bool `json:"active"`
 	}
-	return result.Active, nil
+	if err := json.Unmarshal(raw, &result); err != nil || result.Active == nil {
+		return false, errors.New("Hydra token readback malformed")
+	}
+	return *result.Active, nil
 }
 
 var _ Revoker = (*HydraOAuthRevoker)(nil)
