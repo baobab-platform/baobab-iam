@@ -19,7 +19,7 @@ func n04Target() CPBindingTarget {
 		EstateID:                "estate_nabhold",
 		ConfigurationReference:  "ref_config1234",
 		SecurityDomainReference: "ref_security1234",
-		ArtifactDigest:           "sha256:" + strings.Repeat("a", 64),
+		ArtifactDigest:          "sha256:" + strings.Repeat("a", 64),
 	}
 }
 
