@@ -158,6 +158,7 @@ func TestNativeEvaluatorRequiresRPBoundUserVerifiedPasskeyForA3(t *testing.T) {
 		t.Fatalf("A2/TOTP must not satisfy A3: %#v", decision)
 	}
 
+	proof.Operation = HighValueApproval
 	proof.PasskeyUsed = true
 	proof.UserVerified = true
 	proof.OriginBound = true
@@ -176,6 +177,19 @@ func TestNativeEvaluatorRequiresRPBoundUserVerifiedPasskeyForA3(t *testing.T) {
 	}
 }
 
+func TestNativeEvaluatorRejectsOperationBoundPasskeyEvidenceForAnotherOperation(t *testing.T) {
+	now := time.Now().UTC()
+	e, key, proof, _ := nativeFixture(now)
+	proof.Operation = HighValueApproval
+	proof.PasskeyUsed, proof.UserVerified, proof.OriginBound = true, true, true
+	proof.Methods = []string{"webauthn"}
+	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
+	decision := e.Check(context.Background(), key, CommitBuyer)
+	if decision.Outcome != Deny || decision.Reason != "ASSURANCE_OPERATION_MISMATCH" {
+		t.Fatalf("operation-bound A3 proof was reused for another operation: %#v", decision)
+	}
+}
+
 func TestNativeEvaluatorHighRiskRaisesFloorAndCriticalRiskDenies(t *testing.T) {
 	now := time.Now().UTC()
 	e, key, proof, risk := nativeFixture(now)
@@ -185,6 +199,7 @@ func TestNativeEvaluatorHighRiskRaisesFloorAndCriticalRiskDenies(t *testing.T) {
 	if decision.Outcome != StepUp || decision.Required != A3 {
 		t.Fatalf("high risk should raise A2 to A3: %#v", decision)
 	}
+	proof.Operation = CommitBuyer
 	proof.PasskeyUsed, proof.UserVerified, proof.OriginBound = true, true, true
 	proof.Methods = []string{"webauthn"}
 	e.Authentication = &fixedNativeReader{proofs: []NativeEvidence{proof, proof}}
