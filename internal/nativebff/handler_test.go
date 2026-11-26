@@ -538,7 +538,7 @@ func (s cancelAfterReadStore) ReadSession(ctx context.Context, id string) (Sessi
 }
 
 type contextCheckingTokenRevoker struct {
-	calls int
+	calls    int
 	canceled bool
 }
 
@@ -549,7 +549,7 @@ func (r *contextCheckingTokenRevoker) Revoke(ctx context.Context, _ humanauth.Re
 }
 
 type contextCheckingNativeRevoker struct {
-	calls int
+	calls    int
 	canceled bool
 }
 
@@ -560,7 +560,7 @@ func (r *contextCheckingNativeRevoker) RevokeNativeSessions(ctx context.Context,
 }
 
 type contextCheckingOAuthSessionRevoker struct {
-	calls int
+	calls    int
 	canceled bool
 }
 
