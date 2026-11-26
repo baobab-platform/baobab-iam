@@ -146,13 +146,16 @@ async function browserLoginPassword() {
  pass(whoami.body?.identity?.id===identityID,'BROWSER_SESSION_SUBJECT');
 }
 async function registerWebAuthn() {
+ qualificationPhase='KRATOS_SETTINGS_BROWSER_FLOW';
  const {id,flow}=await browserFlow('settings');
+ qualificationPhase='KRATOS_SETTINGS_CHALLENGE_READBACK';
  const challenge=field(flow,'webauthn_register_trigger');
  const csrf=field(flow,'csrf_token');
  pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','SETTINGS_RP_CHALLENGE');
  qualificationPhase='KRATOS_PASSKEY_CREATE';
  const credential=await nativeCredential('create',challenge,'localhost');
  pass(typeof credential.id==='string' && credential.id.length>=16 && added>=1,'CHROMIUM_CREDENTIAL');
+ qualificationPhase='KRATOS_PASSKEY_COMMIT';
  const response=await onPage('POST',API+'/self-service/settings?flow='+id,
   {method:'webauthn',webauthn_register:JSON.stringify(credential),
    webauthn_register_displayname:'disposable-ci-ctap2',csrf_token:csrf});
@@ -163,15 +166,20 @@ async function registerWebAuthn() {
  pass(Array.isArray(configured) && configured.length===1,'REGISTERED_PROVIDER_KEY_READBACK');
 }
 async function loginSecondFactor() {
+ qualificationPhase='KRATOS_AAL2_BROWSER_FLOW';
  const {id,flow}=await browserFlow('login','?aal=aal2');
+ qualificationPhase='KRATOS_AAL2_CHALLENGE_READBACK';
  const challenge=field(flow,'webauthn_login_trigger');
  const csrf=field(flow,'csrf_token');
  pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','AAL2_CHALLENGE');
+ qualificationPhase='KRATOS_AAL2_ASSERTION';
  const credential=await nativeCredential('get',challenge,'localhost');
  pass(credential.type==='public-key' && asserted>=1,'REAL_CREDENTIAL_ASSERTION');
+ qualificationPhase='KRATOS_AAL2_COMMIT';
  const success=await onPage('POST',API+'/self-service/login?flow='+id,
   {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
  pass(success.status===200 || success.redirect,'AAL2_COMMIT_'+success.status);
+ qualificationPhase='KRATOS_AAL2_SESSION_READBACK';
  const active=statusExact(await onPage('GET',API+'/sessions/whoami'),200,'AAL2_SESSION');
  pass(active.identity?.id===identityID &&
   active.authenticator_assurance_level==='aal2' &&
@@ -179,6 +187,7 @@ async function loginSecondFactor() {
   active.authentication_methods.some(x=>x.method==='webauthn'),'ACTUAL_AAL2_METHOD_READBACK');
  // Replaying the original assertion on the already-consumed server flow must
  // never produce a new authoritative Kratos successful login response.
+ qualificationPhase='KRATOS_AAL2_REPLAY';
  const replay=await onPage('POST',API+'/self-service/login?flow='+id,
   {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
  pass(replay.status!==200,'REPLAY_REJECTED');
