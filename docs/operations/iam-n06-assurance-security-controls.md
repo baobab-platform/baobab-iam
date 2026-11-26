@@ -29,11 +29,19 @@ issuer/subject, Kratos subject-session revocation, Hydra subject-session
 revocation and the current BFF OAuth access/refresh-token revocation are
 attempted under a bounded cleanup context that survives browser disconnect.
 Any unconfirmed component returns an unavailable result; local sessions are
-not restored. A3 proof custody is removed with the BFF session. Connected
-Kratos/Hydra provider qualification, credential withdrawal, recovery/rebinding
-and containment readback remain required; they do not wait for a Trade
-procurement workflow. A4 remains HELD pending independent hardware
-attestation and current independent privileged approval.
+not restored. A3 proof custody is removed with the BFF session.
+
+The existing Ory Foundation Chromium test now also exercises the native
+Kratos credential-withdrawal sequence after its real disposable CTAP2 A3
+ceremony: disable the identity, revoke sessions, verify the old browser
+session is rejected, delete the WebAuthn credential and read back the
+inactive identity with no old WebAuthn/passkey credentials. This qualifies
+Kratos provider mechanics only. It does not yet exercise the complete
+two-person securityops recovery-hold authority through the live adapter.
+Connected Hydra revocation, governed credential rebinding, recovery and
+containment readback remain required; they do not wait for a Trade procurement
+workflow. A4 remains HELD pending independent hardware attestation and
+current independent privileged approval.
 
 **Inherited release blocker:** IAM issue [#163](https://github.com/baobab-platform/baobab-iam/issues/163)
 tracks GO-2026-6909 in the active SAML federation parser. This is a separate
