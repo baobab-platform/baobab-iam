@@ -123,7 +123,8 @@ async function kratosIdentity() {
  identityID=data.identity.id;
 }
 async function getIdentity() {
- const data=statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)),200,'CURRENT_IDENTITY');
+ const url=ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+'?include_credential=webauthn';
+ const data=statusExact(await jsonRequest(url),200,'CURRENT_IDENTITY');
  pass(data.id===identityID, 'SUBJECT_MISMATCH');
  return data;
 }
@@ -158,6 +159,10 @@ async function registerWebAuthn() {
  const after=await getIdentity();
  const configured=after.credentials?.webauthn?.config?.credentials;
  pass(Array.isArray(configured) && configured.length===1,'REGISTERED_PROVIDER_KEY_READBACK');
+ const saved=configured[0];
+ pass(typeof saved?.id==='string' && typeof saved.public_key==='string' &&
+  Buffer.from(saved.id,'base64').equals(Buffer.from(credential.rawId,'base64url')) &&
+  Buffer.from(saved.public_key,'base64').length>0,'REGISTERED_PROVIDER_KEY_MATCH');
 }
 async function loginSecondFactor() {
  const {id,flow}=await browserFlow('login','?aal=aal2');
