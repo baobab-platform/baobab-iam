@@ -344,7 +344,7 @@ def observe(p: dict[str, Any], phase: str, key: bytes,
         if phase == "before":
             path = c.get("anonymous_path") if name in ESTATES else c["resource_path"]
             try:
-                status, _ = probe(base, path, None)
+                status, _, _ = probe(base, path, None)
                 results[case_id(name, "anonymous")] = (
                     "OBSERVED" if status in (401, 403) else "BLOCKED")
             except Blocked:
