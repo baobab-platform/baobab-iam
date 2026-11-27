@@ -81,7 +81,7 @@ services:
     # Disposable Python SMTP trap lives on the CI host; private loopback
     # readback remains host-only. This is never a production mail route.
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:${BAOBAB_ORY_HOST_GATEWAY:-host-gateway}"
     command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
     restart: unless-stopped
 
