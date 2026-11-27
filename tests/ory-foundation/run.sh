@@ -17,6 +17,10 @@ for provider in ('kratos', 'hydra'):
             raise SystemExit(f'{service}: Compose differs from provider.lock.yaml')
 print('Kratos and Hydra Compose images match the exact provider lock')
 PY
+# The isolated network owns this host-side bridge address. Pass it into the
+# base Compose file explicitly instead of relying on Docker's default bridge
+# host-gateway (172.17.0.1), which is not the sink's bound interface.
+export BAOBAB_ORY_HOST_GATEWAY=172.30.146.1
 timeout 240 docker compose -p ory-foundation-ci "${ory_compose[@]}" up -d
 # Keep provider containers on the internal bridge even when the host opens
 # fixed loopback listeners for the browser and API witnesses.
@@ -27,6 +31,10 @@ for service in kratos hydra postgres-kratos postgres-hydra; do
   docker inspect "$container" --format '{{range $name, $value := .NetworkSettings.Networks}}{{$name}}{{end}}' |
     grep -Fx 'ory-foundation-ci_default' >/dev/null
 done
+kratos_container=$(docker compose -p ory-foundation-ci "${ory_compose[@]}" ps -q kratos)
+test -n "$kratos_container"
+docker inspect "$kratos_container" --format '{{json .HostConfig.ExtraHosts}}' |
+  grep -F 'host.docker.internal:172.30.146.1' > ory-foundation-evidence/smtp-host-gateway.txt
 runtime_dir="${RUNNER_TEMP:-$PWD/.ory-foundation-runtime}"
 mkdir -m 700 -p "$runtime_dir"
 relay_pid_file="$runtime_dir/ory-foundation-relay.pid"
