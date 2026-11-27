@@ -1,6 +1,6 @@
 # IAM-N07 — Connected consumers: development engineering
 
-## Review reconciliation — 26 November 2026
+## Historical review reconciliation — 26 November 2026
 
 N07 remains DRAFT / HELD. On head `68e206fbdd988dacb41b0ad3c490033209710c88`, the CI run `43156515276` completed the normal build/integration, Foundation, secret scanning, action-pinning, federation and PostgreSQL negative suites successfully. The INT-02 candidate source/trust-boundary run also passed. Both Ory Foundation Live variants failed on the inherited N06 result `N06_A3_HELD_KRATOS_PASSKEY_REGISTRATION_UNCLASSIFIED`.
 
@@ -11,7 +11,7 @@ The PR base is an older N06 head (`7096171daa6c5c717011a4afde5cd8c1cdca1d5c`) th
 ---
 
 **Status:** Draft / source implemented in part / real connected acceptance HELD.
-**Dependencies:** IAM N06 #151 (stack base) on N02 #147/#146/#145; peer N03 #148 and N04 #149 remain separate draft dependencies.
+**Dependencies:** IAM N06 #151 is merged into main for development scope only; its A3/A4, recovery/revocation and protected-activation gates remain open. N02 #147/#146/#145 remain upstream dependencies; peer N03 #148 and N04 #149 remain separately governed dependencies.
 **Architecture:** EA v2.3 / EA-DEV DEV-03/04/05/07/11/14/15 / EA-XB v1.1 and ADR-IAM-0020/21/23–25/28/29/33, Shared ADR-SHARED-042/043.
 
 N07 must prove real first-party consumer integrations against genuine Kratos native identities, Hydra OAuth, CP canonical Principal and scoped tenant/organisation/market authority, and each engine's **own native PEP**. Keycloak remains enterprise federation only. Successful authentication or a 200 from an unauthenticated public health route never proves business authority.
@@ -123,6 +123,6 @@ Expect nonzero exit even for coherent HTTP originals. Never upload private origi
 
 ## Explicit acceptance holds
 
-N06 #151: final CI, real native A3/A4, recovery and issuer operations. N03 #148: independently deployed current IAM/CP/native resource. N04 #149: real CP provider-binder proof; provider support remains PARTIAL. Infrastructure #69 and ZuriBeans #141: same-run first-party real browser and seven-case original. Nabhold: current workforce CP executive context. Thamani: native IAM BFF absent on main. Payments: five remaining development engine negatives. No N07 feature, source test, healthy public website or provider mock bypasses any hold.
+N06 #151: development increment merged; real operation-bound A3/A4, recovery and issuer operations remain gated. N03 #148: independently deployed current IAM/CP/native resource. N04 #149: real CP provider-binder proof; provider support remains PARTIAL. Infrastructure #69 and ZuriBeans #141: same-run first-party real browser and seven-case original. Nabhold: current workforce CP executive context. Thamani: draft owner BFF source exists, but its live owner lease, CP context and native TMS booking operation remain unqualified. Payments: five remaining development engine negatives. No N07 feature, source test, healthy public website or provider mock bypasses any hold.
 
 **Keep IAM-N07 draft and unmerged until genuine connected development acceptance.**
