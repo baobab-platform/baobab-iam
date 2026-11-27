@@ -55,6 +55,7 @@ class Response:
             "content-type": "application/json",
         }
         self.payload = payload
+        self.headers.setdefault("content-length", str(len(payload)))
 
     def body(self):
         return self.payload
@@ -124,6 +125,13 @@ class N07BrowserSource(unittest.TestCase):
                 mod.cookie_free_json(response)
         self.assertEqual(mod.cookie_free_json(Response(b'{"authenticated":true}')),
                          {"authenticated": True})
+        for headers in (
+            {"cache-control": "no-store", "content-type": "application/json"},
+            {"cache-control": "no-store", "content-type": "application/json", "content-length": "9000"},
+            {"cache-control": "no-store", "content-type": "application/json;evil", "content-length": "2"},
+        ):
+            with self.assertRaises(mod.n07.Blocked):
+                mod.cookie_free_json(Response(b"{}", headers=headers))
 
     def test_zuribeans_current_issuer_session(self):
         now = time.time() * 1000
@@ -140,7 +148,8 @@ class N07BrowserSource(unittest.TestCase):
             for subject in ("identity@email.test", "not-a-uuid", ""):
                 with self.assertRaises(mod.n07.Blocked):
                     mod.current_session(name, {"principalId": subject, "expiresAt": now + 60000})
-            mod.current_session(name, {"principalId": str(uuid4()), "expiresAt": now + 60000})
+            self.assertEqual(mod.current_session(
+                name, {"principalId": str(uuid4()), "expiresAt": now + 60000}) is not None, True)
 
     def test_cp_navigation_is_only_read_model_never_execution_permit(self):
         now = time.time() * 1000
@@ -150,10 +159,17 @@ class N07BrowserSource(unittest.TestCase):
             "tenantId": "tn_abcde",
             "market": {"countryCode": "ZA"},
             "executionAuthority": False,
+            "principalId": str(uuid4()),
             "expiresAt": now + 60000,
         }
-        mod.current_executive_context(ok, expect)
-        mod.current_executive_context(dict(ok, kind="LOGISTICS_NAVIGATION"), expect, "LOGISTICS_NAVIGATION")
+        principal_id = ok["principalId"]
+        mod.current_executive_context(ok, expect, principal_id)
+        mod.current_executive_context(dict(ok, kind="LOGISTICS_NAVIGATION"), expect,
+                                      principal_id, "LOGISTICS_NAVIGATION")
+        for bad in (dict(ok, principalId=str(uuid4())),
+                    {k: v for k, v in ok.items() if k != "principalId"}):
+            with self.assertRaises(mod.n07.Blocked):
+                mod.current_executive_context(bad, expect, principal_id)
         for bad in (
             dict(ok, executionAuthority=True),
             dict(ok, tenantId="tn_other"),
@@ -161,7 +177,7 @@ class N07BrowserSource(unittest.TestCase):
             dict(ok, kind="EXECUTIVE_OPERATION"),
         ):
             with self.assertRaises(mod.n07.Blocked):
-                mod.current_executive_context(bad, expect)
+                mod.current_executive_context(bad, expect, principal_id)
 
 
 if __name__ == "__main__":
