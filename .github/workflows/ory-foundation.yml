@@ -67,8 +67,8 @@ jobs:
       - name: Install pinned WebAuthn browser and Chromium
         if: success() || failure()
         run: |
-          npm ci --prefix tests/integration/passkey --ignore-scripts
-          tests/integration/passkey/node_modules/.bin/playwright install chromium
+          npm ci --ignore-scripts
+          node_modules/.bin/playwright install chromium
       - name: Require real pinned Kratos + Chromium CTAP2 WebAuthn ceremony
         if: success() || failure()
         env:
