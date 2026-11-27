@@ -18,7 +18,7 @@ IAM = "baobab-iam" in (ROOT / "go.mod").read_text(encoding="utf-8").splitlines()
 CONFIG = ROOT / ".github/dependabot.yml"
 CALLER = ROOT / ".github/workflows/enforce-dependabot-config.yml"
 EXPECTED = (
-    {("github-actions", "/"), ("gomod", "/"), ("docker", "/"), ("docker-compose", "/")}
+    {("github-actions", "/"), ("gomod", "/"), ("npm", "/"), ("docker", "/"), ("docker-compose", "/")}
     if IAM else
     {
         ("github-actions", "/"), ("gomod", "/"), ("npm", "/"),
@@ -164,7 +164,16 @@ class DependencyPolicyRegression(unittest.TestCase):
 
     def test_node_workspace_or_iam_provider_boundary(self):
         if IAM:
-            self.assertFalse((ROOT / "package.json").exists())
+            manifest = json.loads((ROOT / "package.json").read_text())
+            self.assertEqual(manifest["workspaces"], ["tests/integration/passkey"])
+            self.assertTrue((ROOT / "package-lock.json").is_file())
+            self.assertTrue((ROOT / "tests/integration/passkey/package.json").is_file())
+            self.assertFalse((ROOT / "tests/integration/passkey/package-lock.json").exists())
+            policy = yaml.safe_load((ROOT / ".baobab/repository.yaml").read_text())
+            self.assertIn("node", policy["capabilities"])
+            self.assertEqual(policy["package_managers"]["node"], "npm")
+            lock = json.loads((ROOT / "package-lock.json").read_text())
+            self.assertIn("tests/integration/passkey", lock["packages"])
             self.assertTrue((ROOT / "Dockerfile.native-browser-bff").exists())
             self.assertTrue((ROOT / "Dockerfile.federation-authority").exists())
             docs = (ROOT / "docs/governance/dependency-maintenance.md").read_text()
