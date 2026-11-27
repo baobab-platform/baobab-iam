@@ -1,6 +1,7 @@
 package nativebff
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,6 +29,7 @@ func TestN08ActualServerAndTransportSpansAreExported(t *testing.T) {
 	defer server.Close()
 	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", server.URL+"/v1/traces")
 	t.Setenv("BAOBAB_ENVIRONMENT", "test")
+	t.Setenv("BAOBAB_OTEL_ALLOW_INSECURE_LOOPBACK_TESTS", "1")
 	downstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		trace, ok := n08CurrentTrace(r.Context())
 		if !ok {
@@ -79,12 +81,74 @@ func TestN08ActualServerAndTransportSpansAreExported(t *testing.T) {
 }
 
 func TestN08CollectorRequiresExplicitDisposableEnvironment(t *testing.T) {
-	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://collector.example.invalid/v1/traces")
+	const endpoint = "https://collector.example.invalid/v1/traces"
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", endpoint)
+	t.Setenv("BAOBAB_OTEL_COLLECTOR_ALLOWED_HOSTS", "collector.example.invalid")
 	for _, env := range []string{"", "staging", "production", "unknown"} {
 		t.Setenv("BAOBAB_ENVIRONMENT", env)
 		if n08Collector() != "" {
 			t.Fatalf("export enabled for environment %q", env)
 		}
+	}
+	for _, env := range []string{"development", "test", "integration"} {
+		t.Setenv("BAOBAB_ENVIRONMENT", env)
+		if got := n08Collector(); got != endpoint {
+			t.Fatalf("approved endpoint rejected for %q: %q", env, got)
+		}
+	}
+}
+
+func TestN08CollectorRejectsUntrustedDestinations(t *testing.T) {
+	t.Setenv("BAOBAB_ENVIRONMENT", "development")
+	t.Setenv("BAOBAB_OTEL_COLLECTOR_ALLOWED_HOSTS", "collector.example.invalid")
+	for _, endpoint := range []string{
+		"https://collector.example.invalid.evil/v1/traces",
+		"https://evil.example.invalid/v1/traces",
+		"https://user:password@collector.example.invalid/v1/traces",
+		"https://collector.example.invalid/v1/traces?token=secret",
+		"https://collector.example.invalid/v1/traces#fragment",
+		"https://collector.example.invalid/other",
+		"http://127.0.0.1:4318/v1/traces",
+		"file:///tmp/v1/traces",
+	} {
+		t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", endpoint)
+		if got := n08Collector(); got != "" {
+			t.Fatalf("untrusted endpoint accepted: %q", got)
+		}
+	}
+
+	t.Setenv("BAOBAB_ENVIRONMENT", "test")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4318/v1/traces")
+	t.Setenv("BAOBAB_OTEL_ALLOW_INSECURE_LOOPBACK_TESTS", "")
+	if n08Collector() != "" {
+		t.Fatal("loopback HTTP accepted without explicit test opt-in")
+	}
+	t.Setenv("BAOBAB_OTEL_ALLOW_INSECURE_LOOPBACK_TESTS", "1")
+	if got := n08Collector(); got == "" {
+		t.Fatal("explicit loopback test endpoint was rejected")
+	}
+	for _, endpoint := range []string{
+		"http://localhost:4318/v1/traces",
+		"http://192.0.2.10:4318/v1/traces",
+		"http://[::]:4318/v1/traces",
+	} {
+		t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", endpoint)
+		if got := n08Collector(); got != "" {
+			t.Fatalf("non-loopback HTTP endpoint accepted: %q", got)
+		}
+	}
+}
+
+func TestN08OTLPTransportDoesNotUseAmbientProxyOrWeakTLS(t *testing.T) {
+	transport, ok := n08OTLPClient.Transport.(*http.Transport)
+	if !ok || transport.Proxy != nil {
+		t.Fatal("OTLP transport must not inherit ambient proxy settings")
+	}
+	if transport.TLSClientConfig == nil || transport.TLSClientConfig.MinVersion < tls.VersionTLS12 {
+		t.Fatal("OTLP transport must enforce TLS 1.2 or newer")
+	}
+	if err := n08OTLPClient.CheckRedirect(&http.Request{}, nil); err != http.ErrUseLastResponse {
+		t.Fatal("OTLP redirects must be refused")
 	}
 }
 
