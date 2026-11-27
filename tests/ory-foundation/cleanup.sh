@@ -21,8 +21,8 @@ stop_recorded_process() {
   rm -f "$pid_file"
 }
 
-# PID checks are tied to the exact scripts started by run.sh; never use
-# broad pkill patterns that could terminate unrelated runner processes.
+# Limit termination to recorded processes whose command lines match a script
+# started by run.sh. This avoids terminating unrelated runner processes.
 stop_recorded_process "ory-foundation-mail-sink" "tests/ory-foundation/smtp_sink.py"
 stop_recorded_process "ory-foundation-relay" "tests/ory-foundation/loopback_relay.py"
 
