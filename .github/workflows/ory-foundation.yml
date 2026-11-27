@@ -51,16 +51,13 @@ jobs:
             gofmt -d internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go tests/consumer/current/main.go internal/provider/ory/context_route_live_test.go
             exit 1
           fi
+      - name: Validate isolated Foundation runner lifecycle
+        run: bash -n tests/ory-foundation/run.sh tests/ory-foundation/cleanup.sh
       - name: Install pin validator dependency
         run: python3 -m pip install PyYAML==6.0.3
       - name: Verify governed Shared projection builder
         run: python3 -m unittest discover -s tests/unit -p 'test_workload_token_profiles.py'
-      - name: Verify isolated foundation, live provider boundary and M4 workload mechanics
-        env:
-          GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
-        run: bash tests/ory-foundation/run.sh
       - name: Provision pinned Node 24 browser qualification runtime
-        if: success() || failure()
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
@@ -69,15 +66,11 @@ jobs:
         run: |
           npm ci --ignore-scripts
           node_modules/.bin/playwright install chromium
-      - name: Require real pinned Kratos + Chromium CTAP2 WebAuthn ceremony
-        if: success() || failure()
+      - name: Verify isolated foundation, live provider boundary and M4 workload mechanics
         env:
-          ORY_FOUNDATION: '1'
-          ORY_KRATOS_PUBLIC_URL: http://127.0.0.1:4433
-          ORY_KRATOS_ADMIN_URL: http://127.0.0.1:4434
-        run: |
-          node --test tests/integration/passkey/n06-browser-ui.test.mjs
-          node tests/integration/passkey/n06-kratos-browser.mjs
+          GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
+          RUN_N06_BROWSER: '1'
+        run: bash tests/ory-foundation/run.sh
       - name: Check out immutable CP consumer source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,16 +83,18 @@ jobs:
         run: bash tests/ory-foundation/token_profile.sh
       - name: Collect sanitized runtime evidence
         if: always()
+        env:
+          BAOBAB_ORY_HOST_GATEWAY: 172.30.146.1
         run: |
           mkdir -p ory-foundation-evidence
-          docker compose -p ory-foundation-ci -f docker-compose.ory.yml ps --all > ory-foundation-evidence/services.txt
-          docker compose -p ory-foundation-ci -f docker-compose.ory.yml images > ory-foundation-evidence/images.txt
-          docker compose -p ory-foundation-ci -f docker-compose.ory.yml logs --no-color 2>&1 | python3 tests/ory-foundation/sanitize_logs.py > ory-foundation-evidence/runtime.log
+          docker compose -p ory-foundation-ci -f docker-compose.ory.yml -f tests/ory-foundation/compose.isolated.yml ps --all > ory-foundation-evidence/services.txt
+          docker compose -p ory-foundation-ci -f docker-compose.ory.yml -f tests/ory-foundation/compose.isolated.yml images > ory-foundation-evidence/images.txt
+          docker compose -p ory-foundation-ci -f docker-compose.ory.yml -f tests/ory-foundation/compose.isolated.yml logs --no-color 2>&1 | python3 tests/ory-foundation/sanitize_logs.py > ory-foundation-evidence/runtime.log
           cp provider.lock.yaml ory-foundation-evidence/provider.lock.yaml
           printf '%s\n' "$GITHUB_SHA" > ory-foundation-evidence/commit.txt
       - name: Tear down disposable foundation
         if: always()
-        run: docker compose -p ory-foundation-ci -f docker-compose.ory.yml down -v --remove-orphans
+        run: bash tests/ory-foundation/cleanup.sh
       - name: Upload foundation evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
