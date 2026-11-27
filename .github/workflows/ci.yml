@@ -365,9 +365,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm ci --prefix tests/integration/passkey --ignore-scripts
-          npm test --prefix tests/integration/passkey
-          node tests/integration/passkey/node_modules/playwright/cli.js install chromium
+          npm ci --ignore-scripts
+          npm test --workspace baobab-passkey-qualification
+          node node_modules/playwright/cli.js install chromium
           (
             cd tests/integration/passkey
             node --input-type=module -e '
