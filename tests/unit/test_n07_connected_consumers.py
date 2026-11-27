@@ -170,6 +170,67 @@ class N07SourceTests(unittest.TestCase):
                 self.assertEqual(protected_json, expected)
                 self.assertFalse(contract_match)
 
+    def test_operation_specific_resource_response_is_bounded_and_exact(self):
+        class Response:
+            status = 200
+            def __init__(self, body, declared=None):
+                self.body = body
+                self.headers = {"Content-Type": "application/json; charset=utf-8",
+                                "Cache-Control": "private, no-store"}
+                if declared is not None:
+                    self.headers["Content-Length"] = str(declared)
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def read(self, limit):
+                return self.body[:limit]
+
+        class Opener:
+            def __init__(self, response):
+                self.response = response
+            def open(self, *args, **kwargs):
+                return self.response
+
+        contract = {"operation": "pulse.resource.read", "classification": "READ_ONLY_RESOURCE"}
+        valid = json.dumps(contract, separators=(",", ":")).encode()
+        with patch.object(n07, "build_opener", return_value=Opener(Response(valid, len(valid)))):
+            self.assertEqual(n07.http_probe("https://internal.example.test", "/v1/read",
+                                            unit_jwt(), contract), (200, True, True))
+        invalid = (
+            (b'{"healthy":true}', len(b'{"healthy":true}')),
+            (b'{"operation":"pulse.resource.read","classification":"ERROR"}',
+             len(b'{"operation":"pulse.resource.read","classification":"ERROR"}')),
+            (b"{", 1),
+            (b'{"operation":"pulse.resource.read","classification":"READ_ONLY_RESOURCE"}', 9000),
+            (valid, None),
+        )
+        for body, declared in invalid:
+            with self.subTest(declared=declared, body=body[:30]):
+                with patch.object(n07, "build_opener", return_value=Opener(Response(body, declared))):
+                    with self.assertRaises(n07.Blocked):
+                        n07.http_probe("https://internal.example.test", "/v1/read",
+                                       unit_jwt(), contract)
+
+    def test_correlation_key_is_private_independent_and_run_bound(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            key_path = root / "correlation.key"
+            receipts = root / "receipts"
+            key = n07.correlation_key(str(key_path), str(receipts), "before")
+            self.assertEqual(len(key), 32)
+            self.assertEqual(key_path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(n07.correlation_key(str(key_path), str(receipts), "after"), key)
+            pins = example()["source_pins"]
+            first = n07.fingerprint(key, RUN, pins, unit_jwt())
+            self.assertEqual(first, n07.fingerprint(key, RUN, pins, unit_jwt()))
+            self.assertNotEqual(first, n07.fingerprint(b"z" * 32, RUN, pins, unit_jwt()))
+            changed = dict(pins, **{"baobab-cp": "c" * 40})
+            self.assertNotEqual(first, n07.fingerprint(key, RUN, changed, unit_jwt()))
+            self.assertNotEqual(first, n07.fingerprint(key, "c" * 32, pins, unit_jwt()))
+            with self.assertRaises(n07.Blocked):
+                n07.correlation_key(str(receipts / "inside.key"), str(receipts), "after")
+
     def test_private_file_rejects_world_readable_and_symlink(self):
         with tempfile.TemporaryDirectory() as d:
             source = Path(d) / "secret"
