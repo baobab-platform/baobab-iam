@@ -359,6 +359,20 @@ class N07SourceTests(unittest.TestCase):
         self.assertFalse(result["fully_qualified"])
         self.assertFalse(result["issuer_qualified"])
 
+    def test_interrupted_original_publication_leaves_no_partial_receipt(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "private"
+            real_open = n07.os.open
+            def fail_digest(path, flags, *args, **kwargs):
+                if str(path).endswith("original.sha256"):
+                    raise OSError("injected digest publication failure")
+                return real_open(path, flags, *args, **kwargs)
+            with patch.object(n07.os, "open", side_effect=fail_digest):
+                with self.assertRaises(OSError):
+                    n07.original_write(str(root), "before", {"accepted": False})
+            self.assertFalse((root / "before").exists())
+            self.assertEqual(list(root.glob("*.staging")), [])
+
     def test_originals_never_overwritten(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d) / "private"
