@@ -10,7 +10,9 @@ import {startBrowserUI, stopBrowserUI} from './n06-browser-ui.mjs';
 
 const API = 'http://127.0.0.1:4433';
 const ADMIN = 'http://127.0.0.1:4434';
-const UI = 'http://127.0.0.1:4455';
+const BROWSER_API = 'http://localhost:4433';
+const UI = 'http://localhost:4455';
+const RP_ID = 'localhost';
 const envOK = process.env.ORY_FOUNDATION === '1' &&
  process.env.GITHUB_ACTIONS === 'true' &&
  process.env.ORY_KRATOS_ADMIN_URL === ADMIN &&
@@ -72,11 +74,11 @@ async function onPage(method, url, body) {
  }
 }
 async function browserFlow(kind,extra='') {
- await session.page.goto(API+'/self-service/'+kind+'/browser'+extra,{waitUntil:'domcontentloaded'});
+ await session.page.goto(BROWSER_API+'/self-service/'+kind+'/browser'+extra,{waitUntil:'domcontentloaded'});
  const u=new URL(session.page.url());
  pass(u.origin===UI && u.pathname==='/'+kind && /^[0-9a-f-]{36}$/.test(u.searchParams.get('flow')||''),kind+'_ORIGIN');
  const id=u.searchParams.get('flow');
- const r=await onPage('GET',API+'/self-service/'+kind+'/flows?id='+encodeURIComponent(id));
+ const r=await onPage('GET',BROWSER_API+'/self-service/'+kind+'/flows?id='+encodeURIComponent(id));
  statusExact(r,200,kind+'_READ');
  return {id,flow:r.body};
 }
@@ -134,11 +136,11 @@ async function browserLoginPassword() {
  const csrf=field(flow,'csrf_token');
  pass(typeof csrf==='string' && csrf.length>20,'PASSWORD_CSRF');
  qualificationPhase='KRATOS_BROWSER_LOGIN_SUBMISSION';
- const result=await onPage('POST',API+'/self-service/login?flow='+id,
+ const result=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,
   {method:'password',identifier:privateEmail,password:privatePassword,csrf_token:csrf});
  pass(result.status===200 || result.redirect,'PASSWORD_LOGIN_'+result.status);
  qualificationPhase='KRATOS_BROWSER_LOGIN_SESSION_READBACK';
- const whoami=await onPage('GET',API+'/sessions/whoami');
+ const whoami=await onPage('GET',BROWSER_API+'/sessions/whoami');
  statusExact(whoami,200,'BROWSER_SESSION');
  pass(whoami.body?.identity?.id===identityID,'BROWSER_SESSION_SUBJECT');
 }
@@ -147,9 +149,9 @@ async function registerWebAuthn() {
  const challenge=field(flow,'webauthn_register_trigger');
  const csrf=field(flow,'csrf_token');
  pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','SETTINGS_RP_CHALLENGE');
- const credential=await nativeCredential('create',challenge,'127.0.0.1');
+ const credential=await nativeCredential('create',challenge,RP_ID);
  pass(typeof credential.id==='string' && credential.id.length>=16 && added>=1,'CHROMIUM_CREDENTIAL');
- const response=await onPage('POST',API+'/self-service/settings?flow='+id,
+ const response=await onPage('POST',BROWSER_API+'/self-service/settings?flow='+id,
   {method:'webauthn',webauthn_register:JSON.stringify(credential),
    webauthn_register_displayname:'disposable-ci-ctap2',csrf_token:csrf});
  pass(response.status===200 || response.redirect, 'REGISTRATION_COMMIT_'+response.status);
@@ -162,19 +164,19 @@ async function loginSecondFactor() {
  const challenge=field(flow,'webauthn_login_trigger');
  const csrf=field(flow,'csrf_token');
  pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','AAL2_CHALLENGE');
- const credential=await nativeCredential('get',challenge,'127.0.0.1');
+ const credential=await nativeCredential('get',challenge,RP_ID);
  pass(credential.type==='public-key' && asserted>=1,'REAL_CREDENTIAL_ASSERTION');
- const success=await onPage('POST',API+'/self-service/login?flow='+id,
+ const success=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,
   {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
  pass(success.status===200 || success.redirect,'AAL2_COMMIT_'+success.status);
- const active=statusExact(await onPage('GET',API+'/sessions/whoami'),200,'AAL2_SESSION');
+ const active=statusExact(await onPage('GET',BROWSER_API+'/sessions/whoami'),200,'AAL2_SESSION');
  pass(active.identity?.id===identityID &&
   active.authenticator_assurance_level==='aal2' &&
   Array.isArray(active.authentication_methods) &&
   active.authentication_methods.some(x=>x.method==='webauthn'),'ACTUAL_AAL2_METHOD_READBACK');
  // Replaying the original assertion on the already-consumed server flow must
  // never produce a new authoritative Kratos successful login response.
- const replay=await onPage('POST',API+'/self-service/login?flow='+id,
+ const replay=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,
   {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
  pass(replay.status!==200,'REPLAY_REJECTED');
 }
@@ -198,7 +200,7 @@ async function run() {
     isUserVerified:true,automaticPresenceSimulation:true}});
   session.id=response.authenticatorId;
   session.cdp.on('WebAuthn.credentialAdded',({credential})=>{
-   if(credential?.rpId==='127.0.0.1') added++;
+   if(credential?.rpId===RP_ID) added++;
   });
   session.cdp.on('WebAuthn.credentialAsserted',()=>{asserted++});
   qualificationPhase='KRATOS_BROWSER_LOGIN';

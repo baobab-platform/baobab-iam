@@ -17,6 +17,9 @@ services:
     ports: !reset []
   kratos:
     ports: !reset []
+    environment:
+      # Browser flow cookies and WebAuthn must share the localhost hostname.
+      SERVE_PUBLIC_BASE_URL: http://localhost:4433/
     networks:
       default:
         ipv4_address: 172.30.146.2
