@@ -54,6 +54,11 @@ selfservice:
   methods:
     password:
       enabled: true
+      config:
+        # Disposable synthetic identities only. Never transmit password-derived
+        # data to an external breach service during Foundation qualification.
+        # Protected environments require a separately reviewed breach policy.
+        haveibeenpwned_enabled: false
     # TOTP enabled for local experiments; assurance policy is ADR-0024 / M12.
     totp:
       enabled: true

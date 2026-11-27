@@ -25,3 +25,5 @@ services:
     networks:
       default:
         ipv4_address: 172.30.146.3
+    extra_hosts:
+      - "host.docker.internal:172.30.146.1"
