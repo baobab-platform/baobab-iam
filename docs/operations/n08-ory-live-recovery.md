@@ -32,6 +32,18 @@ environment recovery. Do not promote to full N08 or IAM completion on this
 test alone. Independent original receipts and dedicated CP/consumer
 recovery remain required.
 
+## Disposable SMTP host-gateway contract
+
+The Kratos courier sink is a host process bound only to the private isolated
+Compose bridge gateway `172.30.146.1:1025`; its inspection API remains bound
+to host loopback on `127.0.0.1:4457`. The base Compose file retains Docker's
+`host-gateway` default for local development. The isolated Foundation runner
+sets `BAOBAB_ORY_HOST_GATEWAY=172.30.146.1` before Compose starts and verifies
+the running Kratos container's `HostConfig.ExtraHosts` entry. Do not change
+the sink bind address, isolated subnet gateway, or host alias independently.
+The source regression `test_smtp_sink_host_alias_matches_private_bridge_gateway`
+guards this three-way contract.
+
 ## Same-run IAM security authority and recovery-hold restoration
 
 The existing actual Kratos+Hydra database drill now creates a **third
