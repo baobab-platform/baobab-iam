@@ -1,12 +1,25 @@
 # IAM-N08 — Native operational hardening
 
-## Review reconciliation — 26 November 2026
+## Review reconciliation — 27 November 2026
 
-N08 remains DRAFT / HELD. On head `961399cab4e3e218481acc37f859c4677be997c3`, the N08-specific workflow run `43156605326` passed all three jobs: pinned native image/source negatives/rootless runtime, real Keycloak enterprise-provider database restore, and real Kratos/Hydra PostgreSQL 17 restore with retained-denial readback. The main build, Foundation, INT-02 candidate, federation, PostgreSQL negative suites, secret scanning and action-pinning checks also passed.
+The reviewed pre-remediation head was `911a4cc7cecff5a45d74b6d64a87df44f8582eb7`. Its exact-head evidence was:
 
-Both Ory Foundation Live variants in run `43156605324` failed on the inherited N06 result `N06_A3_HELD_KRATOS_PASSKEY_REGISTRATION_UNCLASSIFIED`. N08 cannot bypass its N06/N07 parent. The three successful N08 jobs are real development evidence for their named scopes, not full cross-provider DR acceptance, protected deployment approval, measured RPO/RTO, or production readiness.
+- Main CI run `45745774320`: success.
+- IAM-N08 run `45745774374`: all three jobs passed (native image/rootless runtime, real Keycloak provider database restore, and real Kratos/Hydra PG17 restore with retained-denial readback).
+- INT-02 run `45745774855`, secret scanning `45745774585`, and action pinning `45745774645`: success.
+- Foundation run `45745775375`: failed only at the native dependency adapter. Its recursive Node detection found `tests/integration/passkey/package.json`, but the repository had no root npm manifest/lock and no declared Node package manager; the adapter defaulted to pnpm at the repository root and failed with `ERR_PNPM_NO_PKG_MANIFEST`.
+- Ory Foundation run `45745774468`: both `released` and `audience-backport` jobs failed at the inherited N06 Chromium/WebAuthn registration stage with `N06_A3_HELD_KRATOS_PASSKEY_REGISTRATION_UNCLASSIFIED`. The disposable Kratos settings flow was configured with `required_aal: highest_available`, while the test identity had only its initial password factor; the browser could not enter settings to enroll its first passkey. The generic unclassified result also hid the exact safe stage because stage labels were mixed-case.
 
-N08 currently follows the N07 head, but N07 itself must be updated after N04/N06 reconciliation. Rebase/reconcile N08 only after the N07 parent is current, then rerun the exact-head N08 and inherited workflows. Preserve the restore-denial/non-resurrection checks and complete teardown.
+The following source corrections are now committed to the N08 branch; **all new-head checks are pending**:
+
+1. Declare the nested passkey qualification package as a root npm workspace, add the workspace lock, explicitly declare `package_managers.node: npm`, add npm Dependabot coverage, and run both CI/Foundation npm installs from the root workspace. The nested package-lock was removed so one lock is authoritative.
+2. Move the offline Dependabot regression job under `jobs:`, add npm to the required ecosystem list, and update its source regression to require the actual Node workspace and lock.
+3. Keep the strict `highest_available` settings policy out of the disposable-only Kratos fixture: local Foundation now uses `aal1` solely to permit initial authenticator enrollment. The config comment explicitly requires protected environments to retain `highest_available` and implement an approved bootstrap path. This does not qualify production settings policy or A3/A4.
+4. Preserve safe uppercase N06 browser stage labels so a subsequent failure is actionable without exposing credentials, flow bodies or exception stacks.
+5. Restrict OTLP export to exact HTTPS collector authorities in an explicit allowlist, with TLS 1.2+, no ambient proxy and no redirects. Plain HTTP is accepted only for an explicitly opted-in loopback test.
+6. Correct the recovery topology documentation: `n08_security_ci` is a third logical database in the Kratos PG17 container; there are two PG17 containers and three logical databases, not three containers.
+
+The earlier 26 November review record is retained below for historical context. N08 remains DRAFT / HELD until exact-head Foundation, both Ory variants, CI, security scans, and the stacked-parent reconciliation pass. The successful N08 jobs above do not certify connected CP/estate consumers, protected deployment, production DR, or RPO/RTO.
 
 ---
 
