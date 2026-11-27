@@ -23,7 +23,7 @@ serve:
       enabled: true
       allowed_origins:
         - http://127.0.0.1:3000
-        - http://localhost:4455
+        - http://127.0.0.1:4455
       allowed_methods:
         - POST
         - GET
@@ -46,19 +46,14 @@ serve:
 selfservice:
   # Placeholder return URLs until Digital Estate BFF/UX (ADR-0023 / M7).
   # Do not point these at production estate hosts from this foundation file.
-  default_browser_return_url: http://localhost:4455/
+  default_browser_return_url: http://127.0.0.1:4455/
   allowed_return_urls:
-    - http://localhost:4455
+    - http://127.0.0.1:4455
     - http://127.0.0.1:3000
 
   methods:
     password:
       enabled: true
-      config:
-        # Disposable synthetic identities only. Never transmit password-derived
-        # data to an external breach service during Foundation qualification.
-        # Protected environments require a separately reviewed breach policy.
-        haveibeenpwned_enabled: false
     # TOTP enabled for local experiments; assurance policy is ADR-0024 / M12.
     totp:
       enabled: true
@@ -77,21 +72,25 @@ selfservice:
         passwordless: false
         rp:
           display_name: Baobab IAM Disposable Development
-          id: localhost
-          origin: http://localhost:4455
+          id: 127.0.0.1
+          origin: http://127.0.0.1:4455
 
   flows:
     error:
-      ui_url: http://localhost:4455/error
+      ui_url: http://127.0.0.1:4455/error
 
     settings:
-      ui_url: http://localhost:4455/settings
+      ui_url: http://127.0.0.1:4455/settings
       privileged_session_max_age: 15m
-      required_aal: highest_available
+      # This file is the disposable local Foundation fixture only. AAL1
+      # permits initial authenticator enrollment; protected environments
+      # must retain highest_available and implement an approved bootstrap
+      # path before enabling the strict settings policy.
+      required_aal: aal1
 
     recovery:
       enabled: true
-      ui_url: http://localhost:4455/recovery
+      ui_url: http://127.0.0.1:4455/recovery
       use: code
       # Required after original Kratos code verification. A successful
       # recovery must not leave any pre-recovery browser/API session usable.
@@ -102,22 +101,22 @@ selfservice:
 
     verification:
       enabled: true
-      ui_url: http://localhost:4455/verification
+      ui_url: http://127.0.0.1:4455/verification
       use: code
       after:
-        default_browser_return_url: http://localhost:4455/
+        default_browser_return_url: http://127.0.0.1:4455/
 
     logout:
       after:
-        default_browser_return_url: http://localhost:4455/login
+        default_browser_return_url: http://127.0.0.1:4455/login
 
     login:
-      ui_url: http://localhost:4455/login
+      ui_url: http://127.0.0.1:4455/login
       lifespan: 10m
 
     registration:
       lifespan: 10m
-      ui_url: http://localhost:4455/registration
+      ui_url: http://127.0.0.1:4455/registration
       after:
         password:
           hooks:

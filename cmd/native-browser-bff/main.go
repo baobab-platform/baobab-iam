@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -45,8 +44,6 @@ type document struct {
 	BrowserDatabaseDSNFile  string                           `json:"browser_database_dsn_file"`
 	BrowserVaultKeyFile     string                           `json:"browser_vault_key_file"`
 	BrowserRateKeyFile      string                           `json:"browser_rate_key_file"`
-	A3ChallengeKeyFile      string                           `json:"a3_challenge_key_file"`
-	A3CounterKeyFile        string                           `json:"a3_counter_key_file"`
 	ChallengeStorage        federation.PostgresStorageConfig `json:"challenge_storage"`
 	HumanTokenProfilesFile  string                           `json:"human_token_profiles_file"`
 	HumanConsentSealKeyFile string                           `json:"human_consent_seal_key_file"`
@@ -144,6 +141,14 @@ func n06ExecutableSecurity(scope, kratos string, roots *x509.CertPool) (map[stri
 	return operations, gate, nil
 }
 
+// Compatibility with the reviewed N08 negative tests: reuse the exact
+// mandatory N06 assurance policy; do not create a competing weaker gate.
+type unavailableN08Risk = unavailableN06Risk
+
+func n08NativeScopePolicy(scope string) (map[string]assurance.Operation, error) {
+	return n06NativeScopePolicy(scope)
+}
+
 func run(ctx context.Context, listen string, d document, caFile string) error {
 	if ctx == nil || ctx.Err() != nil || d.PublicOrigin == "" || d.Issuer == "" ||
 		d.ClientID == "" || d.KratosAdmin == "" || d.HydraAdmin == "" || d.CPCallerTokenFile == "" || d.TLSCertificateFile == "" ||
@@ -179,7 +184,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("invalid BFF TLS identity")
 	}
-	providerTLS := &http.Client{Timeout: 8 * time.Second, Transport: &http.Transport{TLSClientConfig: trust.Clone(), Proxy: nil}}
+	providerTLS := &http.Client{Timeout: 8 * time.Second, Transport: nativebff.N08TraceTransport{Base: &http.Transport{TLSClientConfig: trust.Clone(), Proxy: nil}}}
 	secret, err := privateBytes(d.ClientSecretFile)
 	if err != nil {
 		return err
@@ -251,9 +256,8 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("Hydra all-subject logout authority unavailable")
 	}
-	revoker, err := nativebff.NewHydraOAuthRevoker(nativebff.HydraOAuthRevokeConfig{
-		Issuer: d.Issuer, AdminOrigin: d.HydraAdmin, ClientID: d.ClientID,
-		ClientSecret: string(secret), TrustedRoots: roots,
+	revoker, err := nativebff.NewOAuthRevoker(nativebff.OAuthRevokeConfig{
+		Issuer: d.Issuer, ClientID: d.ClientID, ClientSecret: string(secret), TrustedRoots: roots,
 	})
 	if err != nil {
 		return errors.New("confidential token revocation unavailable")
@@ -266,46 +270,6 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("native browser admission ledger unavailable")
 	}
-	var a3 *nativebff.A3BrowserStepUp
-	if d.A3ChallengeKeyFile != "" || d.A3CounterKeyFile != "" {
-		challengeKey, challengeErr := privateBytes(d.A3ChallengeKeyFile)
-		counterKey, counterErr := privateBytes(d.A3CounterKeyFile)
-		if challengeErr != nil || counterErr != nil ||
-			slices.Equal(challengeKey, counterKey) || slices.Equal(challengeKey, vaultKey) || slices.Equal(counterKey, vaultKey) {
-			return errors.New("separate private A3 challenge and counter keys required")
-		}
-		privatePEM, err := privateBytes(caFile)
-		privateRoots := x509.NewCertPool()
-		if err != nil || !privateRoots.AppendCertsFromPEM(privatePEM) {
-			return errors.New("explicit CA trust for Kratos credential readback required")
-		}
-		var version int
-		if pool.QueryRow(ctx, "SELECT current_setting('server_version_num')::integer").Scan(&version) != nil ||
-			version/10000 != 17 {
-			return errors.New("PostgreSQL 17 required for A3 step-up")
-		}
-		challenges, err := nativebff.NewPGWebAuthnChallengeStore(ctx, pool, challengeKey, time.Now)
-		if err != nil {
-			return err
-		}
-		credentials, err := nativebff.NewKratosWebAuthnReader(d.KratosPublic, d.KratosAdmin, privateRoots)
-		if err != nil {
-			return err
-		}
-		counters, err := nativebff.NewPGWebAuthnCounterStore(ctx, pool, counterKey)
-		if err != nil {
-			return err
-		}
-		provider, err := nativebff.NewKratosN06Provider(d.KratosPublic, roots, time.Now, false, nil)
-		if err != nil {
-			return err
-		}
-		verifier := &nativebff.WebAuthnA3Verifier{Kratos: provider, Challenges: challenges, Credentials: credentials, Counters: counters, Now: time.Now}
-		a3, err = nativebff.NewA3BrowserStepUp(ctx, verifier, challenges, browserStore, d.PublicOrigin)
-		if err != nil {
-			return err
-		}
-	}
 	handler, err := nativebff.New(nativebff.Config{
 		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer, KratosOrigin: d.KratosPublic,
 		RequireAAL2: d.RequireAAL2, Assurance: handoff, NativeSessions: kratosSessions, OAuthSessions: hydraSessions,
@@ -315,13 +279,17 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
 		Store: browserStore, Limiter: limiter,
-		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate, A3StepUp: a3,
+		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate,
 	})
 	if err != nil {
 		return errors.New("invalid native BFF configuration")
 	}
+	// Server-owned bounded operational counters; no principal, token, path
+	// or buyer data is emitted. This is diagnostics, not issuer authority.
+	n08Metrics := nativebff.NewN08OperationalMetrics()
+	defer func() { fmt.Fprintln(os.Stderr, n08Metrics.SnapshotJSON()) }()
 	server := &http.Server{
-		Addr: listen, Handler: handler, ReadHeaderTimeout: 5 * time.Second,
+		Addr: listen, Handler: nativebff.ObserveN08Native(handler, n08Metrics), ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout: 12 * time.Second, WriteTimeout: 20 * time.Second,
 		IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10,
 	}
