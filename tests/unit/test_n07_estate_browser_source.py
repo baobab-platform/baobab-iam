@@ -138,7 +138,7 @@ class N07BrowserSource(unittest.TestCase):
         self.assertEqual(mod.cookie_free_json(Response(b'{"authenticated":true}')),
                          {"authenticated": True})
         for headers in (
-            {"cache-control": "no-store", "content-type": "application/json"},
+            {"cache-control": "no-store", "content-type": "application/json", "content-length": "bad"},
             {"cache-control": "no-store", "content-type": "application/json", "content-length": "9000"},
             {"cache-control": "no-store", "content-type": "application/json;evil", "content-length": "2"},
         ):
