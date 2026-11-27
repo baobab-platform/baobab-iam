@@ -128,7 +128,7 @@ async function getIdentity() {
  pass(data.id===identityID, 'SUBJECT_MISMATCH');
  return data;
 }
-async function browserLoginPassword() {
+async function browserLoginPassword(expectStepUp=false) {
  // Preserve a privacy-safe, actionable failure phase. Never emit the CSRF
  // token, email, password, browser cookie, Kratos response or exception stack.
  qualificationPhase='KRATOS_BROWSER_LOGIN_REDIRECT';
@@ -139,9 +139,22 @@ async function browserLoginPassword() {
  qualificationPhase='KRATOS_BROWSER_LOGIN_SUBMISSION';
  const result=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,
   {method:'password',identifier:privateEmail,password:privatePassword,csrf_token:csrf});
- pass(result.status===200 || result.redirect,'PASSWORD_LOGIN_'+result.status);
+ if (expectStepUp) {
+  pass(result.status===422 && result.body?.error?.id==='browser_location_change_required' &&
+   typeof result.body.redirect_browser_to==='string','PASSWORD_STEP_UP_REQUIRED');
+  const target=new URL(result.body.redirect_browser_to);
+  pass(target.origin===BROWSER_API && target.pathname==='/self-service/login/browser' &&
+   !target.username && !target.password && !target.hash &&
+   target.searchParams.getAll('aal').join(',')==='aal2','PASSWORD_STEP_UP_TARGET');
+ } else {
+  pass(result.status===200 || result.redirect,'PASSWORD_LOGIN_'+result.status);
+ }
  qualificationPhase='KRATOS_BROWSER_LOGIN_SESSION_READBACK';
  const whoami=await onPage('GET',BROWSER_API+'/sessions/whoami');
+ if (expectStepUp) {
+  pass(whoami.status===403 && whoami.body?.error?.id==='session_aal2_required','PASSWORD_STEP_UP_SESSION');
+  return;
+ }
  statusExact(whoami,200,'BROWSER_SESSION');
  pass(whoami.body?.identity?.id===identityID,'BROWSER_SESSION_SUBJECT');
  pass(whoami.body?.authenticator_assurance_level==='aal1' &&
@@ -167,7 +180,7 @@ async function registerWebAuthn() {
   Buffer.from(saved.id,'base64').equals(Buffer.from(credential.rawId,'base64url')) &&
   Buffer.from(saved.public_key,'base64').length>0,'REGISTERED_PROVIDER_KEY_MATCH');
 }
-async function loginSecondFactor() {
+async function loginSecondFactor(enrollmentSession) {
  const {id,flow}=await browserFlow('login','?aal=aal2');
  const challenge=field(flow,'webauthn_login_trigger');
  const csrf=field(flow,'csrf_token');
@@ -179,6 +192,7 @@ async function loginSecondFactor() {
  pass(success.status===200 || success.redirect,'AAL2_COMMIT_'+success.status);
  const active=statusExact(await onPage('GET',BROWSER_API+'/sessions/whoami'),200,'AAL2_SESSION');
  pass(active.identity?.id===identityID &&
+  /^[0-9a-f-]{36}$/.test(active.id||'') && active.id!==enrollmentSession &&
   active.authenticator_assurance_level==='aal2' &&
   Array.isArray(active.authentication_methods) &&
   active.authentication_methods.some(x=>x.method==='webauthn'),'ACTUAL_AAL2_METHOD_READBACK');
@@ -219,10 +233,9 @@ async function run() {
   // Start a distinct password-only session before requesting an AAL2 upgrade.
   qualificationPhase='KRATOS_NEW_PASSWORD_SESSION';
   await session.context.clearCookies();
-  const assertionSession=await browserLoginPassword();
-  pass(assertionSession!==enrollmentSession,'DISTINCT_ASSERTION_SESSION');
+  await browserLoginPassword(true);
   qualificationPhase='KRATOS_AAL2_ASSERTION';
-  await loginSecondFactor();
+  await loginSecondFactor(enrollmentSession);
   process.stdout.write('N06_KRATOS_CHROMIUM_CTAP2_A3_CEREMONY_AND_REPLAY_PASS_NOT_A4\n');
  } finally {
   // Preserve the failing protocol stage through mandatory cleanup;
