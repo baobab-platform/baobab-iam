@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -132,16 +133,26 @@ func TestLiveDevelopmentHydraEstateClientRegistration(t *testing.T) {
 
 func TestKratosGlobalLogoutBoundaryUsesVerifiedTLSAndExactSubject(t *testing.T) {
 	identity := "11111111-1111-4111-8111-111111111111"
-	calls := 0
-	status := http.StatusNoContent
+	var calls, status atomic.Int32
+	status.Store(http.StatusNoContent)
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		if r.Method != http.MethodDelete || r.URL.Path != "/admin/identities/"+identity+"/sessions" {
+		calls.Add(1)
+		if r.URL.Path != "/admin/identities/"+identity+"/sessions" {
 			t.Error("Kratos admin operation escaped exact identity")
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-		w.WriteHeader(status)
+		switch {
+		case r.Method == http.MethodDelete && r.URL.RawQuery == "":
+			w.WriteHeader(int(status.Load()))
+		case r.Method == http.MethodGet && r.URL.RawQuery == "active=true":
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Total-Count", "0")
+			_, _ = w.Write([]byte("[]"))
+		default:
+			t.Error("unexpected Kratos admin request")
+			w.WriteHeader(http.StatusForbidden)
+		}
 	}))
 	defer srv.Close()
 	roots := x509.NewCertPool()
@@ -150,7 +161,7 @@ func TestKratosGlobalLogoutBoundaryUsesVerifiedTLSAndExactSubject(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if client.RevokeNativeSessions(context.Background(), identity) != nil || calls != 1 {
+	if client.RevokeNativeSessions(context.Background(), identity) != nil || calls.Load() != 2 {
 		t.Fatal("live TLS Kratos session revocation rejected")
 	}
 	for _, bad := range []string{"", "../", "not-an-identity", strings.Repeat("a", 400)} {
@@ -158,7 +169,7 @@ func TestKratosGlobalLogoutBoundaryUsesVerifiedTLSAndExactSubject(t *testing.T) 
 			t.Fatal("unsafe Kratos subject accepted")
 		}
 	}
-	status = http.StatusServiceUnavailable
+	status.Store(http.StatusServiceUnavailable)
 	if client.RevokeNativeSessions(context.Background(), identity) == nil {
 		t.Fatal("unknown Kratos admin status declared logout")
 	}
