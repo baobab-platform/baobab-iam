@@ -337,6 +337,20 @@ class N07SourceTests(unittest.TestCase):
             with self.assertRaises(n07.Blocked):
                 n07.require_before(example(), d, b"k" * 32)
 
+    def test_legacy_flat_before_original_is_preserved_but_not_trusted(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            legacy = b'{"phase":"before","fingerprints":{}}\n'
+            digest = (n07.hashlib.sha256(legacy).hexdigest() + "\n").encode("ascii")
+            (root / "before.json").write_bytes(legacy)
+            (root / "before.sha256").write_bytes(digest)
+            (root / "before.json").chmod(0o600)
+            (root / "before.sha256").chmod(0o600)
+            with self.assertRaisesRegex(n07.Blocked, "LEGACY_BEFORE_ORIGINAL_REQUIRES_SECRET_KEYED_RERUN"):
+                n07.require_before(example(), d, b"k" * 32)
+            self.assertEqual((root / "before.json").read_bytes(), legacy)
+            self.assertEqual((root / "before.sha256").read_bytes(), digest)
+
     def test_after_requires_exact_same_original_token(self):
         with patch.object(n07, "token", side_effect=lambda path: path), \
                 patch.object(n07, "http_probe", return_value=(401, True, False)):
