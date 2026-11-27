@@ -173,6 +173,8 @@ class N07SourceTests(unittest.TestCase):
                 return self.reply
         for mime, cache, expected in (
             ("text/html", "no-store", False),
+            ("application/json;evil", "no-store", False),
+            ("application/json; charset=iso-8859-1", "no-store", False),
             ("application/json", "public", False),
             ("application/json; charset=utf-8", "private, no-store", True),
         ):

@@ -1,6 +1,5 @@
 """N07 real-browser structural negatives; no playwright launch in CI."""
 import importlib.util
-import json
 from pathlib import Path
 import sys
 import time
@@ -50,12 +49,12 @@ def profile():
 class Response:
     def __init__(self, payload, status=200, headers=None):
         self.status = status
-        self.headers = headers if headers is not None else {
+        self.headers = dict(headers) if headers is not None else {
             "cache-control": "private, no-store",
             "content-type": "application/json",
+            "content-length": str(len(payload)),
         }
         self.payload = payload
-        self.headers.setdefault("content-length", str(len(payload)))
 
     def body(self):
         return self.payload
@@ -138,6 +137,7 @@ class N07BrowserSource(unittest.TestCase):
         self.assertEqual(mod.cookie_free_json(Response(b'{"authenticated":true}')),
                          {"authenticated": True})
         for headers in (
+            {"cache-control": "no-store", "content-type": "application/json"},
             {"cache-control": "no-store", "content-type": "application/json", "content-length": "bad"},
             {"cache-control": "no-store", "content-type": "application/json", "content-length": "9000"},
             {"cache-control": "no-store", "content-type": "application/json;evil", "content-length": "2"},
