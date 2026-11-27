@@ -187,8 +187,10 @@ async function loginSecondFactor(enrollmentSession) {
  pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','AAL2_CHALLENGE');
  const credential=await nativeCredential('get',challenge,RP_ID);
  pass(credential.type==='public-key' && asserted>=1,'REAL_CREDENTIAL_ASSERTION');
- const success=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,
-  {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
+ // The pinned Kratos WebAuthn login schema requires the identifier for MFA too.
+ const assertion={method:'webauthn',identifier:privateEmail,
+  webauthn_login:JSON.stringify(credential),csrf_token:csrf};
+ const success=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,assertion);
  pass(success.status===200 || success.redirect,'AAL2_COMMIT_'+success.status);
  const active=statusExact(await onPage('GET',BROWSER_API+'/sessions/whoami'),200,'AAL2_SESSION');
  pass(active.identity?.id===identityID &&
@@ -198,8 +200,7 @@ async function loginSecondFactor(enrollmentSession) {
   active.authentication_methods.some(x=>x.method==='webauthn'),'ACTUAL_AAL2_METHOD_READBACK');
  // Replaying the original assertion on the already-consumed server flow must
  // never produce a new authoritative Kratos successful login response.
- const replay=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,
-  {method:'webauthn',webauthn_login:JSON.stringify(credential),csrf_token:csrf});
+ const replay=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,assertion);
  pass(replay.status!==200,'REPLAY_REJECTED');
 }
 async function run() {
