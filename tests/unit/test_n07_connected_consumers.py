@@ -41,7 +41,9 @@ def example():
         if name in n07.ESTATES:
             entry |= {"kind": "estate", "anonymous_path": n07.ESTATES[name]}
         else:
-            entry |= {"kind": "engine", "resource_path": "/v1/owner/read"}
+            entry |= {"kind": "engine", "resource_path": "/v1/owner/read",
+                       "response_contract": {"operation": name + ".resource.read",
+                                             "classification": "READ_ONLY_RESOURCE"}}
             entry.update({f"{c}_token_file": f"/private/{name}-{c}"
                           for c in n07.CASES[1:]})
         result["consumers"].append(entry)
@@ -163,9 +165,10 @@ class N07SourceTests(unittest.TestCase):
             ("application/json; charset=utf-8", "private, no-store", True),
         ):
             with patch.object(n07, "build_opener", return_value=Opener(Response(mime, cache))):
-                status, protected_json = n07.http_probe("https://internal.example.test", "/v1/owner/read", None)
+                status, protected_json, contract_match = n07.http_probe("https://internal.example.test", "/v1/owner/read", None)
                 self.assertEqual(status, 200)
                 self.assertEqual(protected_json, expected)
+                self.assertFalse(contract_match)
 
     def test_private_file_rejects_world_readable_and_symlink(self):
         with tempfile.TemporaryDirectory() as d:
@@ -186,38 +189,38 @@ class N07SourceTests(unittest.TestCase):
             n07.pairs_unique([("schema", "one"), ("schema", "two")])
 
     def test_missing_thamani_real_session_is_blocked_not_passed(self):
-        def fake(origin, path, bearer):
+        def fake(origin, path, bearer, _contract=None):
             if path == "/api/auth/session" and bearer is None:
-                return 404, False
-            return (401, True) if bearer is None else (403, True)
+                return 404, False, False
+            return (401, True, False) if bearer is None else (403, True, False)
         with patch.object(n07, "token", side_effect=lambda path: path):
-            result = n07.observe(example(), "before", fake)
+            result = n07.observe(example(), "before", b"k" * 32, fake)
         self.assertEqual(result["cases"]["N07_THAMANI_ANONYMOUS"], "BLOCKED")
         self.assertEqual(result["cases"]["N07_NABHOLD_BROWSER_AND_CP"], "BLOCKED")
         self.assertFalse(result["fully_qualified"])
         self.assertFalse(result["cp_authority_certified"])
 
     def test_status_404_or_503_is_not_a_denial_witness(self):
-        def fake(_origin, _path, bearer):
-            return (404, True) if bearer is None else (503, False)
+        def fake(_origin, _path, bearer, _contract=None):
+            return (404, True, False) if bearer is None else (503, False, False)
         with patch.object(n07, "token", side_effect=lambda p: p):
-            result = n07.observe(example(), "before", fake)
+            result = n07.observe(example(), "before", b"k" * 32, fake)
         self.assertTrue(all(x == "BLOCKED" for x in result["cases"].values()))
 
     def test_real_response_status_and_no_store_required_for_positive(self):
         def fake(_origin, _path, bearer):
-            return (200, False) if bearer is not None else (401, False)
+            return (200, False, False) if bearer is not None else (401, False, False)
         with patch.object(n07, "token", side_effect=lambda p: p):
-            result = n07.observe(example(), "before", fake)
+            result = n07.observe(example(), "before", b"k" * 32, fake)
         self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_ALLOWED"], "BLOCKED")
         self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_ANONYMOUS"], "OBSERVED")
         self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_MISSING_GRANT"], "BLOCKED")
 
     def test_wrong_negative_token_cannot_be_the_good_token(self):
         def fake(_origin, _path, bearer):
-            return (401, True) if bearer is None else (200, True)
+            return (401, True, False) if bearer is None else (200, True, True)
         with patch.object(n07, "token", return_value=unit_jwt()):
-            result = n07.observe(example(), "before", fake)
+            result = n07.observe(example(), "before", b"k" * 32, fake)
         self.assertEqual(result["cases"]["N07_BAOBAB_PAYMENTS_ALLOWED"], "OBSERVED")
         self.assertEqual(result["cases"]["N07_BAOBAB_PAYMENTS_WRONG_AUDIENCE"], "BLOCKED")
 
@@ -227,15 +230,15 @@ class N07SourceTests(unittest.TestCase):
         def token_for(path):
             return unit_jwt(path, expires_in=-30 if "wrong_audience" in path else 300)
 
-        def resource_response(_origin, _path, bearer):
+        def resource_response(_origin, _path, bearer, _contract=None):
             if bearer is None:
-                return 401, True
+                return 401, True, False
             payload = bearer.split(".")[1]
             original = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
-            return (200, True) if original["unit"].endswith("-allowed") else (403, True)
+            return (200, True, True) if original["unit"].endswith("-allowed") else (403, True, False)
 
         with patch.object(n07, "token", side_effect=token_for):
-            result = n07.observe(example(), "before", resource_response)
+            result = n07.observe(example(), "before", b"k" * 32, resource_response)
 
         self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_ALLOWED"], "OBSERVED")
         self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_WRONG_AUDIENCE"], "BLOCKED")
@@ -251,10 +254,10 @@ class N07SourceTests(unittest.TestCase):
     def test_after_rejects_missing_or_tampered_pre_original(self):
         with tempfile.TemporaryDirectory() as d:
             n07.original_write(d, "before", n07.observe(
-                example(), "before", lambda *_: (401, True)))
+                example(), "before", b"k" * 32, lambda *_: (401, True, False)))
             with self.assertRaises(n07.Blocked):
-                n07.require_before(example(), d)
-            with (Path(d) / "before.sha256").open("w") as stream:
+                n07.require_before(example(), d, b"k" * 32)
+            with (Path(d) / "before" / "original.sha256").open("w") as stream:
                 stream.write("0" * 64 + "\n")
             with self.assertRaises(n07.Blocked):
                 n07.require_before(example(), d)
@@ -263,18 +266,20 @@ class N07SourceTests(unittest.TestCase):
         with patch.object(n07, "token", side_effect=lambda path: path), \
                 patch.object(n07, "http_probe", return_value=(401, True)):
             # Explicit probe injected: no network and no provider acceptance.
-            result = n07.observe(example(), "after",
-                lambda _origin, _path, _bearer: (401, True))
+            result = n07.observe(example(), "after", b"k" * 32,
+                lambda _origin, _path, _bearer, _contract=None: (401, True, False))
         self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_REVOKED_UNEXPIRED"], "BLOCKED")
 
     def test_post_revocation_observation_always_unattested(self):
         p = example()
         original = unit_jwt()
-        before = {"fingerprints": {name: n07.fingerprint(RUN, original)
+        key = b"k" * 32
+        pins = p["source_pins"]
+        before = {"fingerprints": {name: n07.fingerprint(key, RUN, pins, original)
                                    for name in n07.REQUIRED_ENGINES}}
         with patch.object(n07, "token", return_value=original):
-            result = n07.observe(p, "after",
-                lambda _origin, _path, _bearer: (403, True), before=before)
+            result = n07.observe(p, "after", key,
+                lambda _origin, _path, _bearer, _contract=None: (403, True, False), before=before)
         self.assertEqual(result["cases"]["N07_BAOBAB_PAYMENTS_REVOKED_UNEXPIRED"], "OBSERVED")
         self.assertFalse(result["fully_qualified"])
         self.assertFalse(result["issuer_qualified"])
@@ -284,8 +289,8 @@ class N07SourceTests(unittest.TestCase):
             root = Path(d) / "private"
             receipt = {"accepted": False, "cases": {"example": "BLOCKED"}}
             n07.original_write(str(root), "before", receipt)
-            self.assertEqual((root / "before.json").stat().st_mode & 0o077, 0)
-            self.assertEqual((root / "before.sha256").stat().st_mode & 0o077, 0)
+            self.assertEqual((root / "before" / "original.json").stat().st_mode & 0o077, 0)
+            self.assertEqual((root / "before" / "original.sha256").stat().st_mode & 0o077, 0)
             with self.assertRaises(n07.Blocked):
                 n07.original_write(str(root), "before", receipt)
 
