@@ -20,12 +20,8 @@ services:
     networks:
       default:
         ipv4_address: 172.30.146.2
-    extra_hosts: !override
-      - "host.docker.internal:172.30.146.1"
   hydra:
     ports: !reset []
     networks:
       default:
         ipv4_address: 172.30.146.3
-    extra_hosts:
-      - "host.docker.internal:172.30.146.1"
