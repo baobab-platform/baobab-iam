@@ -25,6 +25,19 @@ class N08RealProviderRestoreSafety(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(mod.Refused):
                 mod.request("GET", value)
 
+    def test_smtp_sink_host_alias_matches_private_bridge_gateway(self):
+        compose = (ROOT / "docker-compose.ory.yml").read_text()
+        isolated = (ROOT / "tests/ory-foundation/compose.isolated.yml").read_text()
+        runner = (ROOT / "tests/ory-foundation/run.sh").read_text()
+        sink = (ROOT / "tests/ory-foundation/smtp_sink.py").read_text()
+        self.assertIn("${BAOBAB_ORY_HOST_GATEWAY:-host-gateway}", compose)
+        self.assertIn("gateway: 172.30.146.1", isolated)
+        self.assertIn("BAOBAB_ORY_HOST_GATEWAY=172.30.146.1", runner)
+        self.assertIn("host.docker.internal:172.30.146.1", runner)
+        self.assertIn("HostConfig.ExtraHosts", runner)
+        self.assertIn('choices=("172.30.146.1",)', sink)
+        self.assertIn('SMTPServer((parser.parse_args().listen, 1025), SMTP)', sink)
+
     def test_private_oneuse_fixture_custody(self):
         with tempfile.TemporaryDirectory() as folder:
             directory = Path(folder)
