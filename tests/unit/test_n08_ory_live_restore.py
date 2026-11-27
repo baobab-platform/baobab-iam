@@ -31,6 +31,7 @@ class N08RealProviderRestoreSafety(unittest.TestCase):
         runner = (ROOT / "tests/ory-foundation/run.sh").read_text()
         sink = (ROOT / "tests/ory-foundation/smtp_sink.py").read_text()
         cleanup = (ROOT / "tests/ory-foundation/cleanup.sh").read_text()
+        workflow = (ROOT / ".github/workflows/ory-foundation.yml").read_text()
         self.assertIn("${BAOBAB_ORY_HOST_GATEWAY:-host-gateway}", compose)
         self.assertIn("gateway: 172.30.146.1", isolated)
         self.assertIn("BAOBAB_ORY_HOST_GATEWAY=172.30.146.1", runner)
@@ -43,6 +44,11 @@ class N08RealProviderRestoreSafety(unittest.TestCase):
         self.assertIn("compose.isolated.yml", cleanup)
         self.assertIn("BAOBAB_ORY_HOST_GATEWAY=172.30.146.1", cleanup)
         self.assertNotIn("pkill", cleanup)
+        self.assertIn("RUN_N06_BROWSER: '1'", workflow)
+        self.assertLess(workflow.index("Provision pinned Node 24 browser qualification runtime"),
+                        workflow.index("Verify isolated foundation, live provider boundary and M4 workload mechanics"))
+        self.assertIn("node tests/integration/passkey/n06-kratos-browser.mjs", runner)
+        self.assertNotIn("Require real pinned Kratos + Chromium CTAP2 WebAuthn ceremony", workflow)
         result = subprocess.run(["bash", "-n", str(ROOT / "tests/ory-foundation/cleanup.sh")],
                                 capture_output=True, check=False, timeout=10)
         self.assertEqual(result.returncode, 0, "Ory cleanup shell syntax invalid")
