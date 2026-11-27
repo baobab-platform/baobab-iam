@@ -144,6 +144,9 @@ async function browserLoginPassword() {
  const whoami=await onPage('GET',BROWSER_API+'/sessions/whoami');
  statusExact(whoami,200,'BROWSER_SESSION');
  pass(whoami.body?.identity?.id===identityID,'BROWSER_SESSION_SUBJECT');
+ pass(whoami.body?.authenticator_assurance_level==='aal1' &&
+  /^[0-9a-f-]{36}$/.test(whoami.body?.id||''),'PASSWORD_ONLY_SESSION');
+ return whoami.body.id;
 }
 async function registerWebAuthn() {
  const {id,flow}=await browserFlow('settings');
@@ -209,9 +212,15 @@ async function run() {
   });
   session.cdp.on('WebAuthn.credentialAsserted',()=>{asserted++});
   qualificationPhase='KRATOS_BROWSER_LOGIN';
-  await browserLoginPassword();
+  const enrollmentSession=await browserLoginPassword();
   qualificationPhase='KRATOS_PASSKEY_REGISTRATION';
   await registerWebAuthn();
+  // Kratos adds the just-enrolled second factor to the enrollment session.
+  // Start a distinct password-only session before requesting an AAL2 upgrade.
+  qualificationPhase='KRATOS_NEW_PASSWORD_SESSION';
+  await session.context.clearCookies();
+  const assertionSession=await browserLoginPassword();
+  pass(assertionSession!==enrollmentSession,'DISTINCT_ASSERTION_SESSION');
   qualificationPhase='KRATOS_AAL2_ASSERTION';
   await loginSecondFactor();
   process.stdout.write('N06_KRATOS_CHROMIUM_CTAP2_A3_CEREMONY_AND_REPLAY_PASS_NOT_A4\n');
