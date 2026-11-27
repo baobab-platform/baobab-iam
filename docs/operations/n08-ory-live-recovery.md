@@ -42,7 +42,11 @@ sets `BAOBAB_ORY_HOST_GATEWAY=172.30.146.1` before Compose starts and verifies
 the running Kratos container's `HostConfig.ExtraHosts` entry. Do not change
 the sink bind address, isolated subnet gateway, or host alias independently.
 The source regression `test_smtp_sink_host_alias_matches_private_bridge_gateway`
-guards this three-way contract.
+guards this three-way contract. The Ory Foundation workflow installs Node/Chromium
+before starting the provider fixture and runs the browser ceremony inside
+`run.sh`, before its SMTP cleanup trap; do not move the browser step after that
+process exits. `cleanup.sh` stops only the recorded relay/sink PIDs after
+checking their command lines, then removes the isolated Compose volumes.
 
 ## Same-run IAM security authority and recovery-hold restoration
 
