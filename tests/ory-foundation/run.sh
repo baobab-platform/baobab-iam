@@ -44,9 +44,12 @@ printf '%s\n' "$!" > "$relay_pid_file"
 export BAOBAB_TEST_MAIL_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 python3 tests/ory-foundation/smtp_sink.py --listen 172.30.146.1 >/dev/null 2>&1 &
 MAIL_SINK_PID=$!
+mail_sink_pid_file="$runtime_dir/ory-foundation-mail-sink.pid"
+printf '%s\n' "$MAIL_SINK_PID" > "$mail_sink_pid_file"
 cleanup_mail_sink() {
   kill "$MAIL_SINK_PID" 2>/dev/null || true
   wait "$MAIL_SINK_PID" 2>/dev/null || true
+  rm -f "$mail_sink_pid_file"
   unset BAOBAB_TEST_MAIL_KEY
 }
 trap cleanup_mail_sink EXIT
