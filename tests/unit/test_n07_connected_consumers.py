@@ -90,6 +90,18 @@ class N07SourceTests(unittest.TestCase):
         with self.assertRaises(n07.Blocked):
             n07.validate_profile(p)
 
+    def test_engine_response_contract_is_required_closed_and_owner_specific(self):
+        for mutate in (
+            lambda c: c.pop("response_contract"),
+            lambda c: c["response_contract"].update({"health": True}),
+            lambda c: c["response_contract"].update({"classification": "HEALTHY"}),
+            lambda c: c["response_contract"].update({"operation": "<placeholder>"}),
+        ):
+            candidate = example()
+            mutate(candidate["consumers"][-1])
+            with self.assertRaises(n07.Blocked):
+                n07.validate_profile(candidate)
+
     def test_closed_profile_rejects_authentication_and_authority_smuggling(self):
         for extra, value in (("production_authorized", True),
                              ("browser_session", "secret"),
