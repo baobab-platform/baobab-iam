@@ -30,6 +30,7 @@ class N08RealProviderRestoreSafety(unittest.TestCase):
         isolated = (ROOT / "tests/ory-foundation/compose.isolated.yml").read_text()
         runner = (ROOT / "tests/ory-foundation/run.sh").read_text()
         sink = (ROOT / "tests/ory-foundation/smtp_sink.py").read_text()
+        cleanup = (ROOT / "tests/ory-foundation/cleanup.sh").read_text()
         self.assertIn("${BAOBAB_ORY_HOST_GATEWAY:-host-gateway}", compose)
         self.assertIn("gateway: 172.30.146.1", isolated)
         self.assertIn("BAOBAB_ORY_HOST_GATEWAY=172.30.146.1", runner)
@@ -37,6 +38,14 @@ class N08RealProviderRestoreSafety(unittest.TestCase):
         self.assertIn("HostConfig.ExtraHosts", runner)
         self.assertIn('choices=("172.30.146.1",)', sink)
         self.assertIn('SMTPServer((parser.parse_args().listen, 1025), SMTP)', sink)
+        self.assertIn("tests/ory-foundation/smtp_sink.py", cleanup)
+        self.assertIn("tests/ory-foundation/loopback_relay.py", cleanup)
+        self.assertIn("compose.isolated.yml", cleanup)
+        self.assertIn("BAOBAB_ORY_HOST_GATEWAY=172.30.146.1", cleanup)
+        self.assertNotIn("pkill", cleanup)
+        result = subprocess.run(["bash", "-n", str(ROOT / "tests/ory-foundation/cleanup.sh")],
+                                capture_output=True, check=False, timeout=10)
+        self.assertEqual(result.returncode, 0, "Ory cleanup shell syntax invalid")
 
     def test_private_oneuse_fixture_custody(self):
         with tempfile.TemporaryDirectory() as folder:
