@@ -33,12 +33,13 @@ N07 must prove real first-party consumer integrations against genuine Kratos nat
 - Exact 40-hex source pins, 32-hex run ID, clean checked-out IAM SHA, development-only environment, no proxy, no redirect, HTTPS by default (HTTP only for development loopback 127.0.0.1), no URL credentials, query, fragment, or encoded traversal. Requires actual owner-only (0600) bearer files.
 - All three estate endpoints are probed **unauthenticated** and must return 401/403. Browser-positive and CP Principal cases stay BLOCKED in this CLI because the owner must run genuine Playwright; no exporting browser cookies or bearer secrets.
 - Headless-engine read-only resource probes check anonymous denial, allowed current short-lived bearer (HTTP 200 and no-store), wrong-audience, foreign-Tenant, and missing-grant denials (401/403, not 404/302/5xx). Each negative uses a distinct original private token.
-- Pre- and post-revocation phases are separate. Post requires an immutable private pre-original and checksum, matching run/source, previously observed positive and exact same token correlated through a private run-bound HMAC. JWT expiration is sanity-checked only; actual cryptographic signature, current RFC7662 and CP readbacks are **not claimed** by this producer. The revocation is executed by its independent authorized owner, not by this script.
-- Private append-only by policy original receipt and SHA-256 sidecar: exclusive creation, 0600 files, fsync, no overwrite, no bearer/password/cookie/provider response/identity/body/URL persisted. Source tests use unit doubles and never claim live evidence.
+- Pre- and post-revocation phases are separate. Before-phase execution creates an independent random 256-bit correlation key in an owner-only 0600 file outside the receipt directory; after-phase execution requires the same file, exact 32-byte content and matching key identifier. The HMAC binds the token to the run ID and complete immutable source-pin map. The key is never copied into receipts or public output and must be securely destroyed only after the post-revocation observation and independent evidence custody are complete. JWT expiration is sanity-checked only; actual cryptographic signature, current RFC7662 and CP readbacks are **not claimed** by this producer. The revocation is executed by its independent authorized owner, not by this script.
+- Each engine owner must supply an exact response_contract with an operation discriminator and the fixed READ_ONLY_RESOURCE classification. A positive HTTP 200 is observed only after exact application/json MIME, no-store, a declared Content-Length no greater than 8192 bytes, valid bounded JSON and exact contract-field equality. The response body is never persisted; generic health JSON, application-level errors, malformed/oversized bodies and unknown fields remain BLOCKED.
+- Private originals are published as an atomic per-phase directory containing original.json and original.sha256, each 0600 and fsynced before the directory is renamed into place. The directory is either absent or contains the complete pair; an existing phase is never overwritten. Source tests use unit doubles and never claim live evidence.
 - Output classification is REAL_HTTP_READBACK_UNATTESTED with explicit false values for fully_qualified, protected_accepted, issuer_qualified, cp_authority_certified and consumer_native_consequence_qualified. Exit 3 means HTTP probes observed **without acceptance**; exit 2 means BLOCKED. Exit 0 never means acceptance.
 - tests/unit/test_n07_connected_consumers.py exercises profile, source, status, privacy, revocation pre-original and expiry negatives. CI runs source compilation and the negative-first suite.
 
-The structural worksheet is tests/connected/n07-profile.example.json. Its invalid placeholder origins and all-zero source SHA pins are **not a development deployment**.
+The structural worksheet is tests/connected/n07-profile.example.json. Its invalid placeholder origins, owner-operation placeholders and all-zero source SHA pins are **not a development deployment**. Replace each engine response contract only with the exact operation discriminator and response classification agreed by that resource owner; do not infer or invent a route contract.
 
 ## Thamani estate owner companion — source integrated, runtime HELD
 
@@ -117,9 +118,9 @@ Example use on a reviewed immutable private development host:
 
     export BAOBAB_ENVIRONMENT=development
     umask 077
-    python3 -B scripts/n07_connected_consumers.py --profile /run/private/iam-n07/profile.json --output-dir /run/private/iam-n07/originals --phase before
+    python3 -B scripts/n07_connected_consumers.py --profile /run/private/iam-n07/profile.json --output-dir /run/private/iam-n07/originals --correlation-key-file /run/private/iam-n07/correlation.key --phase before
     # Owner-operated and independently witnessed issuer/CP withdraw here.
-    python3 -B scripts/n07_connected_consumers.py --profile /run/private/iam-n07/profile.json --output-dir /run/private/iam-n07/originals --phase after
+    python3 -B scripts/n07_connected_consumers.py --profile /run/private/iam-n07/profile.json --output-dir /run/private/iam-n07/originals --correlation-key-file /run/private/iam-n07/correlation.key --phase after
 
 Expect nonzero exit even for coherent HTTP originals. Never upload private originals or secrets as a public CI artifact.
 
