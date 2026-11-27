@@ -12,12 +12,13 @@ The reviewed pre-remediation head was `911a4cc7cecff5a45d74b6d64a87df44f8582eb7`
 
 The following source corrections are now committed to the N08 branch; **all new-head checks are pending**:
 
-1. Declare the nested passkey qualification package as a root npm workspace, add the workspace lock, explicitly declare `package_managers.node: npm`, add npm Dependabot coverage, and run both CI/Foundation npm installs from the root workspace. The nested package-lock was removed so one lock is authoritative.
+1. Declare the nested passkey qualification package as a root npm workspace, add the workspace link and exact `0.0.0` private-package entry to the root lock, explicitly declare `package_managers.node: npm`, add npm Dependabot coverage, and run both CI/Foundation npm installs from the root workspace. The nested package-lock was removed so one lock is authoritative.
 2. Move the offline Dependabot regression job under `jobs:`, add npm to the required ecosystem list, and update its source regression to require the actual Node workspace and lock.
 3. Keep the strict `highest_available` settings policy out of the disposable-only Kratos fixture: local Foundation now uses `aal1` solely to permit initial authenticator enrollment. The config comment explicitly requires protected environments to retain `highest_available` and implement an approved bootstrap path. This does not qualify production settings policy or A3/A4.
 4. Preserve safe uppercase N06 browser stage labels so a subsequent failure is actionable without exposing credentials, flow bodies or exception stacks.
-5. Restrict OTLP export to exact HTTPS collector authorities in an explicit allowlist, with TLS 1.2+, no ambient proxy and no redirects. Plain HTTP is accepted only for an explicitly opted-in loopback test.
-6. Correct the recovery topology documentation: `n08_security_ci` is a third logical database in the Kratos PG17 container; there are two PG17 containers and three logical databases, not three containers.
+5. Generate the Keycloak/PostgreSQL CI fixture through `scripts/local_bootstrap_env.py --environment ci` before Compose starts, and source the owner-only `.env` only inside the verification step. This supplies the required Compose/admin variables and lets failure cleanup parse the same config without logging secrets.
+6. Restrict OTLP export to exact HTTPS collector authorities in `BAOBAB_OTEL_COLLECTOR_ALLOWED_HOSTS`, with TLS 1.2+, no ambient proxy and no redirects. Plain HTTP is accepted only for an explicitly opted-in loopback test.
+7. Correct the recovery topology documentation: `n08_security_ci` is a third logical database in the Kratos PG17 container; there are two PG17 containers and three logical databases, not three containers.
 
 The earlier 26 November review record is retained below for historical context. N08 remains DRAFT / HELD until exact-head Foundation, both Ory variants, CI, security scans, and the stacked-parent reconciliation pass. The successful N08 jobs above do not certify connected CP/estate consumers, protected deployment, production DR, or RPO/RTO.
 
