@@ -162,6 +162,15 @@ class DependencyPolicyRegression(unittest.TestCase):
         self.assertTrue((ROOT / "Dockerfile").is_file())
         self.assertTrue((ROOT / "docker-compose.yml").is_file())
 
+    def test_dependabot_workflow_jobs_are_nested_under_jobs(self):
+        workflow_path = ROOT / ".github/workflows/enforce-dependabot-config.yml"
+        workflow = yaml.load(workflow_path.read_text(), Loader=yaml.BaseLoader)
+        allowed_top_level = {"name", "on", "permissions", "concurrency", "env", "defaults", "jobs"}
+        self.assertEqual(set(workflow) - allowed_top_level, set())
+        self.assertIn("check", workflow["jobs"])
+        self.assertIn("offline-policy-regression", workflow["jobs"])
+        self.assertNotIn("offline-policy-regression", workflow)
+
     def test_node_workspace_or_iam_provider_boundary(self):
         if IAM:
             manifest = json.loads((ROOT / "package.json").read_text())
