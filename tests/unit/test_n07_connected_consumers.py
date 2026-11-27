@@ -208,7 +208,7 @@ class N07SourceTests(unittest.TestCase):
         self.assertTrue(all(x == "BLOCKED" for x in result["cases"].values()))
 
     def test_real_response_status_and_no_store_required_for_positive(self):
-        def fake(_origin, _path, bearer):
+        def fake(_origin, _path, bearer, _contract=None):
             return (200, False, False) if bearer is not None else (401, False, False)
         with patch.object(n07, "token", side_effect=lambda p: p):
             result = n07.observe(example(), "before", b"k" * 32, fake)
@@ -217,7 +217,7 @@ class N07SourceTests(unittest.TestCase):
         self.assertEqual(result["cases"]["N07_BAOBAB_PULSE_MISSING_GRANT"], "BLOCKED")
 
     def test_wrong_negative_token_cannot_be_the_good_token(self):
-        def fake(_origin, _path, bearer):
+        def fake(_origin, _path, bearer, _contract=None):
             return (401, True, False) if bearer is None else (200, True, True)
         with patch.object(n07, "token", return_value=unit_jwt()):
             result = n07.observe(example(), "before", b"k" * 32, fake)
@@ -260,11 +260,11 @@ class N07SourceTests(unittest.TestCase):
             with (Path(d) / "before" / "original.sha256").open("w") as stream:
                 stream.write("0" * 64 + "\n")
             with self.assertRaises(n07.Blocked):
-                n07.require_before(example(), d)
+                n07.require_before(example(), d, b"k" * 32)
 
     def test_after_requires_exact_same_original_token(self):
         with patch.object(n07, "token", side_effect=lambda path: path), \
-                patch.object(n07, "http_probe", return_value=(401, True)):
+                patch.object(n07, "http_probe", return_value=(401, True, False)):
             # Explicit probe injected: no network and no provider acceptance.
             result = n07.observe(example(), "after", b"k" * 32,
                 lambda _origin, _path, _bearer, _contract=None: (401, True, False))
