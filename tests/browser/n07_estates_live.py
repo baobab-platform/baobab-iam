@@ -35,6 +35,8 @@ ESTATES = {
 
 
 def validate_browser_profile(p: dict[str, Any]) -> None:
+    if not isinstance(p, dict) or set(p) != {"schema", "environment", "run_id", "source_pins", "estates"}:
+        raise n07.Blocked("UNREVIEWED_BROWSER_PROFILE_FIELDS")
     if (p.get("schema") != SCHEMA or p.get("environment") != "development"
             or not isinstance(p.get("run_id"), str)
             or not n07.RUN.fullmatch(p["run_id"])):
@@ -50,6 +52,14 @@ def validate_browser_profile(p: dict[str, Any]) -> None:
     for name, details in estates.items():
         if not isinstance(details, dict):
             raise n07.Blocked("ESTATE_CONFIGURATION_REQUIRED")
+        common = {"origin", "entry_path", "session_path", "login_button_selector",
+                  "identifier_selector", "password_selector", "submit_selector",
+                  "logout_button_selector", "identifier_file", "password_file"}
+        context_key = "executive_navigation" if name == "nabhold" else "logistics_navigation"
+        expected_fields = common | ({"context_path", context_key}
+                                    if name in ("nabhold", "thamani") else set())
+        if set(details) != expected_fields:
+            raise n07.Blocked("UNREVIEWED_ESTATE_PROFILE_FIELDS")
         n07.trusted_origin(details.get("origin"))
         if details.get("session_path") != ESTATES[name][0]:
             raise n07.Blocked("UNREVIEWED_FIRST_PARTY_SESSION")
@@ -73,12 +83,16 @@ def validate_browser_profile(p: dict[str, Any]) -> None:
 
 
 def cookie_free_json(response) -> dict[str, Any]:
-    if (response.status != 200 or
-            "application/json" not in response.headers.get("content-type", "").lower() or
-            "no-store" not in response.headers.get("cache-control", "").lower()):
+    headers = response.headers
+    media_type = headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    length = headers.get("content-length")
+    if (response.status != 200 or media_type != "application/json" or
+            "no-store" not in {x.strip().lower() for x in headers.get("cache-control", "").split(",")}):
         raise n07.Blocked("CURRENT_SESSION_UNAVAILABLE")
+    if length is None or not length.isascii() or not length.isdigit() or int(length) > 8192:
+        raise n07.Blocked("SESSION_REPLY_SIZE_UNBOUNDED")
     raw = response.body()
-    if len(raw) > 8192:
+    if len(raw) > 8192 or len(raw) != int(length):
         raise n07.Blocked("OVERSIZED_SESSION_REPLY")
     try:
         obj = json.loads(raw, object_pairs_hook=n07.pairs_unique)
@@ -89,7 +103,7 @@ def cookie_free_json(response) -> dict[str, Any]:
     return obj
 
 
-def current_session(name: str, reply: dict[str, Any]) -> None:
+def current_session(name: str, reply: dict[str, Any]) -> str | None:
     expire = reply.get("expiresAt")
     if (isinstance(expire, bool) or not isinstance(expire, (int, float)) or
             expire < time.time() * 1000 + 10_000):
@@ -98,16 +112,27 @@ def current_session(name: str, reply: dict[str, Any]) -> None:
         try:
             if not isinstance(reply.get("principalId"), str):
                 raise ValueError()
-            UUID(reply["principalId"])
+            principal = UUID(reply["principalId"])
+            principal_id = str(principal)
+            if reply["principalId"] != principal_id:
+                raise ValueError()
         except ValueError:
             raise n07.Blocked("CP_PRINCIPAL_NOT_OBSERVED") from None
+        return principal_id
     elif reply.get("authenticated") is not True:
         raise n07.Blocked("CURRENT_NATIVE_SESSION_NOT_OBSERVED")
+    return None
 
 
-def current_executive_context(reply: dict[str, Any], expect: dict[str, str], kind: str = "EXECUTIVE_NAVIGATION") -> None:
+def current_executive_context(reply: dict[str, Any], expect: dict[str, str],
+                              principal_id: str, kind: str = "EXECUTIVE_NAVIGATION") -> None:
     market = reply.get("market")
-    if (reply.get("kind") != kind or
+    try:
+        context_principal = str(UUID(reply.get("principalId")))
+    except (ValueError, TypeError, AttributeError):
+        raise n07.Blocked("CP_CONTEXT_PRINCIPAL_NOT_OBSERVED") from None
+    if (context_principal != principal_id or reply.get("principalId") != context_principal or
+            reply.get("kind") != kind or
             reply.get("executionAuthority") is not False or
             reply.get("tenantId") != expect["tenant_id"] or
             not isinstance(market, dict) or
@@ -171,7 +196,7 @@ def actual_estates(profile: dict[str, Any]) -> dict[str, str]:
                                                        max_redirects=0, timeout=5000)
                         if response.status == 200:
                             confirmed = cookie_free_json(response)
-                            current_session(name, confirmed)
+                            principal_id = current_session(name, confirmed)
                             break
                     if confirmed is None:
                         continue
@@ -183,6 +208,7 @@ def actual_estates(profile: dict[str, Any]) -> dict[str, str]:
                         nav = cookie_free_json(navigation)
                         current_executive_context(nav,
                             cfg["executive_navigation" if name == "nabhold" else "logistics_navigation"],
+                            principal_id,
                             "EXECUTIVE_NAVIGATION" if name == "nabhold" else "LOGISTICS_NAVIGATION")
                         results[prefix + "_CP_READ_ONLY"] = "OBSERVED"
                     # Other estate CP buyer/legal-actor authority requires
