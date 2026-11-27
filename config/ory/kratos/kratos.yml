@@ -82,11 +82,7 @@ selfservice:
     settings:
       ui_url: http://127.0.0.1:4455/settings
       privileged_session_max_age: 15m
-      # This file is the disposable local Foundation fixture only. AAL1
-      # permits initial authenticator enrollment; protected environments
-      # must retain highest_available and implement an approved bootstrap
-      # path before enabling the strict settings policy.
-      required_aal: aal1
+      required_aal: highest_available
 
     recovery:
       enabled: true
