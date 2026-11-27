@@ -371,7 +371,7 @@ class N07SourceTests(unittest.TestCase):
                 with self.assertRaises(OSError):
                     n07.original_write(str(root), "before", {"accepted": False})
             self.assertFalse((root / "before").exists())
-            self.assertEqual(list(root.glob("*.staging")), [])
+            self.assertEqual(list(root.iterdir()), [])
 
     def test_originals_never_overwritten(self):
         with tempfile.TemporaryDirectory() as d:
