@@ -217,6 +217,8 @@ def http_probe(origin: str, path: str, bearer: str | None,
         safe_resource = no_store and media_type == "application/json"
         contract_match = False
         if response.status == 200 and bearer is not None and response_contract is not None:
+            if not safe_resource:
+                return response.status, False, False
             length = headers.get("Content-Length")
             if length is None or not length.isascii() or not length.isdigit() or int(length) > 8192:
                 raise Blocked("RESOURCE_RESPONSE_SIZE_UNBOUNDED")
