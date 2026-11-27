@@ -35,11 +35,13 @@ recovery remain required.
 ## Same-run IAM security authority and recovery-hold restoration
 
 The existing actual Kratos+Hydra database drill now creates a **third
-synthetic IAM security database** in its own disposable PostgreSQL 17
-container, applies the owner N06 migration and writes an append-only security
-event and 24-hour recovery hold. All **three** databases are independently
-snapshotted and original SHA256 checksums verified. After deleting and
-recreating all three databases, the script verifies provider-issued session
+logical database**, `n08_security_ci`, inside the same disposable PostgreSQL 17
+container that owns the Kratos database. Hydra remains in its own separate
+PostgreSQL 17 container. The security database applies the owner N06 migration
+and receives an append-only security event and 24-hour recovery hold. All
+**three logical databases** (Kratos, Hydra and `n08_security_ci`) are
+independently snapshotted and original SHA256 checksums verified. After
+deleting and recreating all three databases, the script verifies provider-issued session
 and workload denials; independently reads back the original security event
 and active hold; rejects mutation of immutable event history and an attempted
 shortening of the restored hold. Its EXIT trap drops **only** the security DB
