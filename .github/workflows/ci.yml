@@ -440,7 +440,13 @@ jobs:
             -e "BOOTSTRAP_WORKLOAD_CLIENT_SECRET=$BOOTSTRAP_WORKLOAD_CLIENT_SECRET" \
             keycloak /opt/keycloak/bootstrap.sh
       - name: Run ADR-0002 Section 48 verification suite
-        run: ./tests/integration/run.sh
+        shell: bash
+        run: |
+          set +x
+          set -a
+          . ./.env
+          set +a
+          ./tests/integration/run.sh
       - name: Retain sanitized passkey ceremony evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
