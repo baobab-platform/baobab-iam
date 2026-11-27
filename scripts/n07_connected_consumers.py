@@ -311,6 +311,11 @@ def unexpired_jwt(value: str) -> None:
 
 def require_before(profile: dict[str, Any], directory: str, key: bytes) -> dict[str, Any]:
     root = Path(directory)
+    if not (root / "before").is_dir() and (
+            (root / "before.json").exists() or (root / "before.sha256").exists()):
+        # Historical flat originals used the public run ID as their HMAC key.
+        # Preserve them for audit, but never treat them as keyed same-token proof.
+        raise Blocked("LEGACY_BEFORE_ORIGINAL_REQUIRES_SECRET_KEYED_RERUN")
     before_bytes = private_read(str(root / "before" / "original.json"))
     if private_read(str(root / "before" / "original.sha256"), 256).decode("ascii").strip() != hashlib.sha256(before_bytes).hexdigest():
         raise Blocked("ORIGINAL_BEFORE_DIGEST_INVALID")
