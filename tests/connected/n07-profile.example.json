@@ -36,6 +36,10 @@
       "kind": "engine",
       "origin": "https://pulse.private.example.invalid",
       "resource_path": "/REPLACE-WITH-OWNER-READ-ONLY-ROUTE",
+      "response_contract": {
+        "operation": "REPLACE_WITH_OWNER_APPROVED_OPERATION",
+        "classification": "READ_ONLY_RESOURCE"
+      },
       "allowed_token_file": "/run/secrets/iam-n07/baobab-pulse/allowed.token",
       "wrong_audience_token_file": "/run/secrets/iam-n07/baobab-pulse/wrong_audience.token",
       "foreign_tenant_token_file": "/run/secrets/iam-n07/baobab-pulse/foreign_tenant.token",
