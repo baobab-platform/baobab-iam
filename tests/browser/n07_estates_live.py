@@ -43,7 +43,7 @@ def validate_browser_profile(p: dict[str, Any]) -> None:
         raise n07.Blocked("PRIVATE_BROWSER_PROFILE_REQUIRED")
     pins = p.get("source_pins")
     if (not isinstance(pins, dict) or
-            not {"baobab-iam", "baobab-cp", "shared", *ESTATES}.issubset(pins) or
+            set(pins) != {"baobab-iam", "baobab-cp", "shared", *ESTATES} or
             any(not isinstance(v, str) or not n07.SHA.fullmatch(v) for v in pins.values())):
         raise n07.Blocked("BROWSER_PEER_PINS_REQUIRED")
     estates = p.get("estates")
@@ -75,7 +75,8 @@ def validate_browser_profile(p: dict[str, Any]) -> None:
                 raise n07.Blocked("PRIVATE_SYNTHETIC_IDENTITY_REQUIRED")
         if name in ("nabhold", "thamani"):
             expected = details.get("executive_navigation" if name == "nabhold" else "logistics_navigation")
-            if (not isinstance(expected, dict) or not isinstance(expected.get("tenant_id"), str)
+            if (not isinstance(expected, dict) or set(expected) != {"tenant_id", "market"}
+                    or not isinstance(expected.get("tenant_id"), str)
                     or not isinstance(expected.get("market"), str) or
                     not re.fullmatch(r"tn_[a-z0-9]{3,60}", expected["tenant_id"]) or
                     not re.fullmatch(r"[A-Z]{2}", expected["market"])):
