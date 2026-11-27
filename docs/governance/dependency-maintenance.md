@@ -11,13 +11,14 @@
 | --- | --- | --- |
 | GitHub Actions | `.github/workflows/*.yml` | `github-actions` at `/` |
 | Go identity/federation | Root `go.mod` / `go.sum`; Go 1.27.3; OIDC/JOSE, SAML, PostgreSQL clients | **NEW** `gomod` at `/` |
+| Node passkey qualification | Root npm workspace and lock; `tests/integration/passkey/package.json` owns the pinned Playwright/OIDC qualification dependencies | **NEW** `npm` at `/`; one workspace lock covers the nested test package |
 | OCI/Keycloak/native BFF | `Dockerfile`, `Dockerfile.federation-authority` and `Dockerfile.native-browser-bff` at repo root | **NEW** `docker` at `/` |
 | Local Ory/Keycloak/PG test topology | `docker-compose.yml` and `docker-compose.ory.yml` at root | **NEW** `docker-compose` at `/` |
 | Devcontainer and centrally provisioned environments | `.devcontainer`, `upstream.lock.yaml` and native provider/image authorities | Owner-governed review; not assumed to be interchangeable with runtime image Dependabot |
 
-IAM's audited `.github/dependabot.yml` previously tracked GitHub Actions alone, with an unconstrained group and none of the required PR limits, labels or commit prefixes. The updated file now covers four real ecosystems; groups routine minor/patch **version updates only**; requires positive open-PR limits, labels and commit prefixes; and schedules updates each Monday in SAST. Security patch response remains advisory/incident driven and not bounded by the routine schedule. Major Go, Keycloak, Ory and identity protocol changes require isolated owner review. No blanket ignore or `target-branch` is introduced.
+IAM's audited `.github/dependabot.yml` previously tracked GitHub Actions alone, with an unconstrained group and none of the required PR limits, labels or commit prefixes. The updated file now covers five real ecosystems; groups routine minor/patch **version updates only**; requires positive open-PR limits, labels and commit prefixes; and schedules updates each Monday in SAST. Security patch response remains advisory/incident driven and not bounded by the routine schedule. Major Go, Keycloak, Ory and identity protocol changes require isolated owner review. No blanket ignore or `target-branch` is introduced.
 
-`.github/workflows/enforce-dependabot-config.yml` keeps the immutable accepted Shared validator `31de2bc3dcd56128c019c640dc7e12c10ae9ca69` and now explicitly requires `github-actions,gomod,docker,docker-compose`. Shared #429 introduces an opt-in *strict* level; only migrate this caller after the validator is independently accepted/merged and pinned to a released commit. Do not point protected CI at an unmerged PR's SHA.
+`.github/workflows/enforce-dependabot-config.yml` keeps the immutable accepted Shared validator `31de2bc3dcd56128c019c640dc7e12c10ae9ca69` and now explicitly requires `github-actions,gomod,npm,docker,docker-compose`. Shared #429 introduces an opt-in *strict* level; only migrate this caller after the validator is independently accepted/merged and pinned to a released commit. Do not point protected CI at an unmerged PR's SHA.
 
 ## Security response and native proof
 
@@ -33,4 +34,4 @@ An IAM dependency update is consequential: scanner success alone cannot prove cr
 
 ## Completion/readback
 
-Before this adoption is marked verified: run `python3 -B -m unittest discover -s tests/unit -p 'test_dependency_maintenance.py' -v`, inspect the pinned Shared Dependabot structural check against the **exact final head**, confirm Go and Docker/Compose Dependabot jobs actually start, and preserve IAM-N08/N04 connected provider negatives. Security must verify the relevant GitHub security settings independently. Record `SOURCE_COMMITTED`, `CI_VERIFIED`, `SECURITY_ALERT_PATH_VERIFIED`, `CONSUMER_QUALIFIED` and protected environment evidence separately. No CI or protected deployment is claimed by this source-only policy change.
+Before this adoption is marked verified: run `python3 -B -m unittest discover -s tests/unit -p 'test_dependency_maintenance.py' -v`, verify root `npm ci --ignore-scripts` and the passkey workspace test, inspect the pinned Shared Dependabot structural check against the **exact final head**, confirm npm, Go and Docker/Compose Dependabot jobs actually start, and preserve IAM-N08/N04 connected provider negatives. Security must verify the relevant GitHub security settings independently. Record `SOURCE_COMMITTED`, `CI_VERIFIED`, `SECURITY_ALERT_PATH_VERIFIED`, `CONSUMER_QUALIFIED` and protected environment evidence separately. No CI or protected deployment is claimed by this source-only policy change.
