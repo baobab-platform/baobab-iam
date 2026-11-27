@@ -22,7 +22,11 @@ capabilities:
   - engine
   - container
   - go
+  - node
   - documentation
+
+package_managers:
+  node: npm
 
 environment:
   baobab_dev:
