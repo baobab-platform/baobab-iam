@@ -87,7 +87,8 @@ export ORY_SMOKE=1 ORY_FOUNDATION=1 ORY_WORKLOAD=1
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
 # Test output contains only statuses, never fixture credential or response bodies.
-go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated|TestLiveN06KratosCurrentSessionAndRevocation|TestLiveN06KratosRecoveryCourier|TestLiveN06KratosWebAuthnRegistrationChallenge|TestLiveN06HydraIssuerSigningKeyOverlap)# N02 native-browser Hydra client registration is ADDITIONAL to all
+go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated|TestLiveN06KratosCurrentSessionAndRevocation|TestLiveN06KratosRecoveryCourier|TestLiveN06KratosWebAuthnRegistrationChallenge|TestLiveN06HydraIssuerSigningKeyOverlap)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
+# N02 native-browser Hydra client registration is ADDITIONAL to all
 # provider live tests. No skipped/unexecuted case can satisfy its gate.
 go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistration$' -count=1 | tee ory-foundation-evidence/nativebff-tests.jsonl
 python3 - <<'PYNATIVE'
@@ -154,7 +155,6 @@ for workload in ('baobab-trade-workload', 'baobab-cp-workload', 'baobab-subscrip
         raise SystemExit('Isolated fixtures must not claim canonical activation')
 print('M4 provider mechanics evidenced; actual-consumer activation remains outside this fixture')
 PYPROOF
- -count=1 | tee ory-foundation-evidence/tests.jsonl
 
 # The optional Chromium ceremony runs in this process so the disposable SMTP
 # sink and its private host-gateway remain alive for registration mail.

@@ -64,7 +64,7 @@ var n08PendingExports = make(chan struct{}, 32)
 var n08OTLPClient = &http.Client{
 	Timeout: time.Second,
 	Transport: &http.Transport{
-		Proxy: nil,
+		Proxy:           nil,
 		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
 	},
 	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },

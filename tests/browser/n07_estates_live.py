@@ -85,9 +85,8 @@ def validate_browser_profile(p: dict[str, Any]) -> None:
 
 def cookie_free_json(response) -> dict[str, Any]:
     headers = response.headers
-    media_type = headers.get("content-type", "").split(";", 1)[0].strip().lower()
     length = headers.get("content-length")
-    if (response.status != 200 or media_type != "application/json" or
+    if (response.status != 200 or not n07.is_json_content_type(headers.get("content-type", "")) or
             "no-store" not in {x.strip().lower() for x in headers.get("cache-control", "").split(",")}):
         raise n07.Blocked("CURRENT_SESSION_UNAVAILABLE")
     if length is None or not length.isascii() or not length.isdigit() or int(length) > 8192:

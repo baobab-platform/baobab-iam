@@ -190,6 +190,14 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def is_json_content_type(value: str) -> bool:
+    """Accept JSON with no parameters or an explicit UTF-8 charset."""
+    return re.fullmatch(
+        r'application/json(?:[ \t]*;[ \t]*charset[ \t]*=[ \t]*(?:utf-8|"utf-8"))?',
+        value.strip(), re.ASCII | re.IGNORECASE,
+    ) is not None
+
+
 def http_probe(origin: str, path: str, bearer: str | None,
                response_contract: dict[str, str] | None = None) -> tuple[int, bool, bool]:
     """Return status and low-cardinality contract booleans; never retain a response body."""
@@ -209,12 +217,11 @@ def http_probe(origin: str, path: str, bearer: str | None,
         raise Blocked("REAL_CONSUMER_UNAVAILABLE") from None
     with response:
         headers = response.headers
-        media_type = headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
         no_store = "no-store" in {
             directive.strip().lower()
             for directive in headers.get("Cache-Control", "").split(",")
         }
-        safe_resource = no_store and media_type == "application/json"
+        safe_resource = no_store and is_json_content_type(headers.get("Content-Type", ""))
         contract_match = False
         if response.status == 200 and bearer is not None and response_contract is not None:
             if not safe_resource:
