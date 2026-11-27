@@ -96,8 +96,11 @@ func TestN06KratosRebindRequiresTwoPersonHoldAndActualCredentialWithdrawal(t *te
 					w.WriteHeader(http.StatusNoContent)
 					return
 				case r.Method == http.MethodGet && r.URL.Path == base+"/sessions":
+					w.Header().Set("Link", `</next>; rel="next"`)
+					w.Header().Set("X-Total-Count", "0")
 					switch {
 					case tc.sessionSurvives:
+						w.Header().Set("X-Total-Count", "1")
 						response = []map[string]any{{"active": true, "id": "session-still-active"}}
 					case tc.nullSessions:
 						response = nil

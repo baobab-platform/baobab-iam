@@ -140,21 +140,21 @@ func (a *Adapter) currentRebindIdentity(ctx context.Context, id string) (rebindI
 	return item, nil
 }
 func (a *Adapter) noCurrentNativeSessions(ctx context.Context, id string) bool {
-	raw, status, err := a.rebindHTTP(ctx, http.MethodGet,
+	response, err := a.rebindRequest(ctx, http.MethodGet,
 		"/admin/identities/"+url.PathEscape(id)+"/sessions?active=true")
-	if err != nil || status != http.StatusOK {
+	if err != nil {
 		return false
 	}
-	var sessions []json.RawMessage
-	return json.Unmarshal(raw, &sessions) == nil && sessions != nil && len(sessions) == 0
+	defer response.Body.Close()
+	return EmptyActiveSessionInventory(response)
 }
-func (a *Adapter) rebindHTTP(ctx context.Context, method, route string) ([]byte, int, error) {
+func (a *Adapter) rebindRequest(ctx context.Context, method, route string) (*http.Response, error) {
 	// The origin comes exclusively from reviewed adapter config; scope and
 	// ID are encoded, never constructed from browser-controlled URLs.
 	req, err := http.NewRequestWithContext(ctx, method,
 		strings.TrimRight(a.cfg.KratosAdminURL, "/")+route, nil)
 	if err != nil {
-		return nil, 0, errCredentialRebindDenied
+		return nil, errCredentialRebindDenied
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Cache-Control", "no-store")
@@ -163,7 +163,10 @@ func (a *Adapter) rebindHTTP(ctx context.Context, method, route string) ([]byte,
 	if client.Timeout == 0 || client.Timeout > 10*time.Second {
 		client.Timeout = 10 * time.Second
 	}
-	res, err := client.Do(req)
+	return client.Do(req)
+}
+func (a *Adapter) rebindHTTP(ctx context.Context, method, route string) ([]byte, int, error) {
+	res, err := a.rebindRequest(ctx, method, route)
 	if err != nil {
 		return nil, 0, errCredentialRebindDenied
 	}
@@ -171,7 +174,7 @@ func (a *Adapter) rebindHTTP(ctx context.Context, method, route string) ([]byte,
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
 		return nil, res.StatusCode, errCredentialRebindDenied
 	}
-	// Refuse incomplete or paginated active-session reads.
+	// Identity and credential mutation responses are not paginated.
 	if res.Header.Get("Link") != "" {
 		return nil, res.StatusCode, errCredentialRebindDenied
 	}

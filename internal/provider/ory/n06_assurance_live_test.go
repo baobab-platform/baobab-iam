@@ -3,10 +3,13 @@ package ory_test
 import (
 	"context"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/hex"
 	"errors"
 	"net/http"
 	"net/http/cookiejar"
+	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"testing"
@@ -14,7 +17,6 @@ import (
 
 	"github.com/baobab-platform/baobab-iam/internal/assurance"
 	"github.com/baobab-platform/baobab-iam/internal/nativebff"
-	"github.com/baobab-platform/baobab-iam/internal/provider"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
 )
 
@@ -29,8 +31,6 @@ func TestLiveN06KratosCurrentSessionAndRevocation(t *testing.T) {
 	defer cancel()
 	public := envOr("ORY_KRATOS_PUBLIC_URL", "http://127.0.0.1:4433")
 	admin := envOr("ORY_KRATOS_ADMIN_URL", "http://127.0.0.1:4434")
-	hydra := envOr("ORY_HYDRA_ADMIN_URL", "http://127.0.0.1:4445")
-	issuer := envOr("ORY_PUBLIC_ISSUER", "http://127.0.0.1:4444")
 	client := &http.Client{Timeout: 10 * time.Second}
 	seed := make([]byte, 32)
 	if _, err := rand.Read(seed); err != nil {
@@ -123,12 +123,28 @@ func TestLiveN06KratosCurrentSessionAndRevocation(t *testing.T) {
 	if _, _, err := current.CurrentNativeAuthentication(ctx, ory.NativeSessionCredential{Cookie: "ory_kratos_session=unissued-" + hex.EncodeToString(seed[:12])}); err == nil {
 		t.Fatal("unissued cookie accepted")
 	}
-	adapter, err := ory.NewAdapter(ory.Config{KratosAdminURL: admin, HydraAdminURL: hydra, PublicIssuer: issuer})
+	// Exercise the production TLS adapter against the real isolated provider.
+	adminURL, err := url.Parse(admin)
+	if err != nil || adminURL.Scheme != "http" || adminURL.Hostname() != "127.0.0.1" ||
+		adminURL.User != nil || adminURL.Path != "" || adminURL.RawQuery != "" || adminURL.Fragment != "" {
+		t.Fatal("disposable Kratos Admin relay requires the Foundation loopback origin")
+	}
+	relay := httputil.NewSingleHostReverseProxy(adminURL)
+	transport := &http.Transport{}
+	defer transport.CloseIdleConnections()
+	relay.Transport = transport
+	tlsAdmin := httptest.NewTLSServer(relay)
+	defer tlsAdmin.Close()
+	roots := x509.NewCertPool()
+	roots.AddCert(tlsAdmin.Certificate())
+	adapter, err := nativebff.NewKratosAdminSessionRevoker(nativebff.KratosAdminRevokeConfig{
+		Origin: tlsAdmin.URL, TrustedRoots: roots,
+	})
 	if err != nil {
 		t.Fatal("real provider revoker unavailable", err)
 	}
-	if err := adapter.RevokeSessions(ctx, provider.ExternalSubject{Issuer: issuer, Subject: created.Identity.ID}); err != nil {
-		t.Fatal("real provider session revocation failed", err)
+	if err := adapter.RevokeNativeSessions(ctx, created.Identity.ID); err != nil {
+		t.Fatal("real provider session revocation or active-session readback failed", err)
 	}
 	if _, _, err := current.CurrentNativeAuthentication(ctx, credential); err == nil {
 		t.Fatal("revoked provider session remained trusted")
