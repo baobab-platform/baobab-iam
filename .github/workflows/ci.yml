@@ -374,6 +374,8 @@ jobs:
       # all 3 variants twice during the Ubuntu 26 runner/DNS transition.
       # Keep strict npm lock, exact Playwright Chromium and a real launch
       # preflight; an unsupported host/browser fails before provider setup.
+      - name: Generate isolated Keycloak/PostgreSQL credentials
+        run: python3 scripts/local_bootstrap_env.py --environment ci
       - name: Install pinned passkey qualification runtime and launch Chromium
         shell: bash
         run: |
