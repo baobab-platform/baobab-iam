@@ -22,6 +22,7 @@ capabilities:
   - engine
   - container
   - go
+  - java # Kotlin Android qualification utility
   - documentation
 
 environment:

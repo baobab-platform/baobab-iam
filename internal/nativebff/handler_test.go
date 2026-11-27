@@ -526,6 +526,62 @@ func (n *fixtureOAuthSubjectRevoke) RevokeSubjectSessions(_ context.Context, sub
 	return nil
 }
 
+type cancelAfterReadStore struct {
+	Store
+	cancel context.CancelFunc
+}
+
+func (s cancelAfterReadStore) ReadSession(ctx context.Context, id string) (Session, error) {
+	v, err := s.Store.ReadSession(ctx, id)
+	s.cancel()
+	return v, err
+}
+
+type contextCheckingTokenRevoker struct {
+	calls    int
+	canceled bool
+}
+
+func (r *contextCheckingTokenRevoker) Revoke(ctx context.Context, _ humanauth.Response) error {
+	r.calls++
+	r.canceled = ctx.Err() != nil
+	return nil
+}
+
+type contextCheckingNativeRevoker struct {
+	calls        int
+	canceled     bool
+	hydraStarted <-chan struct{}
+}
+
+func (r *contextCheckingNativeRevoker) RevokeNativeSessions(ctx context.Context, _ string) error {
+	r.calls++
+	r.canceled = ctx.Err() != nil
+	timer := time.NewTimer(2 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-r.hydraStarted:
+		return nil
+	case <-timer.C:
+		return errors.New("slow Kratos delayed the start of independent Hydra cleanup")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+type contextCheckingOAuthSessionRevoker struct {
+	calls    int
+	canceled bool
+	started  chan struct{}
+}
+
+func (r *contextCheckingOAuthSessionRevoker) RevokeSubjectSessions(ctx context.Context, _ string) error {
+	r.calls++
+	r.canceled = ctx.Err() != nil
+	close(r.started)
+	return nil
+}
+
 type fixtureNativeRevoke struct {
 	calls   int
 	fail    bool
@@ -637,6 +693,48 @@ func TestAllSessionLogoutRevokesKratosAndHydraEvenIfCPUnavailable(t *testing.T) 
 		t.Fatal("global logout retained browser session")
 	}
 }
+func TestAllSessionLogoutCompletesCleanupAfterBrowserDisconnect(t *testing.T) {
+	f := makeFixture(t)
+	c, state := startFlow(t, f)
+	w := request(f.h, "GET", "http://127.0.0.1:3000/auth/callback?code=legitimate-code-1234&state="+state, "", c)
+	session := findCookie(w, sessionCookie)
+	if session == nil {
+		t.Fatal("setup failed")
+	}
+	stored, err := f.store.ReadSession(context.Background(), session.Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hydraStarted := make(chan struct{})
+	native := &contextCheckingNativeRevoker{hydraStarted: hydraStarted}
+	hydraSessions := &contextCheckingOAuthSessionRevoker{started: hydraStarted}
+	tokens := &contextCheckingTokenRevoker{}
+	f.h.c.NativeSessions = native
+	f.h.c.OAuthSessions = hydraSessions
+	f.h.c.Revoker = tokens
+
+	ctx, cancel := context.WithCancel(context.Background())
+	f.h.c.Store = cancelAfterReadStore{Store: f.store, cancel: cancel}
+	r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:3000/auth/logout-all", nil).WithContext(ctx)
+	r.Header.Set("Origin", "http://127.0.0.1:3000")
+	r.Header.Set("X-CSRF-Token", stored.CSRF)
+	r.AddCookie(session)
+	out := httptest.NewRecorder()
+	f.h.ServeHTTP(out, r)
+
+	if out.Code != http.StatusNoContent || native.calls != 1 || hydraSessions.calls != 1 || tokens.calls != 1 {
+		t.Fatalf("disconnect interrupted logout cleanup: status=%d native=%d hydra_sessions=%d tokens=%d",
+			out.Code, native.calls, hydraSessions.calls, tokens.calls)
+	}
+	if native.canceled || hydraSessions.canceled || tokens.canceled {
+		t.Fatal("provider revocation inherited the disconnected browser request context")
+	}
+	if _, err := f.store.ReadSession(context.Background(), session.Value); err == nil {
+		t.Fatal("disconnected logout retained the local browser session")
+	}
+}
+
 func TestAllSessionLogoutProviderFailureDoesNotRestoreSession(t *testing.T) {
 	f := makeFixture(t)
 	native := &fixtureNativeRevoke{fail: true}
@@ -656,8 +754,9 @@ func TestAllSessionLogoutProviderFailureDoesNotRestoreSession(t *testing.T) {
 	r.AddCookie(session)
 	w = httptest.NewRecorder()
 	f.h.ServeHTTP(w, r)
-	if w.Code != http.StatusServiceUnavailable || f.revoker.calls != 1 {
-		t.Fatal("unknown Kratos global logout not reported")
+	if w.Code != http.StatusServiceUnavailable || native.calls != 1 ||
+		hydraSubject.calls != 1 || f.revoker.calls != 1 {
+		t.Fatal("provider failure was reported incorrectly or skipped another revocation attempt")
 	}
 	if _, err = f.store.ReadSession(context.Background(), session.Value); err == nil {
 		t.Fatal("failed global logout resurrected browser session")

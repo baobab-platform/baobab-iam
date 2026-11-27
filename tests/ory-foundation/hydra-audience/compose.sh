@@ -1,5 +1,7 @@
 # Sourced by the disposable loopback acceptance scripts.
-ory_compose=(-f docker-compose.ory.yml)
+# CI-only network override: provider containers have no external egress.
+# The developer-facing docker-compose.ory.yml remains unchanged.
+ory_compose=(-f docker-compose.ory.yml -f tests/ory-foundation/compose.isolated.yml)
 if [[ "${ORY_HYDRA_AUDIENCE_CANDIDATE:-0}" == 1 ]]; then
   test -f ory-foundation-evidence/hydra-backport-build.json
   test -f ory-foundation-evidence/hydra-candidate-image.txt

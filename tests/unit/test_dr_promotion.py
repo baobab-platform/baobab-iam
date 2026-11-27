@@ -1,4 +1,3 @@
-import copy
 import unittest
 
 from scripts.operations.check_dr_promotion import REQUIRED, ROLES, verify

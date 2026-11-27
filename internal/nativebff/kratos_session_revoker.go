@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
 )
 
 // KratosAdminSessionRevoker is an IAM-private administrator adapter for an
@@ -41,23 +43,36 @@ func (r *KratosAdminSessionRevoker) RevokeNativeSessions(ctx context.Context, su
 	if r == nil || ctx == nil || ctx.Err() != nil || !isUUID(subject) {
 		return errors.New("native identity subject invalid")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, r.origin+"/admin/identities/"+url.PathEscape(subject)+"/sessions", nil)
-	if err != nil {
-		return errors.New("invalid Kratos logout request")
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Cache-Control", "no-store")
-	res, err := r.client.Do(req)
+	endpoint := r.origin + "/admin/identities/" + url.PathEscape(subject) + "/sessions"
+	res, err := r.request(ctx, http.MethodDelete, endpoint)
 	if err != nil {
 		return errors.New("Kratos logout status unavailable")
 	}
-	defer res.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 512))
-	// An already removed identity is terminal for its native sessions.
-	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNotFound {
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
 		return errors.New("Kratos session revocation not confirmed")
 	}
+
+	res, err = r.request(ctx, http.MethodGet, endpoint+"?active=true")
+	if err != nil {
+		return errors.New("Kratos active session readback unavailable")
+	}
+	defer res.Body.Close()
+	if !ory.EmptyActiveSessionInventory(res) {
+		return errors.New("Kratos active session absence unconfirmed")
+	}
 	return nil
+}
+
+func (r *KratosAdminSessionRevoker) request(ctx context.Context, method, endpoint string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Cache-Control", "no-store")
+	return r.client.Do(req)
 }
 
 var _ NativeSessionRevoker = (*KratosAdminSessionRevoker)(nil)

@@ -18,7 +18,39 @@ for provider in ('kratos', 'hydra'):
 print('Kratos and Hydra Compose images match the exact provider lock')
 PY
 timeout 240 docker compose -p ory-foundation-ci "${ory_compose[@]}" up -d
-for port in 4434 4445; do
+# Keep provider containers on the internal bridge even when the host opens
+# fixed loopback listeners for the browser and API witnesses.
+docker network inspect ory-foundation-ci_default --format '{{.Internal}} {{.EnableIPv6}}' |
+  grep -Fx 'true false' > ory-foundation-evidence/network-boundary.txt
+for service in kratos hydra postgres-kratos postgres-hydra; do
+  container=$(docker compose -p ory-foundation-ci "${ory_compose[@]}" ps -q "$service")
+  docker inspect "$container" --format '{{range $name, $value := .NetworkSettings.Networks}}{{$name}}{{end}}' |
+    grep -Fx 'ory-foundation-ci_default' >/dev/null
+done
+runtime_dir="${RUNNER_TEMP:-$PWD/.ory-foundation-runtime}"
+mkdir -m 700 -p "$runtime_dir"
+relay_pid_file="$runtime_dir/ory-foundation-relay.pid"
+python3 tests/ory-foundation/loopback_relay.py > /dev/null 2>&1 &
+printf '%s\n' "$!" > "$relay_pid_file"
+# Only local ephemeral recovery emails. Keep codes out of output/artifacts.
+export BAOBAB_TEST_MAIL_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+python3 tests/ory-foundation/smtp_sink.py --listen 172.30.146.1 >/dev/null 2>&1 &
+MAIL_SINK_PID=$!
+cleanup_mail_sink() {
+  kill "$MAIL_SINK_PID" 2>/dev/null || true
+  wait "$MAIL_SINK_PID" 2>/dev/null || true
+  unset BAOBAB_TEST_MAIL_KEY
+}
+trap cleanup_mail_sink EXIT
+for attempt in $(seq 1 30); do
+  if curl -fsS --max-time 1 -o /dev/null http://127.0.0.1:4457/health; then break; fi
+  if ! kill -0 "$MAIL_SINK_PID" 2>/dev/null; then
+    echo "Local disposable SMTP sink terminated" >&2; exit 1
+  fi
+  sleep 1
+done
+curl -fsS --max-time 2 -o /dev/null http://127.0.0.1:4457/health
+for port in 4433 4434 4444 4445; do
   ready=0
   for attempt in $(seq 1 30); do
     if curl --connect-timeout 2 --max-time 3 -fsS -o /dev/null "http://127.0.0.1:$port/admin/health/ready" 2>/dev/null ||
@@ -44,7 +76,7 @@ export ORY_SMOKE=1 ORY_FOUNDATION=1 ORY_WORKLOAD=1
 export ORY_M4_PROFILES_FILE="$PWD/ory-foundation-evidence/workload-profiles.json"
 export ORY_M4_EVIDENCE_DIR="$PWD/ory-foundation-evidence"
 # Test output contains only statuses, never fixture credential or response bodies.
-go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
+go test -json ./internal/provider/ory -run '^(TestSmoke_ProviderInfoAgainstLocalStack|TestLiveFoundation|TestLiveNativeHumanCanonicalHandoff|TestLiveWorkloadClientCredentials|TestLiveWorkloadFederated|TestLiveN06KratosCurrentSessionAndRevocation|TestLiveN06KratosRecoveryCourier|TestLiveN06KratosWebAuthnRegistrationChallenge|TestLiveN06HydraIssuerSigningKeyOverlap)$' -count=1 | tee ory-foundation-evidence/tests.jsonl
 # N02 native-browser Hydra client registration is ADDITIONAL to all
 # provider live tests. No skipped/unexecuted case can satisfy its gate.
 go test -json ./internal/nativebff -run '^TestLiveDevelopmentHydraEstateClientRegistration$' -count=1 | tee ory-foundation-evidence/nativebff-tests.jsonl
@@ -57,6 +89,16 @@ if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
     raise SystemExit('Native Hydra estate client registration did not pass')
 print('Real native Hydra estate-client registration passed without skips')
 PYNATIVE
+go test -json ./internal/nativebff -run '^TestLiveN06HydraTokenRevocationReadback$' -count=1 | tee ory-foundation-evidence/n06-hydra-revocation-tests.jsonl
+python3 - <<'PYN06'
+import json
+from pathlib import Path
+name = 'TestLiveN06HydraTokenRevocationReadback'
+events = [json.loads(line) for line in Path('ory-foundation-evidence/n06-hydra-revocation-tests.jsonl').read_text().splitlines()]
+if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+    raise SystemExit('Native Hydra N06 token revocation and readback did not pass')
+print('Real native Hydra token revocation and readback passed without skips')
+PYN06
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -66,6 +108,11 @@ for name in ('TestSmoke_ProviderInfoAgainstLocalStack', 'TestLiveFoundation',
              'TestLiveFoundation/authorized-human-migration-and-lifecycle',
              'TestLiveFoundation/real-session-revocation',
              'TestLiveWorkloadClientCredentials', 'TestLiveWorkloadFederated',
+             'TestLiveFoundation/disable-native-revokes-active-session',
+             'TestLiveN06KratosCurrentSessionAndRevocation',
+             'TestLiveN06KratosRecoveryCourier',
+             'TestLiveN06KratosWebAuthnRegistrationChallenge',
+             'TestLiveN06HydraIssuerSigningKeyOverlap',
              'TestLiveWorkloadClientCredentials/signed-token-and-shared-scopes',
              'TestLiveWorkloadClientCredentials/invalid-credential-and-scope',
              'TestLiveWorkloadClientCredentials/rotation-invalidates-old-credential',

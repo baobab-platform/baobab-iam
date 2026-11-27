@@ -41,8 +41,22 @@ jobs:
           test -z "$(gofmt -l cmd internal pkg)"
       - name: Build packages
         run: go build ./internal/admin/... ./internal/privacy/... ./internal/securityops/... ./internal/assurance/... ./pkg/workloadresource/... ./cmd/native-browser-bff/ ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload/ ./cmd/provision-federated-workload/ ./cmd/migrate-ledger-provision/ ./cmd/federation-authority/ ./cmd/c4-03-qualify/ ./cmd/c4-04-readiness/
+      - name: Enforce mandatory live N06 executable BFF gate (no handler-only security)
+        run: go test ./cmd/native-browser-bff -run '^TestN06' -count=1 -v
       - name: Test packages
-        run: go test ./internal/admin/... ./internal/privacy/... ./internal/securityops/... ./internal/assurance/... ./pkg/workloadresource/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
+        run: go test ./internal/admin/... ./internal/privacy/... ./internal/securityops/... ./internal/assurance/... ./cmd/n04-development-read ./pkg/workloadresource/... ./internal/nativebff/... ./internal/humanauth/... ./internal/provider/... ./internal/migration/... ./internal/federation/... ./cmd/provision-workload ./cmd/provision-federated-workload ./cmd/migrate-ledger-provision ./cmd/federation-authority ./cmd/c4-03-qualify ./cmd/c4-04-readiness -count=1
+      - name: Verify Go module requirements are tidy
+        if: success() || failure()
+        run: go mod tidy -diff
+      - name: Validate IAM-N04 original development gate and registered provider negatives
+        run: |
+          python3 -m py_compile scripts/n04_development_gate.py scripts/n04_github_archive_readback.py scripts/iam_native_development_readback.py
+          python3 -B -m unittest discover -s tests/unit -p 'test_iam_native_development_readback.py' -v
+          python3 -B -m unittest discover -s tests/unit -p 'test_n04_development_gate.py' -v
+          python3 -B -m unittest discover -s tests/unit -p 'test_n04_ory_lifecycle.py' -v
+          python3 -B -m unittest discover -s tests/unit -p 'test_n04_github_archive_readback.py' -v
+          bash -n tests/ory-foundation/run.sh tests/ory-foundation/token_profile.sh
+          # No synthetic provider acceptance or automatic support promotion.
       - name: Validate IAM-N02 browser/evidence source and negative custody gates
         run: |
           python3 -m py_compile tests/browser/n02_live.py scripts/n02_evidence_gate.py scripts/n02_development_clients.py
@@ -50,7 +64,7 @@ jobs:
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_browser_source.py' -v
           python3 -B -m unittest discover -s tests/unit -p 'test_n02_development_clients.py' -v
       - name: Test federation and native browser boundaries with race detector
-        run: go test -race ./internal/assurance/... ./pkg/workloadresource/... ./internal/federation/... ./internal/nativebff/... -count=1
+        run: go test -race ./internal/assurance/... ./cmd/n04-development-read ./pkg/workloadresource/... ./internal/federation/... ./internal/nativebff/... -count=1
       - name: Install matrix validator dependency
         run: python3 -m pip install PyYAML==6.0.3
       - name: Enforce immutable native, federation and PostgreSQL image pins
@@ -171,6 +185,41 @@ jobs:
         run: go test -race ./internal/privacy -run '^TestPostgres' -count=1 -v
       - name: Emergency lease PostgreSQL 17 approval and termination qualification
         run: go test -race ./internal/admin -run '^TestPostgres' -count=1 -v
+
+  iam-n06-postgres17-security:
+    name: IAM-N06 isolated PostgreSQL 17 security and assurance negatives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+        env:
+          POSTGRES_DB: n06_ci
+          POSTGRES_USER: n06_ci
+          POSTGRES_PASSWORD: "n06-disposable-${{ github.run_id }}"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U n06_ci -d n06_ci"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      IAM_N06_DISPOSABLE_PG: "1"
+      IAM_N06_TEST_DATABASE_URL: "postgres://n06_ci:n06-disposable-${{ github.run_id }}@127.0.0.1:5432/n06_ci?sslmode=disable"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Verify N06 Go style and migration-backed security operations
+        run: |
+          test -z "$(gofmt -l internal/assurance internal/securityops internal/nativebff/n06_*.go)"
+          go test ./internal/assurance ./internal/securityops ./internal/nativebff -run 'TestN06' -count=1 -v
+          go test ./internal/provider/ory -run '^TestN06RebindLedger' -count=1 -v
+      - name: Race-check real security ledger and credential-change negatives
+        run: go test -race ./internal/securityops ./internal/assurance ./internal/nativebff -run 'TestN06' -count=1
 
   enterprise-federation-live:
     runs-on: ubuntu-latest

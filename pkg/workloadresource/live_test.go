@@ -266,6 +266,10 @@ func TestLiveN03HydraCPResourceAcceptance(t *testing.T) {
 		}
 		current.scenario = "owned"
 	})
+	// N04 binds this genuine Hydra token and existing immutable CP router
+	// to an independently scoped TLS registration fixture. This does NOT
+	// establish a deployed CP provider or protected resource acceptance.
+	n04LiveProviderComponentFixture(t, ctx, raw, validatorToken, issuer, gate, operation, client)
 	t.Run("real-issuer-revocation-before-expiry", func(t *testing.T) {
 		if !time.Now().Before(claims.ExpiresAt) {
 			t.Fatal("fixture expired before revocation")

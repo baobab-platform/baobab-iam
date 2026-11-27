@@ -14,10 +14,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/baobab-platform/baobab-iam/internal/assurance"
 	"github.com/baobab-platform/baobab-iam/internal/federation"
 	"github.com/baobab-platform/baobab-iam/internal/nativebff"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
@@ -43,6 +45,8 @@ type document struct {
 	BrowserDatabaseDSNFile  string                           `json:"browser_database_dsn_file"`
 	BrowserVaultKeyFile     string                           `json:"browser_vault_key_file"`
 	BrowserRateKeyFile      string                           `json:"browser_rate_key_file"`
+	A3ChallengeKeyFile      string                           `json:"a3_challenge_key_file"`
+	A3CounterKeyFile        string                           `json:"a3_counter_key_file"`
 	ChallengeStorage        federation.PostgresStorageConfig `json:"challenge_storage"`
 	HumanTokenProfilesFile  string                           `json:"human_token_profiles_file"`
 	HumanConsentSealKeyFile string                           `json:"human_consent_seal_key_file"`
@@ -100,6 +104,46 @@ func loadRoots(file string) (*x509.CertPool, error) {
 	return roots, nil
 }
 
+// unavailableN06Risk intentionally provides no invented low-risk decision. A
+// privileged, purchasing or high-risk operation needs a genuinely independent
+// current risk/CP/native witness before any broader scope policy is approved.
+type unavailableN06Risk struct{}
+
+func (unavailableN06Risk) CurrentRisk(context.Context, assurance.CurrentSessionKey, assurance.Operation) (assurance.Risk, error) {
+	return assurance.Risk{}, errors.New("independent current risk witness unavailable")
+}
+
+// n06NativeScopePolicy is the reviewed authentication-only profile. A
+// browser-supplied scope, unknown extra scope or native buyer commitment must
+// never be mapped into an implicit lower-assurance operation.
+func n06NativeScopePolicy(scope string) (map[string]assurance.Operation, error) {
+	if scope != "openid trade:buy" {
+		return nil, errors.New("unreviewed native scope/assurance policy")
+	}
+	return map[string]assurance.Operation{"trade:buy": assurance.OrdinaryBuyer}, nil
+}
+
+// n06ExecutableSecurity builds the REQUIRED current-session gate for the
+// production command. This is not an optional unit-test-only handler option.
+// Kratos AAL1/AAL2 are read live; no synthetic WebAuthn A3/A4 or risk data.
+func n06ExecutableSecurity(scope, kratos string, roots *x509.CertPool) (map[string]assurance.Operation, nativebff.N06Gate, error) {
+	operations, err := n06NativeScopePolicy(scope)
+	if err != nil {
+		return nil, nil, err
+	}
+	provider, err := nativebff.NewKratosN06Provider(kratos, roots, time.Now, false, nil)
+	if err != nil {
+		return nil, nil, errors.New("native current Kratos security proof unavailable")
+	}
+	gate := &nativebff.N06SecurityGate{
+		Provider: provider,
+		Policy:   assurance.DefaultDevelopmentPolicy(),
+		Risk:     unavailableN06Risk{},
+		Now:      time.Now,
+	}
+	return operations, gate, nil
+}
+
 func run(ctx context.Context, listen string, d document, caFile string) error {
 	if ctx == nil || ctx.Err() != nil || d.PublicOrigin == "" || d.Issuer == "" ||
 		d.ClientID == "" || d.KratosAdmin == "" || d.HydraAdmin == "" || d.CPCallerTokenFile == "" || d.TLSCertificateFile == "" ||
@@ -114,6 +158,11 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		return errors.New("unregistered human resource audience")
 	}
 	roots, err := loadRoots(caFile)
+	if err != nil {
+		return err
+	}
+	// Mandatory reviewed N06 gate, independent of the N02 PostgreSQL admission limiter.
+	scopePolicy, n06Gate, err := n06ExecutableSecurity(d.Scope, d.KratosPublic, roots)
 	if err != nil {
 		return err
 	}
@@ -202,8 +251,9 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("Hydra all-subject logout authority unavailable")
 	}
-	revoker, err := nativebff.NewOAuthRevoker(nativebff.OAuthRevokeConfig{
-		Issuer: d.Issuer, ClientID: d.ClientID, ClientSecret: string(secret), TrustedRoots: roots,
+	revoker, err := nativebff.NewHydraOAuthRevoker(nativebff.HydraOAuthRevokeConfig{
+		Issuer: d.Issuer, AdminOrigin: d.HydraAdmin, ClientID: d.ClientID,
+		ClientSecret: string(secret), TrustedRoots: roots,
 	})
 	if err != nil {
 		return errors.New("confidential token revocation unavailable")
@@ -216,6 +266,46 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 	if err != nil {
 		return errors.New("native browser admission ledger unavailable")
 	}
+	var a3 *nativebff.A3BrowserStepUp
+	if d.A3ChallengeKeyFile != "" || d.A3CounterKeyFile != "" {
+		challengeKey, challengeErr := privateBytes(d.A3ChallengeKeyFile)
+		counterKey, counterErr := privateBytes(d.A3CounterKeyFile)
+		if challengeErr != nil || counterErr != nil ||
+			slices.Equal(challengeKey, counterKey) || slices.Equal(challengeKey, vaultKey) || slices.Equal(counterKey, vaultKey) {
+			return errors.New("separate private A3 challenge and counter keys required")
+		}
+		privatePEM, err := privateBytes(caFile)
+		privateRoots := x509.NewCertPool()
+		if err != nil || !privateRoots.AppendCertsFromPEM(privatePEM) {
+			return errors.New("explicit CA trust for Kratos credential readback required")
+		}
+		var version int
+		if pool.QueryRow(ctx, "SELECT current_setting('server_version_num')::integer").Scan(&version) != nil ||
+			version/10000 != 17 {
+			return errors.New("PostgreSQL 17 required for A3 step-up")
+		}
+		challenges, err := nativebff.NewPGWebAuthnChallengeStore(ctx, pool, challengeKey, time.Now)
+		if err != nil {
+			return err
+		}
+		credentials, err := nativebff.NewKratosWebAuthnReader(d.KratosPublic, d.KratosAdmin, privateRoots)
+		if err != nil {
+			return err
+		}
+		counters, err := nativebff.NewPGWebAuthnCounterStore(ctx, pool, counterKey)
+		if err != nil {
+			return err
+		}
+		provider, err := nativebff.NewKratosN06Provider(d.KratosPublic, roots, time.Now, false, nil)
+		if err != nil {
+			return err
+		}
+		verifier := &nativebff.WebAuthnA3Verifier{Kratos: provider, Challenges: challenges, Credentials: credentials, Counters: counters, Now: time.Now}
+		a3, err = nativebff.NewA3BrowserStepUp(ctx, verifier, challenges, browserStore, d.PublicOrigin)
+		if err != nil {
+			return err
+		}
+	}
 	handler, err := nativebff.New(nativebff.Config{
 		PublicOrigin: d.PublicOrigin, Issuer: d.Issuer, KratosOrigin: d.KratosPublic,
 		RequireAAL2: d.RequireAAL2, Assurance: handoff, NativeSessions: kratosSessions, OAuthSessions: hydraSessions,
@@ -225,6 +315,7 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		KratosSessionCookieName: "ory_kratos_session",
 		Now:                     time.Now, Handoff: handoff, CP: resolver, Revoker: revoker,
 		Store: browserStore, Limiter: limiter,
+		N06Required: true, N06ScopeOperations: scopePolicy, N06Gate: n06Gate, A3StepUp: a3,
 	})
 	if err != nil {
 		return errors.New("invalid native BFF configuration")

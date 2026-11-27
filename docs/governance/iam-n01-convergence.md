@@ -32,7 +32,15 @@
 
 The later Shared registry now contains active **development-only** CMS consumer/validator, Nabhold/ZuriBeans/Thamani/Equator estate callers, external API/Pulse, Subscriptions, Payments and DEV-07 buyer-test identities. Those are synthetic **registry ceilings** for isolated development, not statements that IAM has provisioned credentials or that a CP binding, real consumer or protected scope exists. Re-pinning IAM without updating its Keycloak integration inventory, Hydra profile builders, owner/validator issuers, environment separation, negative tests, lease/teardown and CP registered-consumer evidence could produce false readiness or unintended issuance.
 
-**Decision: retain the current immutable pin.** The code constant in internal/federation/consume.go, contracts.lock.yaml and proposed ADR-IAM-0034 all remain aligned. A later explicitly reviewed re-pin must validate the full changed workload and scope registries and prove actual narrow development issuance, wrong-audience and cross-tenant denials, no production cross-over, replays and teardown. A future PR is not automatically authorized merely because a newer Shared main exists.
+**Historical decision (31 October 2026): retain the then-current immutable pin.** The code constant in internal/federation/consume.go, contracts.lock.yaml and proposed ADR-IAM-0034 were aligned at `1517429bcae601a1b0288ca0279e524ce48a3d77`. The later Shared PR #430 and IAM N04 source adoption are recorded in the superseding update below.
+
+## Superseding source-pin update — 26 November 2026
+
+Shared PR [#430](https://github.com/baobab-platform/shared/pull/430) merged as `7f547ccdd759208355ef9224d2177929f4bf224e` on 4 November 2026. Its scope is a reconciled development authority inventory for N02/N04/N07. IAM N04 PR [#149](https://github.com/baobab-platform/baobab-iam/pull/149) now adopts that exact revision consistently in `contracts.lock.yaml`, `internal/federation/consume.go`, the N01 source guard and its JSON convergence record.
+
+The updated `ADR-IAM-0034` distinguishes the original 23 October Decision 9 contract source (`1517429bcae601a1b0288ca0279e524ce48a3d77`) from the later Shared development inventory pin. The later pin does not amend Decision 9, allocate `trade:native-commitment:submit`, register a server application, issue credentials, create a CP assignment or confer production/protected authority.
+
+This is source and consumer-contract reconciliation only. It does not close N01–N04 runtime qualification. Real provider-issued credentials, current CP authority, actual consumer positives and negatives, wrong-audience/cross-tenant/replay/revocation cases and verifiable teardown remain separate evidence requirements. Provider support stays PARTIAL until the independently governed qualification and promotion steps are complete.
 
 ## Development versus protected execution
 

@@ -2,10 +2,10 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -193,4 +193,3 @@ func TestPersistCredentialReportsCloseFailure(t *testing.T) {
 		t.Fatalf("unexpected persisted bytes %q", got)
 	}
 }
-

@@ -88,18 +88,17 @@ config['oauth2'].update({'allowed_top_level_claims': ['actor_type', 'azp', 'scop
 # Hydra's non-root UID needs to read this bind mount in the isolated CI host.
 # The parent directory remains mode 0700 outside the container.
 (root / 'hydra.yml').chmod(0o644)
-overlay = {'services': {'hydra': {'extra_hosts': ['host.docker.internal:host-gateway'],
-                                'volumes': [str(root / 'hydra.yml') + ':/etc/config/hydra/hydra.yml:ro']}}}
+overlay = {'services': {'hydra': {'volumes': [str(root / 'hydra.yml') + ':/etc/config/hydra/hydra.yml:ro']}}}
 (root / 'compose.yml').write_text(yaml.safe_dump(overlay))
 PY
 # Mechanics proofs exercise PROVISIONED registrations through a fixture-only launcher.
 # Canonical-only acceptance is also a test launcher: production now requires live CP composition.
 go build -o "$task_dir/token-profile-hook" ./tests/ory-foundation/mechanics-hook
-"$task_dir/token-profile-hook" -canonical-only -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/hook.log" 2>&1 &
+"$task_dir/token-profile-hook" -canonical-only -listen 172.30.146.1:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/hook.log" 2>&1 &
 hook_pid=$!
 for attempt in $(seq 1 20); do
   # An unauthenticated health probe must be rejected, never treated as evidence.
-  if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi
+  if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://172.30.146.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi
   sleep 1
 done
 kill -0 "$hook_pid"
@@ -115,7 +114,7 @@ python3 tests/consumer/verify_snapshot.py
 (cd tests/consumer/cp && go build -mod=readonly -o "$task_dir/cp-consumer-probe" .)
 python3 tests/consumer/verify_current.py .cp-consumer-source
 mkdir .cp-consumer-source/cmd/iam-m4-route
-cp tests/consumer/current/main.go .cp-consumer-source/cmd/iam-m4-route/main.go
+cp tests/consumer/current/main.go.in .cp-consumer-source/cmd/iam-m4-route/main.go
 (cd .cp-consumer-source && go build -mod=readonly -tags iam_m4_route -o "$task_dir/cp-route-probe" ./cmd/iam-m4-route)
 # CP's own route tests also retain the provider-neutral opaque-token contract.
 (cd .cp-consumer-source && go test -mod=readonly ./internal/auth ./api)
@@ -150,10 +149,10 @@ if (not buyer['fixture_only'] or not buyer['logical_audience_matches'] or not bu
 PY
 kill "$hook_pid"
 wait "$hook_pid" 2>/dev/null || true
-"$task_dir/token-profile-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/mechanics-hook.log" 2>&1 &
+"$task_dir/token-profile-hook" -listen 172.30.146.1:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/mechanics-hook.log" 2>&1 &
 hook_pid=$!
 for attempt in $(seq 1 20); do
-  if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi
+  if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://172.30.146.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi
   sleep 1
 done
 kill -0 "$hook_pid"
@@ -241,6 +240,25 @@ for name in (parent,) + tuple(parent + '/' + suffix for suffix in subcases):
         raise SystemExit('N03 genuine issuer/CP route consumer case missing PASS')
     if any(e.get('Test') == name and e.get('Action') == 'skip' for e in events):
         raise SystemExit('N03 genuine issuer/CP route case skipped')
+# N04 fixture executes REAL Hydra access-token issuance/JWKS/introspection and
+# the unchanged CP current-router fixture. Private CP registration itself is
+# a TLS test server, NOT a real CP owner/AdministrativeGrant/PG17 admission.
+n04_fixture_cases = (
+    'N04-real-Hydra-and-CP-source-fixture-accepted',
+    'N04-real-Hydra-CP-binding-withdraw-first-denied',
+    'N04-real-Hydra-CP-binding-withdraw-second-denied',
+    'N04-real-Hydra-CP-binding-wrong-tenant-denied',
+    'N04-real-Hydra-CP-binding-stale-source-denied',
+    'N04-real-Hydra-CP-binding-changed-artifact-denied',
+    'N04-real-Hydra-CP-binding-unverified-denied',
+)
+for case in n04_fixture_cases:
+    name = parent + '/' + case
+    if not any(e.get('Test') == name and e.get('Action') == 'pass' for e in events):
+        raise SystemExit('N04 real-Hydra/local-CP-TLS-source fixture case missing PASS')
+    if any(e.get('Test') == name and e.get('Action') == 'skip' for e in events):
+        raise SystemExit('N04 real-Hydra/local-CP-TLS-source fixture case SKIPPED')
+print('N04 provider component fixture PASSED; NOT CP registration or native acceptance')
 proof = json.loads((root / 'n03-resource-acceptance.json').read_text())
 if (proof.get('classification') != 'REAL_COMPONENT_SYNTHETIC_DATA' or
         proof.get('fixture_only') is not True or

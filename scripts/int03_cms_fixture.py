@@ -21,14 +21,14 @@ VALIDATOR = 'baobab-int03-cms-validator'
 EXPECTED = {
     CALLER: {
         'repository': 'baobab-platform/infrastructure', 'owner': 'baobab-platform/infrastructure',
-        'runtime': 'INT-03 disposable real-component CMS qualification consumer',
+        'runtime': 'ADR-SHARED-043 disposable development baobab-int03-cms-consumer',
         'environment': 'development', 'allowed_audiences': ['baobab-control-plane', 'baobab-cms'],
         'allowed_scopes': ['context:resolve', 'content:entry:resolve'], 'credential_type': 'client_credentials',
         'rotation_owner': 'baobab-platform/infrastructure', 'status': 'ACTIVE',
     },
     VALIDATOR: {
         'repository': 'baobab-platform/baobab-cms', 'owner': 'baobab-platform/baobab-cms',
-        'runtime': 'INT-03 disposable real-component CMS context validator',
+        'runtime': 'ADR-SHARED-043 disposable development baobab-int03-cms-validator',
         'environment': 'development', 'allowed_audiences': ['baobab-control-plane'],
         'allowed_scopes': ['context:validate'], 'validates_audiences': ['baobab-cms'],
         'credential_type': 'client_credentials', 'rotation_owner': 'baobab-platform/baobab-cms', 'status': 'ACTIVE',
