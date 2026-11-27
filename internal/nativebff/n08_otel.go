@@ -6,8 +6,10 @@ package nativebff
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,15 +24,33 @@ func n08Collector() string {
 		return ""
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "/v1/traces" {
+	if err != nil || u.Opaque != "" || u.Host == "" || u.User != nil ||
+		u.RawQuery != "" || u.Fragment != "" || u.RawPath != "" || u.Path != "/v1/traces" {
 		return ""
 	}
 	env := os.Getenv("BAOBAB_ENVIRONMENT")
-	// Export is available only in an explicitly selected disposable environment.
 	if env != "development" && env != "test" && env != "integration" {
 		return ""
 	}
-	if u.Scheme != "https" && u.Scheme != "http" {
+	host := strings.ToLower(u.Host)
+	if u.Scheme == "https" {
+		// HTTPS destinations are exact authority allowlist entries. No
+		// wildcards, suffix matches, ambient proxy or redirects are trusted.
+		for _, allowed := range strings.Split(os.Getenv("BAOBAB_OTEL_COLLECTOR_ALLOWED_HOSTS"), ",") {
+			allowed = strings.ToLower(strings.TrimSpace(allowed))
+			if allowed != "" && !strings.ContainsAny(allowed, "*/\\@?#") && host == allowed {
+				return u.String()
+			}
+		}
+		return ""
+	}
+	// Plain HTTP is reserved for an explicitly opted-in loopback test server.
+	if u.Scheme != "http" || env != "test" ||
+		os.Getenv("BAOBAB_OTEL_ALLOW_INSECURE_LOOPBACK_TESTS") != "1" {
+		return ""
+	}
+	ip := net.ParseIP(u.Hostname())
+	if ip == nil || !ip.IsLoopback() {
 		return ""
 	}
 	return u.String()
@@ -42,7 +62,11 @@ func n08ValidOtlpID(raw string, size int) bool {
 
 var n08PendingExports = make(chan struct{}, 32)
 var n08OTLPClient = &http.Client{
-	Timeout:       time.Second,
+	Timeout: time.Second,
+	Transport: &http.Transport{
+		Proxy: nil,
+		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+	},
 	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 }
 
