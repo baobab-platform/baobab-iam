@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/baobab-platform/baobab-iam/internal/assurance"
@@ -870,9 +871,16 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 	localOk := h.c.Store.DeleteSession(cleanupCtx, c.Value) == nil
 	allOk := h.c.Store.DeleteHumanSessions(cleanupCtx, s.Issuer, s.Subject) == nil
 	expireCookie(w, sessionCookie, http.SameSiteStrictMode)
-	kratosOk := h.c.NativeSessions != nil && h.c.NativeSessions.RevokeNativeSessions(cleanupCtx, s.Subject) == nil
+	// A slow Kratos provider must not consume the time available to start
+	// Hydra cleanup. Preserve the order of Hydra's own two operations.
+	var kratos sync.WaitGroup
+	var kratosOk bool
+	kratos.Go(func() {
+		kratosOk = h.c.NativeSessions != nil && h.c.NativeSessions.RevokeNativeSessions(cleanupCtx, s.Subject) == nil
+	})
 	hydraSessionOk := h.c.OAuthSessions != nil && h.c.OAuthSessions.RevokeSubjectSessions(cleanupCtx, s.Subject) == nil
 	hydraOk := h.c.Revoker.Revoke(cleanupCtx, s.Tokens) == nil
+	kratos.Wait()
 	if !localOk || !allOk || !kratosOk || !hydraSessionOk || !hydraOk {
 		h.fail(w, http.StatusServiceUnavailable)
 		return

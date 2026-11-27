@@ -549,24 +549,36 @@ func (r *contextCheckingTokenRevoker) Revoke(ctx context.Context, _ humanauth.Re
 }
 
 type contextCheckingNativeRevoker struct {
-	calls    int
-	canceled bool
+	calls        int
+	canceled     bool
+	hydraStarted <-chan struct{}
 }
 
 func (r *contextCheckingNativeRevoker) RevokeNativeSessions(ctx context.Context, _ string) error {
 	r.calls++
 	r.canceled = ctx.Err() != nil
-	return nil
+	timer := time.NewTimer(2 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-r.hydraStarted:
+		return nil
+	case <-timer.C:
+		return errors.New("slow Kratos delayed the start of independent Hydra cleanup")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 type contextCheckingOAuthSessionRevoker struct {
 	calls    int
 	canceled bool
+	started  chan struct{}
 }
 
 func (r *contextCheckingOAuthSessionRevoker) RevokeSubjectSessions(ctx context.Context, _ string) error {
 	r.calls++
 	r.canceled = ctx.Err() != nil
+	close(r.started)
 	return nil
 }
 
@@ -694,8 +706,9 @@ func TestAllSessionLogoutCompletesCleanupAfterBrowserDisconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	native := &contextCheckingNativeRevoker{}
-	hydraSessions := &contextCheckingOAuthSessionRevoker{}
+	hydraStarted := make(chan struct{})
+	native := &contextCheckingNativeRevoker{hydraStarted: hydraStarted}
+	hydraSessions := &contextCheckingOAuthSessionRevoker{started: hydraStarted}
 	tokens := &contextCheckingTokenRevoker{}
 	f.h.c.NativeSessions = native
 	f.h.c.OAuthSessions = hydraSessions

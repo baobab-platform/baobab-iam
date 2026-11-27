@@ -1,3 +1,24 @@
+## 27 November 2026 — Kratos session absence and logout coordination
+
+The all-session native BFF logout and the two-person credential withdrawal
+both require a fresh Kratos Admin active-session list with an explicit zero
+total and an empty JSON array. Kratos v26.2.0 emits pagination links even
+when the total is zero. The adapter does not follow those links. An
+unavailable inventory, ambiguous count or incomplete provider response
+cannot establish revocation.
+
+After local BFF session removal, Kratos and Hydra cleanup can progress
+independently within the existing bounded context. Hydra subject-session
+cleanup still runs before its OAuth token revocation and readback. The
+logout request reports success only after all required components succeed.
+
+The Ory Foundation password/browser case now invokes the production
+Kratos revocation adapter over trusted test TLS to the isolated provider,
+requires the active-session list readback, and verifies that the original
+cookie and its A1/A2 assurance are refused. Governed recovery and credential
+rebinding custody, resource-server denial, and connected A3/A4 require
+additional qualification.
+
 ## 26 November 2026 — exact source and connected purchase approval
 
 The reviewed green baseline was `6ad5f16a9bb755c8e0f766c8086c4a0ded59eb50`.
