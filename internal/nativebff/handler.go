@@ -19,8 +19,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/baobab-platform/baobab-iam/internal/assurance"
 	"github.com/baobab-platform/baobab-iam/internal/humanauth"
 	"github.com/baobab-platform/baobab-iam/internal/provider/ory"
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -114,9 +116,14 @@ type Config struct {
 	KratosOrigin                                                     string
 	RequireAAL2                                                      bool
 	Assurance                                                        AssuranceInspector
-	NativeSessions                                                   NativeSessionRevoker
-	OAuthSessions                                                    OAuthSubjectSessionRevoker
-	TrustedRoots                                                     *x509.CertPool
+	// Server-owned exact operation policy and live assurance gate.
+	N06Required        bool
+	N06ScopeOperations map[string]assurance.Operation
+	N06Gate            N06Gate
+	A3StepUp           *A3BrowserStepUp
+	NativeSessions     NativeSessionRevoker
+	OAuthSessions      OAuthSubjectSessionRevoker
+	TrustedRoots       *x509.CertPool
 	// Only disposable loopback tests may inject an ID verifier or use HTTP.
 	AllowTestLoopback bool
 }
@@ -184,6 +191,33 @@ func New(c Config) (*Handler, error) {
 	}
 	if c.RequireAAL2 && c.Assurance == nil {
 		return nil, errors.New("step-up requires real Kratos AAL proof")
+	}
+	if c.A3StepUp != nil && (!c.N06Required || c.A3StepUp.origin != c.PublicOrigin || c.A3StepUp.store != c.Store) {
+		return nil, errors.New("reviewed A3 origin and browser session store required")
+	}
+	if c.N06Required {
+		if c.N06Gate == nil || len(c.N06ScopeOperations) == 0 {
+			return nil, errors.New("N06 owner security gate and scope policy required")
+		}
+		for _, scope := range scopes {
+			if scope == "openid" {
+				continue
+			}
+			operation, ok := c.N06ScopeOperations[scope]
+			if !ok {
+				return nil, errors.New("missing N06 scope operation")
+			}
+			if _, reviewed := assurance.DefaultDevelopmentPolicy()[operation]; !reviewed {
+				return nil, errors.New("unreviewed N06 scope operation")
+			}
+		}
+		for scope := range c.N06ScopeOperations {
+			if !seen[scope] || scope == "openid" {
+				return nil, errors.New("N06 policies must match exact registered scope")
+			}
+		}
+	} else if len(c.N06ScopeOperations) > 0 || c.N06Gate != nil {
+		return nil, errors.New("N06 security gate must be explicitly enabled")
 	}
 	if (c.Verifier != nil || c.AccessVerifier != nil) && !c.AllowTestLoopback {
 		return nil, errors.New("production requires cryptographic ID and access token verification")
@@ -327,6 +361,10 @@ func (h *Handler) routes() http.Handler {
 	mux.HandleFunc("POST /auth/logout", h.logout)
 	mux.HandleFunc("POST /auth/logout-all", h.logoutAll)
 	mux.HandleFunc("GET /auth/recovery", h.recovery)
+	if h.c.A3StepUp != nil {
+		mux.HandleFunc("POST /auth/a3/challenge", h.a3Challenge)
+		mux.HandleFunc("POST /auth/a3/verify", h.a3Verify)
+	}
 	return mux
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -410,7 +448,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		h.redirectKratos(w, r, "login", false)
 		return
 	}
-	if !h.allowAssurance(w, r, cred, false) {
+	if !h.allowAssurance(w, r, cred, false) || !h.allowN06(w, r, cred, tx.Intent) {
 		return
 	}
 	dest, err := h.c.Handoff.AcceptLogin(r.Context(), r.URL.Query().Get("login_challenge"), cred, tx.Intent)
@@ -447,7 +485,7 @@ func (h *Handler) consentPage(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 401)
 		return
 	}
-	if !h.allowAssurance(w, r, cred, false) {
+	if !h.allowAssurance(w, r, cred, false) || !h.allowN06(w, r, cred, tx.Intent) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -477,7 +515,7 @@ func (h *Handler) consent(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, 401)
 		return
 	}
-	if !h.allowAssurance(w, r, cred, true) {
+	if !h.allowAssurance(w, r, cred, true) || !h.allowN06(w, r, cred, tx.Intent) {
 		return
 	}
 	dest, err := h.c.Handoff.AcceptConsent(r.Context(), r.URL.Query().Get("consent_challenge"), cred, tx.Intent, true)
@@ -549,6 +587,35 @@ func (h *Handler) allowAssurance(w http.ResponseWriter, r *http.Request, cred or
 	return false
 }
 
+// allowN06 checks fresh, first-party current identity/assurance/risk on
+// every high-impact login and consent, before creating a Hydra issuer grant.
+// A missing/wrong/uncertain proof is DENIED without claiming business rights.
+func (h *Handler) allowN06(w http.ResponseWriter, r *http.Request, cred ory.NativeSessionCredential, intent humanauth.Request) bool {
+	if !h.c.N06Required {
+		return true
+	}
+	if h.c.N06Gate == nil {
+		h.fail(w, http.StatusServiceUnavailable)
+		return false
+	}
+	for _, scope := range strings.Fields(intent.Scope) {
+		if scope == "openid" {
+			continue
+		}
+		op, ok := h.c.N06ScopeOperations[scope]
+		if !ok {
+			h.fail(w, http.StatusForbidden)
+			return false
+		}
+		decision, err := h.c.N06Gate.EvaluateNative(r.Context(), cred, op)
+		if err != nil || decision.Outcome != assurance.Allow {
+			h.fail(w, http.StatusForbidden)
+			return false
+		}
+	}
+	return true
+}
+
 // Recovery always begins with Kratos's own browser ceremony; it never
 // creates an IAM or CP Principal, changes an existing issuer/subject link or
 // treats recovery as an assurance upgrade. A new signed OAuth login remains
@@ -613,6 +680,17 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		currentSubject, currentAAL, e := h.c.Assurance.AuthenticatorSubjectAAL(r.Context(), credential)
 		if e != nil || currentSubject != sub || currentAAL != "aal2" {
 			h.fail(w, http.StatusForbidden)
+			return
+		}
+	}
+	// N06 must recheck fresh native provider evidence before the new sealed
+	// BFF session is minted. Earlier consent proof is not permanently valid.
+	if h.c.N06Required {
+		credential, e := h.kratos(r)
+		if e != nil || !h.allowN06(w, r, credential, tx.Intent) {
+			if e != nil {
+				h.fail(w, http.StatusForbidden)
+			}
 			return
 		}
 	}
@@ -783,13 +861,26 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, http.StatusForbidden)
 		return
 	}
+	// Once the caller has authenticated the destructive request, finish
+	// revocation even if the browser disconnects. A bounded independent context
+	// prevents request cancellation from skipping provider cleanup; it does not
+	// turn an unconfirmed provider result into success.
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 20*time.Second)
+	defer cancel()
 	// Never make the local session live again after a provider timeout.
-	localOk := h.c.Store.DeleteSession(r.Context(), c.Value) == nil
-	allOk := h.c.Store.DeleteHumanSessions(r.Context(), s.Issuer, s.Subject) == nil
+	localOk := h.c.Store.DeleteSession(cleanupCtx, c.Value) == nil
+	allOk := h.c.Store.DeleteHumanSessions(cleanupCtx, s.Issuer, s.Subject) == nil
 	expireCookie(w, sessionCookie, http.SameSiteStrictMode)
-	kratosOk := h.c.NativeSessions != nil && h.c.NativeSessions.RevokeNativeSessions(r.Context(), s.Subject) == nil
-	hydraSessionOk := h.c.OAuthSessions != nil && h.c.OAuthSessions.RevokeSubjectSessions(r.Context(), s.Subject) == nil
-	hydraOk := h.c.Revoker.Revoke(r.Context(), s.Tokens) == nil
+	// A slow Kratos provider must not consume the time available to start
+	// Hydra cleanup. Preserve the order of Hydra's own two operations.
+	var kratos sync.WaitGroup
+	var kratosOk bool
+	kratos.Go(func() {
+		kratosOk = h.c.NativeSessions != nil && h.c.NativeSessions.RevokeNativeSessions(cleanupCtx, s.Subject) == nil
+	})
+	hydraSessionOk := h.c.OAuthSessions != nil && h.c.OAuthSessions.RevokeSubjectSessions(cleanupCtx, s.Subject) == nil
+	hydraOk := h.c.Revoker.Revoke(cleanupCtx, s.Tokens) == nil
+	kratos.Wait()
 	if !localOk || !allOk || !kratosOk || !hydraSessionOk || !hydraOk {
 		h.fail(w, http.StatusServiceUnavailable)
 		return

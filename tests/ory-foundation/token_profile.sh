@@ -88,18 +88,17 @@ config['oauth2'].update({'allowed_top_level_claims': ['actor_type', 'azp', 'scop
 # Hydra's non-root UID needs to read this bind mount in the isolated CI host.
 # The parent directory remains mode 0700 outside the container.
 (root / 'hydra.yml').chmod(0o644)
-overlay = {'services': {'hydra': {'extra_hosts': ['host.docker.internal:host-gateway'],
-                                'volumes': [str(root / 'hydra.yml') + ':/etc/config/hydra/hydra.yml:ro']}}}
+overlay = {'services': {'hydra': {'volumes': [str(root / 'hydra.yml') + ':/etc/config/hydra/hydra.yml:ro']}}}
 (root / 'compose.yml').write_text(yaml.safe_dump(overlay))
 PY
 # Mechanics proofs exercise PROVISIONED registrations through a fixture-only launcher.
 # Canonical-only acceptance is also a test launcher: production now requires live CP composition.
 go build -o "$task_dir/token-profile-hook" ./tests/ory-foundation/mechanics-hook
-"$task_dir/token-profile-hook" -canonical-only -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/hook.log" 2>&1 &
+"$task_dir/token-profile-hook" -canonical-only -listen 172.30.146.1:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/hook.log" 2>&1 &
 hook_pid=$!
 for attempt in $(seq 1 20); do
   # An unauthenticated health probe must be rejected, never treated as evidence.
-  if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi
+  if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://172.30.146.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi
   sleep 1
 done
 kill -0 "$hook_pid"
@@ -150,10 +149,10 @@ if (not buyer['fixture_only'] or not buyer['logical_audience_matches'] or not bu
 PY
 kill "$hook_pid"
 wait "$hook_pid" 2>/dev/null || true
-"$task_dir/token-profile-hook" -listen 0.0.0.0:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/mechanics-hook.log" 2>&1 &
+"$task_dir/token-profile-hook" -listen 172.30.146.1:4466 -profiles "$task_dir/profiles.json" -key-file "$task_dir/key" -human-consent-seal-key-file "$task_dir/consent-seal-key" > "$task_dir/mechanics-hook.log" 2>&1 &
 hook_pid=$!
 for attempt in $(seq 1 20); do
-  if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi
+  if [ "$(curl --max-time 2 -s -o /dev/null -w '%{http_code}' -X POST http://172.30.146.1:4466/internal/ory/token-profile || true)" = 401 ]; then break; fi
   sleep 1
 done
 kill -0 "$hook_pid"

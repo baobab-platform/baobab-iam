@@ -25,6 +25,13 @@ const (
 	RecoveryRebind    Operation = "RECOVERY_REBIND"
 	PrivilegedGrant   Operation = "PRIVILEGED_GRANT"
 	BreakGlass        Operation = "BREAK_GLASS"
+
+	// Native BFF operation names are aliases into this same reviewed vocabulary.
+	OrdinaryBuyer    Operation = Login
+	CommitBuyer      Operation = BuyerCommit
+	ChangeCredential Operation = CredentialChange
+	ChangeRecovery   Operation = RecoveryRebind
+	GrantPrivileged  Operation = PrivilegedGrant
 )
 
 type Level string
@@ -34,6 +41,7 @@ const (
 	A2 Level = "A2"
 	A3 Level = "A3"
 	A4 Level = "A4"
+	A0 Level = ""
 )
 
 type Outcome string
@@ -110,10 +118,12 @@ type Reader interface {
 	Read(context.Context, string, string) (Evidence, error)
 }
 type Policy struct {
-	Level                Level
-	MaxAge               time.Duration
-	RequireCurrentRisk   bool
-	RequireRecoveryState bool
+	Level                    Level
+	MaxAge                   time.Duration
+	RequireCurrentRisk       bool
+	RequireRecoveryState     bool
+	RecoveryHold             time.Duration
+	RequirePrivilegedWitness bool
 }
 
 // Minimum floors are security policy, not a discretionary request attribute.
@@ -128,14 +138,42 @@ var floors = map[Operation]Level{
 // It is not production or protected-environment approval.
 func ConservativePolicies() map[Operation]Policy {
 	return map[Operation]Policy{
-		Login:             {A1, 30 * time.Minute, false, false},
-		BuyerCommit:       {A2, 5 * time.Minute, true, true},
-		HighValueApproval: {A3, 5 * time.Minute, true, true},
-		CredentialChange:  {A3, 5 * time.Minute, true, true},
-		RecoveryRebind:    {A3, 5 * time.Minute, true, true},
-		PrivilegedGrant:   {A4, 2 * time.Minute, true, true},
-		BreakGlass:        {A4, 2 * time.Minute, true, true},
+		Login:             {Level: A1, MaxAge: 30 * time.Minute},
+		BuyerCommit:       {Level: A2, MaxAge: 5 * time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true},
+		HighValueApproval: {Level: A3, MaxAge: 5 * time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour},
+		CredentialChange:  {Level: A3, MaxAge: 5 * time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour},
+		RecoveryRebind:    {Level: A3, MaxAge: 5 * time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour},
+		PrivilegedGrant:   {Level: A4, MaxAge: 2 * time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour, RequirePrivilegedWitness: true},
+		BreakGlass:        {Level: A4, MaxAge: 2 * time.Minute, RequireCurrentRisk: true, RequireRecoveryState: true, RecoveryHold: 24 * time.Hour, RequirePrivilegedWitness: true},
 	}
+}
+
+// ValidatePolicies is shared by the provider-neutral evaluator and native
+// provider adapters. There is one operation-floor and policy vocabulary.
+func ValidatePolicies(policies map[Operation]Policy) error {
+	if len(policies) != len(floors) {
+		return errors.New("complete server-owned assurance policy required")
+	}
+	for op, floor := range floors {
+		p, ok := policies[op]
+		if !ok || rank(p.Level) < rank(floor) || p.MaxAge <= 0 || p.MaxAge > time.Hour ||
+			p.RecoveryHold < 0 || p.RecoveryHold > 30*24*time.Hour {
+			return fmt.Errorf("invalid reviewed assurance policy for %s", op)
+		}
+		if op != Login && (!p.RequireCurrentRisk || !p.RequireRecoveryState) {
+			return fmt.Errorf("risk-sensitive operation %s cannot bypass current risk/recovery", op)
+		}
+		if rank(p.Level) >= rank(A3) && p.RecoveryHold < 24*time.Hour {
+			return fmt.Errorf("A3/A4 operation %s requires the reviewed recovery hold", op)
+		}
+		if rank(p.Level) == rank(A4) && !p.RequirePrivilegedWitness {
+			return fmt.Errorf("A4 operation %s requires an independent privileged witness", op)
+		}
+		if p.RequirePrivilegedWitness && rank(p.Level) != rank(A4) {
+			return fmt.Errorf("non-A4 operation %s cannot request an A4 witness", op)
+		}
+	}
+	return nil
 }
 
 type Evaluator struct {
@@ -158,18 +196,14 @@ func rank(level Level) int {
 	return 0
 }
 func New(reader Reader, now func() time.Time, policies map[Operation]Policy) (*Evaluator, error) {
-	if reader == nil || now == nil || len(policies) != len(floors) {
+	if reader == nil || now == nil {
 		return nil, errors.New("complete server-owned assurance policy and reader required")
 	}
+	if err := ValidatePolicies(policies); err != nil {
+		return nil, err
+	}
 	copied := make(map[Operation]Policy, len(policies))
-	for op, floor := range floors {
-		p, ok := policies[op]
-		if !ok || rank(p.Level) < rank(floor) || p.MaxAge <= 0 || p.MaxAge > time.Hour {
-			return nil, fmt.Errorf("invalid reviewed assurance policy for %s", op)
-		}
-		if op != Login && (!p.RequireCurrentRisk || !p.RequireRecoveryState) {
-			return nil, fmt.Errorf("risk-sensitive operation %s cannot bypass current risk/recovery", op)
-		}
+	for op, p := range policies {
 		copied[op] = p
 	}
 	return &Evaluator{reader, now, copied}, nil
@@ -223,9 +257,10 @@ func (e *Evaluator) Evaluate(ctx context.Context, req Request) Result {
 		observed = A2
 	}
 	// A3 requires separately verified RP-bound user verification AND passkey
-	// proof. A4 adds a separately authenticated hardware and privileged witness
-	// record. Neither follows from a Kratos method string or IdP ACR.
-	if observed == A2 && first.PasskeyRPBound && first.PasskeyUserVerified && first.PasskeyAttested && first.PasskeyProofEventReference == first.EventReference {
+	// proof. Attestation is optional under ADR-IAM-0024; specific workforce
+	// operations may impose additional reviewed hardware/attestation policy.
+	// A4 adds a separately authenticated hardware and privileged witness.
+	if observed == A2 && first.PasskeyRPBound && first.PasskeyUserVerified && first.PasskeyProofEventReference == first.EventReference {
 		observed = A3
 	}
 	if observed == A3 && first.HardwareBound && first.PrivilegedWitnessVerified && first.PrivilegedWitnessEventReference == first.EventReference {

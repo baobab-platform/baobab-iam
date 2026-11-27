@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   ory-foundation-live:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -47,8 +47,8 @@ jobs:
           format: table
       - name: Check M4 Go formatting
         run: |
-          if [ -n "$(gofmt -l internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go tests/consumer/current/main.go internal/provider/ory/context_route_live_test.go)" ]; then
-            gofmt -d internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go tests/consumer/current/main.go internal/provider/ory/context_route_live_test.go
+          if [ -n "$(gofmt -l internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go tests/consumer/current/main.go.in internal/provider/ory/context_route_live_test.go)" ]; then
+            gofmt -d internal/tokenprofile cmd/ory-token-profile-hook internal/provider/ory/*token_profile*.go internal/provider/ory/workload_live_test.go internal/provider/ory/consumer_live_test.go tests/consumer/cp/main.go tests/consumer/current/main.go.in internal/provider/ory/context_route_live_test.go
             exit 1
           fi
       - name: Install pin validator dependency
@@ -59,6 +59,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
         run: bash tests/ory-foundation/run.sh
+      - name: Provision pinned Node 24 browser qualification runtime
+        if: success() || failure()
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+      - name: Install pinned WebAuthn browser and Chromium
+        if: success() || failure()
+        run: |
+          npm ci --prefix tests/integration/passkey --ignore-scripts
+          tests/integration/passkey/node_modules/.bin/playwright install chromium
+      - name: Require real pinned Kratos + Chromium CTAP2 WebAuthn ceremony
+        if: success() || failure()
+        env:
+          ORY_FOUNDATION: '1'
+          ORY_KRATOS_PUBLIC_URL: http://127.0.0.1:4433
+          ORY_KRATOS_ADMIN_URL: http://127.0.0.1:4434
+        run: |
+          node --test tests/integration/passkey/n06-browser-ui.test.mjs
+          node tests/integration/passkey/n06-kratos-browser.mjs
       - name: Check out immutable CP consumer source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -80,7 +99,13 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > ory-foundation-evidence/commit.txt
       - name: Tear down disposable foundation
         if: always()
-        run: docker compose -p ory-foundation-ci -f docker-compose.ory.yml down -v --remove-orphans
+        run: |
+          relay_pid_file="$RUNNER_TEMP/ory-foundation-relay.pid"
+          if [ -s "$relay_pid_file" ]; then
+            kill "$(cat "$relay_pid_file")" 2>/dev/null || true
+            rm -f "$relay_pid_file"
+          fi
+          docker compose -p ory-foundation-ci -f docker-compose.ory.yml -f tests/ory-foundation/compose.isolated.yml down -v --remove-orphans
       - name: Upload foundation evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

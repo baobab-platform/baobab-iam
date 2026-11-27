@@ -36,6 +36,17 @@ class N04FoundationRunner(unittest.TestCase):
         self.assertLess(content.index("go test -json ./internal/nativebff -run"),
                         content.index("python3 - <<'PYNATIVE'"))
 
+    def test_n06_revocation_requires_separate_live_pass_evidence(self):
+        content = RUN.read_text(encoding="utf-8")
+        invocation = "go test -json ./internal/nativebff -run '^TestLiveN06HydraTokenRevocationReadback$'"
+        self.assertEqual(content.count(invocation), 1)
+        self.assertEqual(content.count("tee ory-foundation-evidence/n06-hydra-revocation-tests.jsonl"), 1)
+        before, evidence = content.split("python3 - <<'PYN06'\n")
+        self.assertIn(invocation, before)
+        check = evidence.split("\nPYN06\n", 1)[0]
+        self.assertIn("Path('ory-foundation-evidence/n06-hydra-revocation-tests.jsonl').read_text()", check)
+        self.assertIn("e.get('Test') == name and e.get('Action') == 'pass'", check)
+
     def test_token_profile_real_mechanics_and_n03_not_injected_into_regex(self):
         content = PROFILE.read_text(encoding="utf-8")
         self.assertEqual(content.count(
