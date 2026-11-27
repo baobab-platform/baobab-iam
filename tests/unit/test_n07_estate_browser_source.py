@@ -69,6 +69,18 @@ class N07BrowserSource(unittest.TestCase):
         with self.assertRaises(mod.n07.Blocked):
             mod.validate_browser_profile(p)
 
+    def test_browser_profile_rejects_unknown_top_level_estate_and_context_fields(self):
+        for mutate in (
+            lambda p: p.update({"unreviewed": True}),
+            lambda p: p["estates"]["nabhold"].update({"unreviewed": True}),
+            lambda p: p["estates"]["thamani"]["logistics_navigation"].update({"executionAuthority": True}),
+            lambda p: p["source_pins"].update({"unknown-owner": SHA}),
+        ):
+            candidate = profile()
+            mutate(candidate)
+            with self.assertRaises(mod.n07.Blocked):
+                mod.validate_browser_profile(candidate)
+
     def test_no_health_or_cross_owner_session_alias(self):
         p = profile()
         p["estates"]["thamani"]["session_path"] = "/api/health"
