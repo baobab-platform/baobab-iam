@@ -149,13 +149,20 @@ def validate_profile(p: dict[str, Any]) -> dict[str, Any]:
             if any(key.endswith("_token_file") for key in c):
                 raise Blocked("ESTATE_BROWSER_CREDENTIAL_NOT_TRANSFERABLE")
         else:
-            expected = {"name", "origin", "kind", "resource_path"} | {
+            expected = {"name", "origin", "kind", "resource_path", "response_contract"} | {
                 f"{case}_token_file" for case in CASES[1:]}
             if set(c) != expected:
                 raise Blocked("UNREVIEWED_ENGINE_PROBE_FIELDS")
             if c.get("kind") != "engine":
                 raise Blocked("ENGINE_TYPE_REQUIRED")
             resource_path(c.get("resource_path"))
+            contract = c.get("response_contract")
+            if (not isinstance(contract, dict) or set(contract) != {"operation", "classification"}
+                    or any(not isinstance(contract.get(k), str) or not contract[k]
+                           or len(contract[k]) > 120 or "<" in contract[k] or ">" in contract[k]
+                           for k in ("operation", "classification"))
+                    or contract["classification"] != "READ_ONLY_RESOURCE"):
+                raise Blocked("OWNER_OPERATION_RESPONSE_CONTRACT_REQUIRED")
             paths = [c.get(f"{case}_token_file") for case in CASES[1:]]
             if any(not isinstance(x, str) or not Path(x).is_absolute() for x in paths):
                 raise Blocked("ORIGINAL_PROVIDER_TOKEN_FILES_REQUIRED")
@@ -183,8 +190,9 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def http_probe(origin: str, path: str, bearer: str | None) -> tuple[int, bool]:
-    """Return only status and no-store; do not store response body or headers."""
+def http_probe(origin: str, path: str, bearer: str | None,
+               response_contract: dict[str, str] | None = None) -> tuple[int, bool, bool]:
+    """Return status and low-cardinality contract booleans; never retain a response body."""
     request = Request(trusted_origin(origin) + resource_path(path),
                       headers={"Accept": "application/json",
                                "Cache-Control": "no-store",
@@ -200,12 +208,32 @@ def http_probe(origin: str, path: str, bearer: str | None) -> tuple[int, bool]:
     except (URLError, TimeoutError, OSError, ValueError):
         raise Blocked("REAL_CONSUMER_UNAVAILABLE") from None
     with response:
-        # A 200 HTML login/health page with no-store is not an owner-native
-        # resource read. Require the contracted JSON response as well.
-        safe_resource = ("no-store" in response.headers.get("Cache-Control", "").lower()
-                         and response.headers.get("Content-Type", "").lower()
-                         .split(";", 1)[0].strip() == "application/json")
-        return response.status, safe_resource
+        headers = response.headers
+        media_type = headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        no_store = "no-store" in {
+            directive.strip().lower()
+            for directive in headers.get("Cache-Control", "").split(",")
+        }
+        safe_resource = no_store and media_type == "application/json"
+        contract_match = False
+        if response.status == 200 and bearer is not None and response_contract is not None:
+            length = headers.get("Content-Length")
+            if length is None or not length.isascii() or not length.isdigit() or int(length) > 8192:
+                raise Blocked("RESOURCE_RESPONSE_SIZE_UNBOUNDED")
+            raw = response.read(8193)
+            if len(raw) > 8192 or len(raw) != int(length):
+                raise Blocked("RESOURCE_RESPONSE_SIZE_INVALID")
+            try:
+                payload = json.loads(raw, object_pairs_hook=pairs_unique)
+            except (ValueError, UnicodeError, TypeError):
+                raise Blocked("RESOURCE_RESPONSE_INVALID") from None
+            if (not isinstance(payload, dict) or
+                    set(payload) != {"operation", "classification"} or
+                    payload.get("operation") != response_contract["operation"] or
+                    payload.get("classification") != response_contract["classification"]):
+                raise Blocked("RESOURCE_RESPONSE_CONTRACT_MISMATCH")
+            contract_match = True
+        return response.status, safe_resource, contract_match
 
 
 def token(path: str) -> str:
@@ -222,10 +250,40 @@ def case_id(name: str, case: str) -> str:
     return "N07_" + name.upper().replace("-", "_") + "_" + case.upper()
 
 
-def fingerprint(run_id: str, value: str) -> str:
-    """Private run-bound token correlation, never a bearer or public identifier."""
-    return hmac.new(bytes.fromhex(run_id), value.encode("ascii"),
-                    hashlib.sha256).hexdigest()
+def correlation_key(path: str, output_dir: str, phase: str) -> bytes:
+    """Create once before the first phase; require the same owner-only key afterwards."""
+    key_path = Path(path)
+    root = Path(output_dir).resolve()
+    if not key_path.is_absolute() or key_path.resolve().is_relative_to(root):
+        raise Blocked("CORRELATION_KEY_MUST_BE_OUTSIDE_RECEIPT_DIRECTORY")
+    if phase == "before" and not key_path.exists():
+        key_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            fd = os.open(key_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            key = secrets.token_bytes(32)
+            try:
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(key)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except Exception:
+                key_path.unlink(missing_ok=True)
+                raise
+    key = private_read(str(key_path), 32)
+    if len(key) != 32:
+        raise Blocked("CORRELATION_KEY_INVALID")
+    return key
+
+
+def fingerprint(key: bytes, run_id: str, source_pins: dict[str, str], value: str) -> str:
+    """Secret-keyed token correlation bound to this run and immutable peer pins."""
+    context = json.dumps({"run_id": run_id, "source_pins": source_pins},
+                         sort_keys=True, separators=(",", ":")).encode("utf-8")
+    message = b"baobab-iam-n07-revocation-v1\x00" + context + b"\x00" + value.encode("ascii")
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
 def unexpired_jwt(value: str) -> None:
@@ -249,10 +307,10 @@ def unexpired_jwt(value: str) -> None:
         raise Blocked("ORIGINAL_UNEXPIRED_SHORT_LIVED_TOKEN_REQUIRED")
 
 
-def require_before(profile: dict[str, Any], directory: str) -> dict[str, Any]:
+def require_before(profile: dict[str, Any], directory: str, key: bytes) -> dict[str, Any]:
     root = Path(directory)
-    before_bytes = private_read(str(root / "before.json"))
-    if private_read(str(root / "before.sha256"), 256).decode("ascii").strip() != hashlib.sha256(before_bytes).hexdigest():
+    before_bytes = private_read(str(root / "before" / "original.json"))
+    if private_read(str(root / "before" / "original.sha256"), 256).decode("ascii").strip() != hashlib.sha256(before_bytes).hexdigest():
         raise Blocked("ORIGINAL_BEFORE_DIGEST_INVALID")
     try:
         before = json.loads(before_bytes, object_pairs_hook=pairs_unique)
@@ -263,6 +321,7 @@ def require_before(profile: dict[str, Any], directory: str) -> dict[str, Any]:
             or before.get("source_pins") != profile["source_pins"]
             or before.get("protected_accepted") is not False
             or before.get("fully_qualified") is not False
+            or before.get("correlation_key_id") != hashlib.sha256(key).hexdigest()
             or not isinstance(before.get("fingerprints"), dict)
             or not isinstance(before.get("cases"), dict)):
         raise Blocked("ORIGINAL_BEFORE_PROVENANCE_INVALID")
@@ -275,7 +334,7 @@ def require_before(profile: dict[str, Any], directory: str) -> dict[str, Any]:
     return before
 
 
-def observe(p: dict[str, Any], phase: str,
+def observe(p: dict[str, Any], phase: str, key: bytes,
             probe=http_probe, before: dict[str, Any] | None = None) -> dict[str, Any]:
     """HTTP observations only. External N02/N03/CP owner evidence is mandatory."""
     results: dict[str, str] = {}
@@ -306,12 +365,14 @@ def observe(p: dict[str, Any], phase: str,
                     # enforcement by the native resource policy.
                     unexpired_jwt(original)
                     if case == "allowed":
-                        fingerprints[name] = fingerprint(p["run_id"], original)
+                        fingerprints[name] = fingerprint(key, p["run_id"], p["source_pins"], original)
                     if digest in observed_tokens:
                         raise Blocked("REUSED_INDEPENDENT_NEGATIVE_TOKEN")
                     observed_tokens.add(digest)
-                    status, no_store = probe(base, c["resource_path"], original)
-                    good = status == 200 and no_store if case == "allowed" else status in (401, 403)
+                    contract = c["response_contract"] if case == "allowed" else None
+                    status, no_store, contract_match = probe(base, c["resource_path"], original, contract)
+                    good = (status == 200 and no_store and contract_match
+                            if case == "allowed" else status in (401, 403))
                     results[case_id(name, case)] = "OBSERVED" if good else "BLOCKED"
                 except (Blocked, OSError):
                     results[case_id(name, case)] = "BLOCKED"
@@ -327,10 +388,10 @@ def observe(p: dict[str, Any], phase: str,
                 if earlier != revoked:
                     raise Blocked("REVOKED_TOKEN_MUST_MATCH_PREVIOUS")
                 if (not isinstance(before, dict) or before.get("fingerprints", {}).get(name)
-                        != fingerprint(p["run_id"], revoked)):
+                        != fingerprint(key, p["run_id"], p["source_pins"], revoked)):
                     raise Blocked("ORIGINAL_PRE_REVOCATION_BINDING_MISSING")
                 unexpired_jwt(revoked)
-                status, _ = probe(base, c["resource_path"], revoked)
+                status, _, _ = probe(base, c["resource_path"], revoked)
                 results[case_id(name, "revoked_unexpired")] = (
                     "OBSERVED" if status in (401, 403) else "BLOCKED")
             except (Blocked, OSError):
@@ -340,6 +401,7 @@ def observe(p: dict[str, Any], phase: str,
             "environment": "development", "phase": phase,
             "run_id": p["run_id"], "source_pins": p["source_pins"],
             "cases": results, "fingerprints": fingerprints,
+            "correlation_key_id": hashlib.sha256(key).hexdigest(),
             "protected_accepted": False,
             "cp_authority_certified": False, "issuer_qualified": False,
             "consumer_native_consequence_qualified": False,
@@ -356,25 +418,31 @@ def original_write(directory: str, phase: str, receipt: dict[str, Any]) -> None:
     if st.st_uid != os.getuid() or st.st_mode & 0o077:
         raise Blocked("PRIVATE_OUTPUT_PERMISSIONS_REQUIRED")
     payload = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
-    for suffix in (".json", ".sha256", ".json.part", ".sha256.part"):
-        target = root / (phase + suffix)
-        if target.exists() or target.is_symlink():
-            raise Blocked("ORIGINAL_EVIDENCE_ALREADY_EXISTS")
-    for suffix, data in ((".json", payload),
-                         (".sha256", (hashlib.sha256(payload).hexdigest() + "\n").encode("ascii"))):
-        target = root / (phase + suffix)
-        tmp = root / (phase + suffix + ".part")
-        if tmp.exists() or tmp.is_symlink():
-            raise Blocked("TEMPORARY_EVIDENCE_ALREADY_EXISTS")
-        fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
-        try:
+    target_dir = root / phase
+    if target_dir.exists() or target_dir.is_symlink():
+        raise Blocked("ORIGINAL_EVIDENCE_ALREADY_EXISTS")
+    staging = root / ("." + phase + "." + secrets.token_hex(16) + ".staging")
+    staging.mkdir(mode=0o700)
+    try:
+        for filename, data in (("original.json", payload),
+                               ("original.sha256", (hashlib.sha256(payload).hexdigest() + "\n").encode("ascii"))):
+            fd = os.open(staging / filename,
+                         os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
             with os.fdopen(fd, "wb") as stream:
                 stream.write(data)
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.link(tmp, target, follow_symlinks=False)
+        stage_fd = os.open(staging, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(stage_fd)
         finally:
-            tmp.unlink(missing_ok=True)
+            os.close(stage_fd)
+        if target_dir.exists() or target_dir.is_symlink():
+            raise Blocked("ORIGINAL_EVIDENCE_ALREADY_EXISTS")
+        os.rename(staging, target_dir)
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
     dir_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         os.fsync(dir_fd)
@@ -387,14 +455,17 @@ def main() -> int:
     parser.add_argument("--profile", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--phase", required=True, choices=("before", "after"))
+    parser.add_argument("--correlation-key-file", required=True,
+                        help="owner-only 0600 256-bit key, outside the receipt directory")
     args = parser.parse_args()
     try:
         if os.environ.get("BAOBAB_ENVIRONMENT") != "development":
             raise Blocked("PROTECTED_EXECUTION_NOT_AUTHORIZED")
         profile = validate_profile(private_json(args.profile))
         exact_source(profile)
-        prior = require_before(profile, args.output_dir) if args.phase == "after" else None
-        result = observe(profile, args.phase, before=prior)
+        key = correlation_key(args.correlation_key_file, args.output_dir, args.phase)
+        prior = require_before(profile, args.output_dir, key) if args.phase == "after" else None
+        result = observe(profile, args.phase, key, before=prior)
         original_write(args.output_dir, args.phase, result)
         print(json.dumps({"classification": "N07_SOURCE_AND_HTTP_OBSERVED_UNATTESTED"
                           if all(v == "OBSERVED" for v in result["cases"].values())
