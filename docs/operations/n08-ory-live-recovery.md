@@ -23,7 +23,7 @@ PostgreSQL **17** source versions before performing any database mutation.
    cannot mint a token. The private fixture file and both DB dumps are
    erased via EXIT trap and **must never be uploaded**.
 
-The workflow's final `docker compose down -v` must run even on failures.
+The workflow's final `tests/ory-foundation/cleanup.sh` must run even on failures; it stops only the recorded helper processes and tears down the isolated Compose volumes.
 This is genuine **two-provider** recovery rather than a pretend source-only
 SQL restore. It still **does not** prove Redis/native-BFF vault restoration,
 the separate IAM N06 security database, CP grant reconciliation,
