@@ -18,7 +18,9 @@ const envOK = process.env.ORY_FOUNDATION === '1' &&
 if (!envOK) throw Error('N06 real-browser proof requires isolated original CI Ory Foundation');
 
 const session = {browser:null, context:null, page:null, cdp:null, id:null};
-const pass = (value, stage) => {if (!value) throw Error('N06_A3_HELD_' + stage);};
+const pass = (value, stage) => {
+ if (!value) throw Error('N06_A3_HELD_' + String(stage).toUpperCase());
+};
 const nonce = () => randomBytes(24).toString('hex');
 const privateEmail = 'a3-live-' + nonce() + '@baobab.invalid';
 const privatePassword = 'Aa!9-' + nonce();
@@ -224,8 +226,8 @@ await run().catch(error => {
  // Only bounded machine-readable gate labels may enter workflow logs.
  // Do not print native flow bodies, credentials, tokens or exception stacks.
  const message = String(error?.message ?? '');
- const safe = /^N06_A3_HELD_[A-Z0-9_]{1,96}$/.test(message)
-  ? message : 'N06_A3_HELD_' + qualificationPhase + '_UNCLASSIFIED';
+ const safe = /^N06_A3_HELD_[A-Z0-9_]{1,96}$/i.test(message)
+  ? message.toUpperCase() : 'N06_A3_HELD_' + qualificationPhase + '_UNCLASSIFIED';
  process.stderr.write(safe + '\n');
  process.exitCode = 2;
 });
