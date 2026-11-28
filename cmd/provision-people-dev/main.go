@@ -316,9 +316,13 @@ func run(getenv func(string) string, out io.Writer, now time.Time) (runErr error
 	keep = true
 	return nil
 }
+func commandErrorMessage(err error) string {
+	return fmt.Sprintf("provision-people-dev: %v", err)
+}
+
 func main() {
 	if err := run(os.Getenv, os.Stdout, time.Now().UTC()); err != nil {
-		fmt.Fprintln(os.Stderr, "provision-people-dev: request refused")
+		fmt.Fprintln(os.Stderr, commandErrorMessage(err))
 		os.Exit(2)
 	}
 }
