@@ -110,7 +110,7 @@ def resource_path(value: str) -> str:
     return value
 
 
-def validate_profile(p: dict[str, Any]) -> dict[str, Any]:
+def validate_profile(p: dict[str, Any], *, dev15_adopter: str | None = None) -> dict[str, Any]:
     # The original no-secret profile is a closed owner contract. Unknown
     # keys may not smuggle browser credentials, switch run policy or assert
     # support/acceptance outside the independently governed owners.
@@ -122,12 +122,19 @@ def validate_profile(p: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(p.get("run_id"), str) or not RUN.fullmatch(p["run_id"]):
         raise Blocked("ORIGINAL_RUN_ID_REQUIRED")
     pins = p.get("source_pins")
-    required_pins = {"baobab-iam", "baobab-cp", "shared", *ESTATES, *REQUIRED_ENGINES}
+    required = set(ESTATES) | REQUIRED_ENGINES
+    required_pins = {"baobab-iam", "baobab-cp", "shared"}
+    if dev15_adopter is not None:
+        if dev15_adopter not in REQUIRED_ENGINES:
+            raise Blocked("DEV15_ADOPTER_NOT_REGISTERED")
+        required = {dev15_adopter}
+        required_pins.add("infrastructure")
+    required_pins.update(required)
     if not isinstance(pins, dict) or not required_pins.issubset(pins) or any(
             not isinstance(x, str) or not SHA.fullmatch(x) for x in pins.values()):
         raise Blocked("EXACT_IMMUTABLE_PEER_PINS_REQUIRED")
     targets = p.get("consumers")
-    if not isinstance(targets, list) or len(targets) < 5:
+    if not isinstance(targets, list) or len(targets) < len(required):
         raise Blocked("ALL_CORE_CONSUMERS_REQUIRED")
     names = set()
     for c in targets:
@@ -137,6 +144,8 @@ def validate_profile(p: dict[str, Any]) -> dict[str, Any]:
         name = c.get("name")
         if name not in ESTATES and name not in REQUIRED_ENGINES | OPTIONAL_ENGINES:
             raise Blocked("UNREGISTERED_CONSUMER")
+        if dev15_adopter is not None and name != dev15_adopter:
+            raise Blocked("DEV15_SINGLE_ADOPTER_REQUIRED")
         names.add(name)
         if name not in pins:
             raise Blocked("CONSUMER_SOURCE_UNPINNED")
@@ -166,7 +175,7 @@ def validate_profile(p: dict[str, Any]) -> dict[str, Any]:
             paths = [c.get(f"{case}_token_file") for case in CASES[1:]]
             if any(not isinstance(x, str) or not Path(x).is_absolute() for x in paths):
                 raise Blocked("ORIGINAL_PROVIDER_TOKEN_FILES_REQUIRED")
-    if not (set(ESTATES) | REQUIRED_ENGINES).issubset(names):
+    if not required.issubset(names):
         raise Blocked("REQUIRED_CONSUMER_MISSING")
     return p
 
@@ -316,7 +325,8 @@ def unexpired_jwt(value: str) -> None:
         raise Blocked("ORIGINAL_UNEXPIRED_SHORT_LIVED_TOKEN_REQUIRED")
 
 
-def require_before(profile: dict[str, Any], directory: str, key: bytes) -> dict[str, Any]:
+def require_before(profile: dict[str, Any], directory: str, key: bytes, *,
+                   dev15_adopter: str | None = None) -> dict[str, Any]:
     root = Path(directory)
     if not (root / "before").is_dir() and (
             (root / "before.json").exists() or (root / "before.sha256").exists()):
@@ -332,6 +342,7 @@ def require_before(profile: dict[str, Any], directory: str, key: bytes) -> dict[
         raise Blocked("ORIGINAL_BEFORE_INVALID") from None
     if (not isinstance(before, dict) or before.get("schema") != "baobab.iam.n07.http-observation.v1"
             or before.get("phase") != "before" or before.get("run_id") != profile["run_id"]
+            or before.get("dev15_adopter") != dev15_adopter
             or before.get("source_pins") != profile["source_pins"]
             or before.get("protected_accepted") is not False
             or before.get("fully_qualified") is not False
@@ -339,7 +350,7 @@ def require_before(profile: dict[str, Any], directory: str, key: bytes) -> dict[
             or not isinstance(before.get("fingerprints"), dict)
             or not isinstance(before.get("cases"), dict)):
         raise Blocked("ORIGINAL_BEFORE_PROVENANCE_INVALID")
-    for name in REQUIRED_ENGINES:
+    for name in ({dev15_adopter} if dev15_adopter is not None else REQUIRED_ENGINES):
         if before["cases"].get(case_id(name, "allowed")) != "OBSERVED":
             raise Blocked("ORIGINAL_POSITIVE_RESOURCE_NOT_OBSERVED")
         token_hash = before["fingerprints"].get(name)
@@ -349,7 +360,8 @@ def require_before(profile: dict[str, Any], directory: str, key: bytes) -> dict[
 
 
 def observe(p: dict[str, Any], phase: str, key: bytes,
-            probe=http_probe, before: dict[str, Any] | None = None) -> dict[str, Any]:
+            probe=http_probe, before: dict[str, Any] | None = None, *,
+            dev15_adopter: str | None = None) -> dict[str, Any]:
     """HTTP observations only. External N02/N03/CP owner evidence is mandatory."""
     results: dict[str, str] = {}
     fingerprints: dict[str, str] = {}
@@ -411,6 +423,7 @@ def observe(p: dict[str, Any], phase: str, key: bytes,
             except (Blocked, OSError):
                 results[case_id(name, "revoked_unexpired")] = "BLOCKED"
     return {"schema": "baobab.iam.n07.http-observation.v1",
+            **({"dev15_adopter": dev15_adopter} if dev15_adopter is not None else {}),
             "evidence_class": "REAL_HTTP_READBACK_UNATTESTED",
             "environment": "development", "phase": phase,
             "run_id": p["run_id"], "source_pins": p["source_pins"],
@@ -469,17 +482,20 @@ def main() -> int:
     parser.add_argument("--profile", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--phase", required=True, choices=("before", "after"))
+    parser.add_argument("--dev15-adopter", choices=sorted(REQUIRED_ENGINES),
+                        help="observe one DEV-15 headless adopter in the owner-provisioned run")
     parser.add_argument("--correlation-key-file", required=True,
                         help="owner-only 0600 256-bit key, outside the receipt directory")
     args = parser.parse_args()
     try:
         if os.environ.get("BAOBAB_ENVIRONMENT") != "development":
             raise Blocked("PROTECTED_EXECUTION_NOT_AUTHORIZED")
-        profile = validate_profile(private_json(args.profile))
+        profile = validate_profile(private_json(args.profile), dev15_adopter=args.dev15_adopter)
         exact_source(profile)
         key = correlation_key(args.correlation_key_file, args.output_dir, args.phase)
-        prior = require_before(profile, args.output_dir, key) if args.phase == "after" else None
-        result = observe(profile, args.phase, key, before=prior)
+        prior = (require_before(profile, args.output_dir, key, dev15_adopter=args.dev15_adopter)
+                 if args.phase == "after" else None)
+        result = observe(profile, args.phase, key, before=prior, dev15_adopter=args.dev15_adopter)
         original_write(args.output_dir, args.phase, result)
         print(json.dumps({"classification": "N07_SOURCE_AND_HTTP_OBSERVED_UNATTESTED"
                           if all(v == "OBSERVED" for v in result["cases"].values())

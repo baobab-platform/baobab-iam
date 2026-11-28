@@ -51,6 +51,55 @@ def example():
 
 
 class N07SourceTests(unittest.TestCase):
+    def headless_profile(self, adopter):
+        profile = example()
+        profile["consumers"] = [c for c in profile["consumers"] if c["name"] == adopter]
+        profile["source_pins"] = {
+            name: SHA for name in ("shared", "baobab-iam", "baobab-cp", "infrastructure", adopter)
+        }
+        return profile
+
+    def test_dev15_headless_allows_only_the_selected_engine(self):
+        for adopter in n07.REQUIRED_ENGINES:
+            with self.subTest(adopter=adopter):
+                profile = self.headless_profile(adopter)
+                self.assertIs(n07.validate_profile(profile, dev15_adopter=adopter), profile)
+                with self.assertRaises(n07.Blocked):
+                    n07.validate_profile(profile)
+                profile["consumers"].append(example()["consumers"][0])
+                with self.assertRaisesRegex(n07.Blocked, "DEV15_SINGLE_ADOPTER_REQUIRED"):
+                    n07.validate_profile(profile, dev15_adopter=adopter)
+                profile["consumers"].pop()
+                del profile["source_pins"]["infrastructure"]
+                with self.assertRaisesRegex(n07.Blocked, "EXACT_IMMUTABLE_PEER_PINS_REQUIRED"):
+                    n07.validate_profile(profile, dev15_adopter=adopter)
+
+    def test_dev15_before_original_cannot_cross_adopter_or_full_n07(self):
+        adopter = "baobab-pulse"
+        profile = self.headless_profile(adopter)
+        key = b"k" * 32
+        c = profile["consumers"][0]
+        bearer = unit_jwt()
+        tokens = {c[f"{case}_token_file"]: unit_jwt(case) for case in n07.CASES[1:]}
+        tokens[c["allowed_token_file"]] = tokens[c["revoked_unexpired_token_file"]] = bearer
+        with tempfile.TemporaryDirectory() as directory, patch.object(n07, "token", tokens.__getitem__):
+            def before_probe(origin, path, value, contract=None):
+                return (200, True, True) if value == bearer else (403, True, False)
+
+            prior = n07.observe(profile, "before", key, before_probe, dev15_adopter=adopter)
+            self.assertTrue(all(v == "OBSERVED" for v in prior["cases"].values()))
+            n07.original_write(directory, "before", prior)
+            for wrong_scope in (None, "baobab-payments"):
+                with self.assertRaisesRegex(n07.Blocked, "ORIGINAL_BEFORE_PROVENANCE_INVALID"):
+                    n07.require_before(profile, directory, key, dev15_adopter=wrong_scope)
+            before = n07.require_before(profile, directory, key, dev15_adopter=adopter)
+            result = n07.observe(profile, "after", key, lambda *args: (403, True, False),
+                                 before=before, dev15_adopter=adopter)
+            self.assertEqual(result["cases"], {n07.case_id(adopter, "revoked_unexpired"): "OBSERVED"})
+            self.assertEqual(result["dev15_adopter"], adopter)
+            self.assertFalse(result["fully_qualified"])
+            self.assertFalse(result["cp_authority_certified"])
+
     def test_all_core_real_consumers_are_mandatory(self):
         self.assertEqual(set(n07.ESTATES) | n07.REQUIRED_ENGINES,
                          {c["name"] for c in n07.validate_profile(example())["consumers"]})

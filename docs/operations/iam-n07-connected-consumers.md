@@ -121,6 +121,27 @@ Example use on a reviewed immutable private development host:
 
 Expect nonzero exit even for coherent HTTP originals. Never upload private originals or secrets as a public CI artifact.
 
+## DEV-15 headless observation through the existing owner lifecycle
+
+For a single Pulse or Payments adoption run, use the existing observer
+with `--dev15-adopter baobab-pulse` or `--dev15-adopter baobab-payments`
+on **both** invocations. Use the run ID issued by Infrastructure's active
+disposable lifecycle, its exact source SHA, and the immutable Shared, IAM,
+CP and selected engine pins. The profile contains just the selected engine's
+normal read-only resource and original credential files. Estates and the
+other first adopter belong to their own qualification runs.
+
+Use a separate run-owned private original directory and key. Keep the run
+active between `before` and `after` while the authorized owners perform and
+independently witness withdrawal. The observer records the adopter in both
+originals and refuses to reuse a before-original from another scope. It
+continues to require the same unexpired token for the after phase.
+
+Infrastructure owns provisioning and verified teardown. IAM and CP owners
+retain issuer status and authority originals, while the engine owner supplies
+the native outcome. Exit 3 indicates scoped HTTP observations. Exit 2 means
+blocked. These results supply no N07 or ENG-ONB acceptance by themselves.
+
 ## Explicit acceptance holds
 
 N06 #151: development increment merged; real operation-bound A3/A4, recovery and issuer operations remain gated. N03 #148: independently deployed current IAM/CP/native resource. N04 #149: real CP provider-binder proof; provider support remains PARTIAL. Infrastructure #69 and ZuriBeans #141: same-run first-party real browser and seven-case original. Nabhold: current workforce CP executive context. Thamani: draft owner BFF source exists, but its live owner lease, CP context and native TMS booking operation remain unqualified. Payments: five remaining development engine negatives. No N07 feature, source test, healthy public website or provider mock bypasses any hold.
