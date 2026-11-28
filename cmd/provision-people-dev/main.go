@@ -145,7 +145,11 @@ type credentialFile interface {
 // write or sync error. The caller must compensate the already-created issuer
 // workload whenever this function returns an error.
 func persistCredential(dest credentialFile, secret string) error {
-	_, writeErr := io.WriteString(dest, secret+"\n")
+	payload := secret + "\n"
+	written, writeErr := io.WriteString(dest, payload)
+	if writeErr == nil && written != len(payload) {
+		writeErr = io.ErrShortWrite
+	}
 	var syncErr error
 	if writeErr == nil {
 		syncErr = dest.Sync()
