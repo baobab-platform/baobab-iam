@@ -216,7 +216,6 @@ func TestDisableWorkload_ClearsGrantTypes(t *testing.T) {
 	}
 }
 
-
 // TestProvisionWorkload_DisablesCreatedClientWhenConfigurationReadbackFails
 // proves that a client created successfully is not left enabled when the
 // independent issuer readback fails. A pre-existing client is never disabled.
