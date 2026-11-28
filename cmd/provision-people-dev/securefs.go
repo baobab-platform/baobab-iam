@@ -183,6 +183,9 @@ func loadTrustedKeyring(target any) error {
 		return err
 	}
 	defer file.Close()
+	if err := requireReadOnlyMount(int(file.Fd())); err != nil {
+		return err
+	}
 	return decodePrivateJSON(file, target)
 }
 
