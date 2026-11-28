@@ -114,3 +114,26 @@ func TestHydraProvisioningRequiresOriginalCreateIdentity(t *testing.T) {
 		})
 	}
 }
+
+func TestHydraWorkloadDisableCannotMutateHumanOAuthClient(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Error("human client reached a mutation")
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"client_id":"mixed-client","grant_types":["client_credentials","authorization_code"]}`)
+	}))
+	defer srv.Close()
+	adapter, err := ory.NewAdapter(ory.Config{
+		KratosAdminURL: srv.URL, HydraAdminURL: srv.URL, PublicIssuer: "https://identity.example",
+		HTTPClient: ory.ProviderFixtureClient(srv),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adapter.DisableWorkload(context.Background(), provider.ProviderWorkloadReference{ProviderClientID: "mixed-client"}); !errors.Is(err, &provider.ProviderError{Kind: provider.ErrConflict}) {
+		t.Fatalf("unexpected workload-only refusal: %v", err)
+	}
+}

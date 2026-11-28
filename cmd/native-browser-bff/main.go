@@ -42,6 +42,9 @@ type document struct {
 	AccessAudience          string                           `json:"access_audience"`
 	AccessScope             string                           `json:"access_scope"`
 	CPCallerTokenFile       string                           `json:"cp_caller_token_file"`
+	RiskAuthorityOrigin     string                           `json:"risk_authority_origin"`
+	RiskAuthorityTokenFile  string                           `json:"risk_authority_token_file"`
+	RiskAuthorityCAFile     string                           `json:"risk_authority_ca_file"`
 	BrowserDatabaseDSNFile  string                           `json:"browser_database_dsn_file"`
 	BrowserVaultKeyFile     string                           `json:"browser_vault_key_file"`
 	BrowserRateKeyFile      string                           `json:"browser_rate_key_file"`
@@ -126,7 +129,7 @@ func n06NativeScopePolicy(scope string) (map[string]assurance.Operation, error) 
 // n06ExecutableSecurity builds the REQUIRED current-session gate for the
 // production command. This is not an optional unit-test-only handler option.
 // Kratos AAL1/AAL2 are read live; no synthetic WebAuthn A3/A4 or risk data.
-func n06ExecutableSecurity(scope, kratos string, roots *x509.CertPool) (map[string]assurance.Operation, nativebff.N06Gate, error) {
+func n06ExecutableSecurity(scope, kratos string, roots *x509.CertPool, risk assurance.RiskReader) (map[string]assurance.Operation, nativebff.N06Gate, error) {
 	operations, err := n06NativeScopePolicy(scope)
 	if err != nil {
 		return nil, nil, err
@@ -138,10 +141,34 @@ func n06ExecutableSecurity(scope, kratos string, roots *x509.CertPool) (map[stri
 	gate := &nativebff.N06SecurityGate{
 		Provider: provider,
 		Policy:   assurance.DefaultDevelopmentPolicy(),
-		Risk:     unavailableN06Risk{},
+		Risk:     risk,
 		Now:      time.Now,
 	}
 	return operations, gate, nil
+}
+
+func n06RiskReader(d document) (assurance.RiskReader, error) {
+	if d.RiskAuthorityOrigin == "" && d.RiskAuthorityTokenFile == "" && d.RiskAuthorityCAFile == "" {
+		return unavailableN06Risk{}, nil
+	}
+	if d.RiskAuthorityOrigin == "" || d.RiskAuthorityTokenFile == "" || d.RiskAuthorityCAFile == "" ||
+		d.RiskAuthorityTokenFile == d.CPCallerTokenFile ||
+		strings.TrimSuffix(d.RiskAuthorityOrigin, "/") == strings.TrimSuffix(d.KratosPublic, "/") ||
+		strings.TrimSuffix(d.RiskAuthorityOrigin, "/") == strings.TrimSuffix(d.HydraAdmin, "/") {
+		return nil, errors.New("separate current risk authority configuration required")
+	}
+	pem, err := privateBytes(d.RiskAuthorityCAFile)
+	roots := x509.NewCertPool()
+	if err != nil || !roots.AppendCertsFromPEM(pem) {
+		return nil, errors.New("explicit private CA for risk authority required")
+	}
+	authority, err := federation.NewHTTPAuthority(d.RiskAuthorityOrigin,
+		federation.FileAuthorityTokens{Path: d.RiskAuthorityTokenFile},
+		&tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12})
+	if err != nil {
+		return nil, errors.New("invalid current risk authority")
+	}
+	return federation.NewSessionRiskReader(authority, time.Now)
 }
 
 func run(ctx context.Context, listen string, d document, caFile string) error {
@@ -162,7 +189,11 @@ func run(ctx context.Context, listen string, d document, caFile string) error {
 		return err
 	}
 	// Mandatory reviewed N06 gate, independent of the N02 PostgreSQL admission limiter.
-	scopePolicy, n06Gate, err := n06ExecutableSecurity(d.Scope, d.KratosPublic, roots)
+	risk, err := n06RiskReader(d)
+	if err != nil {
+		return err
+	}
+	scopePolicy, n06Gate, err := n06ExecutableSecurity(d.Scope, d.KratosPublic, roots, risk)
 	if err != nil {
 		return err
 	}
