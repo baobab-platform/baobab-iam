@@ -173,6 +173,12 @@ func TestSecureApprovalRejectsSymlinkAndUnsafeDirectory(t *testing.T) {
 	if err := loadApproval(path, &approval); err != nil {
 		t.Fatalf("valid owner-private approval rejected: %v", err)
 	}
+	if err := loadApproval(path+"/", &approval); err == nil {
+		t.Fatal("non-canonical trailing-slash approval path accepted")
+	}
+	if err := loadApproval("relative-approval.json", &approval); err == nil {
+		t.Fatal("relative approval path accepted")
+	}
 	link := filepath.Join(dir, "approval-link.json")
 	if err := os.Symlink(path, link); err != nil {
 		t.Fatal(err)
