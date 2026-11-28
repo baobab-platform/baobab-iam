@@ -83,7 +83,6 @@ jobs:
         run: |
           python3 scripts/check_iam_cts_v2.py
           python3 -B -m unittest discover -s tests/unit -p 'test_iam_cts_v2.py' -v
-          python3 -B scripts/iam_cts_evidence_register.py
       - name: Validate capability matrix and generated documentation against pinned Shared
         env:
           GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
@@ -103,6 +102,10 @@ jobs:
           persist-credentials: false
           ref: ${{ steps.federation-pin.outputs.commit }}
           path: .shared-contracts
+      - name: Check CTS implementation evidence against pinned Shared case inventory
+        run: |
+          python3 -B scripts/iam_cts_evidence_register.py --shared-root .shared-contracts
+          SHARED_REPO_DIR=.shared-contracts python3 -B -m unittest discover -s tests/unit -p 'test_iam_cts_evidence_register.py'
       - name: Install pinned Shared schema runtime
         run: python3 -m pip install -r .shared-contracts/.github/foundation-tests/requirements.txt
       - name: Validate pinned federation contract consumption

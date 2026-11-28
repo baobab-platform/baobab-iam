@@ -22,14 +22,11 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-002",
@@ -49,14 +46,11 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-003",
@@ -76,14 +70,11 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-004",
@@ -103,14 +94,11 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-005",
@@ -130,14 +118,11 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-006",
@@ -168,14 +153,11 @@
         "DEV-13",
         "DEV-14"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-007",
@@ -206,14 +188,11 @@
         "DEV-13",
         "DEV-14"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-008",
@@ -240,14 +219,11 @@
         "DEV-03",
         "DEV-10"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-009",
@@ -274,14 +250,11 @@
         "DEV-03",
         "DEV-10"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-010",
@@ -308,14 +281,11 @@
         "DEV-03",
         "DEV-10"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-011",
@@ -343,14 +313,11 @@
         "DEV-09",
         "DEV-14"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-012",
@@ -378,14 +345,11 @@
         "DEV-09",
         "DEV-14"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-013",
@@ -413,14 +377,11 @@
         "DEV-09",
         "DEV-14"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-014",
@@ -448,14 +409,11 @@
         "DEV-09",
         "DEV-12"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-015",
@@ -482,19 +440,17 @@
       "ea_dev": [
         "DEV-02",
         "DEV-03",
+        "DEV-06",
         "DEV-09",
         "DEV-12"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PARTIAL",
       "case_outcomes": {
         "INT-07": "NOT_OBSERVED"
-      }
+      },
+      "candidate": null
     },
     {
       "id": "CTS2-016",
@@ -520,14 +476,11 @@
         "DEV-04",
         "DEV-05"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-017",
@@ -561,7 +514,8 @@
           "contract_pins": null,
           "image_pins": null,
           "owner_original": null,
-          "teardown_original": null
+          "teardown_original": null,
+          "standing": "CURRENT_CANDIDATE"
         }
       ],
       "blocker": "Run first-party estate cases and bind independent provider, CP and teardown originals.",
@@ -570,15 +524,15 @@
         "DEV-04",
         "DEV-05"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PARTIAL",
       "case_outcomes": {
         "INT-03C": "NOT_OBSERVED"
+      },
+      "candidate": {
+        "reference": "https://github.com/baobab-platform/baobab-iam/pull/152",
+        "head_sha": "7ad0c3759757c344f374440c2146cab28207b26c"
       }
     },
     {
@@ -605,14 +559,11 @@
         "DEV-04",
         "DEV-05"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-019",
@@ -635,14 +586,11 @@
         "DEV-03",
         "DEV-14"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-020",
@@ -665,14 +613,11 @@
         "DEV-03",
         "DEV-14"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-021",
@@ -703,14 +648,11 @@
         "DEV-14",
         "DEV-15"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-022",
@@ -741,14 +683,11 @@
         "DEV-14",
         "DEV-15"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-023",
@@ -765,7 +704,7 @@
         "baobab-iam",
         "shared"
       ],
-      "source_revision": "f77235ed523a4d55e532214b6f0c905f8b595080",
+      "source_revision": "29c74b10f04109f73fc3d2012287c86fffa64ccb",
       "source_status": "CANDIDATE_SOURCE_REVIEWED",
       "evidence_class": "SOURCE",
       "required_cases": [
@@ -785,6 +724,29 @@
           "contract_pins": null,
           "image_pins": null,
           "owner_original": null,
+          "teardown_original": null,
+          "standing": "HISTORICAL"
+        },
+        {
+          "result": "PASS",
+          "scope": "Scoped DEV-15 observer and receipt-index source tests",
+          "standing": "CURRENT_CANDIDATE",
+          "observed_at": "2026-11-28T07:01:38Z",
+          "source_sha": "29c74b10f04109f73fc3d2012287c86fffa64ccb",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/29c74b10f04109f73fc3d2012287c86fffa64ccb",
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46118099000/job/140896320074",
+          "workflow": {
+            "run_id": 46118099000,
+            "job_id": 140896320074,
+            "head_sha": "29c74b10f04109f73fc3d2012287c86fffa64ccb",
+            "name": "CI",
+            "check": "provider-contract",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
           "teardown_original": null
         }
       ],
@@ -797,16 +759,16 @@
         "DEV-14",
         "DEV-15"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PARTIAL",
       "case_outcomes": {
         "ENG-ONB-03": "BLOCKED",
         "ENG-ONB-06": "BLOCKED"
+      },
+      "candidate": {
+        "reference": "https://github.com/baobab-platform/baobab-iam/pull/197",
+        "head_sha": "29c74b10f04109f73fc3d2012287c86fffa64ccb"
       }
     },
     {
@@ -838,14 +800,11 @@
         "DEV-14",
         "DEV-15"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-025",
@@ -870,14 +829,11 @@
         "DEV-04",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-026",
@@ -908,7 +864,8 @@
           "contract_pins": null,
           "image_pins": null,
           "owner_original": null,
-          "teardown_original": null
+          "teardown_original": null,
+          "standing": "SOURCE_BASELINE"
         }
       ],
       "blocker": "Connected operation-bound A3 and independently witnessed A4 still require qualification.",
@@ -917,14 +874,11 @@
         "DEV-04",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-027",
@@ -949,14 +903,11 @@
         "DEV-04",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-028",
@@ -992,14 +943,11 @@
         "DEV-07",
         "DEV-08"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-029",
@@ -1035,14 +983,11 @@
         "DEV-07",
         "DEV-08"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-030",
@@ -1066,14 +1011,11 @@
       "ea_dev": [
         "DEV-09"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-031",
@@ -1097,14 +1039,11 @@
       "ea_dev": [
         "DEV-09"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-032",
@@ -1126,7 +1065,7 @@
         "infrastructure",
         "shared"
       ],
-      "source_revision": "237131d78921ab01b173521cc0c4ac5e06b12013",
+      "source_revision": "78a60161f8a90db213844c543a9d66d7b7f957d8",
       "source_status": "CANDIDATE_SOURCE_REVIEWED",
       "evidence_class": "SCOPED_DEVELOPMENT_CI",
       "required_cases": [],
@@ -1150,6 +1089,29 @@
           "contract_pins": null,
           "image_pins": null,
           "owner_original": null,
+          "teardown_original": null,
+          "standing": "HISTORICAL"
+        },
+        {
+          "result": "PASS",
+          "scope": "N06 fail-closed PostgreSQL 17 checks",
+          "standing": "CURRENT_CANDIDATE",
+          "observed_at": "2026-11-28T07:01:38Z",
+          "source_sha": "78a60161f8a90db213844c543a9d66d7b7f957d8",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/78a60161f8a90db213844c543a9d66d7b7f957d8",
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46117960763/job/140895904366",
+          "workflow": {
+            "run_id": 46117960763,
+            "job_id": 140895904366,
+            "head_sha": "78a60161f8a90db213844c543a9d66d7b7f957d8",
+            "name": "CI",
+            "check": "IAM-N06 isolated PostgreSQL 17 security and assurance negatives",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
           "teardown_original": null
         }
       ],
@@ -1162,14 +1124,14 @@
         "DEV-11",
         "DEV-12"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": {
+        "reference": "https://github.com/baobab-platform/baobab-iam/pull/196",
+        "head_sha": "78a60161f8a90db213844c543a9d66d7b7f957d8"
+      }
     },
     {
       "id": "CTS2-033",
@@ -1205,14 +1167,11 @@
         "DEV-11",
         "DEV-12"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-034",
@@ -1235,14 +1194,11 @@
       "ea_dev": [
         "DEV-11"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-035",
@@ -1267,16 +1223,13 @@
       "ea_dev": [
         "DEV-11"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PARTIAL",
       "case_outcomes": {
         "L4-OPS-01": "NOT_OBSERVED"
-      }
+      },
+      "candidate": null
     },
     {
       "id": "CTS2-036",
@@ -1306,14 +1259,11 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-037",
@@ -1332,7 +1282,7 @@
         "baobab-iam",
         "infrastructure"
       ],
-      "source_revision": "804e26e583919dfd556b8f066623c9efc2fb0de3",
+      "source_revision": "54528f887b245a99e8d7d2ab6b94f290d9359ed5",
       "source_status": "CANDIDATE_SOURCE_REVIEWED",
       "evidence_class": "SCOPED_DEVELOPMENT_CI",
       "required_cases": [],
@@ -1356,6 +1306,29 @@
           "contract_pins": null,
           "image_pins": null,
           "owner_original": null,
+          "teardown_original": null,
+          "standing": "HISTORICAL"
+        },
+        {
+          "result": "PASS",
+          "scope": "Disposable Kratos/Hydra restore and retained denial",
+          "standing": "CURRENT_CANDIDATE",
+          "observed_at": "2026-11-28T07:01:38Z",
+          "source_sha": "54528f887b245a99e8d7d2ab6b94f290d9359ed5",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/54528f887b245a99e8d7d2ab6b94f290d9359ed5",
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46115475059/job/140888215361",
+          "workflow": {
+            "run_id": 46115475059,
+            "job_id": 140888215361,
+            "head_sha": "54528f887b245a99e8d7d2ab6b94f290d9359ed5",
+            "name": "IAM-N08 Native Operational Hardening",
+            "check": "Real Kratos/Hydra PG17 restore and retained-denial readback",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
           "teardown_original": null
         }
       ],
@@ -1365,14 +1338,14 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": {
+        "reference": "https://github.com/baobab-platform/baobab-iam/pull/153",
+        "head_sha": "54528f887b245a99e8d7d2ab6b94f290d9359ed5"
+      }
     },
     {
       "id": "CTS2-038",
@@ -1402,14 +1375,11 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-039",
@@ -1433,14 +1403,11 @@
         "DEV-01",
         "DEV-10"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-040",
@@ -1465,19 +1432,18 @@
       "ea_dev": [
         "DEV-00",
         "DEV-01",
+        "DEV-04",
+        "DEV-05",
         "DEV-10"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PARTIAL",
       "case_outcomes": {
         "INT-03C": "NOT_OBSERVED",
         "NAB-03": "NOT_OBSERVED"
-      }
+      },
+      "candidate": null
     },
     {
       "id": "CTS2-041",
@@ -1508,14 +1474,11 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-042",
@@ -1546,14 +1509,11 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-043",
@@ -1589,14 +1549,11 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     },
     {
       "id": "CTS2-044",
@@ -1632,14 +1589,11 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": {
-        "reviewer": null,
-        "decision": "PENDING",
-        "reference": null
-      },
+      "review": [],
       "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
       "case_mapping": "PENDING",
-      "case_outcomes": {}
+      "case_outcomes": {},
+      "candidate": null
     }
   ]
 }
