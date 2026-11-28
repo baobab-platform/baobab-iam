@@ -48,7 +48,7 @@ RUN set -eu; \
     fi; \
     echo 'b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c  /guava.jar' | sha256sum --check --strict
 
-FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS bridge-libraries
+FROM quay.io/keycloak/keycloak:26.8.2-3@sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3 AS bridge-libraries
 
 FROM tools-build AS bridge-build
 RUN dnf install -y java-21-openjdk-devel && dnf clean all
@@ -58,7 +58,7 @@ RUN mkdir -p /bridge/classes && \
     javac --release 21 -cp '/tmp/keycloak-libs/*' -d /bridge/classes /bridge/src/main/java/org/baobab/iam/EvidenceBridge.java && \
     jar --create --file /bridge/evidence-bridge.jar -C /bridge/classes . -C /bridge/src/main/resources .
 
-FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85 AS builder
+FROM quay.io/keycloak/keycloak:26.8.2-3@sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3 AS builder
 
 # The upstream image already switches to its non-root runtime user (see
 # the final stage's own USER 1000 below), which this build stage inherits.
@@ -113,7 +113,7 @@ ENV KC_HEALTH_ENABLED=true
 RUN /opt/keycloak/bin/kc.sh build
 
 # Final stage – minimal distroless image
-FROM quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85
+FROM quay.io/keycloak/keycloak:26.8.2-3@sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3
 ARG VERSION=0.0.0-dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.source="https://github.com/baobab-platform/baobab-iam" \
