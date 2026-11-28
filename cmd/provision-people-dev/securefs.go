@@ -137,6 +137,9 @@ func decodePrivateJSON(file *os.File, target any) error {
 // loadApproval reads an owner-controlled 0600 file from an owner-only 0700
 // directory. The opened descriptor, not a prior pathname stat, is validated.
 func loadApproval(path string, target any) error {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || filepath.Base(path) == "." || filepath.Base(path) == ".." {
+		return errors.New("approval path must be a clean absolute file path")
+	}
 	uid := uint32(os.Geteuid())
 	dir, err := openSecureDirectory(filepath.Dir(path), uid, 0700)
 	if err != nil {
@@ -242,20 +245,19 @@ func createSecureCredential(path string) (*secureCredential, error) {
 	}
 	name := filepath.Base(path)
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\") || strings.ContainsRune(name, '\x00') {
-		_ = dir.Close()
-		return nil, errors.New("invalid credential filename")
+		return nil, errors.Join(errors.New("invalid credential filename"), dir.Close())
 	}
 	fd, err := unix.Openat(int(dir.Fd()), name, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
 	if err != nil {
-		_ = dir.Close()
-		return nil, err
+		return nil, errors.Join(err, dir.Close())
 	}
 	st, err := fileStat(fd)
 	if err != nil {
-		_ = unix.Close(fd)
-		_ = unix.Unlinkat(int(dir.Fd()), name, 0)
-		_ = dir.Close()
-		return nil, err
+		closeErr := unix.Close(fd)
+		unlinkErr := unix.Unlinkat(int(dir.Fd()), name, 0)
+		dirSyncErr := dir.Sync()
+		dirCloseErr := dir.Close()
+		return nil, errors.Join(err, closeErr, unlinkErr, dirSyncErr, dirCloseErr)
 	}
 	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uid || uint32(st.Mode)&07777 != 0600 || st.Nlink != 1 {
 		closeErr := unix.Close(fd)
