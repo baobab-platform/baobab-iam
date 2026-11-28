@@ -1,0 +1,1599 @@
+{
+  "schema": "baobab.iam.cts-v2.implementation-evidence.v1",
+  "specification": "docs/adr/Consolidated-Technical-Specification-v2.0.md",
+  "observed_on": "2026-11-28",
+  "scope": "READ_MODEL_NO_ACCEPTANCE_AUTHORITY",
+  "requirements": [
+    {
+      "id": "CTS2-001",
+      "section": "S01",
+      "authorities": [
+        "IAM-CTS-002"
+      ],
+      "owners": [
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Reconcile native owner evidence and acceptance classifications against current source.",
+      "ea_dev": [
+        "DEV-00"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-002",
+      "section": "S01",
+      "authorities": [
+        "IAM-CTS-002"
+      ],
+      "owners": [
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Reconcile native owner evidence and acceptance classifications against current source.",
+      "ea_dev": [
+        "DEV-00"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-003",
+      "section": "S01",
+      "authorities": [
+        "IAM-CTS-002"
+      ],
+      "owners": [
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Reconcile native owner evidence and acceptance classifications against current source.",
+      "ea_dev": [
+        "DEV-00"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-004",
+      "section": "S02",
+      "authorities": [
+        "IAM-CTS-002"
+      ],
+      "owners": [
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify current authoritative approvals and scope ceilings with the accountable owners.",
+      "ea_dev": [
+        "DEV-00"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-005",
+      "section": "S02",
+      "authorities": [
+        "IAM-CTS-002"
+      ],
+      "owners": [
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify current authoritative approvals and scope ceilings with the accountable owners.",
+      "ea_dev": [
+        "DEV-00"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-006",
+      "section": "S03",
+      "authorities": [
+        "ADR-IAM-0021",
+        "ADR-IAM-0028",
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Obtain point-of-effect denial and current authority evidence at native resources.",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03",
+        "DEV-10",
+        "DEV-11",
+        "DEV-13",
+        "DEV-14"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-007",
+      "section": "S03",
+      "authorities": [
+        "ADR-IAM-0021",
+        "ADR-IAM-0028",
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Obtain point-of-effect denial and current authority evidence at native resources.",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03",
+        "DEV-10",
+        "DEV-11",
+        "DEV-13",
+        "DEV-14"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-008",
+      "section": "S04",
+      "authorities": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify provider-specific support, independent CP binding and resource acceptance.",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03",
+        "DEV-10"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-009",
+      "section": "S04",
+      "authorities": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify provider-specific support, independent CP binding and resource acceptance.",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03",
+        "DEV-10"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-010",
+      "section": "S04",
+      "authorities": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify provider-specific support, independent CP binding and resource acceptance.",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03",
+        "DEV-10"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-011",
+      "section": "S05",
+      "authorities": [
+        "ADR-IAM-0004",
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify issuer-to-CP identity and current context binding with withdrawal readback.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-09",
+        "DEV-14"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-012",
+      "section": "S05",
+      "authorities": [
+        "ADR-IAM-0004",
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify issuer-to-CP identity and current context binding with withdrawal readback.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-09",
+        "DEV-14"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-013",
+      "section": "S05",
+      "authorities": [
+        "ADR-IAM-0004",
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify issuer-to-CP identity and current context binding with withdrawal readback.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-09",
+        "DEV-14"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-014",
+      "section": "S06",
+      "authorities": [
+        "ADR-IAM-0004",
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify the applicable external client, tenant and Market refusals against current owner sources.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-09",
+        "DEV-12"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-015",
+      "section": "S06",
+      "authorities": [
+        "ADR-IAM-0004",
+        "ADR-IAM-0033",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [
+        "INT-07"
+      ],
+      "observations": [],
+      "blocker": "Verify the applicable external client, tenant and Market refusals against current owner sources.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-06",
+        "DEV-09",
+        "DEV-12"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "INT-07": "NOT_OBSERVED"
+      },
+      "candidate": null
+    },
+    {
+      "id": "CTS2-016",
+      "section": "S07",
+      "authorities": [
+        "ADR-IAM-0023",
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "digital-estates"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Execute real first-party estate, provider and CP cases plus independent teardown.",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04",
+        "DEV-05"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-017",
+      "section": "S07",
+      "authorities": [
+        "ADR-IAM-0023",
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "digital-estates"
+      ],
+      "source_revision": "7ad0c3759757c344f374440c2146cab28207b26c",
+      "source_status": "CANDIDATE_SOURCE_REVIEWED",
+      "evidence_class": "SOURCE",
+      "required_cases": [
+        "INT-03C"
+      ],
+      "observations": [
+        {
+          "result": "PASS",
+          "scope": "N07 browser and Principal binding source reviewed",
+          "reference": "https://github.com/baobab-platform/baobab-iam/pull/152",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "7ad0c3759757c344f374440c2146cab28207b26c",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/7ad0c3759757c344f374440c2146cab28207b26c",
+          "workflow": null,
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null,
+          "standing": "CURRENT_CANDIDATE"
+        }
+      ],
+      "blocker": "Run first-party estate cases and bind independent provider, CP and teardown originals.",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04",
+        "DEV-05"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "INT-03C": "NOT_OBSERVED"
+      },
+      "candidate": {
+        "reference": "https://github.com/baobab-platform/baobab-iam/pull/152",
+        "head_sha": "7ad0c3759757c344f374440c2146cab28207b26c"
+      }
+    },
+    {
+      "id": "CTS2-018",
+      "section": "S07",
+      "authorities": [
+        "ADR-IAM-0023",
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "digital-estates"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Execute real first-party estate, provider and CP cases plus independent teardown.",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04",
+        "DEV-05"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-019",
+      "section": "S08",
+      "authorities": [
+        "ADR-IAM-0026",
+        "ADR-IAM-0033"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify enterprise trust withdrawal, current CP federation binding and estate consumption.",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-14"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-020",
+      "section": "S08",
+      "authorities": [
+        "ADR-IAM-0026",
+        "ADR-IAM-0033"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify enterprise trust withdrawal, current CP federation binding and estate consumption.",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-14"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-021",
+      "section": "S09",
+      "authorities": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0021",
+        "ADR-IAM-0033",
+        "ADR-SHARED-042",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify real current workload issuance, CP/native enforcement and DEV-14/15 adoption.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-10",
+        "DEV-11",
+        "DEV-14",
+        "DEV-15"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-022",
+      "section": "S09",
+      "authorities": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0021",
+        "ADR-IAM-0033",
+        "ADR-SHARED-042",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify real current workload issuance, CP/native enforcement and DEV-14/15 adoption.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-10",
+        "DEV-11",
+        "DEV-14",
+        "DEV-15"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-023",
+      "section": "S09",
+      "authorities": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0021",
+        "ADR-IAM-0033",
+        "ADR-SHARED-042",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "shared"
+      ],
+      "source_revision": "29c74b10f04109f73fc3d2012287c86fffa64ccb",
+      "source_status": "CANDIDATE_SOURCE_REVIEWED",
+      "evidence_class": "SOURCE",
+      "required_cases": [
+        "ENG-ONB-03",
+        "ENG-ONB-06"
+      ],
+      "observations": [
+        {
+          "result": "PASS",
+          "scope": "N07 single-adopter headless observation source tests",
+          "reference": "https://github.com/baobab-platform/baobab-iam/pull/197",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "f77235ed523a4d55e532214b6f0c905f8b595080",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/f77235ed523a4d55e532214b6f0c905f8b595080",
+          "workflow": null,
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null,
+          "standing": "HISTORICAL"
+        },
+        {
+          "result": "PASS",
+          "scope": "Scoped DEV-15 observer and receipt-index source tests",
+          "standing": "CURRENT_CANDIDATE",
+          "observed_at": "2026-11-28T07:01:38Z",
+          "source_sha": "29c74b10f04109f73fc3d2012287c86fffa64ccb",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/29c74b10f04109f73fc3d2012287c86fffa64ccb",
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46118099000/job/140896320074",
+          "workflow": {
+            "run_id": 46118099000,
+            "job_id": 140896320074,
+            "head_sha": "29c74b10f04109f73fc3d2012287c86fffa64ccb",
+            "name": "CI",
+            "check": "provider-contract",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null
+        }
+      ],
+      "blocker": "Collect independent Pulse/Payments lifecycle and native authority or replay originals.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-10",
+        "DEV-11",
+        "DEV-14",
+        "DEV-15"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "ENG-ONB-03": "BLOCKED",
+        "ENG-ONB-06": "BLOCKED"
+      },
+      "candidate": {
+        "reference": "https://github.com/baobab-platform/baobab-iam/pull/197",
+        "head_sha": "29c74b10f04109f73fc3d2012287c86fffa64ccb"
+      }
+    },
+    {
+      "id": "CTS2-024",
+      "section": "S09",
+      "authorities": [
+        "ADR-IAM-0019",
+        "ADR-IAM-0021",
+        "ADR-IAM-0033",
+        "ADR-SHARED-042",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify real current workload issuance, CP/native enforcement and DEV-14/15 adoption.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-10",
+        "DEV-11",
+        "DEV-14",
+        "DEV-15"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-025",
+      "section": "S10",
+      "authorities": [
+        "ADR-IAM-0024",
+        "ADR-IAM-0025",
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify current provider assurance, recovery and consequential operation evidence.",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-026",
+      "section": "S10",
+      "authorities": [
+        "ADR-IAM-0024",
+        "ADR-IAM-0025",
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "SOURCE_REVIEWED",
+      "evidence_class": "SOURCE",
+      "required_cases": [],
+      "observations": [
+        {
+          "result": "PASS",
+          "scope": "N06 development WebAuthn and assurance source",
+          "reference": "https://github.com/baobab-platform/baobab-iam/pull/151",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "2a94319da735330818dd0ad904fb3a56a646204d",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/2a94319da735330818dd0ad904fb3a56a646204d",
+          "workflow": null,
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null,
+          "standing": "SOURCE_BASELINE"
+        }
+      ],
+      "blocker": "Connected operation-bound A3 and independently witnessed A4 still require qualification.",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-027",
+      "section": "S10",
+      "authorities": [
+        "ADR-IAM-0024",
+        "ADR-IAM-0025",
+        "ADR-IAM-0033",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify current provider assurance, recovery and consequential operation evidence.",
+      "ea_dev": [
+        "DEV-03",
+        "DEV-04",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-028",
+      "section": "S11",
+      "authorities": [
+        "ADR-IAM-0010",
+        "ADR-IAM-0012",
+        "ADR-IAM-0013",
+        "ADR-IAM-0023",
+        "ADR-IAM-0025",
+        "ADR-IAM-0033",
+        "ADR-THA-0018",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam",
+        "baobab-trade",
+        "digital-estates",
+        "thamani",
+        "zuribeans"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Qualify applicable Trade and TMS native effects with current business authority.",
+      "ea_dev": [
+        "DEV-05",
+        "DEV-07",
+        "DEV-08"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-029",
+      "section": "S11",
+      "authorities": [
+        "ADR-IAM-0010",
+        "ADR-IAM-0012",
+        "ADR-IAM-0013",
+        "ADR-IAM-0023",
+        "ADR-IAM-0025",
+        "ADR-IAM-0033",
+        "ADR-THA-0018",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam",
+        "baobab-trade",
+        "digital-estates",
+        "thamani",
+        "zuribeans"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Qualify applicable Trade and TMS native effects with current business authority.",
+      "ea_dev": [
+        "DEV-05",
+        "DEV-07",
+        "DEV-08"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-030",
+      "section": "S12",
+      "authorities": [
+        "ADR-IAM-0014",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Refresh individually owned native engine and headless client evidence.",
+      "ea_dev": [
+        "DEV-09"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-031",
+      "section": "S12",
+      "authorities": [
+        "ADR-IAM-0014",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Refresh individually owned native engine and headless client evidence.",
+      "ea_dev": [
+        "DEV-09"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-032",
+      "section": "S13",
+      "authorities": [
+        "ADR-IAM-0016",
+        "ADR-IAM-0023",
+        "ADR-IAM-0029",
+        "ADR-IAM-0030",
+        "ADR-IAM-0033",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam",
+        "baobab-trade",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "78a60161f8a90db213844c543a9d66d7b7f957d8",
+      "source_status": "CANDIDATE_SOURCE_REVIEWED",
+      "evidence_class": "SCOPED_DEVELOPMENT_CI",
+      "required_cases": [],
+      "observations": [
+        {
+          "result": "PASS",
+          "scope": "N06 containment and assurance negatives",
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46090143034/job/140808906600",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "237131d78921ab01b173521cc0c4ac5e06b12013",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/237131d78921ab01b173521cc0c4ac5e06b12013",
+          "workflow": {
+            "run_id": 46090143034,
+            "job_id": 140808906600,
+            "head_sha": "237131d78921ab01b173521cc0c4ac5e06b12013",
+            "name": "CI",
+            "check": "IAM-N06 isolated PostgreSQL 17 security and assurance negatives",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null,
+          "standing": "HISTORICAL"
+        },
+        {
+          "result": "PASS",
+          "scope": "N06 fail-closed PostgreSQL 17 checks",
+          "standing": "CURRENT_CANDIDATE",
+          "observed_at": "2026-11-28T07:01:38Z",
+          "source_sha": "78a60161f8a90db213844c543a9d66d7b7f957d8",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/78a60161f8a90db213844c543a9d66d7b7f957d8",
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46117960763/job/140895904366",
+          "workflow": {
+            "run_id": 46117960763,
+            "job_id": 140895904366,
+            "head_sha": "78a60161f8a90db213844c543a9d66d7b7f957d8",
+            "name": "CI",
+            "check": "IAM-N06 isolated PostgreSQL 17 security and assurance negatives",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null
+        }
+      ],
+      "blocker": "Independent current resource denial and distributed non-resurrection remain outstanding.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-07",
+        "DEV-09",
+        "DEV-11",
+        "DEV-12"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": {
+        "reference": "https://github.com/baobab-platform/baobab-iam/pull/196",
+        "head_sha": "78a60161f8a90db213844c543a9d66d7b7f957d8"
+      }
+    },
+    {
+      "id": "CTS2-033",
+      "section": "S13",
+      "authorities": [
+        "ADR-IAM-0016",
+        "ADR-IAM-0023",
+        "ADR-IAM-0029",
+        "ADR-IAM-0030",
+        "ADR-IAM-0033",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-erp",
+        "baobab-iam",
+        "baobab-trade",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify current containment and privacy veto at independent native resources after recovery.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-07",
+        "DEV-09",
+        "DEV-11",
+        "DEV-12"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-034",
+      "section": "S14",
+      "authorities": [
+        "ADR-IAM-0017",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-iam",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Join original buyer-origin event, broker, ERP effect and independently exported trace.",
+      "ea_dev": [
+        "DEV-11"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-035",
+      "section": "S14",
+      "authorities": [
+        "ADR-IAM-0017",
+        "EA-DEV"
+      ],
+      "owners": [
+        "baobab-iam",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [
+        "L4-OPS-01"
+      ],
+      "observations": [],
+      "blocker": "Join original buyer-origin event, broker, ERP effect and independently exported trace.",
+      "ea_dev": [
+        "DEV-11"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "L4-OPS-01": "NOT_OBSERVED"
+      },
+      "candidate": null
+    },
+    {
+      "id": "CTS2-036",
+      "section": "S15",
+      "authorities": [
+        "ADR-IAM-0027",
+        "ADR-IAM-0028",
+        "ADR-IAM-0030",
+        "ADR-IAM-0032",
+        "ADR-IAM-0033",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify original recovery across provider, CP, consumer and current restriction state.",
+      "ea_dev": [
+        "DEV-10",
+        "DEV-12",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-037",
+      "section": "S15",
+      "authorities": [
+        "ADR-IAM-0027",
+        "ADR-IAM-0028",
+        "ADR-IAM-0030",
+        "ADR-IAM-0032",
+        "ADR-IAM-0033",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "source_revision": "54528f887b245a99e8d7d2ab6b94f290d9359ed5",
+      "source_status": "CANDIDATE_SOURCE_REVIEWED",
+      "evidence_class": "SCOPED_DEVELOPMENT_CI",
+      "required_cases": [],
+      "observations": [
+        {
+          "result": "PASS",
+          "scope": "Scoped Kratos and Hydra restore with retained-denial readback",
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46055900829/job/140698197249",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "804e26e583919dfd556b8f066623c9efc2fb0de3",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/804e26e583919dfd556b8f066623c9efc2fb0de3",
+          "workflow": {
+            "run_id": 46055900829,
+            "job_id": 140698197249,
+            "head_sha": "804e26e583919dfd556b8f066623c9efc2fb0de3",
+            "name": "IAM-N08 Native Operational Hardening",
+            "check": "Real Kratos/Hydra PG17 restore and retained-denial readback",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null,
+          "standing": "HISTORICAL"
+        },
+        {
+          "result": "PASS",
+          "scope": "Disposable Kratos/Hydra restore and retained denial",
+          "standing": "CURRENT_CANDIDATE",
+          "observed_at": "2026-11-28T07:01:38Z",
+          "source_sha": "54528f887b245a99e8d7d2ab6b94f290d9359ed5",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/54528f887b245a99e8d7d2ab6b94f290d9359ed5",
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46115475059/job/140888215361",
+          "workflow": {
+            "run_id": 46115475059,
+            "job_id": 140888215361,
+            "head_sha": "54528f887b245a99e8d7d2ab6b94f290d9359ed5",
+            "name": "IAM-N08 Native Operational Hardening",
+            "check": "Real Kratos/Hydra PG17 restore and retained-denial readback",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null
+        }
+      ],
+      "blocker": "Restore a pre-withdrawal backup and verify current CP and consumer veto plus measured RPO/RTO.",
+      "ea_dev": [
+        "DEV-10",
+        "DEV-12",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": {
+        "reference": "https://github.com/baobab-platform/baobab-iam/pull/153",
+        "head_sha": "54528f887b245a99e8d7d2ab6b94f290d9359ed5"
+      }
+    },
+    {
+      "id": "CTS2-038",
+      "section": "S15",
+      "authorities": [
+        "ADR-IAM-0027",
+        "ADR-IAM-0028",
+        "ADR-IAM-0030",
+        "ADR-IAM-0032",
+        "ADR-IAM-0033",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "infrastructure"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify original recovery across provider, CP, consumer and current restriction state.",
+      "ea_dev": [
+        "DEV-10",
+        "DEV-12",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-039",
+      "section": "S16",
+      "authorities": [
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-iam",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Bind exact requirement-level original evidence and review before closing any gate.",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-01",
+        "DEV-10"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-040",
+      "section": "S16",
+      "authorities": [
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-iam",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [
+        "INT-03C",
+        "NAB-03"
+      ],
+      "observations": [],
+      "blocker": "Bind exact requirement-level original evidence and review before closing any gate.",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-01",
+        "DEV-04",
+        "DEV-05",
+        "DEV-10"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "INT-03C": "NOT_OBSERVED",
+        "NAB-03": "NOT_OBSERVED"
+      },
+      "candidate": null
+    },
+    {
+      "id": "CTS2-041",
+      "section": "S17",
+      "authorities": [
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "digital-estates",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Reconcile original evidence and decisions against the accepted Shared programme register.",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03",
+        "DEV-04",
+        "DEV-07",
+        "DEV-11",
+        "DEV-12",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-042",
+      "section": "S17",
+      "authorities": [
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-iam",
+        "digital-estates",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Reconcile original evidence and decisions against the accepted Shared programme register.",
+      "ea_dev": [
+        "DEV-00",
+        "DEV-03",
+        "DEV-04",
+        "DEV-07",
+        "DEV-11",
+        "DEV-12",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-043",
+      "section": "S18",
+      "authorities": [
+        "ADR-IAM-0030",
+        "ADR-IAM-0032",
+        "ADR-IAM-0033",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-dev",
+        "baobab-erp",
+        "baobab-iam",
+        "baobab-trade",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify exact pinned compatibility and a witnessed rollback at affected consumers.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-07",
+        "DEV-09",
+        "DEV-10",
+        "DEV-12",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    },
+    {
+      "id": "CTS2-044",
+      "section": "S18",
+      "authorities": [
+        "ADR-IAM-0030",
+        "ADR-IAM-0032",
+        "ADR-IAM-0033",
+        "EA-DEV",
+        "EA-v2.3"
+      ],
+      "owners": [
+        "baobab-cp",
+        "baobab-dev",
+        "baobab-erp",
+        "baobab-iam",
+        "baobab-trade",
+        "infrastructure",
+        "shared"
+      ],
+      "source_revision": "2a94319da735330818dd0ad904fb3a56a646204d",
+      "source_status": "REVIEW_PENDING",
+      "evidence_class": "NOT_ASSESSED",
+      "required_cases": [],
+      "observations": [],
+      "blocker": "Verify exact pinned compatibility and a witnessed rollback at affected consumers.",
+      "ea_dev": [
+        "DEV-02",
+        "DEV-03",
+        "DEV-07",
+        "DEV-09",
+        "DEV-10",
+        "DEV-12",
+        "DEV-13"
+      ],
+      "review": [],
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {},
+      "candidate": null
+    }
+  ]
+}
