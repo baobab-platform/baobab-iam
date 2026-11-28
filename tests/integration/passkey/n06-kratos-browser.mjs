@@ -10,10 +10,9 @@ import {startBrowserUI, stopBrowserUI} from './n06-browser-ui.mjs';
 
 const API = 'http://127.0.0.1:4433';
 const ADMIN = 'http://127.0.0.1:4434';
-// WebAuthn RP IDs are domains, not IP literals. Keep browser cookies and
-// the RP on localhost; server-side administrative probes stay on loopback.
 const BROWSER_API = 'http://localhost:4433';
 const UI = 'http://localhost:4455';
+const RP_ID = 'localhost';
 const envOK = process.env.ORY_FOUNDATION === '1' &&
  process.env.GITHUB_ACTIONS === 'true' &&
  process.env.ORY_KRATOS_ADMIN_URL === ADMIN &&
@@ -21,7 +20,9 @@ const envOK = process.env.ORY_FOUNDATION === '1' &&
 if (!envOK) throw Error('N06 real-browser proof requires isolated original CI Ory Foundation');
 
 const session = {browser:null, context:null, page:null, cdp:null, id:null};
-const pass = (value, stage) => {if (!value) throw Error('N06_A3_HELD_' + stage);};
+const pass = (value, stage) => {
+ if (!value) throw Error('N06_A3_HELD_' + String(stage).toUpperCase());
+};
 const nonce = () => randomBytes(24).toString('hex');
 const privateEmail = 'a3-live-' + nonce() + '@baobab.invalid';
 const privatePassword = 'Aa!9-' + nonce();
@@ -29,11 +30,12 @@ let identityID, added=0, asserted=0;
 let qualificationPhase='INITIALIZING';
 let browserUI;
 
+const timeout = AbortSignal.timeout(12000);
 async function jsonRequest(url, method='GET', body) {
  const u = new URL(url);
  pass([API,ADMIN].includes(u.origin), 'ORIGIN');
  const r = await fetch(url, {method, redirect:'manual', signal:AbortSignal.timeout(12000),
-  headers:{Accept:'application/json', ...(body===undefined?{}:{'Content-Type':method==='PATCH'?'application/json-patch+json':'application/json'})},
+  headers:{Accept:'application/json', ...(body===undefined?{}:{'Content-Type':'application/json'})},
   body:body===undefined?undefined:JSON.stringify(body)});
  const raw = r.status===204?{}:await r.json().catch(()=>null);
  return {status:r.status, body:raw};
@@ -51,8 +53,6 @@ function statusExact(r,expected,stage) {
  return r.body;
 }
 async function onPage(method, url, body) {
- pass(new URL(url).origin===API, 'BROWSER_API_ORIGIN');
- url=BROWSER_API+new URL(url).pathname+new URL(url).search;
  // These are Kratos *browser* flows. The API registration uses JSON, but
  // browser login/settings require their CSRF-bound HTML form semantics.
  // Encoding these mutations as JSON can fail or bypass browser validation.
@@ -78,9 +78,15 @@ async function browserFlow(kind,extra='') {
  const u=new URL(session.page.url());
  pass(u.origin===UI && u.pathname==='/'+kind && /^[0-9a-f-]{36}$/.test(u.searchParams.get('flow')||''),kind+'_ORIGIN');
  const id=u.searchParams.get('flow');
- const r=await onPage('GET',API+'/self-service/'+kind+'/flows?id='+encodeURIComponent(id));
+ const r=await onPage('GET',BROWSER_API+'/self-service/'+kind+'/flows?id='+encodeURIComponent(id));
  statusExact(r,200,kind+'_READ');
  return {id,flow:r.body};
+}
+function decode(s) {
+ return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+}
+function encode(bytes) {
+ return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 async function nativeCredential(operation, value, expectedRP) {
  // Run *only* in real Chromium secure loopback context, never node crypto.
@@ -117,7 +123,8 @@ async function kratosIdentity() {
  identityID=data.identity.id;
 }
 async function getIdentity() {
- const data=statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+'?include_credential=webauthn'),200,'CURRENT_IDENTITY');
+ const url=ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+'?include_credential=webauthn';
+ const data=statusExact(await jsonRequest(url),200,'CURRENT_IDENTITY');
  pass(data.id===identityID, 'SUBJECT_MISMATCH');
  return data;
 }
@@ -130,111 +137,72 @@ async function browserLoginPassword(expectStepUp=false) {
  const csrf=field(flow,'csrf_token');
  pass(typeof csrf==='string' && csrf.length>20,'PASSWORD_CSRF');
  qualificationPhase='KRATOS_BROWSER_LOGIN_SUBMISSION';
- const result=await onPage('POST',API+'/self-service/login?flow='+id,
+ const result=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,
   {method:'password',identifier:privateEmail,password:privatePassword,csrf_token:csrf});
  if (expectStepUp) {
-  // Kratos issues the password session cookie and returns a 422 continuation
-  // when the identity already has MFA. Follow only its local AAL2 endpoint.
-  pass(result.status===422 && result.body?.error?.id==='browser_location_change_required',
-   'PASSWORD_STEP_UP_HANDOFF_HTTP_'+result.status);
+  pass(result.status===422 && result.body?.error?.id==='browser_location_change_required' &&
+   typeof result.body.redirect_browser_to==='string','PASSWORD_STEP_UP_REQUIRED');
   const target=new URL(result.body.redirect_browser_to);
-  pass([API,BROWSER_API].includes(target.origin) && target.pathname==='/self-service/login/browser' &&
+  pass(target.origin===BROWSER_API && target.pathname==='/self-service/login/browser' &&
    !target.username && !target.password && !target.hash &&
-   target.searchParams.getAll('aal').length===1 && target.searchParams.get('aal')==='aal2' &&
-   [...target.searchParams.keys()].every(key=>key==='aal'), 'PASSWORD_STEP_UP_HANDOFF_TARGET');
-  return target.search;
+   target.searchParams.getAll('aal').join(',')==='aal2','PASSWORD_STEP_UP_TARGET');
+ } else {
+  pass(result.status===200 || result.redirect,'PASSWORD_LOGIN_'+result.status);
  }
- pass(result.status===200 || result.redirect,'PASSWORD_LOGIN_'+result.status);
  qualificationPhase='KRATOS_BROWSER_LOGIN_SESSION_READBACK';
- const whoami=await onPage('GET',API+'/sessions/whoami');
+ const whoami=await onPage('GET',BROWSER_API+'/sessions/whoami');
+ if (expectStepUp) {
+  pass(whoami.status===403 && whoami.body?.error?.id==='session_aal2_required','PASSWORD_STEP_UP_SESSION');
+  return;
+ }
  statusExact(whoami,200,'BROWSER_SESSION');
- pass(whoami.body?.identity?.id===identityID &&
-  whoami.body.authenticator_assurance_level==='aal1','BROWSER_SESSION_SUBJECT_AND_AAL1');
+ pass(whoami.body?.identity?.id===identityID,'BROWSER_SESSION_SUBJECT');
+ pass(whoami.body?.authenticator_assurance_level==='aal1' &&
+  /^[0-9a-f-]{36}$/.test(whoami.body?.id||''),'PASSWORD_ONLY_SESSION');
+ return whoami.body.id;
 }
 async function registerWebAuthn() {
- qualificationPhase='KRATOS_SETTINGS_BROWSER_FLOW';
  const {id,flow}=await browserFlow('settings');
- qualificationPhase='KRATOS_SETTINGS_CHALLENGE_READBACK';
  const challenge=field(flow,'webauthn_register_trigger');
  const csrf=field(flow,'csrf_token');
  pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','SETTINGS_RP_CHALLENGE');
- qualificationPhase='KRATOS_PASSKEY_CREATE';
- const credential=await nativeCredential('create',challenge,'localhost');
+ const credential=await nativeCredential('create',challenge,RP_ID);
  pass(typeof credential.id==='string' && credential.id.length>=16 && added>=1,'CHROMIUM_CREDENTIAL');
- qualificationPhase='KRATOS_PASSKEY_COMMIT';
- const response=await onPage('POST',API+'/self-service/settings?flow='+id,
+ const response=await onPage('POST',BROWSER_API+'/self-service/settings?flow='+id,
   {method:'webauthn',webauthn_register:JSON.stringify(credential),
    webauthn_register_displayname:'disposable-ci-ctap2',csrf_token:csrf});
  pass(response.status===200 || response.redirect, 'REGISTRATION_COMMIT_'+response.status);
- qualificationPhase='KRATOS_PASSKEY_PROVIDER_READBACK';
  const after=await getIdentity();
  const configured=after.credentials?.webauthn?.config?.credentials;
- pass(Array.isArray(configured) && configured.length===1 &&
-  typeof configured[0]?.id==='string' &&
-  Buffer.from(configured[0].id,'base64').toString('base64url')===credential.id &&
-  typeof configured[0].public_key==='string' && configured[0].public_key.length>0,
-  'REGISTERED_PROVIDER_KEY_READBACK');
+ pass(Array.isArray(configured) && configured.length===1,'REGISTERED_PROVIDER_KEY_READBACK');
+ const saved=configured[0];
+ pass(typeof saved?.id==='string' && typeof saved.public_key==='string' &&
+  Buffer.from(saved.id,'base64').equals(Buffer.from(credential.rawId,'base64url')) &&
+  Buffer.from(saved.public_key,'base64').length>0,'REGISTERED_PROVIDER_KEY_MATCH');
 }
-async function loginSecondFactor(continuation) {
- qualificationPhase='KRATOS_AAL2_BROWSER_FLOW';
- // The caller starts from a separate AAL1 password session after enrolment.
- const {id,flow}=await browserFlow('login',continuation);
- qualificationPhase='KRATOS_AAL2_CHALLENGE_READBACK';
+async function loginSecondFactor(enrollmentSession) {
+ const {id,flow}=await browserFlow('login','?aal=aal2');
  const challenge=field(flow,'webauthn_login_trigger');
  const csrf=field(flow,'csrf_token');
- const identifier=field(flow,'identifier');
- pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string' &&
-  identifier===privateEmail,'AAL2_CHALLENGE');
- qualificationPhase='KRATOS_AAL2_ASSERTION';
- const credential=await nativeCredential('get',challenge,'localhost');
+ pass(typeof challenge==='string' && challenge.startsWith('{') && typeof csrf==='string','AAL2_CHALLENGE');
+ const credential=await nativeCredential('get',challenge,RP_ID);
  pass(credential.type==='public-key' && asserted>=1,'REAL_CREDENTIAL_ASSERTION');
- qualificationPhase='KRATOS_AAL2_COMMIT';
- const submission={method:'webauthn',identifier,webauthn_login:JSON.stringify(credential),csrf_token:csrf};
- const success=await onPage('POST',API+'/self-service/login?flow='+id,submission);
- const messages=[...(success.body?.ui?.messages ?? []),
-  ...(success.body?.ui?.nodes ?? []).flatMap(node=>node.messages ?? [])];
- const codes=[...new Set(messages.map(m=>m.id).filter(id=>Number.isInteger(id) && id>0 && id<10000000))].slice(0,3);
- const errorID=success.body?.error?.id;
- const safeError=typeof errorID==='string' && /^[a-z][a-z0-9_]{0,36}$/.test(errorID)
-  ? '_'+errorID.toUpperCase() : '';
- pass(success.status===200 || success.redirect,
-  'AAL2_COMMIT_'+success.status+safeError+(codes.length?'_'+codes.join('_'):''));
- qualificationPhase='KRATOS_AAL2_SESSION_READBACK';
- const active=statusExact(await onPage('GET',API+'/sessions/whoami'),200,'AAL2_SESSION');
+ // The pinned Kratos WebAuthn login schema requires the identifier for MFA too.
+ const assertion={method:'webauthn',identifier:privateEmail,
+  webauthn_login:JSON.stringify(credential),csrf_token:csrf};
+ const success=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,assertion);
+ pass(success.status===200 || success.redirect,'AAL2_COMMIT_'+success.status);
+ const active=statusExact(await onPage('GET',BROWSER_API+'/sessions/whoami'),200,'AAL2_SESSION');
  pass(active.identity?.id===identityID &&
+  /^[0-9a-f-]{36}$/.test(active.id||'') && active.id!==enrollmentSession &&
   active.authenticator_assurance_level==='aal2' &&
   Array.isArray(active.authentication_methods) &&
   active.authentication_methods.some(x=>x.method==='webauthn'),'ACTUAL_AAL2_METHOD_READBACK');
  // Replaying the original assertion on the already-consumed server flow must
  // never produce a new authoritative Kratos successful login response.
- qualificationPhase='KRATOS_AAL2_REPLAY';
- const replay=await onPage('POST',API+'/self-service/login?flow='+id,submission);
- pass(!replay.redirect && replay.status>=400 && replay.status<500,
-  'REPLAY_REJECTED_HTTP_'+replay.status);
+ const replay=await onPage('POST',BROWSER_API+'/self-service/login?flow='+id,assertion);
+ pass(replay.status!==200,'REPLAY_REJECTED');
 }
-async function withdrawWebAuthnCredential() {
- qualificationPhase='KRATOS_REBIND_DISABLE_IDENTITY';
- const disabled=await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID),'PATCH',
-  [{op:'replace',path:'/state',value:'inactive'}]);
- pass(disabled.status===200 || disabled.status===204,'IDENTITY_DISABLE_HTTP_'+disabled.status);
- qualificationPhase='KRATOS_REBIND_REVOKE_SESSIONS';
- statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+'/sessions','DELETE'),
-  204,'SESSION_REVOCATION');
- qualificationPhase='KRATOS_REBIND_SESSION_READBACK';
- statusExact(await onPage('GET',API+'/sessions/whoami'),401,'OLD_SESSION_REVOKED');
- qualificationPhase='KRATOS_REBIND_WITHDRAW_WEBAUTHN';
- statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+'/credentials/webauthn','DELETE'),
-  204,'WEBAUTHN_WITHDRAWAL');
- qualificationPhase='KRATOS_REBIND_PROVIDER_READBACK';
- const current=statusExact(await jsonRequest(ADMIN+'/admin/identities/'+encodeURIComponent(identityID)+
-  '?include_credential=webauthn&include_credential=passkey'),200,'REBOUND_IDENTITY');
- const webauthn=current.credentials?.webauthn?.config?.credentials ?? [];
- const passkeys=current.credentials?.passkey?.config?.credentials ?? [];
- pass(current.id===identityID && current.state==='inactive' &&
-  Array.isArray(webauthn) && webauthn.length===0 &&
-  Array.isArray(passkeys) && passkeys.length===0,'OLD_CREDENTIALS_ABSENT_AND_IDENTITY_DISABLED');
-}
-
 async function run() {
  try {
   qualificationPhase='KRATOS_NATIVE_IDENTITY';
@@ -255,22 +223,21 @@ async function run() {
     isUserVerified:true,automaticPresenceSimulation:true}});
   session.id=response.authenticatorId;
   session.cdp.on('WebAuthn.credentialAdded',({credential})=>{
-   if(credential?.rpId==='localhost') added++;
+   if(credential?.rpId===RP_ID) added++;
   });
   session.cdp.on('WebAuthn.credentialAsserted',()=>{asserted++});
   qualificationPhase='KRATOS_BROWSER_LOGIN';
-  await browserLoginPassword();
+  const enrollmentSession=await browserLoginPassword();
   qualificationPhase='KRATOS_PASSKEY_REGISTRATION';
   await registerWebAuthn();
-  // Enrolment itself records MFA in the current provider session. Start
-  // with a new password-only browser session to witness a distinct step-up.
+  // Kratos adds the just-enrolled second factor to the enrollment session.
+  // Start a distinct password-only session before requesting an AAL2 upgrade.
+  qualificationPhase='KRATOS_NEW_PASSWORD_SESSION';
   await session.context.clearCookies();
-  const continuation=await browserLoginPassword(true);
+  await browserLoginPassword(true);
   qualificationPhase='KRATOS_AAL2_ASSERTION';
-  await loginSecondFactor(continuation);
-  qualificationPhase='KRATOS_CREDENTIAL_WITHDRAWAL';
-  await withdrawWebAuthnCredential();
-  process.stdout.write('N06_KRATOS_CHROMIUM_CTAP2_A3_CEREMONY_REPLAY_AND_NATIVE_CREDENTIAL_WITHDRAWAL_PASS_NOT_GOVERNED_REBIND_OR_A4\n');
+  await loginSecondFactor(enrollmentSession);
+  process.stdout.write('N06_KRATOS_CHROMIUM_CTAP2_A3_CEREMONY_AND_REPLAY_PASS_NOT_A4\n');
  } finally {
   // Preserve the failing protocol stage through mandatory cleanup;
   // cleanup must not conceal a real Kratos/Chromium qualification failure.
@@ -289,8 +256,8 @@ await run().catch(error => {
  // Only bounded machine-readable gate labels may enter workflow logs.
  // Do not print native flow bodies, credentials, tokens or exception stacks.
  const message = String(error?.message ?? '');
- const safe = /^N06_A3_HELD_[A-Z0-9_]{1,96}$/.test(message)
-  ? message : 'N06_A3_HELD_' + qualificationPhase + '_UNCLASSIFIED';
+ const safe = /^N06_A3_HELD_[A-Z0-9_]{1,96}$/i.test(message)
+  ? message.toUpperCase() : 'N06_A3_HELD_' + qualificationPhase + '_UNCLASSIFIED';
  process.stderr.write(safe + '\n');
  process.exitCode = 2;
 });

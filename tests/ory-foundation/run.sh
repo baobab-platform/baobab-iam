@@ -17,6 +17,10 @@ for provider in ('kratos', 'hydra'):
             raise SystemExit(f'{service}: Compose differs from provider.lock.yaml')
 print('Kratos and Hydra Compose images match the exact provider lock')
 PY
+# The isolated network owns this host-side bridge address. Pass it into the
+# base Compose file explicitly instead of relying on Docker's default bridge
+# host-gateway (172.17.0.1), which is not the sink's bound interface.
+export BAOBAB_ORY_HOST_GATEWAY=172.30.146.1
 timeout 240 docker compose -p ory-foundation-ci "${ory_compose[@]}" up -d
 # Keep provider containers on the internal bridge even when the host opens
 # fixed loopback listeners for the browser and API witnesses.
@@ -27,6 +31,10 @@ for service in kratos hydra postgres-kratos postgres-hydra; do
   docker inspect "$container" --format '{{range $name, $value := .NetworkSettings.Networks}}{{$name}}{{end}}' |
     grep -Fx 'ory-foundation-ci_default' >/dev/null
 done
+kratos_container=$(docker compose -p ory-foundation-ci "${ory_compose[@]}" ps -q kratos)
+test -n "$kratos_container"
+docker inspect "$kratos_container" --format '{{json .HostConfig.ExtraHosts}}' |
+  grep -F 'host.docker.internal:172.30.146.1' > ory-foundation-evidence/smtp-host-gateway.txt
 runtime_dir="${RUNNER_TEMP:-$PWD/.ory-foundation-runtime}"
 mkdir -m 700 -p "$runtime_dir"
 relay_pid_file="$runtime_dir/ory-foundation-relay.pid"
@@ -36,9 +44,12 @@ printf '%s\n' "$!" > "$relay_pid_file"
 export BAOBAB_TEST_MAIL_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 python3 tests/ory-foundation/smtp_sink.py --listen 172.30.146.1 >/dev/null 2>&1 &
 MAIL_SINK_PID=$!
+mail_sink_pid_file="$runtime_dir/ory-foundation-mail-sink.pid"
+printf '%s\n' "$MAIL_SINK_PID" > "$mail_sink_pid_file"
 cleanup_mail_sink() {
   kill "$MAIL_SINK_PID" 2>/dev/null || true
   wait "$MAIL_SINK_PID" 2>/dev/null || true
+  rm -f "$mail_sink_pid_file"
   unset BAOBAB_TEST_MAIL_KEY
 }
 trap cleanup_mail_sink EXIT
@@ -144,3 +155,11 @@ for workload in ('baobab-trade-workload', 'baobab-cp-workload', 'baobab-subscrip
         raise SystemExit('Isolated fixtures must not claim canonical activation')
 print('M4 provider mechanics evidenced; actual-consumer activation remains outside this fixture')
 PYPROOF
+
+# The optional Chromium ceremony runs in this process so the disposable SMTP
+# sink and its private host-gateway remain alive for registration mail.
+if [[ "${RUN_N06_BROWSER:-0}" == "1" ]]; then
+  test -x node_modules/.bin/playwright
+  node --test tests/integration/passkey/n06-browser-ui.test.mjs
+  node tests/integration/passkey/n06-kratos-browser.mjs
+fi

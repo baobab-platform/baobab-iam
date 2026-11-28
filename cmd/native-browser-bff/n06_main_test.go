@@ -48,17 +48,22 @@ func TestN06ActualNativeExecutableCannotOmitGate(t *testing.T) {
 		t.Fatal(err)
 	}
 	matched := 0
+	constructors := map[string]bool{}
 	ast.Inspect(file, func(node ast.Node) bool {
 		call, ok := node.(*ast.CallExpr)
-		if !ok || len(call.Args) != 1 {
+		if !ok {
 			return true
 		}
 		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok || sel.Sel.Name != "New" {
+		if !ok {
 			return true
 		}
 		owner, ok := sel.X.(*ast.Ident)
 		if !ok || owner.Name != "nativebff" {
+			return true
+		}
+		constructors[sel.Sel.Name] = true
+		if sel.Sel.Name != "New" || len(call.Args) != 1 {
 			return true
 		}
 		config, ok := call.Args[0].(*ast.CompositeLit)
@@ -87,13 +92,18 @@ func TestN06ActualNativeExecutableCannotOmitGate(t *testing.T) {
 		if fields["N06Required"] != "true" ||
 			fields["N06ScopeOperations"] != "scopePolicy" ||
 			fields["N06Gate"] != "n06Gate" ||
+			fields["A3StepUp"] != "a3" ||
+			fields["Revoker"] != "revoker" ||
 			fields["Limiter"] != "limiter" {
-			t.Fatal("executable native BFF must enable current N06 assurance AND PostgreSQL admission rate fence")
+			t.Fatal("executable native BFF must retain N06 assurance and step-up, revocation and the PostgreSQL rate fence")
 		}
 		matched++
 		return true
 	})
 	if matched != 1 {
 		t.Fatalf("expected one guarded native BFF executable constructor, got %d", matched)
+	}
+	if !constructors["NewA3BrowserStepUp"] || !constructors["NewHydraOAuthRevoker"] || constructors["NewOAuthRevoker"] {
+		t.Fatal("executable must construct the N06 step-up and the Hydra revoker with inactive-token readback")
 	}
 }
