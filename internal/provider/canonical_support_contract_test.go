@@ -26,7 +26,6 @@ func TestIAMCanonicalProviderSupportReconcilesSharedV1(t *testing.T) {
 			provider.CapabilityWorkloadTokenIssue,
 		},
 		"baobab-iam.keycloak": {
-			provider.CapabilityHumanAuthentication,
 			provider.CapabilityEnterpriseFederation,
 		},
 	}

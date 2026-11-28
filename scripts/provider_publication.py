@@ -108,17 +108,12 @@ def _load_shared(checkout, source, purpose):
 
 
 def validate_native_provider_roles(declaration):
-    """Enforce ADR-IAM-0033 before any Shared registration candidate exists.
-
-    Keycloak's legacy native authentication contract is deliberately PARTIAL:
-    permanent federation is *not* a general Kratos replacement. A future
-    independently accepted Shared enterprise-federation capability can be
-    registered separately without weakening this prohibition.
-    """
+    """Enforce ADR-IAM-0033 before generating Shared registration candidates."""
     roles = {
-        'baobab-iam.kratos': ('kratos', 'identity.authentication.perform'),
-        'baobab-iam.hydra': ('hydra', 'identity.workload-token.issue'),
-        'baobab-iam.keycloak': ('keycloak', 'identity.authentication.perform'),
+        'baobab-iam.kratos': ('kratos', {'identity.authentication.perform',
+                                      'identity.authentication.assurance'}),
+        'baobab-iam.hydra': ('hydra', {'identity.workload-token.issue'}),
+        'baobab-iam.keycloak': ('keycloak', {'identity.federation.enterprise'}),
     }
     providers = declaration.get('providers')
     if not isinstance(providers, list):
@@ -131,17 +126,13 @@ def validate_native_provider_roles(declaration):
             if entry.get('implementation_key') in {'kratos', 'hydra', 'keycloak'}:
                 raise ValueError('unreviewed alias of an ADR-IAM-0033 native provider')
             continue  # A new implementation still requires separate Shared review.
-        implementation, capability = roles[key]
+        implementation, capabilities = roles[key]
         if entry.get('implementation_key') != implementation:
             raise ValueError('ADR-IAM-0033 provider implementation role mismatch')
         for support in entry.get('support', ()):
-            name, status = support.get('capability_key'), support.get('implementation_status')
-            if key == 'baobab-iam.keycloak' and name == capability and status == 'IMPLEMENTED':
-                raise ValueError('Keycloak federation cannot publish native authentication support')
-            if key == 'baobab-iam.kratos' and name == 'identity.workload-token.issue':
-                raise ValueError('Kratos cannot issue workload OAuth tokens')
-            if key == 'baobab-iam.hydra' and name == 'identity.authentication.perform':
-                raise ValueError('Hydra cannot substitute for Kratos native human identity')
+            capability = support.get('capability_key')
+            if capability not in capabilities:
+                raise ValueError(f'{implementation}: capability outside ADR-IAM-0033 role: {capability}')
 
 
 def prepare(module, checkout, declaration, repository=ROOT):

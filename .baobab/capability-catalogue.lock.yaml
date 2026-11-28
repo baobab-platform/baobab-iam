@@ -18,3 +18,4 @@ contracts:
   - contracts/identity/v1/capabilities.yaml
   - contracts/identity/v1/assurance-evaluation.schema.json
   - contracts/identity/v1/enterprise-federation-start.schema.json
+  - contracts/identity/v1/iam-management-operation.schema.json
