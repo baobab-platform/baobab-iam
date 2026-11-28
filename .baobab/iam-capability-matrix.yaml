@@ -4,10 +4,10 @@ metadata:
     provider registry or activation evidence.
   authority: Baobab Shared contracts and Control Plane resolution own capability meaning; IAM owns the provider-neutral
     interface and adapter mechanics. PLATFORM_RESOLVABLE_CAPABILITY may only be assigned to keys that exist in the
-    pinned Shared capability catalogue. All other rows are management, candidate, or provider-internal until a Shared
+    pinned Shared capability catalogue. All other rows describe a management operation, a candidate, or provider internals pending a Shared
     catalogue decision. ADR-IAM-0033 retains Keycloak only for enterprise federation; Kratos owns native humans
     and Hydra owns OAuth/workloads. These target allocations do not select providers at runtime.
-  updated: '2026-11-10'
+  updated: '2026-11-28'
   shared_catalogue_rule: The pinned Shared identity catalogue includes identity.authentication.perform, identity.workload-token.issue, identity.authentication.assurance and identity.federation.enterprise. Provider support remains PARTIAL until full canonical conformance; management operations remain non-catalogued.
 capabilities:
 - capability_family: Authentication
@@ -17,7 +17,7 @@ capabilities:
   owning_adr: ADR-IAM-0019, ADR-IAM-0023, ADR-IAM-0024, ADR-IAM-0033
   shared_contract: Standard OIDC/OAuth login contract (catalogued)
   iam_port: Provider-neutral IAM auth boundary
-  primary_provider: Ory Kratos (native authentication); Keycloak (enterprise federation only)
+  primary_provider: Ory Kratos
   ory_mechanism: Ory Kratos login + Hydra/OIDC issuance
   keycloak_source: Keycloak realm login flows and MFA
   cp_dependency: CP resolves canonical identity and assurance from issuer+subject
@@ -55,8 +55,7 @@ capabilities:
   classification: IAM_MANAGEMENT_OPERATION
   tier: Tier 0
   owning_adr: ADR-IAM-0019, ADR-IAM-0020, ADR-IAM-0022, ADR-IAM-0033
-  shared_contract: Shared identity contract; no tenant/legal-entity semantics in IAM traits; key not yet catalogued
-    as platform capability
+  shared_contract: Shared identity/v1/iam-management-operation.schema.json
   iam_port: IdentityProvisioner / ProviderIdentity
   primary_provider: Ory Kratos
   ory_mechanism: Kratos identity creation and import
@@ -77,7 +76,7 @@ capabilities:
   classification: IAM_MANAGEMENT_OPERATION
   tier: Tier 0
   owning_adr: ADR-IAM-0016, ADR-IAM-0020, ADR-IAM-0022, ADR-IAM-0033
-  shared_contract: Admin lifecycle contract only; not a business role
+  shared_contract: Shared identity/v1/iam-management-operation.schema.json
   iam_port: IdentityLifecycleManager
   primary_provider: Capability-assigned providers
   ory_mechanism: Kratos admin disable + session kill-switch
@@ -115,7 +114,7 @@ capabilities:
   classification: IAM_MANAGEMENT_OPERATION
   tier: Tier 0
   owning_adr: ADR-IAM-0016, ADR-IAM-0023, ADR-IAM-0033
-  shared_contract: Session contract is provider-neutral
+  shared_contract: Shared identity/v1/iam-management-operation.schema.json
   iam_port: SessionRevoker
   primary_provider: Capability-assigned providers
   ory_mechanism: Kratos session revocation and Hydra logout flow
@@ -155,7 +154,7 @@ capabilities:
   classification: IAM_MANAGEMENT_OPERATION
   tier: Tier 1
   owning_adr: ADR-IAM-0019, ADR-IAM-0020, ADR-IAM-0033
-  shared_contract: Workload registration contract; no business authorization
+  shared_contract: Shared identity/v1/iam-management-operation.schema.json
   iam_port: WorkloadProvisioner
   primary_provider: Ory Hydra
   ory_mechanism: Hydra client registration
@@ -169,6 +168,44 @@ capabilities:
   implementation_status: Partial
   tests: Provision + rotate tests
   conformance_evidence: Logical client ID stability and scope enforcement
+- capability_family: Workload Identity
+  capability_operation: identity.workload.disable
+  classification: IAM_MANAGEMENT_OPERATION
+  tier: Tier 1
+  owning_adr: ADR-IAM-0020, ADR-IAM-0033
+  shared_contract: Shared identity/v1/iam-management-operation.schema.json
+  iam_port: WorkloadLifecycleManager
+  primary_provider: Ory Hydra
+  ory_mechanism: Hydra OAuth client disablement
+  keycloak_source: Legacy realm client disablement
+  cp_dependency: CP owns withdrawal of canonical workload authority
+  digital_estate_dependency: Resource servers enforce current issuer and CP status
+  observability: Client disablement and provider readback
+  security_requirements: Require current change authority and verified provider outcome
+  retirement_dependency: Legacy workload disablement parity
+  migration_phase: Phase C
+  implementation_status: Adapter present. Governed management execution and readback require qualification.
+  tests: Ory workload lifecycle and revocation tests
+  conformance_evidence: Native client disablement and denied subsequent issuance
+- capability_family: Workload Identity
+  capability_operation: identity.workload.rotate
+  classification: IAM_MANAGEMENT_OPERATION
+  tier: Tier 1
+  owning_adr: ADR-IAM-0020, ADR-IAM-0028, ADR-IAM-0033
+  shared_contract: Shared identity/v1/iam-management-operation.schema.json
+  iam_port: WorkloadLifecycleManager
+  primary_provider: Ory Hydra
+  ory_mechanism: Hydra OAuth client credential rotation
+  keycloak_source: Legacy realm client secret rotation
+  cp_dependency: Stable canonical workload identity and current CP authority
+  digital_estate_dependency: Secret custody and updated credentials where client secrets are approved
+  observability: Rotation outcome without secret values
+  security_requirements: Restrict to admitted clients and prove prior credential refusal
+  retirement_dependency: Legacy credential rotation parity
+  migration_phase: Phase C
+  implementation_status: Adapter present. Governed management execution and readback require qualification.
+  tests: Ory workload rotation tests
+  conformance_evidence: Stable logical client ID and rejected old credential
 - capability_family: Enterprise Federation
   capability_operation: identity.federation.enterprise
   classification: PLATFORM_RESOLVABLE_CAPABILITY
@@ -248,6 +285,25 @@ capabilities:
   implementation_status: Partial
   tests: Lifecycle governance tests
   conformance_evidence: PII minimization and retention evidence
+- capability_family: Operational Identity Platform
+  capability_operation: identity.migration.map
+  classification: CP_MANAGEMENT_OPERATION
+  tier: Tier 0
+  owning_adr: ADR-IAM-0022, ADR-IAM-0033
+  shared_contract: Shared identity/v1/external-identity.schema.json and principal resolution
+  iam_port: Migration CanonicalResolver consumes CP mapping
+  primary_provider: Baobab Control Plane
+  ory_mechanism: Target issuer and subject supply provider evidence
+  keycloak_source: Source issuer and subject supply discovery evidence
+  cp_dependency: CP owns Principal and ExternalIdentity link, resolution and withdrawal
+  digital_estate_dependency: Consume canonical identity through CP
+  observability: Mapping audit, failed resolution and migration reconciliation
+  security_requirements: Exact issuer and subject, current CP authority, no email-only linking
+  retirement_dependency: Preserve verified mappings and migration rollback evidence
+  migration_phase: Phase C
+  implementation_status: CP identity mapping exists. Governed cross-provider migration and rollback qualification remains open.
+  tests: CP ExternalIdentity link/unlink and IAM migration bridge tests
+  conformance_evidence: Audited source and target links to the same canonical Principal
 - capability_family: Operational Identity Platform
   capability_operation: identity.migration.ledger
   classification: IAM_MANAGEMENT_OPERATION

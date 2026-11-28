@@ -6,6 +6,13 @@
 **Evidence class:** repository source and tests, not independently qualified provider/CP support.
 **State:** DEVELOPMENT PARTIAL; no capability activation, grants, tenant entitlement, binding or protected release.
 
+**Historical snapshot.** The current [capability matrix](iam-capability-matrix.md) supersedes the
+provider allocation and lifecycle classification below. CTS2-008 assigns native human authentication
+to Kratos and enterprise federation to Keycloak through distinct Shared keys. The six lifecycle
+identifiers are covered by Shared's IAM management request and outcome contract. Migration mapping
+uses CP's canonical ExternalIdentity and Principal contracts. Governed execution and qualification
+remain open where the matrix records them.
+
 ## Catalogue versus IAM scaffold
 
 | Canonical key | Contract | Provider declaration after reconciliation | Source-backed implementation evidence | Why support is PARTIAL |

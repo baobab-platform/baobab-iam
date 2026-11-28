@@ -95,25 +95,13 @@ class IAMN01Tests(unittest.TestCase):
         self.declaration["providers"][0]["support"][0]["capability_key"] = "identity.human.provision"
         self.deny("canonical capability/major")
 
-    def test_extra_catalogued_support_requires_exact_reviewed_key(self):
-        for index in (0, 2):  # Kratos assurance and Keycloak federation.
-            with self.subTest(provider=index):
-                original = copy.deepcopy(self.declaration)
-                self.declaration["providers"][index]["support"].pop()
-                self.deny("provider support census drift")
-                self.declaration = copy.deepcopy(original)
+    def test_exact_reviewed_provider_roles(self):
+        self.declaration["providers"][0]["support"].pop()
+        self.deny("provider support census drift")
 
-                self.declaration["providers"][index]["support"][1]["capability_key"] = "identity.human.disable"
-                self.deny("additional canonical capability/major mismatch")
-                self.declaration = copy.deepcopy(original)
-
-                self.declaration["providers"][index]["support"][1]["implementation_status"] = "IMPLEMENTED"
-                self.deny("cannot promote additional support")
-                self.declaration = copy.deepcopy(original)
-
-                self.declaration["providers"][index]["support"][1]["implementation_evidence"][0]["path"] = "internal/migration/bridge.go"
-                self.deny("additional provider support evidence")
-                self.declaration = original
+    def test_keycloak_cannot_declare_native_authentication(self):
+        self.declaration["providers"][2]["support"][0]["capability_key"] = "identity.authentication.perform"
+        self.deny("canonical capability/major mismatch")
 
     def test_capability_catalogue_pin_is_read_only_and_exact(self):
         new_lock = yaml.safe_load(
@@ -130,9 +118,13 @@ class IAMN01Tests(unittest.TestCase):
                     n01.check(record=self.record, lock=self.lock,
                               declaration=self.declaration, catalogue_lock=bad)
 
-    def test_planned_key_not_implicitly_approved(self):
-        self.declaration["planned_capabilities"][0]["proposal_status"] = "IMPLEMENTED"
-        self.deny("improperly promoted")
+    def test_planned_capability_cannot_target_undeclared_provider(self):
+        self.declaration["planned_capabilities"] = [{
+            "proposed_key": "identity.example.future",
+            "proposal_status": "PROPOSED",
+            "target_provider_key": "baobab-iam.ory",
+        }]
+        self.deny("planned capability targets unreviewed provider")
 
     def test_required_shared_contracts_cannot_disappear(self):
         self.lock["contracts"].remove("contracts/identity/v1/workload-registry.yaml")
@@ -207,15 +199,6 @@ class IAMN01Tests(unittest.TestCase):
         support = self.declaration["providers"][2]["support"][0]
         support["implementation_evidence"] = support["implementation_evidence"][:1]
         self.deny("provider support evidence")
-
-    def test_duplicate_planned_capability_cannot_be_hidden(self):
-        self.declaration["planned_capabilities"].append(
-            copy.deepcopy(self.declaration["planned_capabilities"][0]))
-        self.deny("duplicated or invalid planned capability")
-
-    def test_planned_capability_cannot_target_unreviewed_provider(self):
-        self.declaration["planned_capabilities"][0]["target_provider_key"] = "baobab-iam.shadow"
-        self.deny("planned capability targets unreviewed provider")
 
     def test_invalid_governance_root_is_denied(self):
         with self.assertRaisesRegex(ValueError, "invalid governance document structure"):

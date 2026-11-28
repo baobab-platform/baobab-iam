@@ -15,7 +15,7 @@ FIELDS = ('capability_family', 'capability_operation', 'classification', 'tier',
           'observability', 'security_requirements', 'retirement_dependency',
           'migration_phase', 'implementation_status', 'tests', 'conformance_evidence')
 CLASSES = {'PLATFORM_RESOLVABLE_CAPABILITY', 'CANDIDATE_PLATFORM_CAPABILITY',
-           'IAM_MANAGEMENT_OPERATION', 'PROVIDER_INTERNAL_OPERATION'}
+           'IAM_MANAGEMENT_OPERATION', 'CP_MANAGEMENT_OPERATION', 'PROVIDER_INTERNAL_OPERATION'}
 
 
 def shared_file(lock, path):
@@ -39,7 +39,7 @@ def shared_file(lock, path):
     return yaml.safe_load(content)
 
 
-def validate(matrix, catalogue, definitions):
+def validate(matrix, catalogue, definitions, management):
     keys = {row['capability_key'] for row in catalogue['capabilities'] if row['owner'] == 'baobab-iam'}
     defined = {row['capability_key'] for row in definitions['capabilities']}
     if not keys or not keys <= defined:
@@ -66,7 +66,7 @@ def validate(matrix, catalogue, definitions):
     expected_provider_support = {
         'baobab-iam.kratos': {'identity.authentication.perform', 'identity.authentication.assurance'},
         'baobab-iam.hydra': {'identity.workload-token.issue'},
-        'baobab-iam.keycloak': {'identity.authentication.perform', 'identity.federation.enterprise'},
+        'baobab-iam.keycloak': {'identity.federation.enterprise'},
     }
     actual_provider_support = {}
     for provider in declaration.get('providers', []):
@@ -90,12 +90,20 @@ def validate(matrix, catalogue, definitions):
                          if row['classification'] == 'PLATFORM_RESOLVABLE_CAPABILITY'}
     if matrix_resolvable != keys:
         raise ValueError(f'catalogued IAM matrix classification mismatch: {matrix_resolvable ^ keys}')
-    for planned in declaration.get('planned_capabilities', []):
-        if planned.get('proposed_key') in keys:
-            raise ValueError('an already catalogued capability must not stay planned')
     rows = {row['capability_operation']: row for row in matrix['capabilities']}
+    management_keys = set(management['$defs']['managementOperation']['enum'])
+    guarded_operations = management_keys - {'identity.provider.ready', 'identity.provider-adapter.normalize'}
+    if (management_keys & keys or any(rows.get(key, {}).get('classification') != 'IAM_MANAGEMENT_OPERATION'
+                                      for key in guarded_operations)):
+        raise ValueError('Shared IAM management operations must be tracked outside the capability catalogue')
+    for planned in declaration.get('planned_capabilities', []):
+        key = planned.get('proposed_key')
+        if key in keys or rows.get(key, {}).get('classification') in {
+            'IAM_MANAGEMENT_OPERATION', 'CP_MANAGEMENT_OPERATION',
+        }:
+            raise ValueError(f'{key}: existing canonical or management operation cannot be proposed again')
     expected = {'identity.federation.enterprise': 'Keycloak',
-                'identity.authentication.perform': 'Ory Kratos (native authentication); Keycloak (enterprise federation only)',
+                'identity.authentication.perform': 'Ory Kratos',
                 'identity.workload-token.issue': 'Ory Hydra',
                 'identity.workload.provision': 'Ory Hydra',
                 'identity.token.issuance': 'Ory Hydra',
@@ -144,6 +152,7 @@ def main():
         'contracts/identity/v1/capabilities.yaml',
         'contracts/identity/v1/assurance-evaluation.schema.json',
         'contracts/identity/v1/enterprise-federation-start.schema.json',
+        'contracts/identity/v1/iam-management-operation.schema.json',
     }
     if lock.get('schema') != 'baobab-capability-catalogue-consumer-lock' or (
         lock.get('purpose') != 'read-only-provider-declaration-contracts'
@@ -152,7 +161,8 @@ def main():
     ):
         raise ValueError('read-only capability catalogue pin is invalid')
     validate(matrix, shared_file(lock, 'contracts/capability/v1/catalogue.yaml'),
-             shared_file(lock, 'contracts/identity/v1/capabilities.yaml'))
+             shared_file(lock, 'contracts/identity/v1/capabilities.yaml'),
+             shared_file(lock, 'contracts/identity/v1/iam-management-operation.schema.json'))
     destination = ROOT / 'docs/governance/iam-capability-matrix.md'
     expected = render(matrix)
     if args.write:
