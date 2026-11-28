@@ -464,6 +464,13 @@ func TestTrustedReviewerMountMustBeReadOnly(t *testing.T) {
 	}
 }
 
+func TestCommandErrorMessagePreservesUnknownIssuerState(t *testing.T) {
+	message := commandErrorMessage(errors.New("People issuer state UNKNOWN after custody failure; independent revocation required"))
+	if !strings.Contains(message, "issuer state UNKNOWN") {
+		t.Fatalf("operator-facing error hid issuer state: %q", message)
+	}
+}
+
 func TestIssuerMutationRequiresNonRootRuntime(t *testing.T) {
 	if err := requireNonRootRuntime(0); err == nil {
 		t.Fatal("root runtime accepted for issuer mutation")
