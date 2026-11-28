@@ -14,9 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/baobab-platform/baobab-iam/internal/provider"
+	"golang.org/x/sys/unix"
 )
 
 func approvedPacket(t *testing.T, now time.Time) (Approval, Keyring) {
