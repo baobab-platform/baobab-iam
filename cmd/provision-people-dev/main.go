@@ -184,8 +184,8 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 		return json.NewEncoder(out).Encode(map[string]any{"plan": plan, "plan_digest": digest,
 			"requires_independent_signatures": true, "credential_issued": false})
 	case "apply", "revoke":
-		if os.Geteuid() == 0 {
-			return errors.New("issuer mutation must run as a dedicated non-root identity separate from the root-owned trust anchor")
+		if err := requireNonRootRuntime(os.Geteuid()); err != nil {
+			return err
 		}
 	default:
 		return errors.New("PEOPLE_DEV_ACTION must be plan, apply or revoke")
