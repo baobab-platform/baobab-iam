@@ -434,6 +434,15 @@ func TestDisableAfterCustodyFailureUsesBoundedIndependentContext(t *testing.T) {
 	}
 }
 
+func TestTrustedReviewerMountMustBeReadOnly(t *testing.T) {
+	if err := requireReadOnlyMountFlags(0); err == nil {
+		t.Fatal("writable trust mount accepted")
+	}
+	if err := requireReadOnlyMountFlags(uint64(unix.ST_RDONLY)); err != nil {
+		t.Fatalf("read-only trust mount rejected: %v", err)
+	}
+}
+
 func TestIssuerMutationRequiresNonRootRuntime(t *testing.T) {
 	if err := requireNonRootRuntime(0); err == nil {
 		t.Fatal("root runtime accepted for issuer mutation")
