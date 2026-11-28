@@ -21,7 +21,7 @@ import (
 func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	intent := humanauth.Request{GrantType: "authorization_code", ClientID: "estate-ci", RedirectURI: "https://estate.invalid/callback", Scope: "openid", CodeChallenge: strings.Repeat("x", 43), CodeChallengeMethod: "S256", State: strings.Repeat("s", 32), Nonce: strings.Repeat("n", 32)}
-	for _, negative := range []string{"", "governed", "cp-revoked", "browser-cookie", "mixed-credentials", "state", "nonce", "client", "scope", "audience", "subject", "duplicate-query", "expired", "inactive", "future-authentication", "duplicate-session", "revoked-before-accept", "no-consent", "redirect", "provider-redirect"} {
+	for _, negative := range []string{"", "governed", "cp-revoked", "cp-revoked-after-reservation", "session-revoked-after-reservation", "browser-cookie", "mixed-credentials", "state", "nonce", "client", "scope", "audience", "subject", "duplicate-query", "expired", "inactive", "future-authentication", "duplicate-session", "revoked-before-accept", "no-consent", "redirect", "provider-redirect"} {
 		t.Run(negative, func(t *testing.T) {
 			accepts, sessions := 0, 0
 			var server *httptest.Server
@@ -50,7 +50,8 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 						w.Write([]byte(`{"active":true,"active":false}`))
 						return
 					}
-					active := negative != "inactive" && !(negative == "revoked-before-accept" && sessions == 2)
+					active := negative != "inactive" && !(negative == "revoked-before-accept" && sessions == 2) &&
+						!(negative == "session-revoked-after-reservation" && sessions == 3)
 					json.NewEncoder(w).Encode(map[string]any{"id": "session-id", "active": active, "expires_at": expiry, "authenticated_at": authenticated, "authenticator_assurance_level": "aal1", "identity": map[string]string{"id": "exact-kratos-subject", "state": "active"}})
 					return
 				}
@@ -99,10 +100,13 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if negative == "governed" || negative == "cp-revoked" {
+			if negative == "governed" || strings.HasSuffix(negative, "-after-reservation") || negative == "cp-revoked" {
 				a := &testDispatchAuthority{}
 				if negative == "cp-revoked" {
 					a.err = fmt.Errorf("withdrawn after session reads")
+				}
+				if negative == "cp-revoked-after-reservation" {
+					a.denyAt = 2
 				}
 				h.authority = a
 			}
@@ -139,6 +143,12 @@ func TestNativeHumanChallengeSessionAndConsentBindings(t *testing.T) {
 					t.Fatal("authority denial consumed challenge", retryErr)
 				}
 				return
+			}
+			if strings.HasSuffix(negative, "-after-reservation") {
+				h.authority = &testDispatchAuthority{}
+				if _, retryErr := h.AcceptConsent(context.Background(), strings.Repeat("opaque", 700), credential, intent, true); retryErr == nil || accepts != 0 {
+					t.Fatal("post-reservation denial allowed replay or reached Hydra:", retryErr)
+				}
 			}
 			if negative != "redirect" && accepts != 0 {
 				t.Fatal("invalid native intent or session reached Hydra acceptance")

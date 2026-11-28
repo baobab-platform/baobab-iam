@@ -371,6 +371,20 @@ func (h *NativeHumanHandoff) accept(ctx context.Context, kind, id string, creden
 	if err := h.fence.ConsumeNativeChallenge(ctx, key); err != nil {
 		return "", fmt.Errorf("native challenge already consumed or fence unavailable")
 	}
+	// A durable reservation can block while IAM or CP withdraws authority.
+	// Keep the challenge consumed on an uncertain or unsuccessful post-reservation check.
+	if h.authority != nil {
+		latest, err := h.session(ctx, credential)
+		if err != nil || !sameNativeSession(latest, s) {
+			return "", fmt.Errorf("native session changed during handoff")
+		}
+		if h.authority.CheckCapability(ctx, provider.CapabilityHumanAuthentication) != nil {
+			return "", fmt.Errorf("current CP native dispatch denied")
+		}
+	}
+	if ctx.Err() != nil || !h.now().Before(s.ExpiresAt) {
+		return "", fmt.Errorf("native session expired during handoff")
+	}
 	var result struct {
 		Redirect string `json:"redirect_to"`
 	}

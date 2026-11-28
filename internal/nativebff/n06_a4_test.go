@@ -102,7 +102,7 @@ func TestN06A4SignedHardwareAndDistinctReviewIsAuthenticationOnly(t *testing.T) 
 	v, request := n06A4Fixture(t)
 	evidence, err := v.Verify(context.Background(), request)
 	if err != nil || !evidence.HardwareBound || !evidence.PasskeyUsed ||
-		!evidence.UserVerified || !evidence.OriginBound {
+		!evidence.UserVerified || !evidence.OriginBound || !evidence.AuthenticatedAt.Equal(request.A3.AuthenticatedAt) {
 		t.Fatal("strict synthetic A4 signature/attestation/reviewer conformance rejected")
 	}
 	if _, err := v.Verify(context.Background(), request); err == nil {
@@ -188,5 +188,16 @@ func TestN06A4ChecksExpiryAfterAuthorityReadback(t *testing.T) {
 				t.Fatalf("unexpected A4 evidence at authority completion: %v", err)
 			}
 		})
+	}
+}
+
+func TestN06A4RechecksAuthenticationAgeAfterRiskRead(t *testing.T) {
+	v, request := n06A4Fixture(t)
+	clock := v.Now()
+	request.A3.AuthenticatedAt = clock.Add(-v.Policy[request.Operation].MaxAge + time.Second)
+	v.Now = func() time.Time { return clock }
+	v.Risk = n06A4AdvancingRisk{clock: &clock, delay: 2 * time.Second}
+	if _, err := v.Verify(context.Background(), request); err == nil {
+		t.Fatal("A3 aged out during the independent risk check")
 	}
 }
