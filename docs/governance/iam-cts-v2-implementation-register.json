@@ -22,8 +22,14 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-002",
@@ -43,8 +49,14 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-003",
@@ -64,8 +76,14 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-004",
@@ -85,8 +103,14 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-005",
@@ -106,8 +130,14 @@
       "ea_dev": [
         "DEV-00"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-006",
@@ -138,8 +168,14 @@
         "DEV-13",
         "DEV-14"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-007",
@@ -170,8 +206,14 @@
         "DEV-13",
         "DEV-14"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-008",
@@ -198,8 +240,14 @@
         "DEV-03",
         "DEV-10"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-009",
@@ -226,8 +274,14 @@
         "DEV-03",
         "DEV-10"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-010",
@@ -254,8 +308,14 @@
         "DEV-03",
         "DEV-10"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-011",
@@ -283,8 +343,14 @@
         "DEV-09",
         "DEV-14"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-012",
@@ -312,8 +378,14 @@
         "DEV-09",
         "DEV-14"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-013",
@@ -341,8 +413,14 @@
         "DEV-09",
         "DEV-14"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-014",
@@ -370,8 +448,14 @@
         "DEV-09",
         "DEV-12"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-015",
@@ -401,8 +485,16 @@
         "DEV-09",
         "DEV-12"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "INT-07": "NOT_OBSERVED"
+      }
     },
     {
       "id": "CTS2-016",
@@ -428,8 +520,14 @@
         "DEV-04",
         "DEV-05"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-017",
@@ -454,7 +552,16 @@
         {
           "result": "PASS",
           "scope": "N07 browser and Principal binding source reviewed",
-          "reference": "https://github.com/baobab-platform/baobab-iam/pull/152"
+          "reference": "https://github.com/baobab-platform/baobab-iam/pull/152",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "7ad0c3759757c344f374440c2146cab28207b26c",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/7ad0c3759757c344f374440c2146cab28207b26c",
+          "workflow": null,
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null
         }
       ],
       "blocker": "Run first-party estate cases and bind independent provider, CP and teardown originals.",
@@ -463,8 +570,16 @@
         "DEV-04",
         "DEV-05"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "INT-03C": "NOT_OBSERVED"
+      }
     },
     {
       "id": "CTS2-018",
@@ -490,8 +605,14 @@
         "DEV-04",
         "DEV-05"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-019",
@@ -514,8 +635,14 @@
         "DEV-03",
         "DEV-14"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-020",
@@ -538,8 +665,14 @@
         "DEV-03",
         "DEV-14"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-021",
@@ -570,8 +703,14 @@
         "DEV-14",
         "DEV-15"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-022",
@@ -602,8 +741,14 @@
         "DEV-14",
         "DEV-15"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-023",
@@ -631,7 +776,16 @@
         {
           "result": "PASS",
           "scope": "N07 single-adopter headless observation source tests",
-          "reference": "https://github.com/baobab-platform/baobab-iam/pull/197"
+          "reference": "https://github.com/baobab-platform/baobab-iam/pull/197",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "f77235ed523a4d55e532214b6f0c905f8b595080",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/f77235ed523a4d55e532214b6f0c905f8b595080",
+          "workflow": null,
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null
         }
       ],
       "blocker": "Collect independent Pulse/Payments lifecycle and native authority or replay originals.",
@@ -643,8 +797,17 @@
         "DEV-14",
         "DEV-15"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "ENG-ONB-03": "BLOCKED",
+        "ENG-ONB-06": "BLOCKED"
+      }
     },
     {
       "id": "CTS2-024",
@@ -675,8 +838,14 @@
         "DEV-14",
         "DEV-15"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-025",
@@ -701,8 +870,14 @@
         "DEV-04",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-026",
@@ -724,7 +899,16 @@
         {
           "result": "PASS",
           "scope": "N06 development WebAuthn and assurance source",
-          "reference": "https://github.com/baobab-platform/baobab-iam/pull/151"
+          "reference": "https://github.com/baobab-platform/baobab-iam/pull/151",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "2a94319da735330818dd0ad904fb3a56a646204d",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/2a94319da735330818dd0ad904fb3a56a646204d",
+          "workflow": null,
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null
         }
       ],
       "blocker": "Connected operation-bound A3 and independently witnessed A4 still require qualification.",
@@ -733,8 +917,14 @@
         "DEV-04",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-027",
@@ -759,8 +949,14 @@
         "DEV-04",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-028",
@@ -796,8 +992,14 @@
         "DEV-07",
         "DEV-08"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-029",
@@ -833,8 +1035,14 @@
         "DEV-07",
         "DEV-08"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-030",
@@ -858,8 +1066,14 @@
       "ea_dev": [
         "DEV-09"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-031",
@@ -883,8 +1097,14 @@
       "ea_dev": [
         "DEV-09"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-032",
@@ -914,7 +1134,23 @@
         {
           "result": "PASS",
           "scope": "N06 containment and assurance negatives",
-          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46090143034/job/140808906600"
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46090143034/job/140808906600",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "237131d78921ab01b173521cc0c4ac5e06b12013",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/237131d78921ab01b173521cc0c4ac5e06b12013",
+          "workflow": {
+            "run_id": 46090143034,
+            "job_id": 140808906600,
+            "head_sha": "237131d78921ab01b173521cc0c4ac5e06b12013",
+            "name": "CI",
+            "check": "IAM-N06 isolated PostgreSQL 17 security and assurance negatives",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null
         }
       ],
       "blocker": "Independent current resource denial and distributed non-resurrection remain outstanding.",
@@ -926,8 +1162,14 @@
         "DEV-11",
         "DEV-12"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-033",
@@ -963,8 +1205,14 @@
         "DEV-11",
         "DEV-12"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-034",
@@ -987,8 +1235,14 @@
       "ea_dev": [
         "DEV-11"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-035",
@@ -1013,8 +1267,16 @@
       "ea_dev": [
         "DEV-11"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "L4-OPS-01": "NOT_OBSERVED"
+      }
     },
     {
       "id": "CTS2-036",
@@ -1044,8 +1306,14 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-037",
@@ -1072,7 +1340,23 @@
         {
           "result": "PASS",
           "scope": "Scoped Kratos and Hydra restore with retained-denial readback",
-          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46055900829/job/140698197249"
+          "reference": "https://github.com/baobab-platform/baobab-iam/actions/runs/46055900829/job/140698197249",
+          "observed_at": "2026-11-28T06:47:33Z",
+          "source_sha": "804e26e583919dfd556b8f066623c9efc2fb0de3",
+          "source_ref": "https://github.com/baobab-platform/baobab-iam/commit/804e26e583919dfd556b8f066623c9efc2fb0de3",
+          "workflow": {
+            "run_id": 46055900829,
+            "job_id": 140698197249,
+            "head_sha": "804e26e583919dfd556b8f066623c9efc2fb0de3",
+            "name": "IAM-N08 Native Operational Hardening",
+            "check": "Real Kratos/Hydra PG17 restore and retained-denial readback",
+            "conclusion": "success"
+          },
+          "consumer_pins": null,
+          "contract_pins": null,
+          "image_pins": null,
+          "owner_original": null,
+          "teardown_original": null
         }
       ],
       "blocker": "Restore a pre-withdrawal backup and verify current CP and consumer veto plus measured RPO/RTO.",
@@ -1081,8 +1365,14 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-038",
@@ -1112,8 +1402,14 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-039",
@@ -1137,8 +1433,14 @@
         "DEV-01",
         "DEV-10"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-040",
@@ -1165,8 +1467,17 @@
         "DEV-01",
         "DEV-10"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PARTIAL",
+      "case_outcomes": {
+        "INT-03C": "NOT_OBSERVED",
+        "NAB-03": "NOT_OBSERVED"
+      }
     },
     {
       "id": "CTS2-041",
@@ -1197,8 +1508,14 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-042",
@@ -1229,8 +1546,14 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-043",
@@ -1266,8 +1589,14 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     },
     {
       "id": "CTS2-044",
@@ -1303,8 +1632,14 @@
         "DEV-12",
         "DEV-13"
       ],
-      "review": "Requirement-level independent disposition pending.",
-      "rollback": "Record the owner-approved rollback at the reviewed change before activation."
+      "review": {
+        "reviewer": null,
+        "decision": "PENDING",
+        "reference": null
+      },
+      "rollback": "Record the owner-approved rollback at the reviewed change before activation.",
+      "case_mapping": "PENDING",
+      "case_outcomes": {}
     }
   ]
 }
