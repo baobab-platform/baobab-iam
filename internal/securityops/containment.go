@@ -93,9 +93,9 @@ func (c *Containment) Execute(ctx context.Context, intent Intent) (err error) {
 		intent.Subject.Validate() != nil {
 		return errors.New("securityops: invalid or incomplete incident containment configuration")
 	}
-	now := c.Now().UTC()
 	auth, authErr := c.Authority.AuthorizeContainment(ctx, intent)
-	if authErr != nil || !operationID.MatchString(auth.ActorID) ||
+	now := c.Now().UTC()
+	if authErr != nil || ctx.Err() != nil || !operationID.MatchString(auth.ActorID) ||
 		!operationID.MatchString(auth.DecisionID) ||
 		auth.VerifiedAt.IsZero() || auth.VerifiedAt.After(now) ||
 		now.Sub(auth.VerifiedAt) > time.Minute || !now.Before(auth.ValidUntil) {
@@ -163,6 +163,10 @@ func (c *Containment) Execute(ctx context.Context, intent Intent) (err error) {
 	// replay paths; a withdrawal leaves UNKNOWN and never releases the fence.
 	if ctx.Err() != nil || !currentAuthorization() {
 		return errors.New("securityops: containment authority withdrawn before verified commit")
+	}
+	completed := c.Now().UTC()
+	if ctx.Err() != nil || completed.Before(at) || completed.Sub(denial.ObservedAt) > time.Minute {
+		return errors.New("securityops: current resource/CP denial expired before verified commit")
 	}
 	if e = c.Journal.Mark(ctx, intent.OperationID, PhaseVerified); e != nil {
 		return errors.New("securityops: verification receipt not durable")
