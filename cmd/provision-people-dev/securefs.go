@@ -205,3 +205,10 @@ func createSecureCredential(path string) (*secureCredential, error) {
 	}
 	return &secureCredential{file: os.NewFile(uintptr(fd), name), dir: dir, name: name}, nil
 }
+
+func requireNonRootRuntime(uid int) error {
+	if uid == 0 {
+		return errors.New("issuer mutation must run as a dedicated non-root identity separate from the root-owned trust anchor")
+	}
+	return nil
+}
