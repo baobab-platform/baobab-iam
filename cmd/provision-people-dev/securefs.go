@@ -96,7 +96,8 @@ func openPrivateFileAt(dir *os.File, name string, owner, mode uint32, flags int)
 // beforeChanged detects concurrent in-place replacement of a governance file.
 func beforeChanged(before, after unix.Stat_t) bool {
 	return before.Dev != after.Dev || before.Ino != after.Ino || before.Size != after.Size ||
-		before.Mtim != after.Mtim || before.Ctim != after.Ctim
+		before.Uid != after.Uid || before.Gid != after.Gid || before.Mode != after.Mode ||
+		before.Nlink != after.Nlink || before.Mtim != after.Mtim || before.Ctim != after.Ctim
 }
 
 func decodePrivateJSON(file *os.File, target any) error {
