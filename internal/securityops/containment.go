@@ -93,9 +93,9 @@ func (c *Containment) Execute(ctx context.Context, intent Intent) (err error) {
 		intent.Subject.Validate() != nil {
 		return errors.New("securityops: invalid or incomplete incident containment configuration")
 	}
-	now := c.Now().UTC()
 	auth, authErr := c.Authority.AuthorizeContainment(ctx, intent)
-	if authErr != nil || !operationID.MatchString(auth.ActorID) ||
+	now := c.Now().UTC()
+	if authErr != nil || ctx.Err() != nil || !operationID.MatchString(auth.ActorID) ||
 		!operationID.MatchString(auth.DecisionID) ||
 		auth.VerifiedAt.IsZero() || auth.VerifiedAt.After(now) ||
 		now.Sub(auth.VerifiedAt) > time.Minute || !now.Before(auth.ValidUntil) {
@@ -113,15 +113,18 @@ func (c *Containment) Execute(ctx context.Context, intent Intent) (err error) {
 			_ = c.Journal.Mark(recovery, intent.OperationID, PhaseUnknown)
 		}
 	}()
-	currentAuthorization := func() bool {
-		fresh, e := c.Authority.AuthorizeContainment(ctx, intent)
-		at := c.Now().UTC()
-		return e == nil && fresh.ActorID == auth.ActorID && fresh.DecisionID == auth.DecisionID &&
+	authorizationCurrentAt := func(fresh Authorization, at time.Time) bool {
+		return fresh.ActorID == auth.ActorID && fresh.DecisionID == auth.DecisionID &&
 			!fresh.VerifiedAt.IsZero() && !fresh.VerifiedAt.After(at) &&
 			at.Sub(fresh.VerifiedAt) <= time.Minute && at.Before(fresh.ValidUntil)
 	}
+	currentAuthorization := func() (Authorization, time.Time, bool) {
+		fresh, e := c.Authority.AuthorizeContainment(ctx, intent)
+		at := c.Now().UTC()
+		return fresh, at, e == nil && ctx.Err() == nil && authorizationCurrentAt(fresh, at)
+	}
 	if phase != PhaseVerified {
-		if !currentAuthorization() {
+		if _, _, ok := currentAuthorization(); !ok {
 			return errors.New("securityops: containment authorization changed before mutation")
 		}
 		if e := c.Provider.DisableIdentity(ctx, intent.Subject); e != nil {
@@ -133,7 +136,7 @@ func (c *Containment) Execute(ctx context.Context, intent Intent) (err error) {
 		if e := c.Journal.Mark(ctx, intent.OperationID, PhaseDisabled); e != nil {
 			return errors.New("securityops: disable receipt not durable")
 		}
-		if !currentAuthorization() {
+		if _, _, ok := currentAuthorization(); !ok {
 			return errors.New("securityops: containment authorization changed before session revocation")
 		}
 		if e := c.Provider.RevokeSessions(ctx, intent.Subject); e != nil {
@@ -161,8 +164,20 @@ func (c *Containment) Execute(ctx context.Context, intent Intent) (err error) {
 	// the actor's incident authorization. Re-evaluate immediately before the
 	// irreversible VERIFIED journal transition, including already-VERIFIED
 	// replay paths; a withdrawal leaves UNKNOWN and never releases the fence.
-	if ctx.Err() != nil || !currentAuthorization() {
+	if ctx.Err() != nil {
+		return errors.New("securityops: containment canceled before verified commit")
+	}
+	finalAuth, authorizedAt, ok := currentAuthorization()
+	if !ok {
 		return errors.New("securityops: containment authority withdrawn before verified commit")
+	}
+	completed := c.Now().UTC()
+	if ctx.Err() != nil || authorizedAt.Before(at) || completed.Before(authorizedAt) ||
+		!authorizationCurrentAt(finalAuth, completed) {
+		return errors.New("securityops: containment authority expired before verified commit")
+	}
+	if completed.Sub(denial.ObservedAt) > time.Minute {
+		return errors.New("securityops: current resource/CP denial expired before verified commit")
 	}
 	if e = c.Journal.Mark(ctx, intent.OperationID, PhaseVerified); e != nil {
 		return errors.New("securityops: verification receipt not durable")
