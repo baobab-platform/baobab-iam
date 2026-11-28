@@ -324,16 +324,21 @@ func (f *closeFailCredentialFile) Close() error {
 	return f.closeErr
 }
 
-type shortWriteCredentialFile struct { closed bool }
+type shortWriteCredentialFile struct{ closed bool }
+
 func (f *shortWriteCredentialFile) Write(p []byte) (int, error) { return len(p) - 1, nil }
-func (f *shortWriteCredentialFile) Sync() error { return nil }
-func (f *shortWriteCredentialFile) Close() error { f.closed = true; return nil }
+func (f *shortWriteCredentialFile) Sync() error                 { return nil }
+func (f *shortWriteCredentialFile) Close() error                { f.closed = true; return nil }
 
 func TestPersistCredentialDetectsShortWrite(t *testing.T) {
 	file := &shortWriteCredentialFile{}
 	err := persistCredential(file, "private-secret")
-	if !errors.Is(err, io.ErrShortWrite) { t.Fatalf("short write was not rejected: %v", err) }
-	if !file.closed { t.Fatal("short-written credential was not closed") }
+	if !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("short write was not rejected: %v", err)
+	}
+	if !file.closed {
+		t.Fatal("short-written credential was not closed")
+	}
 }
 
 func TestPersistCredentialReportsCloseFailure(t *testing.T) {
@@ -355,10 +360,18 @@ func TestCredentialCleanupHandlesAlreadyClosedFile(t *testing.T) {
 	dir := secureTestDirectory(t)
 	path := filepath.Join(dir, "client-secret")
 	credential, err := createSecureCredential(path)
-	if err != nil { t.Fatal(err) }
-	if _, err := credential.Write([]byte("private-secret\n")); err != nil { t.Fatal(err) }
-	if err := credential.Close(); err != nil { t.Fatal(err) }
-	if err := credential.Cleanup(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := credential.Write([]byte("private-secret\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := credential.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := credential.Cleanup(); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("cleanup left the credential behind: %v", err)
 	}
