@@ -134,6 +134,21 @@ func secureTestDirectory(t *testing.T) string {
 	return dir
 }
 
+func TestCredentialPathRequiresDedicatedExternalCustodyDirectory(t *testing.T) {
+	if err := validateCredentialPath("/tmp/people-client-secret"); err == nil {
+		t.Fatal("arbitrary path accepted for credential custody")
+	}
+	if err := validateCredentialPath(filepath.Join(credentialCustodyDirectory, "client-secret")); err != nil {
+		t.Fatalf("dedicated external custody path rejected: %v", err)
+	}
+	if err := validateCredentialPath(credentialCustodyDirectory + "/../client-secret"); err == nil {
+		t.Fatal("unclean custody path accepted")
+	}
+	if err := validateCredentialPath(filepath.Join(credentialCustodyDirectory, "nested", "client-secret")); err == nil {
+		t.Fatal("nested non-canonical custody path accepted")
+	}
+}
+
 func TestAdminEndpointAndPrivateFileChecks(t *testing.T) {
 	for _, endpoint := range []string{"https://example.com", "http://hydra-admin:4445",
 		"http://evil.test", "http://127.0.0.1:4445/path", "http://a:b@localhost:4445",
