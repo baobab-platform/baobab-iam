@@ -29,6 +29,7 @@ import (
 
 const (
 	clientID     = "baobab-erp-people-reader-dev"
+	credentialCustodyDirectory = "/var/lib/baobab/iam/people-dev/credentials"
 	sharedCommit = "c0d3dd935e4b635fd38f113b280a220e552bc908"
 	audience     = "baobab-control-plane"
 	scopeContext = "context:resolve"
@@ -170,6 +171,14 @@ func persistCredential(dest credentialFile, secret string) error {
 	return errors.Join(writeErr, syncErr, closeErr)
 }
 
+func validateCredentialPath(path string) error {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || strings.ContainsRune(path, '\x00') ||
+		filepath.Dir(path) != credentialCustodyDirectory || filepath.Base(path) == "." || filepath.Base(path) == ".." {
+		return errors.New("credential file must be a direct child of the dedicated external custody directory")
+	}
+	return nil
+}
+
 func privateAdmin(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u == nil || !u.IsAbs() || u.Host == "" || u.Hostname() == "" ||
@@ -243,8 +252,8 @@ func run(getenv func(string) string, out io.Writer, now time.Time) (runErr error
 		})
 	}
 	path := getenv("PEOPLE_DEV_CREDENTIAL_FILE")
-	if !filepath.IsAbs(path) || path == "" || strings.Contains(path, "/.git/") {
-		return errors.New("absolute external secret-custody path required")
+	if err := validateCredentialPath(path); err != nil {
+		return err
 	}
 	// Reserve and descriptor-validate the credential path before any remote
 	// issuer mutation. The parent directory is owner-only and path components
