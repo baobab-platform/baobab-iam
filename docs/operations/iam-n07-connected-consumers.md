@@ -121,8 +121,51 @@ Example use on a reviewed immutable private development host:
 
 Expect nonzero exit even for coherent HTTP originals. Never upload private originals or secrets as a public CI artifact.
 
+## DEV-15 headless observation through the existing owner lifecycle
+
+For a single Pulse or Payments adoption run, use the existing observer
+with `--dev15-adopter baobab-pulse` or `--dev15-adopter baobab-payments`
+on **both** invocations. Use the run ID issued by Infrastructure's active
+disposable lifecycle, its exact source SHA, and the immutable Shared, IAM,
+CP and selected engine pins. The profile contains just the selected engine's
+normal read-only resource and original credential files. Estates and the
+other first adopter belong to their own qualification runs.
+
+Use a separate run-owned private original directory and key. Keep the run
+active between `before` and `after` while the authorized owners perform and
+independently witness withdrawal. The observer records the adopter in both
+originals and refuses to reuse a before-original from another scope. It
+continues to require the same unexpired token for the after phase.
+
+Infrastructure owns provisioning and verified teardown. IAM and CP owners
+retain issuer status and authority originals, while the engine owner supplies
+the native outcome. Exit 3 indicates scoped HTTP observations. Exit 2 means
+blocked. These results supply no N07 or ENG-ONB acceptance by themselves.
+
 ## Explicit acceptance holds
 
 N06 #151: development increment merged; real operation-bound A3/A4, recovery and issuer operations remain gated. N03 #148: independently deployed current IAM/CP/native resource. N04 #149: real CP provider-binder proof; provider support remains PARTIAL. Infrastructure #69 and ZuriBeans #141: same-run first-party real browser and seven-case original. Nabhold: current workforce CP executive context. Thamani: draft owner BFF source exists, but its live owner lease, CP context and native TMS booking operation remain unqualified. Payments: five remaining development engine negatives. No N07 feature, source test, healthy public website or provider mock bypasses any hold.
 
 **Keep IAM-N07 draft and unmerged until genuine connected development acceptance.**
+
+## DEV-15 owner receipt index
+
+After teardown, use `scripts/n07_dev15_receipt_index.py` with an owner-private
+manifest and output directory. The manifest schema
+`baobab.iam.dev15.private-index-input.v1` carries the adopter, run ID, and
+exact Shared, IAM, CP, Infrastructure and engine source pins. Supply a
+`lifecycle` reference to the actual completed Infrastructure receipt and
+`originals` entries for `issuer`, `cp` and `engine`. Each reference is an
+absolute owner-private `path` with the independently retained `sha256`.
+Use null for unavailable owner originals. The lifecycle receipt must report
+teardown and match the run, source tuple and harness revision.
+
+    BAOBAB_ENVIRONMENT=development python3 -B scripts/n07_dev15_receipt_index.py \
+      --manifest /run/private/dev15/index-input.json \
+      --output-dir /run/private/dev15/receipt-index
+
+The index stores hashes and custody status. Signature, authority, business
+outcome and teardown are still matters for independent owner review. A
+successful invocation returns 3 and retains blocked acceptance. Payments'
+five historical blocked cases stay visible with their owners and next actions.
+Keep the index, raw originals and input paths private.
