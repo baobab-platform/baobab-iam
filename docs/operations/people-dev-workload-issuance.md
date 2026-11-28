@@ -54,6 +54,8 @@ remains SOURCE/CAPABILITY ONLY and no production, staging, statutory or CP
 business authority follows from it.
 
 ### Deferred runtime evidence register
+The deferred exercise is tracked in [baobab-iam issue #209](https://github.com/baobab-platform/baobab-iam/issues/209); keep it open until all original evidence is attached and independently accepted.
+
 
 | Capability / question | Required original evidence and acceptance criteria | Accountable owner | Environment and prerequisites | Gate held |
 |---|---|---|---|---|
