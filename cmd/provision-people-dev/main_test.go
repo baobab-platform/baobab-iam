@@ -173,6 +173,9 @@ func TestSecureApprovalRejectsSymlinkAndUnsafeDirectory(t *testing.T) {
 
 func TestSecureFileDescriptorChecksTypeOwnerModeAndLinks(t *testing.T) {
 	dir := secureTestDirectory(t)
+	if _, err := openSecureDirectory(dir, uint32(os.Geteuid())+1, 0700); err == nil {
+		t.Fatal("wrong directory owner accepted")
+	}
 	d, err := openSecureDirectory(dir, uint32(os.Geteuid()), 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -333,5 +336,32 @@ func TestPersistCredentialReportsCloseFailure(t *testing.T) {
 	}
 	if got := file.String(); got != "private-secret\n" {
 		t.Fatalf("unexpected persisted bytes %q", got)
+	}
+}
+
+func TestDecodePrivateJSONRejectsOversizedAndTrailingData(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		data []byte
+	}{
+		{name: "oversized", data: bytes.Repeat([]byte(" "), 32769)},
+		{name: "trailing", data: []byte("{}{}")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := secureTestDirectory(t)
+			path := filepath.Join(dir, "input.json")
+			if err := os.WriteFile(path, tc.data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			file, err := os.Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+			var target map[string]any
+			if err := decodePrivateJSON(file, &target); err == nil {
+				t.Fatal("invalid private JSON accepted")
+			}
+		})
 	}
 }
