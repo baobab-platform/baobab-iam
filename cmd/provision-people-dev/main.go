@@ -144,6 +144,18 @@ type credentialFile interface {
 // persistCredential treats a close error as a custody failure, just like a
 // write or sync error. The caller must compensate the already-created issuer
 // workload whenever this function returns an error.
+type workloadDisabler interface {
+	DisableWorkload(context.Context, provider.ProviderWorkloadReference) error
+}
+
+func disableAfterCustodyFailure(disabler workloadDisabler, clientID string) error {
+	// The provisioning context may already be expired after a slow issuer
+	// response or custody failure. Compensation gets its own bounded window.
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	return disabler.DisableWorkload(ctx, provider.ProviderWorkloadReference{LogicalClientID: clientID})
+}
+
 func persistCredential(dest credentialFile, secret string) error {
 	payload := secret + "\n"
 	written, writeErr := io.WriteString(dest, payload)
@@ -266,7 +278,7 @@ func run(getenv func(string) string, out io.Writer, now time.Time) (runErr error
 	// workload. If compensation also fails, report UNKNOWN issuer state and
 	// require independent operator readback; never report success.
 	compensate := func(cause error) error {
-		revokeErr := adapter.DisableWorkload(ctx, provider.ProviderWorkloadReference{LogicalClientID: clientID})
+		revokeErr := disableAfterCustodyFailure(adapter, clientID)
 		if revokeErr != nil {
 			return fmt.Errorf("People issuer state UNKNOWN after custody failure; independent revocation required: %w", errors.Join(cause, revokeErr))
 		}
