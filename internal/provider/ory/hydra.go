@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -121,7 +122,13 @@ func (c *hydraClient) provisionClient(
 			return nil, err
 		}
 		if err := c.verifyWorkloadConfiguration(ctx, spec); err != nil {
-			return nil, err
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			disableErr := c.disableClient(cleanupCtx, provider.ProviderWorkloadReference{LogicalClientID: clientID})
+			if disableErr != nil {
+				return nil, fmt.Errorf("hydra created the workload but configuration readback failed and provider-side disable is unverified; issuer state UNKNOWN: %w", errors.Join(err, disableErr))
+			}
+			return nil, fmt.Errorf("hydra created the workload but configuration readback failed; provider-side disable was verified: %w", err)
 		}
 		// Secret is only returned on create; prefer our generated value.
 		if secret == "" && created.ClientSecret != "" {
