@@ -80,6 +80,25 @@ The empty exclusive reservation is directory-synced before the provider call.
 A revoke command reports only that the provider-side disable request was
 accepted; it does not claim disabled-state readback or bearer invalidation.
 
+### Failed mutation and compensation handling
+
+A pre-existing Hydra client is refused without changing it. After a successful
+new-client creation, if the independent issuer configuration readback fails,
+the Ory adapter attempts a provider-side disable using a separate bounded
+15-second context and verifies the disabled grant set by readback. A verified
+disable is reported as a failed provisioning attempt with the cleanup result
+made explicit. If disable/readback cannot be verified, the issuer state is
+UNKNOWN: stop retries, preserve the error record, and have the IAM operator
+read the exact logical client ID back from Hydra and disable it under the
+normal change-control procedure. Never infer absence or disabled state from a
+failed command.
+
+If credential custody fails after a successful create, the command similarly
+attempts disable with an independent bounded context. The reserved credential
+path is removed through its held directory descriptor. A failed compensation
+is an incident requiring independent issuer readback; it is not a successful
+rollback and must not be marked qualified.
+
 ### Current evidence boundary
 
 The repository CI's INT-02 real Keycloak-to-CP browser flow is a separate
