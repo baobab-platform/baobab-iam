@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
@@ -14,6 +15,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/baobab-platform/baobab-iam/internal/provider"
 )
 
 func approvedPacket(t *testing.T, now time.Time) (Approval, Keyring) {
@@ -401,6 +404,34 @@ func TestDecodePrivateJSONRejectsOversizedAndTrailingData(t *testing.T) {
 				t.Fatal("invalid private JSON accepted")
 			}
 		})
+	}
+}
+
+type disableRecorder struct {
+	called       bool
+	hasDeadline  bool
+	contextError error
+	reference    provider.ProviderWorkloadReference
+}
+
+func (r *disableRecorder) DisableWorkload(ctx context.Context, reference provider.ProviderWorkloadReference) error {
+	r.called = true
+	_, r.hasDeadline = ctx.Deadline()
+	r.contextError = ctx.Err()
+	r.reference = reference
+	return nil
+}
+
+func TestDisableAfterCustodyFailureUsesBoundedIndependentContext(t *testing.T) {
+	recorder := &disableRecorder{}
+	if err := disableAfterCustodyFailure(recorder, "baobab-erp-people-reader-dev"); err != nil {
+		t.Fatal(err)
+	}
+	if !recorder.called || !recorder.hasDeadline || recorder.contextError != nil {
+		t.Fatalf("compensation did not receive a live bounded context: %#v", recorder)
+	}
+	if recorder.reference.LogicalClientID != "baobab-erp-people-reader-dev" {
+		t.Fatalf("wrong workload disabled: %#v", recorder.reference)
 	}
 }
 
