@@ -37,6 +37,7 @@ type authorityStub struct {
 	calls         int
 	recheckDenied bool
 	denyOnCall    int
+	onRead        func(int, Authorization) Authorization
 }
 
 func (a *authorityStub) AuthorizeContainment(_ context.Context, _ Intent) (Authorization, error) {
@@ -44,7 +45,49 @@ func (a *authorityStub) AuthorizeContainment(_ context.Context, _ Intent) (Autho
 	if (a.recheckDenied && a.calls > 1) || a.calls == a.denyOnCall {
 		return Authorization{}, errors.New("revoked")
 	}
+	if a.onRead != nil {
+		return a.onRead(a.calls, a.approval), nil
+	}
 	return a.approval, nil
+}
+
+func TestContainmentUsesAuthorityCompletionTime(t *testing.T) {
+	clock := time.Now().UTC()
+	c, journal, _, _, auth, intent := setup(clock)
+	c.Now = func() time.Time { return clock }
+	auth.onRead = func(call int, value Authorization) Authorization {
+		if call == 1 {
+			clock = clock.Add(time.Second)
+		}
+		value.VerifiedAt = clock
+		return value
+	}
+	if err := c.Execute(context.Background(), intent); err != nil {
+		t.Fatal(err)
+	}
+	if journal.events[len(journal.events)-1] != PhaseVerified {
+		t.Fatalf("current receipt was not sealed: %v", journal.events)
+	}
+}
+
+func TestContainmentRefusesResourceDenialThatExpiresDuringFinalAuthorization(t *testing.T) {
+	clock := time.Now().UTC()
+	c, journal, _, _, auth, intent := setup(clock)
+	c.Now = func() time.Time { return clock }
+	auth.onRead = func(call int, value Authorization) Authorization {
+		if call == 4 {
+			clock = clock.Add(time.Minute)
+		}
+		value.VerifiedAt = clock
+		value.ValidUntil = clock.Add(time.Minute)
+		return value
+	}
+	if err := c.Execute(context.Background(), intent); err == nil {
+		t.Fatal("expired resource denial was accepted")
+	}
+	if journal.events[len(journal.events)-1] != PhaseUnknown {
+		t.Fatalf("containment fence outcome: %v", journal.events)
+	}
 }
 
 type providerStub struct {
