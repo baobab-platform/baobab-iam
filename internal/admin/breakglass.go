@@ -192,8 +192,18 @@ func (b *BreakGlass) Check(ctx context.Context, request Request) error {
 		return ErrBreakGlassDenied
 	}
 	current, err := b.Verifier.VerifyEmergency(ctx, request)
-	now = b.Now().UTC()
-	if err != nil || !validApproval(lease.Witness, now) || !validApproval(current, now) || !sameApproval(current, lease.Witness) {
+	verifiedAt := b.Now().UTC()
+	if err != nil || ctx.Err() != nil || verifiedAt.Before(now) ||
+		!validApproval(lease.Witness, verifiedAt) || !validApproval(current, verifiedAt) ||
+		!sameApproval(current, lease.Witness) {
+		return ErrBreakGlassDenied
+	}
+	latest, err := b.Journal.Read(ctx, request.LeaseID)
+	completed := b.Now().UTC()
+	if err != nil || ctx.Err() != nil || completed.Before(verifiedAt) ||
+		latest.Request != request || latest.Status != StateActive ||
+		!validApproval(latest.Witness, completed) || !validApproval(current, completed) ||
+		!sameApproval(current, latest.Witness) {
 		return ErrBreakGlassDenied
 	}
 	return nil

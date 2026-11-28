@@ -54,10 +54,14 @@ type testVerifier struct {
 	withdrawOn   int
 	cancelOn     int
 	cancel       context.CancelFunc
+	onVerify     func()
 }
 
 func (v *testVerifier) VerifyEmergency(_ context.Context, _ Request) (Witness, error) {
 	v.calls++
+	if v.onVerify != nil {
+		v.onVerify()
+	}
 	if v.cancel != nil && v.calls == v.cancelOn {
 		v.cancel()
 	}
@@ -255,5 +259,21 @@ func TestActiveLeaseRequiresSameCurrentApprovalUntilExpiry(t *testing.T) {
 	now = verifier.proof.ExpiresAt
 	if !errors.Is(service.Check(ctx, request), ErrBreakGlassDenied) {
 		t.Fatal("expired lease accepted")
+	}
+}
+
+func TestBreakGlassCheckDeniesTerminationDuringVerification(t *testing.T) {
+	service, journal, verifier, _, _, request := setup(time.Now().UTC())
+	ctx := context.Background()
+	if err := service.Activate(ctx, request); err != nil {
+		t.Fatal(err)
+	}
+	verifier.onVerify = func() {
+		if err := journal.Terminate(ctx, request.LeaseID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !errors.Is(service.Check(ctx, request), ErrBreakGlassDenied) {
+		t.Fatal("terminated lease survived point-of-use check")
 	}
 }

@@ -12,12 +12,16 @@ import (
 )
 
 type testDispatchAuthority struct {
-	calls int
-	err   error
+	calls  int
+	err    error
+	denyAt int
 }
 
 func (a *testDispatchAuthority) CheckCapability(context.Context, string) error {
 	a.calls++
+	if a.denyAt != 0 && a.calls >= a.denyAt {
+		return errors.New("CP routing withdrawn")
+	}
 	return a.err
 }
 
