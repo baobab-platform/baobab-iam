@@ -29,7 +29,7 @@ func fileStat(fd int) (unix.Stat_t, error) {
 // Ancestors must be root- or expected-owner-controlled and not group/other
 // writable. The final directory must have the specified owner and exact mode.
 func openSecureDirectory(path string, expectedOwner uint32, finalMode uint32) (*os.File, error) {
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path || strings.Contains(path, "\\x00") {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || strings.ContainsRune(path, '\x00') {
 		return nil, errors.New("secure directory path must be clean and absolute")
 	}
 	fd, err := unix.Open("/", unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
@@ -72,7 +72,7 @@ func openSecureDirectory(path string, expectedOwner uint32, finalMode uint32) (*
 }
 
 func openPrivateFileAt(dir *os.File, name string, owner, mode uint32, flags int) (*os.File, error) {
-	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\x00") {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\") || strings.ContainsRune(name, '\x00') {
 		return nil, errors.New("private file name must be one path component")
 	}
 	fd, err := unix.Openat(int(dir.Fd()), name, flags|unix.O_NOFOLLOW|unix.O_CLOEXEC|unix.O_NONBLOCK, 0)
@@ -172,7 +172,7 @@ func (s *secureCredential) CloseDirectory() error { return s.dir.Close() }
 // createSecureCredential reserves and verifies the credential file relative
 // to an already-open, owner-only custody directory before any issuer mutation.
 func createSecureCredential(path string) (*secureCredential, error) {
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || strings.ContainsRune(path, '\x00') {
 		return nil, errors.New("absolute clean credential custody path required")
 	}
 	uid := uint32(os.Geteuid())
@@ -181,7 +181,7 @@ func createSecureCredential(path string) (*secureCredential, error) {
 		return nil, err
 	}
 	name := filepath.Base(path)
-	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\x00") {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\") || strings.ContainsRune(name, '\x00') {
 		_ = dir.Close()
 		return nil, errors.New("invalid credential filename")
 	}
