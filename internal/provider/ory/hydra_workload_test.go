@@ -239,13 +239,13 @@ func TestProvisionWorkload_DisablesCreatedClientWhenConfigurationReadbackFails(t
 					}
 					w.Header().Set("Content-Type", "application/json")
 					_ = json.NewEncoder(w).Encode(map[string]any{
-						"client_id": "baobab-erp-people-reader-dev",
+						"client_id":   "baobab-erp-people-reader-dev",
 						"client_name": "People development reader",
 						"grant_types": grants, "response_types": []string{},
-						"scope": "context:resolve people:provider:read",
-						"audience": []string{"baobab-control-plane"},
+						"scope":                      "context:resolve people:provider:read",
+						"audience":                   []string{"baobab-control-plane"},
 						"token_endpoint_auth_method": "client_secret_post",
-						"metadata": map[string]any{"plan_digest": "approved-plan"},
+						"metadata":                   map[string]any{"plan_digest": "approved-plan"},
 						"client_credentials_grant_access_token_lifespan": "60s",
 					})
 				case http.MethodPost:
@@ -268,20 +268,20 @@ func TestProvisionWorkload_DisablesCreatedClientWhenConfigurationReadbackFails(t
 			adapter, err := ory.NewAdapter(ory.Config{
 				KratosAdminURL: server.URL, HydraAdminURL: server.URL,
 				PublicIssuer: "https://issuer.example.test",
-				HTTPClient: ory.ProviderFixtureClient(server),
+				HTTPClient:   ory.ProviderFixtureClient(server),
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
 			_, err = adapter.ProvisionWorkload(context.Background(), provider.WorkloadProvisioningSpec{
-				LogicalClientID: "baobab-erp-people-reader-dev",
-				DisplayName: "People development reader",
-				AllowedScopes: []string{"context:resolve", "people:provider:read"},
-				Audiences: []string{"baobab-control-plane"},
-				AuthMethod: provider.WorkloadAuthClientSecret,
+				LogicalClientID:       "baobab-erp-people-reader-dev",
+				DisplayName:           "People development reader",
+				AllowedScopes:         []string{"context:resolve", "people:provider:read"},
+				Audiences:             []string{"baobab-control-plane"},
+				AuthMethod:            provider.WorkloadAuthClientSecret,
 				AccessTokenTTLSeconds: 120,
-				RequireNew: true,
-				Metadata: map[string]string{"plan_digest": "approved-plan"},
+				RequireNew:            true,
+				Metadata:              map[string]string{"plan_digest": "approved-plan"},
 			})
 			if err == nil {
 				t.Fatal("configuration readback mismatch was accepted")
