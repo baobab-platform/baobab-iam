@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const trustedPeopleKeyringPath = "/etc/baobab/iam/people-dev/trusted-reviewers.json"
+const trustedPeopleKeyringPath = "/run/baobab-iam-trust/people-dev/trusted-reviewers.json"
 
 func fileStat(fd int) (unix.Stat_t, error) {
 	var st unix.Stat_t
@@ -154,12 +154,30 @@ func loadApproval(path string, target any) error {
 // loadTrustedKeyring deliberately has no caller-selectable path. Infrastructure
 // provisions this root-owned read-only trust anchor independently of the
 // approval submitter; the runtime identity cannot replace it.
+func requireReadOnlyMountFlags(flags uint64) error {
+	if flags&uint64(unix.ST_RDONLY) == 0 {
+		return errors.New("trusted reviewer keyring must be supplied by a read-only trust mount")
+	}
+	return nil
+}
+
+func requireReadOnlyMount(fd int) error {
+	var filesystem unix.Statfs_t
+	if err := unix.Fstatfs(fd, &filesystem); err != nil {
+		return fmt.Errorf("inspect trusted reviewer mount: %w", err)
+	}
+	return requireReadOnlyMountFlags(uint64(filesystem.Flags))
+}
+
 func loadTrustedKeyring(target any) error {
 	dir, err := openSecureDirectory(filepath.Dir(trustedPeopleKeyringPath), 0, 0755)
 	if err != nil {
 		return err
 	}
 	defer dir.Close()
+	if err := requireReadOnlyMount(int(dir.Fd())); err != nil {
+		return err
+	}
 	file, err := openPrivateFileAt(dir, filepath.Base(trustedPeopleKeyringPath), 0, 0400, unix.O_RDONLY)
 	if err != nil {
 		return err
