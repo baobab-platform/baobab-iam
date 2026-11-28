@@ -215,3 +215,99 @@ func TestDisableWorkload_ClearsGrantTypes(t *testing.T) {
 		t.Fatalf("expected empty grant_types on disable, got %#v", grants)
 	}
 }
+
+// TestProvisionWorkload_DisablesCreatedClientWhenConfigurationReadbackFails
+// proves that a client created successfully is not left enabled when the
+// independent issuer readback fails. A pre-existing client is never disabled.
+func TestProvisionWorkload_DisablesCreatedClientWhenConfigurationReadbackFails(t *testing.T) {
+	for _, behaviour := range []string{"verified-cleanup", "unverified-cleanup", "preexisting"} {
+		t.Run(behaviour, func(t *testing.T) {
+			reads, posts, puts := 0, 0, 0
+			grants := []string{"client_credentials"}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/admin/clients/baobab-erp-people-reader-dev" && r.URL.Path != "/admin/clients" {
+					http.NotFound(w, r)
+					return
+				}
+				switch r.Method {
+				case http.MethodGet:
+					reads++
+					if reads == 1 && behaviour != "preexisting" {
+						http.NotFound(w, r)
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"client_id":   "baobab-erp-people-reader-dev",
+						"client_name": "People development reader",
+						"grant_types": grants, "response_types": []string{},
+						"scope":                      "context:resolve people:provider:read",
+						"audience":                   []string{"baobab-control-plane"},
+						"token_endpoint_auth_method": "client_secret_post",
+						"metadata":                   map[string]any{"plan_digest": "approved-plan"},
+						"client_credentials_grant_access_token_lifespan": "60s",
+					})
+				case http.MethodPost:
+					posts++
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusCreated)
+					_, _ = io.WriteString(w, `{"client_id":"baobab-erp-people-reader-dev","client_secret":"synthetic-secret"}`)
+				case http.MethodPut:
+					puts++
+					if behaviour == "verified-cleanup" {
+						grants = []string{}
+					}
+					w.WriteHeader(http.StatusOK)
+				default:
+					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				}
+			}))
+			defer server.Close()
+
+			adapter, err := ory.NewAdapter(ory.Config{
+				KratosAdminURL: server.URL, HydraAdminURL: server.URL,
+				PublicIssuer: "https://issuer.example.test",
+				HTTPClient:   ory.ProviderFixtureClient(server),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = adapter.ProvisionWorkload(context.Background(), provider.WorkloadProvisioningSpec{
+				LogicalClientID:       "baobab-erp-people-reader-dev",
+				DisplayName:           "People development reader",
+				AllowedScopes:         []string{"context:resolve", "people:provider:read"},
+				Audiences:             []string{"baobab-control-plane"},
+				AuthMethod:            provider.WorkloadAuthClientSecret,
+				AccessTokenTTLSeconds: 120,
+				RequireNew:            true,
+				Metadata:              map[string]string{"plan_digest": "approved-plan"},
+			})
+			if err == nil {
+				t.Fatal("configuration readback mismatch was accepted")
+			}
+			switch behaviour {
+			case "verified-cleanup":
+				if !strings.Contains(err.Error(), "provider-side disable was verified") {
+					t.Fatalf("verified cleanup was not reported: %v", err)
+				}
+				if reads != 4 || posts != 1 || puts != 1 {
+					t.Fatalf("unexpected cleanup sequence: reads=%d posts=%d puts=%d", reads, posts, puts)
+				}
+			case "unverified-cleanup":
+				if !strings.Contains(err.Error(), "issuer state UNKNOWN") {
+					t.Fatalf("unverified cleanup was not fail-closed: %v", err)
+				}
+				if reads != 4 || posts != 1 || puts != 1 {
+					t.Fatalf("unexpected cleanup sequence: reads=%d posts=%d puts=%d", reads, posts, puts)
+				}
+			case "preexisting":
+				if !provider.IsAlreadyExists(err) {
+					t.Fatalf("pre-existing client was not refused: %v", err)
+				}
+				if reads != 1 || posts != 0 || puts != 0 {
+					t.Fatalf("pre-existing client was mutated: reads=%d posts=%d puts=%d", reads, posts, puts)
+				}
+			}
+		})
+	}
+}
