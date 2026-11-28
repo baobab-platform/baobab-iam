@@ -444,6 +444,16 @@ func (c *hydraClient) disableClient(ctx context.Context, ref provider.ProviderWo
 	if err != nil {
 		return err
 	}
+	// Even an authorized workload action must not mutate a human OAuth client.
+	// Check the provider's current client type before applying the full PUT.
+	for _, grant := range existing.GrantTypes {
+		if grant != "client_credentials" && grant != hydraJWTBearerGrantType {
+			return &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "hydra client is not workload-only"}
+		}
+	}
+	if len(existing.RedirectURIs) != 0 || len(existing.PostLogoutRedirectURIs) != 0 || len(existing.ResponseTypes) != 0 {
+		return &provider.ProviderError{Kind: provider.ErrConflict, Provider: "ory", Message: "hydra client is not workload-only"}
+	}
 	// Soft-disable: clear grants so client_credentials cannot succeed.
 	// Full PUT would wipe fields if we sent a sparse body — preserve the rest.
 	existing.GrantTypes = []string{}

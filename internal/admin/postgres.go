@@ -108,3 +108,51 @@ SET status='TERMINATED' WHERE lease_id=$1 AND status='ACTIVE'`, id)
 }
 
 var _ LeaseJournal = PostgresLeaseJournal{}
+
+func (p PostgresLeaseJournal) ReserveWorkloadExecution(ctx context.Context, request Request, target WorkloadTarget) error {
+	if p.Pool == nil || ctx == nil || ctx.Err() != nil || !request.Valid() || request.Action != revokeOAuthClient ||
+		target.ScopeID != request.ScopeID || target.Revision < 1 {
+		return ErrBreakGlassDenied
+	}
+	tag, err := p.Pool.Exec(ctx, `WITH current_lease AS MATERIALIZED (
+ SELECT lease_id, expires_at FROM iam_admin.breakglass_lease
+ WHERE lease_id=$1 AND incident_id=$2 AND action=$3 AND scope_type=$4 AND scope_id=$5 AND reason=$6
+   AND status='ACTIVE' FOR UPDATE
+)
+INSERT INTO iam_admin.breakglass_workload_execution (lease_id,binding_revision)
+SELECT lease_id,$7 FROM current_lease WHERE expires_at>clock_timestamp() AND $8::timestamptz>clock_timestamp()
+ON CONFLICT (lease_id) DO NOTHING`,
+		request.LeaseID, request.IncidentID, request.Action, request.ScopeType, request.ScopeID, request.Reason,
+		target.Revision, target.ValidUntil)
+	if err != nil || tag.RowsAffected() != 1 {
+		return ErrBreakGlassDenied
+	}
+	return nil
+}
+
+func (p PostgresLeaseJournal) VerifyWorkloadExecution(ctx context.Context, request Request, proof WorkloadDenial) error {
+	if p.Pool == nil || ctx == nil || ctx.Err() != nil || !request.Valid() || request.Action != revokeOAuthClient ||
+		proof.Target.ScopeID != request.ScopeID || !denialReference.MatchString(proof.Reference) {
+		return ErrBreakGlassDenied
+	}
+	tag, err := p.Pool.Exec(ctx, `WITH current_lease AS MATERIALIZED (
+ SELECT lease_id, expires_at FROM iam_admin.breakglass_lease
+ WHERE lease_id=$1 AND incident_id=$2 AND action=$3 AND scope_type=$4 AND scope_id=$5 AND reason=$6
+   AND status='ACTIVE' FOR UPDATE
+)
+UPDATE iam_admin.breakglass_workload_execution AS e
+SET verified_at=clock_timestamp(), denial_reference=$7
+FROM current_lease AS l
+WHERE e.lease_id=l.lease_id AND l.expires_at>clock_timestamp()
+  AND e.verified_at IS NULL AND $8::timestamptz >= e.started_at AND $8 <= clock_timestamp()
+  AND $8 >= clock_timestamp() - interval '1 minute' AND $9::timestamptz > clock_timestamp()
+  AND e.binding_revision=$10`,
+		request.LeaseID, request.IncidentID, request.Action, request.ScopeType, request.ScopeID, request.Reason,
+		proof.Reference, proof.ObservedAt, proof.Target.ValidUntil, proof.Target.Revision)
+	if err != nil || tag.RowsAffected() != 1 {
+		return ErrBreakGlassDenied
+	}
+	return nil
+}
+
+var _ WorkloadExecutionJournal = PostgresLeaseJournal{}

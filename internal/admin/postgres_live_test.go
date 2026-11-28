@@ -91,3 +91,73 @@ func TestPostgresEmergencyLeaseTransitionsReal(t *testing.T) {
 		t.Fatal("terminated emergency authority resurrected")
 	}
 }
+
+func TestPostgresWorkloadExecutionOnlyOneReservation(t *testing.T) {
+	if os.Getenv("IAM_N05_DISPOSABLE_PG") != "1" {
+		t.Skip("requires exclusively disposable PostgreSQL 17 fixture")
+	}
+	dsn := os.Getenv("IAM_N05_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Fatal("disposable PG DSN missing")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	for _, name := range []string{"001_breakglass_lease.sql", "002_breakglass_workload_execution.sql"} {
+		migration, err := os.ReadFile("migrations/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, string(migration), pgx.QueryExecModeSimpleProtocol); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	_, _, verifier, _, _, request := setup(now)
+	request.Action, request.ScopeType = revokeOAuthClient, "OAUTH_CLIENT"
+	request.LeaseID = "8dcdd517-0b86-49b4-82f3-bdb136829351"
+	journal := PostgresLeaseJournal{Pool: pool}
+	clear := func() {
+		cleanup, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer stop()
+		if _, err := pool.Exec(cleanup, "DELETE FROM iam_admin.breakglass_workload_execution WHERE lease_id=$1", request.LeaseID); err != nil {
+			t.Error(err)
+		}
+		if _, err := pool.Exec(cleanup, "DELETE FROM iam_admin.breakglass_lease WHERE lease_id=$1", request.LeaseID); err != nil {
+			t.Error(err)
+		}
+	}
+	clear()
+	defer clear()
+	if err := journal.Reserve(ctx, Lease{Request: request, Witness: verifier.proof, Status: StatePending}); err != nil {
+		t.Fatal(err)
+	}
+	if err := journal.Activate(ctx, request.LeaseID); err != nil {
+		t.Fatal(err)
+	}
+	target := WorkloadTarget{ScopeID: request.ScopeID, Revision: 3, ValidUntil: now.Add(time.Minute)}
+	results := make(chan error, 2)
+	for range 2 {
+		go func() { results <- journal.ReserveWorkloadExecution(ctx, request, target) }()
+	}
+	first, second := <-results, <-results
+	if (first == nil) == (second == nil) {
+		t.Fatalf("expected exactly one reservation, got %v and %v", first, second)
+	}
+	proof := WorkloadDenial{Target: target, ObservedAt: time.Now().UTC(), Reference: "ref_native_denial"}
+	proof.Target.Revision++
+	if err := journal.VerifyWorkloadExecution(ctx, request, proof); err == nil {
+		t.Fatal("different target revision accepted")
+	}
+	proof.Target = target
+	if err := journal.VerifyWorkloadExecution(ctx, request, proof); err != nil {
+		t.Fatal(err)
+	}
+	if err := journal.VerifyWorkloadExecution(ctx, request, proof); err == nil {
+		t.Fatal("verified receipt replay accepted")
+	}
+}
