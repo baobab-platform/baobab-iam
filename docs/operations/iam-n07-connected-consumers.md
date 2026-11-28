@@ -147,3 +147,25 @@ blocked. These results supply no N07 or ENG-ONB acceptance by themselves.
 N06 #151: development increment merged; real operation-bound A3/A4, recovery and issuer operations remain gated. N03 #148: independently deployed current IAM/CP/native resource. N04 #149: real CP provider-binder proof; provider support remains PARTIAL. Infrastructure #69 and ZuriBeans #141: same-run first-party real browser and seven-case original. Nabhold: current workforce CP executive context. Thamani: draft owner BFF source exists, but its live owner lease, CP context and native TMS booking operation remain unqualified. Payments: five remaining development engine negatives. No N07 feature, source test, healthy public website or provider mock bypasses any hold.
 
 **Keep IAM-N07 draft and unmerged until genuine connected development acceptance.**
+
+## DEV-15 owner receipt index
+
+After teardown, use `scripts/n07_dev15_receipt_index.py` with an owner-private
+manifest and output directory. The manifest schema
+`baobab.iam.dev15.private-index-input.v1` carries the adopter, run ID, and
+exact Shared, IAM, CP, Infrastructure and engine source pins. Supply a
+`lifecycle` reference to the actual completed Infrastructure receipt and
+`originals` entries for `issuer`, `cp` and `engine`. Each reference is an
+absolute owner-private `path` with the independently retained `sha256`.
+Use null for unavailable owner originals. The lifecycle receipt must report
+teardown and match the run, source tuple and harness revision.
+
+    BAOBAB_ENVIRONMENT=development python3 -B scripts/n07_dev15_receipt_index.py \
+      --manifest /run/private/dev15/index-input.json \
+      --output-dir /run/private/dev15/receipt-index
+
+The index stores hashes and custody status. Signature, authority, business
+outcome and teardown are still matters for independent owner review. A
+successful invocation returns 3 and retains blocked acceptance. Payments'
+five historical blocked cases stay visible with their owners and next actions.
+Keep the index, raw originals and input paths private.
