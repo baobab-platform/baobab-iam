@@ -112,6 +112,23 @@ func TestIssuerNeverMutatesWithoutDevelopmentAndApprovals(t *testing.T) {
 	}
 }
 
+func secureTestDirectory(t *testing.T) string {
+	t.Helper()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("test requires a non-world-writable home directory")
+	}
+	dir, err := os.MkdirTemp(home, ".iam-private-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
+}
+
 func TestAdminEndpointAndPrivateFileChecks(t *testing.T) {
 	for _, endpoint := range []string{"https://example.com", "http://hydra-admin:4445",
 		"http://evil.test", "http://127.0.0.1:4445/path", "http://a:b@localhost:4445",
@@ -124,22 +141,144 @@ func TestAdminEndpointAndPrivateFileChecks(t *testing.T) {
 	if err := privateAdmin("http://127.0.0.1:4445"); err != nil {
 		t.Fatal(err)
 	}
-	dir := t.TempDir()
-	p := filepath.Join(dir, "approval.json")
-	if err := os.WriteFile(p, []byte("{}"), 0644); err != nil {
+}
+
+func TestSecureApprovalRejectsSymlinkAndUnsafeDirectory(t *testing.T) {
+	dir := secureTestDirectory(t)
+	path := filepath.Join(dir, "approval.json")
+	if err := os.WriteFile(path, []byte("{}"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	var a Approval
-	if err := loadJSON(p, &a); err == nil {
-		t.Fatal("group-readable approval accepted")
+	var approval Approval
+	if err := loadApproval(path, &approval); err != nil {
+		t.Fatalf("valid owner-private approval rejected: %v", err)
 	}
-	if err := os.Chmod(p, 0600); err != nil {
+	link := filepath.Join(dir, "approval-link.json")
+	if err := os.Symlink(path, link); err != nil {
 		t.Fatal(err)
 	}
-	if err := loadJSON(p, &a); err != nil {
+	if err := loadApproval(link, &approval); err == nil {
+		t.Fatal("symlink approval accepted")
+	}
+	if err := os.Chmod(dir, 0770); err != nil {
 		t.Fatal(err)
+	}
+	if err := loadApproval(path, &approval); err == nil {
+		t.Fatal("group-writable approval directory accepted")
 	}
 }
+
+func TestSecureFileDescriptorChecksTypeOwnerModeAndLinks(t *testing.T) {
+	dir := secureTestDirectory(t)
+	d, err := openSecureDirectory(dir, uint32(os.Geteuid()), 0700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := os.WriteFile(filepath.Join(dir, "wrong-mode.json"), []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openPrivateFileAt(d, "wrong-mode.json", uint32(os.Geteuid()), 0600, unix.O_RDONLY); err == nil {
+		t.Fatal("group-readable file accepted")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "approval.json"), []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openPrivateFileAt(d, "approval.json", uint32(os.Geteuid())+1, 0600, unix.O_RDONLY); err == nil {
+		t.Fatal("wrong file owner accepted")
+	}
+	if _, err := openPrivateFileAt(d, "approval.json", uint32(os.Geteuid()), 0600, unix.O_RDONLY); err != nil {
+		t.Fatalf("correct descriptor custody rejected: %v", err)
+	}
+	if err := unix.Mkfifo(filepath.Join(dir, "approval.fifo"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openPrivateFileAt(d, "approval.fifo", uint32(os.Geteuid()), 0600, unix.O_RDONLY); err == nil {
+		t.Fatal("FIFO accepted as approval file")
+	}
+	if err := os.Link(filepath.Join(dir, "approval.json"), filepath.Join(dir, "approval-hardlink.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openPrivateFileAt(d, "approval.json", uint32(os.Geteuid()), 0600, unix.O_RDONLY); err == nil {
+		t.Fatal("multiply-linked approval accepted")
+	}
+}
+
+func TestDirectoryDescriptorPreventsPathReplacement(t *testing.T) {
+	parent := secureTestDirectory(t)
+	original := filepath.Join(parent, "custody")
+	if err := os.Mkdir(original, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(original, "approval.json"), []byte("original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := openSecureDirectory(original, uint32(os.Geteuid()), 0700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opened.Close()
+	moved := filepath.Join(parent, "custody-original")
+	if err := os.Rename(original, moved); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(original, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(original, "approval.json"), []byte("replacement"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	file, err := openPrivateFileAt(opened, "approval.json", uint32(os.Geteuid()), 0600, unix.O_RDONLY)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	got, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "original" {
+		t.Fatalf("opened directory descriptor followed replaced path: %q", got)
+	}
+}
+
+func TestCredentialCustodyUsesVerifiedDirectoryDescriptor(t *testing.T) {
+	dir := secureTestDirectory(t)
+	path := filepath.Join(dir, "client-secret")
+	credential, err := createSecureCredential(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := credential.Write([]byte("private-secret\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := credential.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	if err := credential.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := credential.CloseDirectory(); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0600 {
+		t.Fatalf("credential mode = %o, want 600", st.Mode().Perm())
+	}
+	if _, err := createSecureCredential(filepath.Join(dir, "missing", "secret")); err == nil {
+		t.Fatal("credential in missing custody directory accepted")
+	}
+	if err := os.Symlink(dir, filepath.Join(dir, "alias")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := createSecureCredential(filepath.Join(dir, "alias", "other-secret")); err == nil {
+		t.Fatal("symlink custody directory accepted")
+	}
+}
+
 func TestApprovalRequiresDistinctTrustedPublicKeys(t *testing.T) {
 	now := time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC)
 	plan := approvedPlan()
