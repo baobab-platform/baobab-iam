@@ -1,0 +1,7 @@
+{
+  "name": "baobab-iam",
+  "private": true,
+  "workspaces": [
+    "tests/integration/passkey"
+  ]
+}

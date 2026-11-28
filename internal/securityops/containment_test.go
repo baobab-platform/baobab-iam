@@ -37,6 +37,7 @@ type authorityStub struct {
 	calls         int
 	recheckDenied bool
 	denyOnCall    int
+	onRead        func(int, Authorization) Authorization
 }
 
 func (a *authorityStub) AuthorizeContainment(_ context.Context, _ Intent) (Authorization, error) {
@@ -44,7 +45,119 @@ func (a *authorityStub) AuthorizeContainment(_ context.Context, _ Intent) (Autho
 	if (a.recheckDenied && a.calls > 1) || a.calls == a.denyOnCall {
 		return Authorization{}, errors.New("revoked")
 	}
+	if a.onRead != nil {
+		return a.onRead(a.calls, a.approval), nil
+	}
 	return a.approval, nil
+}
+
+func TestContainmentUsesAuthorityCompletionTime(t *testing.T) {
+	clock := time.Now().UTC()
+	c, journal, _, _, auth, intent := setup(clock)
+	c.Now = func() time.Time { return clock }
+	auth.onRead = func(call int, value Authorization) Authorization {
+		if call == 1 {
+			clock = clock.Add(time.Second)
+		}
+		value.VerifiedAt = clock
+		return value
+	}
+	if err := c.Execute(context.Background(), intent); err != nil {
+		t.Fatal(err)
+	}
+	if journal.events[len(journal.events)-1] != PhaseVerified {
+		t.Fatalf("current receipt was not sealed: %v", journal.events)
+	}
+}
+
+func TestContainmentRefusesResourceDenialThatExpiresDuringFinalAuthorization(t *testing.T) {
+	clock := time.Now().UTC()
+	c, journal, _, _, auth, intent := setup(clock)
+	c.Now = func() time.Time { return clock }
+	auth.onRead = func(call int, value Authorization) Authorization {
+		if call == 4 {
+			clock = clock.Add(time.Minute)
+		}
+		value.VerifiedAt = clock
+		value.ValidUntil = clock.Add(time.Minute)
+		return value
+	}
+	if err := c.Execute(context.Background(), intent); err == nil {
+		t.Fatal("expired resource denial was accepted")
+	}
+	if journal.events[len(journal.events)-1] != PhaseUnknown {
+		t.Fatalf("containment fence outcome: %v", journal.events)
+	}
+}
+
+func TestContainmentRechecksFinalAuthorityAtVerifiedBoundary(t *testing.T) {
+	for _, phase := range []Phase{PhaseFenced, PhaseVerified} {
+		t.Run(string(phase), func(t *testing.T) {
+			for _, tc := range []struct {
+				name         string
+				step         time.Duration
+				cancel       bool
+				wantVerified bool
+			}{
+				{name: "valid", step: time.Second - time.Nanosecond, wantVerified: true},
+				{name: "at expiry", step: time.Second},
+				{name: "past expiry", step: 2 * time.Second},
+				{name: "regressed since authority read", step: -time.Millisecond},
+				{name: "canceled before write", cancel: true},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					now := time.Now().UTC()
+					ctx, cancel := context.WithCancel(context.Background())
+					defer cancel()
+					c, journal, native, _, auth, intent := setup(now)
+					journal.phase = phase
+					native.disabled = phase == PhaseVerified
+					finalCall := 4
+					if phase == PhaseVerified {
+						finalCall = 2
+					}
+					auth.onRead = func(call int, value Authorization) Authorization {
+						if call == finalCall {
+							value.ValidUntil = now.Add(2 * time.Second)
+						}
+						return value
+					}
+					finalReads := 0
+					c.Now = func() time.Time {
+						if auth.calls == finalCall {
+							finalReads++
+							if finalReads == 1 {
+								return now.Add(time.Second)
+							}
+							if tc.cancel {
+								cancel()
+							}
+							return now.Add(time.Second + tc.step)
+						}
+						return now
+					}
+					err := c.Execute(ctx, intent)
+					if (err == nil) != tc.wantVerified {
+						t.Fatalf("unexpected containment result: %v", err)
+					}
+					wantPhase := PhaseUnknown
+					if tc.wantVerified {
+						wantPhase = PhaseVerified
+					}
+					if got := journal.events[len(journal.events)-1]; got != wantPhase {
+						t.Fatalf("last journal phase = %s, want %s", got, wantPhase)
+					}
+					if phase == PhaseVerified {
+						for _, call := range native.calls {
+							if call == "disable" || call == "revoke" {
+								t.Fatal("verified replay unexpectedly mutated the provider")
+							}
+						}
+					}
+				})
+			}
+		})
+	}
 }
 
 type providerStub struct {

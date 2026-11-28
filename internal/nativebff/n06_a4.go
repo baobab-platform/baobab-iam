@@ -112,7 +112,7 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.NativeE
 		proof.AuthenticatedAt.IsZero() || !proof.ExpiresAt.After(now) || proof.ObservedAt.After(now) ||
 		now.Sub(proof.ObservedAt) > 30*time.Second ||
 		proof.AuthenticatedAt.After(now) ||
-		now.Sub(proof.AuthenticatedAt) > 5*time.Minute ||
+		now.Sub(proof.AuthenticatedAt) > requirement.MaxAge ||
 		!hasWebAuthn(proof.Methods) {
 		return none, errA4Denied
 	}
@@ -165,13 +165,13 @@ func (v *A4Verifier) Verify(ctx context.Context, r A4Request) (assurance.NativeE
 		!a4Fresh(hardware.ObservedAt, completed, time.Minute) ||
 		!a4Fresh(approval.ObservedAt, completed, time.Minute) ||
 		!a4Fresh(proof.ObservedAt, completed, 30*time.Second) ||
+		completed.Sub(proof.AuthenticatedAt) > requirement.MaxAge ||
 		!proof.ExpiresAt.After(completed) || !challenge.ExpiresAt.After(completed) ||
 		completed.Sub(challenge.CreatedAt) > time.Minute {
 		return none, errA4Denied
 	}
 	proof.HardwareBound = true
 	proof.Operation = r.Operation
-	proof.AuthenticatedAt = completed
 	proof.ObservedAt = completed
 	return proof, nil
 }

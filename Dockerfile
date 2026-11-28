@@ -17,7 +17,7 @@
 # available upstream (CVE-2026-11352, CVE-2026-11586, CVE-2026-8925).
 # Nothing in this image actually needs curl, so the fix was to drop it
 # rather than accept the exposure.
-FROM registry.access.redhat.com/ubi9:9.4 AS tools-build
+FROM registry.access.redhat.com/ubi9:9.9 AS tools-build
 RUN mkdir -p /mnt/rootfs && \
     dnf install \
       --installroot /mnt/rootfs \

@@ -30,10 +30,10 @@ class PublicationTests(unittest.TestCase):
         declaration['providers'][0]['support'][0]['implementation_status'] = 'IMPLEMENTED'
         return publication.prepare(self.module, self.checkout, declaration)
 
-    def test_partial_and_planned_never_generate_support(self):
+    def test_partial_never_generates_support(self):
         _, registrations, excluded = publication.prepare(self.module, self.checkout, self.declaration)
         self.assertEqual(registrations, [])
-        self.assertEqual(len(excluded), 5)
+        self.assertEqual(len(excluded), 4)
         self.assertTrue(all(s['implementation_status'] == 'PARTIAL' for s in excluded))
 
     def test_nested_shared_candidate_layout_diagnosed_before_contract_loading(self):
@@ -45,17 +45,16 @@ class PublicationTests(unittest.TestCase):
         self.assertIn('Shared checkout outside the IAM worktree', errors.getvalue())
 
     def test_adr0033_provider_roles_cannot_be_reassigned(self):
-        # Partial Keycloak federation implementation is not a complete
-        # identity.authentication.perform native Kratos replacement.
         for index, capability, status in (
             (2, 'identity.authentication.perform', 'IMPLEMENTED'),
+            (2, 'identity.authentication.perform', 'PARTIAL'),
             (0, 'identity.workload-token.issue', 'PARTIAL'),
             (1, 'identity.authentication.perform', 'PARTIAL'),
         ):
             declaration = copy.deepcopy(self.declaration)
             declaration['providers'][index]['support'][0]['capability_key'] = capability
             declaration['providers'][index]['support'][0]['implementation_status'] = status
-            with self.assertRaisesRegex(ValueError, 'Keycloak|Kratos|Hydra'):
+            with self.assertRaisesRegex(ValueError, 'keycloak|kratos|hydra'):
                 publication.prepare(self.module, self.checkout, declaration)
         declaration = copy.deepcopy(self.declaration)
         declaration['providers'][2]['implementation_key'] = 'kratos'
@@ -71,7 +70,7 @@ class PublicationTests(unittest.TestCase):
     def test_canonical_generation_draft_only(self):
         _, registrations, excluded = self.generated_fixture()
         self.assertEqual(len(registrations), 1)
-        self.assertEqual(len(excluded), 4)
+        self.assertEqual(len(excluded), 3)
         self.assertEqual(registrations[0]['provider']['lifecycle'], 'DRAFT')
         self.assertEqual(registrations[0]['support'], [{
             'capability_key': 'identity.authentication.perform', 'contract_versions': [1]}])

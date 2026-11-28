@@ -22,8 +22,11 @@ capabilities:
   - engine
   - container
   - go
-  - java # Kotlin Android qualification utility
+  - node
   - documentation
+
+package_managers:
+  node: npm
 
 environment:
   baobab_dev:

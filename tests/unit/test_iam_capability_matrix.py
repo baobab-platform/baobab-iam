@@ -17,46 +17,57 @@ class MatrixTests(unittest.TestCase):
                         ('identity.authentication.assurance', 'identity.authentication.perform',
                          'identity.federation.enterprise', 'identity.workload-token.issue')]}
 
+        self.management = {'$defs': {'managementOperation': {'enum': [
+            'identity.human.provision', 'identity.human.disable', 'identity.session.revoke',
+            'identity.workload.provision', 'identity.workload.disable', 'identity.workload.rotate',
+        ]}}}
+
+    def test_management_contract_requires_inventory(self):
+        self.matrix['capabilities'] = [row for row in self.matrix['capabilities']
+                                       if row['capability_operation'] != 'identity.workload.rotate']
+        with self.assertRaisesRegex(ValueError, 'management operations must be tracked'):
+            module.validate(self.matrix, self.entries, self.entries, self.management)
+
     def test_valid_and_generated(self):
-        module.validate(self.matrix, self.entries, self.entries)
+        module.validate(self.matrix, self.entries, self.entries, self.management)
         self.assertEqual(module.render(self.matrix), (ROOT / 'docs/governance/iam-capability-matrix.md').read_text())
 
     def test_management_operation_cannot_be_promoted(self):
         row = next(row for row in self.matrix['capabilities'] if row['capability_operation'] == 'identity.human.provision')
         row['classification'] = 'PLATFORM_RESOLVABLE_CAPABILITY'
         with self.assertRaises(ValueError):
-            module.validate(self.matrix, self.entries, self.entries)
+            module.validate(self.matrix, self.entries, self.entries, self.management)
 
     def test_definition_without_catalogue_is_not_canonical(self):
         row = self.matrix['capabilities'][0]
         definitions = copy.deepcopy(self.entries)
         catalogue = {'capabilities': [self.entries['capabilities'][1]]}
         with self.assertRaises(ValueError):
-            module.validate(self.matrix, catalogue, definitions)
+            module.validate(self.matrix, catalogue, definitions, self.management)
 
     def test_missing_field_and_family(self):
         del self.matrix['capabilities'][0]['observability']
         with self.assertRaises(ValueError):
-            module.validate(self.matrix, self.entries, self.entries)
+            module.validate(self.matrix, self.entries, self.entries, self.management)
 
 
     def test_workloads_cannot_return_to_keycloak(self):
         row = next(r for r in self.matrix['capabilities'] if r['capability_operation'] == 'identity.workload-token.issue')
         row['primary_provider'] = 'Keycloak'
         with self.assertRaises(ValueError):
-            module.validate(self.matrix, self.entries, self.entries)
+            module.validate(self.matrix, self.entries, self.entries, self.management)
 
     def test_native_authentication_cannot_return_to_keycloak(self):
         row = next(r for r in self.matrix['capabilities'] if r['capability_operation'] == 'identity.authentication.perform')
         row['primary_provider'] = 'Keycloak'
         with self.assertRaises(ValueError):
-            module.validate(self.matrix, self.entries, self.entries)
+            module.validate(self.matrix, self.entries, self.entries, self.management)
 
     def test_enterprise_federation_cannot_move_to_ory_by_assumption(self):
         row = next(r for r in self.matrix['capabilities'] if r['capability_operation'] == 'identity.federation.enterprise')
         row['primary_provider'] = 'Ory Hydra'
         with self.assertRaises(ValueError):
-            module.validate(self.matrix, self.entries, self.entries)
+            module.validate(self.matrix, self.entries, self.entries, self.management)
 
     def test_retained_capability_and_adapter_cannot_require_retirement(self):
         for key in ('identity.federation.enterprise', 'provider.adapter.normalize'):
@@ -65,4 +76,4 @@ class MatrixTests(unittest.TestCase):
                 row = next(r for r in matrix['capabilities'] if r['capability_operation'] == key)
                 row['retirement_dependency'] = 'Keycloak deleted after cutover'
                 with self.assertRaises(ValueError):
-                    module.validate(matrix, self.entries, self.entries)
+                    module.validate(matrix, self.entries, self.entries, self.management)

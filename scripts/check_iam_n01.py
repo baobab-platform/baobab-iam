@@ -9,17 +9,15 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 RECORD_PATH = "docs/governance/iam-n01-convergence.json"
 PIN = "7f547ccdd759208355ef9224d2177929f4bf224e"
-OWNERS = {
+HISTORICAL_OWNERS = {
     "baobab-iam.kratos": ("kratos", "identity.authentication.perform"),
     "baobab-iam.hydra": ("hydra", "identity.workload-token.issue"),
     "baobab-iam.keycloak": ("keycloak", "identity.authentication.perform"),
 }
-# Later canonical Shared capability contracts are a read-only construction
-# inventory. Original N01 support at the 2026-10-23 issuer pin is immutable;
-# these exact additional PARTIAL supports confer no CP or provider activation.
-ADDITIONAL_SUPPORT = {
-    "baobab-iam.kratos": ("identity.authentication.assurance",),
-    "baobab-iam.hydra": (),
+# Preserve the original N01 source record and validate current provider roles separately.
+CURRENT_SUPPORT = {
+    "baobab-iam.kratos": ("identity.authentication.perform", "identity.authentication.assurance"),
+    "baobab-iam.hydra": ("identity.workload-token.issue",),
     "baobab-iam.keycloak": ("identity.federation.enterprise",),
 }
 CAPABILITY_CATALOGUE_PIN = "004937ff2035fab4ac3b41e05c7887da7abe7014"
@@ -30,6 +28,7 @@ CAPABILITY_CONTRACTS = {
     "contracts/identity/v1/capabilities.yaml",
     "contracts/identity/v1/assurance-evaluation.schema.json",
     "contracts/identity/v1/enterprise-federation-start.schema.json",
+    "contracts/identity/v1/iam-management-operation.schema.json",
 }
 DEVELOPMENT = {
     "environment": "development",
@@ -210,7 +209,7 @@ def check(root=ROOT, record=None, lock=None, declaration=None, catalogue_lock=No
             "unreviewed read-only capability catalogue pin")
 
     expected = record.get("providers", {})
-    require(isinstance(expected, dict) and set(expected) == set(OWNERS),
+    require(isinstance(expected, dict) and set(expected) == set(HISTORICAL_OWNERS),
             "unreviewed provider identity")
     providers = declaration.get("providers", [])
     require(declaration.get("engine", {}).get("engine_id") == "baobab-iam"
@@ -218,9 +217,9 @@ def check(root=ROOT, record=None, lock=None, declaration=None, catalogue_lock=No
     seen = set()
     for row in providers:
         key = row.get("provider_key")
-        require(key in OWNERS and key not in seen, "unknown or repeated provider")
+        require(key in CURRENT_SUPPORT and key not in seen, "unknown or repeated provider")
         seen.add(key)
-        impl, capability = OWNERS[key]
+        impl, historical_capability = HISTORICAL_OWNERS[key]
         require(row.get("implementation_key") == impl, "provider allocation drift")
         require(row.get("provider_type") == "ADAPTER" and row.get("simulated") is False,
                 "provider changed to simulated or non-adapter support")
@@ -230,32 +229,22 @@ def check(root=ROOT, record=None, lock=None, declaration=None, catalogue_lock=No
         require(authority == {"repository": "baobab-platform/baobab-iam",
                               "decision": "ADR-IAM-0033"},
                 "provider provenance drift")
+        require(expected[key] == {"key": impl, "capability": historical_capability, "status": "PARTIAL"},
+                "historical manifest support drift")
         supports = row.get("support", [])
-        additional = ADDITIONAL_SUPPORT[key]
-        require(isinstance(supports, list) and len(supports) == 1 + len(additional),
+        require(isinstance(supports, list) and len(supports) == len(CURRENT_SUPPORT[key]),
                 "provider support census drift")
-        # Preserve original N01 provider support in its original position with
-        # its original path allowlist and immutable source governance record.
-        support = supports[0]
-        require(support.get("capability_key") == capability and support.get("contract_versions") == [1],
-                "canonical capability/major mismatch")
-        require(support.get("implementation_status") == "PARTIAL",
-                "N01 cannot promote support without N02/N03/N04 qualification")
-        require(evidence_paths_valid(root, support.get("implementation_evidence")),
-                "provider support evidence is missing or invalid")
-        require(expected[key] == {"key": impl, "capability": capability, "status": "PARTIAL"},
-                "manifest support drift")
-        for new_support, new_capability in zip(supports[1:], additional):
-            require(isinstance(new_support, dict)
-                    and new_support.get("capability_key") == new_capability
-                    and new_support.get("contract_versions") == [1],
-                    "additional canonical capability/major mismatch")
-            require(new_support.get("implementation_status") == "PARTIAL",
-                    "N01 cannot promote additional support without complete canonical qualification")
+        for support, capability in zip(supports, CURRENT_SUPPORT[key]):
+            require(isinstance(support, dict)
+                    and support.get("capability_key") == capability
+                    and support.get("contract_versions") == [1],
+                    "canonical capability/major mismatch")
+            require(support.get("implementation_status") == "PARTIAL",
+                    "N01 cannot promote support without complete canonical qualification")
             require(evidence_paths_valid(
-                root, new_support.get("implementation_evidence"),
+                root, support.get("implementation_evidence"),
                 prefixes=("internal/provider/", "internal/nativebff/", "internal/federation/")),
-                "additional provider support evidence is missing or invalid")
+                "provider support evidence is missing or invalid")
     planned = declaration.get("planned_capabilities", [])
     require(isinstance(planned, list), "planned capability census invalid")
     planned_keys = set()
@@ -264,12 +253,10 @@ def check(root=ROOT, record=None, lock=None, declaration=None, catalogue_lock=No
         require(row.get("proposal_status") in ("PROPOSED", "CANDIDATE"),
                 "planned capability improperly promoted")
         key = row.get("proposed_key")
-        target = row.get("target_provider_key")
         require(isinstance(key, str) and key.startswith("identity.")
                 and key not in planned_keys, "duplicated or invalid planned capability")
         planned_keys.add(key)
-        require(target in OWNERS or (key == "identity.migration.map"
-                                    and target == "baobab-iam.ory"),
+        require(row.get("target_provider_key") in CURRENT_SUPPORT,
                 "planned capability targets unreviewed provider")
     return True
 
