@@ -365,3 +365,12 @@ func TestDecodePrivateJSONRejectsOversizedAndTrailingData(t *testing.T) {
 		})
 	}
 }
+
+func TestIssuerMutationRequiresNonRootRuntime(t *testing.T) {
+	if err := requireNonRootRuntime(0); err == nil {
+		t.Fatal("root runtime accepted for issuer mutation")
+	}
+	if err := requireNonRootRuntime(1000); err != nil {
+		t.Fatalf("dedicated non-root runtime rejected: %v", err)
+	}
+}
