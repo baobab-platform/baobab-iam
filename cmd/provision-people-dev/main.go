@@ -135,34 +135,6 @@ func verifyApproval(plan Plan, approval Approval, trust Keyring, action string, 
 	}
 	return nil
 }
-func loadJSON(path string, target any) error {
-	if !filepath.IsAbs(path) || path == "" {
-		return errors.New("an absolute private approval/keyring file path is required")
-	}
-	st, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	if st.IsDir() || st.Mode().Perm()&0077 != 0 {
-		return errors.New("approval and trust keys must be private files (0600)")
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	d := json.NewDecoder(io.LimitReader(f, 32769))
-	d.DisallowUnknownFields()
-	if err := d.Decode(target); err != nil {
-		return err
-	}
-	var extra any
-	if err := d.Decode(&extra); err != io.EOF {
-		return errors.New("trailing private governance data")
-	}
-	return nil
-}
-
 type credentialFile interface {
 	io.Writer
 	Sync() error
@@ -217,10 +189,10 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 	}
 	var a Approval
 	var keys Keyring
-	if err := loadJSON(getenv("PEOPLE_DEV_APPROVAL_FILE"), &a); err != nil {
+	if err := loadApproval(getenv("PEOPLE_DEV_APPROVAL_FILE"), &a); err != nil {
 		return fmt.Errorf("load approval: %w", err)
 	}
-	if err := loadJSON(getenv("PEOPLE_DEV_TRUSTED_KEYS_FILE"), &keys); err != nil {
+	if err := loadTrustedKeyring(&keys); err != nil {
 		return fmt.Errorf("load trust: %w", err)
 	}
 	if err := verifyApproval(plan, a, keys, action, now); err != nil {
@@ -252,23 +224,19 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 	if !filepath.IsAbs(path) || path == "" || strings.Contains(path, "/.git/") {
 		return errors.New("absolute external secret-custody path required")
 	}
-	stat, err := os.Stat(filepath.Dir(path))
-	if err != nil || stat.Mode().Perm()&0077 != 0 {
-		return errors.New("credential custody directory must exist and deny group/other")
-	}
-	// Reserve before any remote mutation: never overwrite or leak a prior key.
-	dest, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	// Reserve and descriptor-validate the credential path before any remote
+	// issuer mutation. The parent directory is owner-only and path components
+	// are opened without following symlinks.
+	dest, err := createSecureCredential(path)
 	if err != nil {
 		return err
 	}
 	keep := false
-	destClosed := false
 	defer func() {
-		if !destClosed {
-			_ = dest.Close()
-		}
 		if !keep {
-			_ = os.Remove(path)
+			_ = dest.Cleanup()
+		} else {
+			_ = dest.CloseDirectory()
 		}
 	}()
 	identity, err := adapter.ProvisionWorkload(ctx, provider.WorkloadProvisioningSpec{
@@ -298,10 +266,8 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 		return compensate(errors.New("Ory client creation did not return a private credential"))
 	}
 	if err := persistCredential(dest, identity.ClientSecret); err != nil {
-		destClosed = true
 		return compensate(err)
 	}
-	destClosed = true
 	keep = true
 	return json.NewEncoder(out).Encode(map[string]string{
 		"workload_id": clientID, "provider_client_id": identity.ProviderClientID,
