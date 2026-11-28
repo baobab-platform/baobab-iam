@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -92,6 +93,12 @@ func openPrivateFileAt(dir *os.File, name string, owner, mode uint32, flags int)
 	return os.NewFile(uintptr(fd), name), nil
 }
 
+// beforeChanged detects concurrent in-place replacement of a governance file.
+func beforeChanged(before, after unix.Stat_t) bool {
+	return before.Dev != after.Dev || before.Ino != after.Ino || before.Size != after.Size ||
+		before.Mtim != after.Mtim || before.Ctim != after.Ctim
+}
+
 func decodePrivateJSON(file *os.File, target any) error {
 	st, err := fileStat(int(file.Fd()))
 	if err != nil {
@@ -100,7 +107,21 @@ func decodePrivateJSON(file *os.File, target any) error {
 	if st.Size <= 0 || st.Size > 32768 {
 		return errors.New("private governance file size is outside the permitted bound")
 	}
-	decoder := json.NewDecoder(io.LimitReader(file, 32769))
+	raw, err := io.ReadAll(io.LimitReader(file, 32769))
+	if err != nil {
+		return err
+	}
+	if len(raw) != int(st.Size) || len(raw) > 32768 {
+		return errors.New("private governance file changed or exceeded its size bound while being read")
+	}
+	after, err := fileStat(int(file.Fd()))
+	if err != nil {
+		return err
+	}
+	if beforeChanged(st, after) {
+		return errors.New("private governance file changed while being read")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
 		return err
@@ -147,9 +168,11 @@ func loadTrustedKeyring(target any) error {
 }
 
 type secureCredential struct {
-	file *os.File
-	dir  *os.File
-	name string
+	file       *os.File
+	dir        *os.File
+	name       string
+	fileClosed bool
+	dirClosed  bool
 }
 
 func (s *secureCredential) Write(p []byte) (int, error) { return s.file.Write(p) }
@@ -159,15 +182,30 @@ func (s *secureCredential) Sync() error {
 	}
 	return s.dir.Sync()
 }
-func (s *secureCredential) Close() error { return s.file.Close() }
+func (s *secureCredential) Close() error {
+	if s.fileClosed {
+		return nil
+	}
+	s.fileClosed = true
+	return s.file.Close()
+}
 func (s *secureCredential) Cleanup() error {
-	closeErr := s.file.Close()
+	var closeErr error
+	if !s.fileClosed {
+		closeErr = s.Close()
+	}
 	unlinkErr := unix.Unlinkat(int(s.dir.Fd()), s.name, 0)
 	dirSyncErr := s.dir.Sync()
-	dirCloseErr := s.dir.Close()
+	dirCloseErr := s.CloseDirectory()
 	return errors.Join(closeErr, unlinkErr, dirSyncErr, dirCloseErr)
 }
-func (s *secureCredential) CloseDirectory() error { return s.dir.Close() }
+func (s *secureCredential) CloseDirectory() error {
+	if s.dirClosed {
+		return nil
+	}
+	s.dirClosed = true
+	return s.dir.Close()
+}
 
 // createSecureCredential reserves and verifies the credential file relative
 // to an already-open, owner-only custody directory before any issuer mutation.
@@ -198,10 +236,20 @@ func createSecureCredential(path string) (*secureCredential, error) {
 		return nil, err
 	}
 	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uid || uint32(st.Mode)&07777 != 0600 || st.Nlink != 1 {
-		_ = unix.Close(fd)
-		_ = unix.Unlinkat(int(dir.Fd()), name, 0)
-		_ = dir.Close()
-		return nil, errors.New("created credential file failed descriptor custody validation")
+		closeErr := unix.Close(fd)
+		unlinkErr := unix.Unlinkat(int(dir.Fd()), name, 0)
+		dirSyncErr := dir.Sync()
+		dirCloseErr := dir.Close()
+		return nil, errors.Join(errors.New("created credential file failed descriptor custody validation"), closeErr, unlinkErr, dirSyncErr, dirCloseErr)
+	}
+	// Persist the exclusive reservation before the remote issuer mutation.
+	// The secret is written and the directory synced again after issuance.
+	if err := dir.Sync(); err != nil {
+		closeErr := unix.Close(fd)
+		unlinkErr := unix.Unlinkat(int(dir.Fd()), name, 0)
+		dirSyncErr := dir.Sync()
+		dirCloseErr := dir.Close()
+		return nil, errors.Join(fmt.Errorf("sync credential reservation: %w", err), closeErr, unlinkErr, dirSyncErr, dirCloseErr)
 	}
 	return &secureCredential{file: os.NewFile(uintptr(fd), name), dir: dir, name: name}, nil
 }

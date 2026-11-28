@@ -37,3 +37,55 @@ The privileged issuer path is unavailable to UID 0, preserving separation betwee
 The regression suite covers symlink rejection, group-writable parent rejection, file owner/mode mismatch, FIFO and hard-link rejection, path replacement after opening the directory, and secure credential creation. The directory-descriptor design removes the pathname check/open window rather than trying to detect a race after the fact.
 
 **Acceptance remains SOURCE/CAPABILITY ONLY.** No owner-supervised issuance/revocation run, real issuer readback, CP/native allow/deny, same-unexpired-token withdrawal denial or teardown originals are attached. A successful DisableWorkload response is not proof of bearer invalidation or native resource-server denial. Do not mark CTS2-039/041/044 or EA-DEV DEV-14/15 as runtime-qualified from these source tests.
+
+
+## Development completion versus operational qualification
+
+The PR's mergeable development deliverable and the later live qualification are
+separate states. **Development implementation complete** means the scoped
+command, filesystem controls, documentation and regression tests are present;
+the full required CI suite passes on the final PR head; and independent reviewers
+have cleared their implementation findings. This state does not claim that a
+real provider has issued or revoked a credential.
+
+**Operationally qualified** is a later, owner-supervised state. Until every
+item below has original evidence attached and reviewed, the People workload
+remains SOURCE/CAPABILITY ONLY and no production, staging, statutory or CP
+business authority follows from it.
+
+### Deferred runtime evidence register
+
+| Capability / question | Required original evidence and acceptance criteria | Accountable owner | Environment and prerequisites | Gate held |
+|---|---|---|---|---|
+| Development workload issuance | Signed apply approval and trust-keyring identity; exact Shared pin; command receipt; protected credential-custody confirmation; Hydra client readback proving exact client ID, enabled state, grant type, audience/scope ceiling and 120-second TTL. The readback must match the approved plan exactly. | IAM service owner, with independent Security approver | Isolated governed development Hydra tenant; separately administered root trust keyring; non-root issuer runtime; private loopback admin port-forward; protected secret store/custody directory | No claim of live issuance acceptance; no downstream activation |
+| CP/native positive and negative authorization | Exact IAM/CP/engine source pins; token metadata readback; CP resource resolution allowed only for the approved context; explicit denial for wrong audience, wrong scope, wrong context and unregistered principal; native resource-server decision evidence. HTTP errors outside the defined deny classes do not count as policy denials. | CP service owner and consuming engine owner | Same governed development tenant plus isolated CP and consuming engine; exact current Shared People contract | CP provider binding and domain authorization remain ungranted |
+| Withdrawal of an unexpired credential | Capture a token before withdrawal and prove it remains within its exp claim; perform separately signed revoke; read back Hydra disabled state; replay the exact same still-unexpired token and prove issuer/CP/native resource denial. A successful DisableWorkload call alone is insufficient. | IAM service owner and CP/engine owners; independently witnessed by Security | Same development deployment with token introspection/readback and CP/native request capture | Revocation acceptance and any production reliance remain blocked |
+| Teardown and custody | Issuer readback showing disabled/deleted according to the approved teardown procedure; credential custody destruction/retention record; CP/native binding and grant readback; disposable infrastructure cleanup receipt; no residual client or secret. | IAM operations owner and Security evidence reviewer | After the issuance/withdrawal exercise; access to provider, CP and engine audit/readback surfaces | No qualification closure until cleanup is independently verified |
+
+Do not manufacture these records from unit tests, source inspection, synthetic
+INT-02 output, CLI success strings or a provider API's mutation response.
+Retain exact timestamps, source tuple, environment identity, actor identities,
+redacted request/response evidence and artifact digests. Private signing keys,
+client secrets, bearer tokens, cookies and MFA material must never enter Git,
+CI logs or public artifacts.
+
+### Implementation controls completed in source
+
+The implementation also treats receipt delivery and local custody as part of
+the mutation outcome: a short credential write is an error; a failed credential
+write/sync/close or failed success-receipt write triggers compensating provider
+disable; the reserved credential file is removed through its held directory
+descriptor; and cleanup errors are returned rather than silently discarded.
+The empty exclusive reservation is directory-synced before the provider call.
+A revoke command reports only that the provider-side disable request was
+accepted; it does not claim disabled-state readback or bearer invalidation.
+
+### Current evidence boundary
+
+The repository CI's INT-02 real Keycloak-to-CP browser flow is a separate
+synthetic integration check, not the deferred People workload exercise. Its
+28 November 2026 run failed during the synthetic human MFA browser step
+(login_normal_mfa, HTTP 500, FORM_U1P1T0O0); the harness then destroyed its
+disposable IAM, CP, database and network resources. This failure is not waived
+as deferred People evidence. It must be diagnosed in the owning integration
+harness or IAM integration before the required CI suite can be called green.

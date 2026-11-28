@@ -172,12 +172,15 @@ func privateAdmin(raw string) error {
 	}
 	return nil
 }
-func run(getenv func(string) string, out io.Writer, now time.Time) error {
+func run(getenv func(string) string, out io.Writer, now time.Time) (runErr error) {
 	if getenv("BAOBAB_ENVIRONMENT") != "development" {
 		return errors.New("People dev issuer is forbidden outside development")
 	}
 	plan := approvedPlan()
-	digest, _ := planDigest(plan)
+	digest, err := planDigest(plan)
+	if err != nil {
+		return fmt.Errorf("digest approved People plan: %w", err)
+	}
 	action := getenv("PEOPLE_DEV_ACTION")
 	switch action {
 	case "plan":
@@ -220,7 +223,7 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 			return err
 		}
 		return json.NewEncoder(out).Encode(map[string]string{
-			"workload_id": clientID, "issuer_state": "DISABLED", "canonical_status": "UNCHANGED",
+			"workload_id": clientID, "issuer_state": "DISABLE_REQUEST_ACCEPTED", "canonical_status": "UNCHANGED",
 		})
 	}
 	path := getenv("PEOPLE_DEV_CREDENTIAL_FILE")
@@ -237,9 +240,9 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 	keep := false
 	defer func() {
 		if !keep {
-			_ = dest.Cleanup()
+			runErr = errors.Join(runErr, dest.Cleanup())
 		} else {
-			_ = dest.CloseDirectory()
+			runErr = errors.Join(runErr, dest.CloseDirectory())
 		}
 	}()
 	identity, err := adapter.ProvisionWorkload(ctx, provider.WorkloadProvisioningSpec{
@@ -271,12 +274,22 @@ func run(getenv func(string) string, out io.Writer, now time.Time) error {
 	if err := persistCredential(dest, identity.ClientSecret); err != nil {
 		return compensate(err)
 	}
-	keep = true
-	return json.NewEncoder(out).Encode(map[string]string{
+	// Do not retain an active issuer client if the caller cannot receive the
+	// success receipt. On output failure the deferred cleanup removes the
+	// custody file and this compensation disables the newly created client.
+	var receipt bytes.Buffer
+	if err := json.NewEncoder(&receipt).Encode(map[string]string{
 		"workload_id": clientID, "provider_client_id": identity.ProviderClientID,
 		"issuer_state": "PROVISIONED", "canonical_status": "UNCHANGED",
 		"secret_custody_file": path, "approved_shared_commit": sharedCommit,
-	})
+	}); err != nil {
+		return compensate(fmt.Errorf("encode provisioning receipt: %w", err))
+	}
+	if _, err := io.Copy(out, &receipt); err != nil {
+		return compensate(fmt.Errorf("write provisioning receipt: %w", err))
+	}
+	keep = true
+	return nil
 }
 func main() {
 	if err := run(os.Getenv, os.Stdout, time.Now().UTC()); err != nil {
